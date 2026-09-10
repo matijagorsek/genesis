@@ -5,6 +5,9 @@
 # Roles, matching packs/*.json:
 #   fast   small always-hot model: routing, summaries, quick answers   (never unloads)
 #   code   27B coder + vision: the agent model                          (loads on demand, unloads after 10 min idle)
+#
+# Memory note (36 GB Mac, Metal wired limit ~27 GB): code Q4 16.5 GB + fast Q8 4.5 GB + embed 0.6 GB
+# plus KV caches must fit. 65k ctx on the coder caused Metal OOM ("Compute error"); 32k fits.
 #   embed  embedding model for local search                             (never unloads)
 
 healthCheckTimeout: 600
@@ -18,14 +21,14 @@ models:
   fast:
     cmd: |
       ${server} -m @FAST@ @FAST_MM@
-      -c 32768 --temp 0.7 --top-p 0.8 --top-k 20
+      -c 16384 --temp 0.7 --top-p 0.8 --top-k 20 --reasoning off
     aliases: [ "auto", "genesis-fast", "qwen3.5-4b" ]
     ttl: 0
 
   code:
     cmd: |
       ${server} -m @CODE@ @CODE_MM@
-      -c 65536 --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0.0
+      -c 32768 --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0.0 --reasoning auto --reasoning-budget 4096
       --cache-type-k q8_0 --cache-type-v q8_0
     aliases: [ "genesis-code", "qwen3.8-27b" ]
     ttl: 600
