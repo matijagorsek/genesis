@@ -1,6 +1,6 @@
 # llama-swap config template for the Phase 0 prototype.
 # Rendered by prototype/render-router.sh (fills @PLACEHOLDERS@ from the models dir).
-# Reference: https://github.com/mostlygeek/llama-swap  (config keys verified against v255 README; groups semantics: TODO re-check)
+# Reference: https://github.com/mostlygeek/llama-swap  (keys and group semantics verified against docs/config.example.yaml, v255)
 #
 # Roles, matching packs/*.json:
 #   fast   small always-hot model: routing, summaries, quick answers   (never unloads)

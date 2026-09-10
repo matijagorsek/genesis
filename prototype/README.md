@@ -35,4 +35,3 @@ Record results in `docs/phase0-log.md`.
 
 - Goose runs unsandboxed here. Bubblewrap sandboxing is Linux-only and lands with `permd` in Phase 1.
 - Tool-call formatting on Q4 27B models can degrade; if task 2 or 3 loops, try `GENESIS_PACK=mac-36-q5`.
-- llama-swap group semantics (`persistent`, `exclusive`) should be re-checked against the installed version's README.
