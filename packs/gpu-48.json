@@ -1,0 +1,13 @@
+{
+  "id": "gpu-48",
+  "description": "48 GB+ VRAM or 128 GB unified. Closest to a cloud coding assistant locally.",
+  "trigger": { "gpu": "any", "min_vram_gb": 48 },
+  "disk_gb": 130,
+  "models": [
+    { "role": "fast",  "name": "Qwen3.5-4B",           "repo": "unsloth/Qwen3.5-4B-GGUF",        "include": ["*Q8_0*.gguf", "mmproj*F16*.gguf"], "license": "Apache-2.0", "tier": "main", "size_gb": 4.5 },
+    { "role": "code",  "name": "Qwen3-Coder-Next 80B-A3B", "repo": "unsloth/Qwen3-Coder-Next-GGUF", "include": ["*Q4_K_M*.gguf"],                 "license": "Apache-2.0", "tier": "main", "size_gb": 48.5 },
+    { "role": "chat",  "name": "gpt-oss-120b",         "repo": "unsloth/gpt-oss-120b-GGUF",      "include": ["*Q4_K_M*.gguf"],                    "license": "Apache-2.0", "tier": "main", "size_gb": 63 },
+    { "role": "vision","name": "Qwen3.8-27B",          "repo": "unsloth/Qwen3.8-27B-GGUF",       "include": ["*Q5_K_M*.gguf", "mmproj*F16*.gguf"], "license": "Apache-2.0", "tier": "main", "size_gb": 20 },
+    { "role": "embed", "name": "Qwen3-Embedding-0.6B", "repo": "Qwen/Qwen3-Embedding-0.6B-GGUF", "include": ["*Q8_0*.gguf"],                      "license": "Apache-2.0", "tier": "main", "size_gb": 0.7 }
+  ]
+}

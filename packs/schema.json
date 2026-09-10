@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Genesis model pack",
+  "type": "object",
+  "required": ["id", "trigger", "models"],
+  "properties": {
+    "id": { "type": "string" },
+    "description": { "type": "string" },
+    "trigger": {
+      "type": "object",
+      "description": "Hardware conditions under which first-boot proposes this pack",
+      "properties": {
+        "min_vram_gb": { "type": "number" },
+        "min_ram_gb": { "type": "number" },
+        "unified_memory": { "type": "boolean" },
+        "gpu": { "type": "string", "enum": ["any", "none", "nvidia", "amd", "intel", "apple"] }
+      }
+    },
+    "disk_gb": { "type": "number", "description": "approximate total on disk" },
+    "models": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["role", "repo", "include", "license"],
+        "properties": {
+          "role": { "type": "string", "enum": ["fast", "code", "chat", "vision", "embed", "rerank", "stt", "tts", "image", "fim"] },
+          "name": { "type": "string" },
+          "repo": { "type": "string", "description": "Hugging Face repo id (OCI registry in Phase 1)" },
+          "include": { "type": "array", "items": { "type": "string" }, "description": "hf download include globs" },
+          "license": { "type": "string" },
+          "tier": { "type": "string", "enum": ["main", "restricted", "excluded"] },
+          "size_gb": { "type": "number" }
+        }
+      }
+    }
+  }
+}

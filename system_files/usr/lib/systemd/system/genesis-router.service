@@ -1,0 +1,39 @@
+# Genesis local AI router (llama-swap). Phase 1: ships in the bootc image. Not used by the Phase 0 prototype.
+[Unit]
+Description=Genesis local AI router (llama-swap)
+Documentation=https://github.com/mostlygeek/llama-swap
+After=network.target
+Wants=genesis-router.socket
+
+[Service]
+User=genesis-ai
+Group=genesis-ai
+SupplementaryGroups=video render
+ExecStart=/usr/bin/llama-swap --config /etc/genesis/router.yaml --listen 127.0.0.1:8080
+Restart=on-failure
+RestartSec=2
+
+# resource control: protect the desktop
+MemoryMax=80%
+MemorySwapMax=0
+TasksMax=4096
+IOWeight=50
+CPUWeight=80
+OOMPolicy=kill
+
+# hardening, device allow-list
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/genesis /var/cache/genesis /run/genesis
+PrivateTmp=yes
+NoNewPrivileges=yes
+DevicePolicy=closed
+DeviceAllow=/dev/dri rw
+DeviceAllow=/dev/kfd rw
+DeviceAllow=char-nvidia rw
+RuntimeDirectory=genesis
+StateDirectory=genesis
+CacheDirectory=genesis
+
+[Install]
+WantedBy=multi-user.target

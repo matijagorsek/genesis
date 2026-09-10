@@ -1,0 +1,52 @@
+# llama-swap config template for the Phase 0 prototype.
+# Rendered by prototype/render-router.sh (fills @PLACEHOLDERS@ from the models dir).
+# Reference: https://github.com/mostlygeek/llama-swap  (config keys verified against v255 README; groups semantics: TODO re-check)
+#
+# Roles, matching packs/*.json:
+#   fast   small always-hot model: routing, summaries, quick answers   (never unloads)
+#   code   27B coder + vision: the agent model                          (loads on demand, unloads after 10 min idle)
+#   embed  embedding model for local search                             (never unloads)
+
+healthCheckTimeout: 600
+startPort: 10001
+logLevel: info
+
+macros:
+  server: "llama-server --port ${PORT} --host 127.0.0.1 -ngl 99 --jinja --flash-attn on"
+
+models:
+  fast:
+    cmd: |
+      ${server} -m @FAST@ @FAST_MM@
+      -c 32768 --temp 0.7 --top-p 0.8 --top-k 20
+    aliases: [ "auto", "genesis-fast", "qwen3.5-4b" ]
+    ttl: 0
+
+  code:
+    cmd: |
+      ${server} -m @CODE@ @CODE_MM@
+      -c 65536 --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0.0
+      --cache-type-k q8_0 --cache-type-v q8_0
+    aliases: [ "genesis-code", "qwen3.8-27b" ]
+    ttl: 600
+
+  embed:
+    cmd: |
+      ${server} -m @EMBED@ --embedding --pooling last -c 8192 -b 8192 -ub 8192
+    aliases: [ "genesis-embed", "text-embedding-3-small" ]
+    ttl: 0
+
+# Residency policy for Phase 0:
+#   "hot" members stay loaded and never get swapped out by anything.
+#   "big" members swap among themselves (only one large model at a time) and are allowed
+#   to co-exist with the hot group. On a 36 GB Mac: fast (~4 GB) + embed (~1 GB) + code (~17 GB Q4) fits.
+groups:
+  hot:
+    swap: false
+    exclusive: false
+    persistent: true
+    members: [ fast, embed ]
+  big:
+    swap: true
+    exclusive: false
+    members: [ code ]

@@ -1,0 +1,11 @@
+{
+  "id": "gpu-16",
+  "description": "12-16 GB VRAM or 32 GB unified. Scoped app building with retries; keep context under 64k. Entry threshold, not comfort.",
+  "trigger": { "gpu": "any", "min_vram_gb": 12 },
+  "disk_gb": 28,
+  "models": [
+    { "role": "fast",  "name": "Qwen3.5-4B",           "repo": "unsloth/Qwen3.5-4B-GGUF",        "include": ["*Q4_K_M*.gguf", "mmproj*F16*.gguf"], "license": "Apache-2.0", "tier": "main", "size_gb": 2.6 },
+    { "role": "code",  "name": "Qwen3.6-27B",          "repo": "unsloth/Qwen3.6-27B-GGUF",       "include": ["*Q4_K_M*.gguf"],                    "license": "Apache-2.0", "tier": "main", "size_gb": 17, "note": "partial CPU offload on 16 GB; alternative Devstral-Small-2 Q4" },
+    { "role": "embed", "name": "Qwen3-Embedding-0.6B", "repo": "Qwen/Qwen3-Embedding-0.6B-GGUF", "include": ["*Q8_0*.gguf"],                      "license": "Apache-2.0", "tier": "main", "size_gb": 0.7 }
+  ]
+}

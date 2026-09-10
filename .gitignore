@@ -1,0 +1,19 @@
+# model weights never go in git
+*.gguf
+*.safetensors
+models/
+.models/
+
+# runtime
+*.log
+.env
+.envrc.local
+prototype/run/
+/target/
+__pycache__/
+.venv/
+
+# editors / os
+.DS_Store
+.idea/
+.vscode/

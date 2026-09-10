@@ -1,0 +1,466 @@
+<title>Genesis Feasibility Brief</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --paper:#f6f7f4; --ink:#1c2330; --ink-2:#4a5566; --ink-3:#7b8596;
+  --line:#d9ddd6; --panel:#eceee9; --panel-2:#e2e6df;
+  --accent:#1f6f78; --accent-ink:#ffffff; --accent-soft:#d7e8e9;
+  --good:#2e7d4f; --warn:#a86a12; --bad:#b23a3a;
+  --code:#0f1720; --code-ink:#dfe6ee;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#141920; --ink:#e7ebef; --ink-2:#aeb7c2; --ink-3:#7f8998;
+    --line:#2a323d; --panel:#1c232c; --panel-2:#232c37;
+    --accent:#5fb5bd; --accent-ink:#0d1418; --accent-soft:#1b3438;
+    --good:#6ccf94; --warn:#e0a84a; --bad:#ef7b7b;
+    --code:#0b1016; --code-ink:#dfe6ee;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#141920; --ink:#e7ebef; --ink-2:#aeb7c2; --ink-3:#7f8998;
+  --line:#2a323d; --panel:#1c232c; --panel-2:#232c37;
+  --accent:#5fb5bd; --accent-ink:#0d1418; --accent-soft:#1b3438;
+  --good:#6ccf94; --warn:#e0a84a; --bad:#ef7b7b;
+  --code:#0b1016; --code-ink:#dfe6ee;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:16px;line-height:1.6}
+a{color:var(--accent);text-decoration:none;border-bottom:1px solid transparent}
+a:hover,a:focus-visible{border-bottom-color:var(--accent);outline:none}
+a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{display:grid;grid-template-columns:240px minmax(0,1fr);gap:48px;max-width:1180px;margin:0 auto;padding:40px 28px 96px}
+@media (max-width:900px){.wrap{grid-template-columns:1fr;gap:24px;padding:24px 18px 72px}nav.toc{position:static;border:none;padding:0 0 12px}}
+nav.toc{position:sticky;top:24px;align-self:start;border-right:1px solid var(--line);padding-right:20px;font-size:13.5px}
+nav.toc .kicker{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);margin:0 0 10px}
+nav.toc ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+nav.toc a{color:var(--ink-2);display:block;padding:2px 0}
+nav.toc a:hover{color:var(--accent)}
+main{min-width:0;max-width:760px}
+header.hero{border-bottom:1px solid var(--line);padding-bottom:28px;margin-bottom:36px}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:0 0 14px}
+h1{font-family:"Bricolage Grotesque","IBM Plex Sans",sans-serif;font-weight:700;font-size:clamp(34px,5vw,52px);line-height:1.02;letter-spacing:-.02em;margin:0 0 18px;text-wrap:balance}
+.lede{font-size:19px;line-height:1.5;color:var(--ink-2);margin:0 0 22px;max-width:62ch}
+.meta{display:flex;flex-wrap:wrap;gap:8px 20px;font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink-3)}
+h2{font-family:"Bricolage Grotesque","IBM Plex Sans",sans-serif;font-weight:700;font-size:28px;line-height:1.15;letter-spacing:-.015em;margin:56px 0 14px;text-wrap:balance;scroll-margin-top:24px}
+h3{font-family:"Bricolage Grotesque","IBM Plex Sans",sans-serif;font-weight:600;font-size:19px;margin:30px 0 10px;text-wrap:balance}
+p{margin:0 0 14px;max-width:68ch}
+ul,ol{margin:0 0 16px;padding-left:22px;max-width:68ch}
+li{margin-bottom:6px}
+li strong,p strong{font-weight:600}
+.verdict{background:var(--accent-soft);border-left:4px solid var(--accent);padding:18px 22px;border-radius:0 6px 6px 0;margin:0 0 28px}
+.verdict p{margin:0 0 10px}
+.verdict p:last-child{margin:0}
+.callout{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:16px 20px;margin:18px 0 22px}
+.callout .label{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);margin:0 0 8px}
+.callout p:last-child{margin:0}
+.tablewrap{overflow-x:auto;margin:14px 0 24px;border:1px solid var(--line);border-radius:6px}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:560px}
+th,td{padding:9px 12px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
+th{background:var(--panel);font-weight:600;font-size:12.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-2);white-space:nowrap}
+tbody tr:last-child td{border-bottom:none}
+td.num,th.num{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pill{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--ink-2);white-space:nowrap}
+.pill.ok{border-color:var(--good);color:var(--good)}
+.pill.warn{border-color:var(--warn);color:var(--warn)}
+.pill.bad{border-color:var(--bad);color:var(--bad)}
+.pill.acc{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin:14px 0 24px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:16px 18px}
+.card h4{font-family:"Bricolage Grotesque",sans-serif;font-size:16px;margin:0 0 8px}
+.card p{font-size:14.5px;margin:0 0 8px;color:var(--ink-2)}
+.card p:last-child{margin:0}
+.card .tag{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-3);letter-spacing:.08em;text-transform:uppercase}
+pre{background:var(--code);color:var(--code-ink);font-family:"IBM Plex Mono",monospace;font-size:13px;line-height:1.5;padding:16px 18px;border-radius:6px;overflow-x:auto;margin:12px 0 22px}
+code{font-family:"IBM Plex Mono",monospace;font-size:.92em;background:var(--panel-2);padding:1px 5px;border-radius:3px}
+pre code{background:none;padding:0}
+.wire{background:var(--panel);border:1px dashed var(--ink-3);color:var(--ink);font-family:"IBM Plex Mono",monospace;font-size:12.5px;line-height:1.45;padding:14px 16px;border-radius:6px;overflow-x:auto;margin:10px 0 20px;white-space:pre}
+.phase{display:grid;grid-template-columns:110px 1fr;gap:16px;padding:14px 0;border-top:1px solid var(--line)}
+.phase:last-child{border-bottom:1px solid var(--line)}
+.phase .when{font-family:"IBM Plex Mono",monospace;font-size:12.5px;color:var(--accent);padding-top:3px}
+.phase h4{margin:0 0 6px;font-size:16px;font-family:"Bricolage Grotesque",sans-serif}
+.phase p{font-size:14.5px;color:var(--ink-2);margin:0 0 6px}
+.small{font-size:13.5px;color:var(--ink-3)}
+.sources{font-size:13.5px;columns:1}
+.sources li{margin-bottom:4px;word-break:break-word}
+hr{border:0;border-top:1px solid var(--line);margin:40px 0}
+@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
+</style>
+
+<div class="wrap">
+<nav class="toc" aria-label="Sections">
+  <p class="kicker">Contents</p>
+  <ol>
+    <li><a href="#verdict">Verdict</a></li>
+    <li><a href="#sheet">About the spreadsheet</a></li>
+    <li><a href="#models">Models and packs</a></li>
+    <li><a href="#licensing">Licensing tiers</a></li>
+    <li><a href="#platform">Linux platform</a></li>
+    <li><a href="#architecture">Software architecture</a></li>
+    <li><a href="#routing">Multi-model routing</a></li>
+    <li><a href="#ux">UX and product</a></li>
+    <li><a href="#roadmap">Roadmap and risks</a></li>
+    <li><a href="#open">Unverified items</a></li>
+    <li><a href="#sources">Sources</a></li>
+  </ol>
+</nav>
+
+<main>
+<header class="hero">
+  <p class="eyebrow">Genesis · Local-AI Linux distribution</p>
+  <h1>Can we build a Linux that builds things for you, entirely on local models?</h1>
+  <p class="lede">A four-angle investigation, from Linux engineering, model research, UX, and implementation, into an operating system where several local LLMs are a first-class service and an agent can build apps, browse, install software and reconfigure the machine.</p>
+  <div class="meta"><span>Prepared 2026-09-10</span><span>For Matija Gorsek</span><span>Research via 8 specialist agents, ~450 source fetches</span></div>
+</header>
+
+<h2 id="verdict">Verdict</h2>
+<div class="verdict">
+  <p><strong>Yes. It is feasible, and no core piece needs to be invented.</strong> Every layer has a mature open-source component to reuse: an image-based Fedora base with rollback, llama.cpp with a model-swapping router, an Apache-licensed Rust agent engine that speaks MCP, sandboxing already proven by Claude Code and Codex, and a 2026 crop of Apache 2.0 models that run on consumer GPUs.</p>
+  <p><strong>The real constraints are hardware and honesty.</strong> Reliable agentic app-building starts at about 24 GB of VRAM with a 27B-class coder. On 16 GB it works for scoped tasks with retries. On CPU-only laptops it is a chat assistant, not a builder. The distro must detect hardware and set expectations at first boot.</p>
+  <p><strong>Effort:</strong> a working prototype in a VM in 8 to 10 weeks. An installable alpha in about 6 months. A beta with the app-builder and safe browsing in roughly 12 months. Two to three people.</p>
+</div>
+
+<div class="grid2">
+  <div class="card"><span class="tag">Base</span><h4>Fedora bootc, KDE Plasma</h4><p>Image-based, read-only <code>/usr</code>, <code>bootc rollback</code>. Fork the Aurora image from Universal Blue. NixOS is the runner-up.</p></div>
+  <div class="card"><span class="tag">Inference</span><h4>llama.cpp + llama-swap</h4><p>One OpenAI-compatible endpoint on localhost. Small model always hot, large models swap on demand. Vulkan everywhere, CUDA and ROCm via containers.</p></div>
+  <div class="card"><span class="tag">Agent</span><h4>Goose embedded in Rust daemons</h4><p>Apache 2.0, MCP-native, under the Linux Foundation. Genesis adds the permission broker, snapshots and undo, and local-model hardening.</p></div>
+  <div class="card"><span class="tag">Models</span><h4>Qwen3.5 / 3.6 / 3.8 family first</h4><p>Apache 2.0 at every size, natively multimodal, best open scores per parameter. Gemma 4 and gpt-oss as alternates.</p></div>
+</div>
+
+<h2 id="sheet">About the spreadsheet you shared</h2>
+<p>The link points to a community comparison of <strong>47 macOS AI assistant apps</strong> (Alter, BoltAI, Msty, Open-WebUI, Witsy, ChatWise and others), pulled in from a second sheet by IMPORTRANGE. It does not rank LLM models and contains no benchmark data. So it cannot answer "which local LLMs are best", and I sourced that separately in the next section.</p>
+<p>It is still useful, as a survey of what users of multi-model assistants expect. I counted the feature rows directly:</p>
+<div class="tablewrap"><table>
+<thead><tr><th>Feature</th><th class="num">All 47 apps</th><th class="num">21 apps rated 9+</th><th>Read</th></tr></thead>
+<tbody>
+<tr><td>Dedicated app window</td><td class="num">41</td><td class="num">19</td><td>Table stakes</td></tr>
+<tr><td>Local LLM support</td><td class="num">35</td><td class="num">17</td><td>Expected, not a differentiator</td></tr>
+<tr><td>Prompt templates</td><td class="num">35</td><td class="num">16</td><td>Expected</td></tr>
+<tr><td>Menubar / tray icon</td><td class="num">31</td><td class="num">16</td><td>Expected</td></tr>
+<tr><td>Search conversation history</td><td class="num">31</td><td class="num">16</td><td>Expected</td></tr>
+<tr><td>Keyboard shortcut trigger</td><td class="num">29</td><td class="num">16</td><td>Core entry point</td></tr>
+<tr><td>Upload documents / files</td><td class="num">29</td><td class="num">16</td><td>Core</td></tr>
+<tr><td>Use inline in any app</td><td class="num">23</td><td class="num">11</td><td>Over-represented among top apps</td></tr>
+<tr><td>Voice input</td><td class="num">22</td><td class="num">12</td><td>Over-represented among top apps</td></tr>
+<tr><td>Spotlight-style launcher</td><td class="num">19</td><td class="num">11</td><td>Over-represented among top apps</td></tr>
+<tr><td>Computer control (MCP)</td><td class="num">13</td><td class="num">9</td><td>Strongest signal: 69% of top apps vs 28% overall</td></tr>
+<tr><td>Search HuggingFace for models in-app</td><td class="num">8</td><td class="num">3</td><td>Rare, and does not correlate with rating</td></tr>
+<tr><td>Open source</td><td class="num">9</td><td class="num">4</td><td>Only 7 apps run on Linux at all</td></tr>
+</tbody></table></div>
+<p>Two conclusions. <strong>Agentic control (MCP) is the feature most concentrated in the top-rated apps</strong>, which supports Genesis's whole premise. And <strong>only seven of 47 apps ship on Linux</strong> (Witsy, ChatWise, Open-WebUI, RabbitHoles, Msty, Atlarix, HammerAI), so the market you are entering is nearly empty. The editor's choice, Alter, is rated highest for context-aware actions on selections, files and screenshots plus voice, which is a good north star for the launcher.</p>
+
+<h2 id="models">Models: what to ship for "several LLMs"</h2>
+<p>The design assigns one model per role, and a router picks by task. The Qwen3.5 through 3.8 line dominates the 2026 open-weight field at consumer sizes, is Apache 2.0 at every size, and is natively multimodal, which removes the need for a separate vision model in most packs.</p>
+
+<h3>Recommended model per role</h3>
+<div class="tablewrap"><table>
+<thead><tr><th>Role</th><th>Primary pick</th><th>Alternate</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td>Coding agent, 24 GB</td><td>Qwen3.8-27B (Apache 2.0)</td><td>Qwen3.6-27B, Gemma 4 31B, Devstral Small 2</td><td>Top open model on LiveCodeBench v6 (0.903), SWE-bench Pro 61.7, Terminal-Bench 2.1 73.0. Q4 to Q5 fits 24 GB.</td></tr>
+<tr><td>Coding agent, 48 GB+</td><td>Qwen3-Coder-Next 80B-A3B</td><td>gpt-oss-120b, Devstral 2 123B</td><td>Explicitly tuned for Claude Code / Codex style harnesses. Q4 is 48.5 GB.</td></tr>
+<tr><td>General chat / reasoning</td><td>Qwen3.6-35B-A3B (MoE, fast)</td><td>Qwen3.5-9B for small tiers, Gemma 4 26B-A4B</td><td>Only 3B active parameters, so 30 to 50 tok/s even with partial CPU offload.</td></tr>
+<tr><td>Small always-hot model</td><td>Qwen3.5-4B</td><td>Qwen3.5-2B, Gemma 4 E2B, LFM2.5-1.2B</td><td>Best quality under 4B, includes vision. Used for intent routing, summaries, quick answers.</td></tr>
+<tr><td>Shell / inline completion</td><td>Qwen2.5-Coder-1.5B (FIM)</td><td>Qwen2.5-Coder-3B</td><td>Still the de-facto fill-in-the-middle standard under 4B.</td></tr>
+<tr><td>Vision / screen understanding</td><td>Qwen3.5-9B</td><td>Qwen3.5-4B, MiniCPM-V 4.6 (1.3B)</td><td>ScreenSpot-Pro 65.2, beats the dedicated UI-TARS-1.5-7B agent model.</td></tr>
+<tr><td>Document OCR</td><td>DeepSeek-OCR-2 (Apache 2.0)</td><td>PaddleOCR-VL-1.6 via vLLM</td><td>OmniDocBench 90.25 with llama.cpp quants available.</td></tr>
+<tr><td>Embeddings</td><td>Qwen3-Embedding-0.6B</td><td>bge-m3 (MIT)</td><td>32k context, code-capable, official GGUF. Avoid Jina (non-commercial).</td></tr>
+<tr><td>Reranker</td><td>bge-reranker-v2-m3 (MIT)</td><td>Qwen3-Reranker-0.6B</td><td>Works out of the box in llama.cpp. Many Qwen3-Reranker GGUFs are broken.</td></tr>
+<tr><td>Speech to text</td><td>Whisper large-v3-turbo (MIT)</td><td>Parakeet-TDT-0.6B-v3 (CPU, 25 languages)</td><td>99 languages, whisper.cpp runs on CPU, CUDA, Vulkan.</td></tr>
+<tr><td>Text to speech</td><td>Kokoro-82M (Apache 2.0)</td><td>Chatterbox Turbo (MIT), Qwen3-TTS</td><td>Runs on CPU, 54 voices.</td></tr>
+<tr><td>Image generation (optional)</td><td>Z-Image-Turbo (Apache 2.0)</td><td>FLUX.1 schnell, FLUX.2 klein 4B</td><td>8 steps, fits 8 GB at fp8. Avoid FLUX dev and SD 3.5 (license limits).</td></tr>
+</tbody></table></div>
+
+<h3>Model packs per hardware tier</h3>
+<p>First boot detects GPU, VRAM and RAM and offers one pack. Sizes are GGUF on disk. Memory needs are model plus context, so the pack leaves headroom.</p>
+<div class="tablewrap"><table>
+<thead><tr><th>Pack</th><th>Trigger</th><th>Contents</th><th class="num">Disk</th><th>What the user can expect</th></tr></thead>
+<tbody>
+<tr><td><span class="pill">tiny</span></td><td>&lt; 8 GB RAM, no GPU</td><td>Qwen3.5-2B Q4, Qwen3-Embedding-0.6B, Whisper small</td><td class="num">~3 GB</td><td>Chat, summaries, search over files. No agent.</td></tr>
+<tr><td><span class="pill">cpu</span></td><td>16 GB RAM, no usable GPU</td><td>Qwen3.5-9B Q4, Qwen2.5-Coder-1.5B, embedder, Whisper turbo, Kokoro</td><td class="num">~10 GB</td><td>Good assistant, scripts and small edits. Slow multi-step work.</td></tr>
+<tr><td><span class="pill">gpu-8</span></td><td>8 GB VRAM</td><td>Qwen3.5-9B Q4 (chat + vision), gpt-oss-20b or Qwen3.5-4B, coder-1.5B, embedder, speech</td><td class="num">~20 GB</td><td>Single-file coding, browsing help, screen questions.</td></tr>
+<tr><td><span class="pill">gpu-16</span></td><td>12 to 16 GB VRAM or 32 GB unified</td><td>Qwen3.6-27B Q4 with CPU offload or Devstral Small 2 Q4, Qwen3.5-4B hot, embedder, speech</td><td class="num">~28 GB</td><td>Scoped app building with retries. Keep context under 64k. Entry threshold, not comfort.</td></tr>
+<tr><td><span class="pill acc">gpu-24</span></td><td>24 GB VRAM or 64 GB unified</td><td>Qwen3.8-27B Q5 (coder + vision), Qwen3.6-35B-A3B (chat), Qwen3.5-4B hot, embedder, reranker, speech, Z-Image-Turbo</td><td class="num">~50 GB</td><td>Reliable multi-file agentic coding. This is the target tier.</td></tr>
+<tr><td><span class="pill">gpu-48</span></td><td>48 GB+ VRAM or 128 GB unified</td><td>Qwen3-Coder-Next Q4, gpt-oss-120b, Qwen3.8-27B, hot model, full speech and image stack</td><td class="num">~130 GB</td><td>Closest to a cloud coding assistant locally.</td></tr>
+</tbody></table></div>
+
+<div class="callout"><p class="label">Evidence on capability</p>
+<p>Community reports converge: Qwen3.6-27B pointed at Claude Code or OpenCode gives "genuinely useful agentic runs" comparable to Claude Haiku on multi-file refactors. Local models still take shortcuts, loop after a failed tool call, or lose the architectural thread on large cross-repo work. Local sits at roughly 70% SWE-bench versus 80% for frontier cloud. One practical warning: Q4 quantization degrades tool-call formatting on 20 to 40B models, so use Q5 or Q6 for the agent model when memory allows.</p></div>
+
+<h3>Runtime choice</h3>
+<p><strong>llama.cpp's llama-server behind llama-swap</strong> is the system service. It gives per-model process control, groups that keep small models resident while large ones swap, TTL unloading, an OpenAI-compatible API, and grammar-constrained JSON for tool calls. Ollama is easier to start with but its model store is proprietary-shaped, its eviction policy is a global setting, and Fedora's packaging of it stalled in July 2026. Keep an Ollama-compatible shim on port 11434 for app compatibility. vLLM only for multi-GPU workstations. Speculative decoding (EAGLE-3 or MTP in llama.cpp) roughly doubles throughput on dense 27B coders and should be enabled per model, but it slows down the 35B-A3B MoE models and must stay off there.</p>
+
+<h2 id="licensing">Licensing tiers for redistribution</h2>
+<p>Shipping weights in a distro is a redistribution act. Split the catalog into three repos, the way Debian splits main and non-free.</p>
+<div class="tablewrap"><table>
+<thead><tr><th>Tier</th><th>Models</th><th>Obligation</th></tr></thead>
+<tbody>
+<tr><td><span class="pill ok">main</span> Apache 2.0 / MIT</td><td>Qwen3.x and Qwen3-Coder, Qwen3-Embedding, DeepSeek V3.x / V4, GLM-4.7 to 5.2 and 5.3-Flash, gpt-oss, Gemma 4, Mistral Small / Devstral Small / Large 3, Phi-4, Granite 4, OLMo 3, MiniMax up to M2.5, Whisper, Kokoro, Chatterbox, FLUX schnell, Z-Image, bge-m3, nomic</td><td>Keep LICENSE and NOTICE files. Default packs use only this tier so routing never drags in attribution rules.</td></tr>
+<tr><td><span class="pill warn">restricted</span> opt-in, click-through</td><td>Llama 4 ("Built with Llama", naming rules, 700M MAU cap), Gemma 3 / 3n / EmbeddingGemma (Google terms, remote restriction clause), Nemotron (NVIDIA license), LFM2.5 (revenue cap 10M USD), Kimi K2.x (attribution over 100M MAU), GLM-5.3 full, Parakeet (CC-BY)</td><td>Show the license at download, ship notices, name derivatives correctly.</td></tr>
+<tr><td><span class="pill bad">excluded</span></td><td>FLUX.1 dev, Stable Diffusion 3.5 (1M USD revenue cap), MiniMax M2.7 (non-commercial), Jina embeddings v3 / v4, Mistral research-license models, Fish Audio, Higgs V3, Voxtral TTS</td><td>Non-commercial or revenue-gated. Do not ship.</td></tr>
+</tbody></table></div>
+<p>Fedora treats weights as content and allows them under approved licenses. Debian has no binding weights policy after its 2025 proposal was withdrawn. The OSI's Open Source AI Definition requires training-data documentation that almost no model meets, so describe Genesis as "open weight", not "open source AI".</p>
+
+<h2 id="platform">Linux platform decisions</h2>
+
+<h3>Base distribution</h3>
+<div class="tablewrap"><table>
+<thead><tr><th>Criterion</th><th>Fedora bootc (Universal Blue)</th><th>NixOS</th><th>Ubuntu remix</th><th>Arch</th></tr></thead>
+<tbody>
+<tr><td>NVIDIA drivers</td><td>Pre-built nvidia-open kmods, proven by Bazzite at scale</td><td>Good, well documented</td><td>Good, vendor tier-1</td><td>OK, rolling breakage risk</td></tr>
+<tr><td>AMD ROCm</td><td>Packaged in Fedora main repo</td><td>Exists, breaks often</td><td>In archive but 6 months stale</td><td>Freshest</td></tr>
+<tr><td>Safety for an agent that changes the system</td><td>Read-only, verified <code>/usr</code>; <code>bootc rollback</code> always keeps the previous deployment</td><td>Generations roll back config, not <code>/var</code> state</td><td>Mutable, no rollback</td><td>Mutable, no rollback</td></tr>
+<tr><td>Build tooling</td><td>Containerfile plus bootc-image-builder, official GitHub Action, produces ISO and qcow2</td><td>Upstreamed image builds in 25.05</td><td>live-build works, Cubic is GUI-only</td><td>archiso, rolling</td></tr>
+<tr><td>How well an LLM can edit the config</td><td>Ordinary files under <code>/etc</code>; base changes are a Containerfile PR</td><td>Best in class: one language, dry-build validation</td><td>Huge imperative surface</td><td>Same</td></tr>
+<tr><td>Maintenance for 2 to 3 people</td><td>Inherit Fedora and uBlue rebuilds; CI does the work</td><td>Nix expertise is scarce</td><td>You own driver freshness</td><td>Constant</td></tr>
+</tbody></table></div>
+<p><strong>Recommendation: fork the Aurora image (KDE on Fedora bootc).</strong> Immutability is the safety net for an autonomous agent. Steal NixOS's best idea anyway: give the agent one declarative layer under <code>/etc/genesis/</code> and a <code>genesis apply</code> command that validates, snapshots, and applies, instead of letting it hand-edit arbitrary files. Note the tradeoff: on bootc, "install software" means Flatpak, Homebrew, distrobox containers, or a PR to the image, never <code>dnf install</code> on the host. That forces a clean permission tier model, which is a feature.</p>
+
+<h3>Why KDE Plasma over GNOME</h3>
+<p>Plasma has the richest automation surface: KWin scripting, KRunner D-Bus runners, global shortcuts, a working MCP server prior art (kwin-mcp). GNOME has the best accessibility tree but its community policies now reject AI-generated extensions and ban LLM contributions in several core apps, which makes it a hostile venue for an AI-native distro. Use xdg-desktop-portals for screenshots and input so the same code works on GNOME later.</p>
+
+<h3>GPU story, least painful path</h3>
+<ul>
+<li><strong>Vulkan everywhere on the host.</strong> One llama.cpp build covers NVIDIA, AMD, Intel and older cards with acceptable performance.</li>
+<li><strong>Two image flavours</strong> like Bazzite: <code>genesis</code> (Mesa) and <code>genesis-nvidia</code> (nvidia-open kernel modules, signed for Secure Boot). Skip the legacy proprietary driver at launch; Pascal-era cards get Vulkan or CPU.</li>
+<li><strong>CUDA, ROCm and SYCL as pullable containers</strong> via ramalama, selected by the hardware profile. Never bake multi-gigabyte vendor stacks into the base image.</li>
+</ul>
+
+<h3>Inference as a system service</h3>
+<pre><code># /usr/lib/systemd/system/genesis-router.service (abridged)
+[Service]
+User=genesis-ai
+SupplementaryGroups=video render
+ExecStart=/usr/bin/llama-swap --config /etc/genesis/router.yaml --listen 127.0.0.1:8080
+MemoryMax=80%
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/genesis /var/cache/genesis /run/genesis
+DeviceAllow=/dev/dri rw
+DeviceAllow=/dev/kfd rw
+DeviceAllow=char-nvidia rw
+DevicePolicy=closed
+NoNewPrivileges=yes</code></pre>
+<p>Socket-activated on desktop login, not at boot. A tiny 4B model stays warm for latency-sensitive features. Large models load on demand with a 10-minute TTL, shorter on battery. A small D-Bus service (<code>org.genesis.AI1</code>) owns the model catalog, hardware profile and download progress so desktop widgets have something to talk to.</p>
+
+<h3>Model storage and distribution</h3>
+<p>Do not bake models into the ISO. Ship one 1 to 2 GB bootstrap model for the installer's assistant, then download the chosen pack at first boot. Transport: <strong>OCI artifacts</strong> using the Docker model-spec media types that CNCF ModelPack is converging on, hosted on GHCR, content-addressed and resumable. ramalama already pulls from OCI, HuggingFace and Ollama registries. Layout lives under <code>/var/lib/genesis/models/</code> because <code>/usr/share</code> is read-only on bootc.</p>
+
+<h3>Sandboxing and undo</h3>
+<div class="tablewrap"><table>
+<thead><tr><th>Tier</th><th>Agent may</th><th>Mechanism</th><th>Undo</th></tr></thead>
+<tbody>
+<tr><td>T0 free</td><td>Read and write inside the project dir, run builds and tests, call the local model API, network via a logging proxy</td><td>bubblewrap with allow-listed mounts, Landlock, seccomp, tmpfs home with no <code>~/.ssh</code> or tokens</td><td>git or btrfs snapshot of the project before each task</td></tr>
+<tr><td>T1 sandboxed system work</td><td>Install toolchains, compile, run services, try software</td><td>Disposable distrobox or podman container per task, GPU via CDI</td><td>Delete the container. Host untouched.</td></tr>
+<tr><td>T2 confirmation required</td><td>Install Flatpaks, edit <code>/etc/genesis</code>, write to <code>~/.config</code>, control the GUI, use camera or mic, send messages</td><td>Portal dialogs plus a polkit action. Agent submits a proposed diff or command, user approves in the panel</td><td>btrfs snapshot of <code>/etc</code> and <code>/home</code>, <code>genesis undo</code></td></tr>
+<tr><td>T3 rebuild required</td><td>Anything touching <code>/usr</code>: drivers, kernel modules, system packages</td><td>Agent opens a PR against the image repo, CI builds, <code>bootc switch</code> and reboot</td><td><code>bootc rollback</code></td></tr>
+<tr><td>T4 never</td><td>Credentials, disk-wide deletion, Secure Boot keys, disabling the sandbox</td><td>Not exposed as tools. Hard-coded, not in editable policy</td><td>n/a</td></tr>
+</tbody></table></div>
+<p>Two lessons from 2026 incidents. A bubblewrap escape in April showed that <strong>denylists do not work</strong>, only allow-listed mounts. And the Comet browser's prompt-injection disclosures showed that once an agent has read untrusted web content, its write permissions must drop to "ask" regardless of mode. The agent runs as its own Unix user, never as the human. Secrets go through the keyring broker at execution time so the model never sees raw tokens.</p>
+
+<h2 id="architecture">Software architecture</h2>
+<pre><code>User surfaces      Launcher (Plasma applet + KRunner)  ·  Terminal plugin  ·  Firefox sidebar
+                   Zed / VS Code via Agent Client Protocol  ·  Genesis app (chat + app preview)
+                            │  D-Bus  ·  Unix socket (ACP)  ·  HTTP 127.0.0.1
+genesis-core       agentd (embeds Goose)  ·  permd (permission broker, audit, keyring)
+(Rust daemons)     txd (snapshots, bootc, flatpak)  ·  indexd (file watcher, sqlite-vec RAG)
+                   gateway (OpenAI-compatible, routing policy, VRAM budget, cloud opt-in)
+                            │
+Inference          llama-swap → llama-server per model   ·  whisper.cpp  ·  TTS  ·  optional BYOK cloud
+                            │
+MCP tools          filesystem/git  ·  shell (bwrap)  ·  Playwright browser  ·  desktop (AT-SPI + portals)
+(sandboxed)        packages (flatpak/bootc)  ·  sysconfig (dconf, NetworkManager, systemd)  ·  SearXNG  ·  RAG</code></pre>
+
+<h3>Build versus reuse</h3>
+<div class="tablewrap"><table>
+<thead><tr><th>Component</th><th>Decision</th><th>Project (license)</th><th>Note</th></tr></thead>
+<tbody>
+<tr><td>Inference</td><td>Reuse</td><td>llama.cpp (MIT), llama-swap (MIT)</td><td>Router mode, groups, TTL, hooks, Anthropic API passthrough</td></tr>
+<tr><td>Model packaging</td><td>Reuse</td><td>ramalama (Apache 2.0)</td><td>Rootless podman, GPU containers, OCI pulls. Bluefin already chose it over Ollama.</td></tr>
+<tr><td>Agent loop</td><td>Reuse</td><td>Goose (Apache 2.0, Rust, ~54k stars)</td><td>MCP-native, recipes, ACP for editors. Embed the crates in <code>agentd</code>.</td></tr>
+<tr><td>Heavy coding jobs</td><td>Reuse, optional</td><td>OpenHands SDK (MIT, Python)</td><td>Runs in a builder container for long multi-file tasks. Has non-function-calling fallback for weak models.</td></tr>
+<tr><td>Repo map</td><td>Port</td><td>Aider's tree-sitter map (Apache 2.0)</td><td>The single biggest reliability boost for 27B models on real repos</td></tr>
+<tr><td>Browser tool</td><td>Reuse</td><td>Playwright MCP (Apache 2.0)</td><td>Accessibility-snapshot mode gives text-only models a usable page. Dedicated profile, never the user's logged-in one.</td></tr>
+<tr><td>Desktop control</td><td>Reuse and extend</td><td>agent-sh/computer-use-linux (MIT), kwin-mcp</td><td>AT-SPI tree first, screenshots only to verify. Portals are the consent UI.</td></tr>
+<tr><td>Gateway, permission broker, transactions, package and sysconfig MCP servers</td><td>Build</td><td>Rust</td><td>About 3 to 5k lines for the gateway. This is where Genesis's actual value lives.</td></tr>
+<tr><td>Vector store</td><td>Reuse</td><td>sqlite-vec (MIT / Apache 2.0)</td><td>Single file, hybrid with FTS5. Paperless-ngx switched to it from LanceDB in June 2026.</td></tr>
+<tr><td>Web search</td><td>Reuse</td><td>SearXNG (AGPL, separate service)</td><td>Local JSON API, no tracking</td></tr>
+<tr><td>Chat UI</td><td>Build, thin</td><td>Rust + GTK4 or Kirigami</td><td>Open WebUI rejected: branding clause above 50 users</td></tr>
+<tr><td>Avoid</td><td></td><td>Crush (source-available), Open Interpreter (AGPL), LiteLLM in the hot path (server-side fleet tool)</td><td></td></tr>
+</tbody></table></div>
+<p><strong>Stack:</strong> Rust for every always-on daemon and the GTK app (single static binaries, trivial to package in an immutable image, excellent D-Bus and systemd crates). Python confined to containers. TypeScript only for the Firefox extension.</p>
+
+<h3>The "build an app" loop</h3>
+<ol>
+<li>Hot model classifies intent as "build app". Coder model writes a short spec and picks a template from a fixed list via grammar-constrained output.</li>
+<li>Templates ship with tests, lint and a <code>justfile</code>: Vite web app, HTMX plus Python, Rust CLI, Python script, GTK4 or Qt desktop app, each with a Flatpak manifest.</li>
+<li>Scaffold into <code>~/Projects/name</code> and open a transaction.</li>
+<li>Edit, run <code>just check</code> and <code>just test</code>, parse failures, retry up to N times, then ask. Use search-and-replace edit blocks, not whole-file rewrites.</li>
+<li>Preview in an embedded WebKitGTK view or launch the binary in a nested sandbox. Playwright runs smoke tests. The vision model answers "does it look right?".</li>
+<li>Install via flatpak-builder in podman. A desktop entry appears. Undo remains available for 7 days.</li>
+</ol>
+<p>Reliability tactics that matter with local models: JSON schema or GBNF grammars for every structured step, at most 8 tools exposed per turn with the hot model picking the tool group first, temperature near zero for tool turns, a plan-then-execute split between the chat and coder models, and a CodeAct-style Python micro-executor for the 4B model.</p>
+
+<h2 id="routing">Multi-model routing</h2>
+<p>The research is clearer than the hype. The 2026 LLMRouterBench study found that sophisticated routers, including commercial ones, rarely beat a simple baseline, and that most of the gap to an oracle comes from the models themselves, not the router. So keep it boring.</p>
+<pre><code>route(request):
+  if request.model is pinned:            return that model
+  caps  = needs(request)                 # vision? tools? json schema? context length
+  tier  = calling surface                # shell completion / chat / agent / vision / batch
+  if tier == shell:                      return coder-1.5B (always hot, n-gram spec decoding)
+  if caps.vision:                        return vision model (deterministic)
+  intent = hot_4B.classify(last_turn, grammar=enum[chat,code,system,research,trivial])
+  if intent == trivial and ctx &lt; 2k:     return hot_4B
+  order  = policy_table[intent]          # e.g. code → [coder-27B, chat-35B-A3B, hot]
+  for m in order:
+      if m fits caps and (m resident or vram_plan.can_load(m, keep=hot tier)): return m
+  if cloud enabled for this intent and no local-only content in context: return cloud
+  return best resident with a visible "degraded" note</code></pre>
+<ul>
+<li><strong>Route by surface first, content second.</strong> Where the request came from is a free, perfect signal.</li>
+<li><strong>Agent sessions pin their model</strong> for the whole task. Sub-steps like summarizing tool output go to the hot model.</li>
+<li><strong>Escalation uses the small model's own uncertainty</strong> (average log-probability), not a second classifier. Cap the escalation rate to protect VRAM.</li>
+<li><strong>Hysteresis:</strong> after a swap, keep the new model at least two minutes. Queue, do not thrash.</li>
+<li><strong>Rebuild the policy table offline</strong> whenever the installed model set changes: embed a task corpus, cluster, score each model per cluster on a few hundred samples. This is the Avengers method and needs no trained router.</li>
+<li>Cloud is off by default. If any chunk from a local-only directory is in context, cloud is blocked for that request.</li>
+</ul>
+
+<h2 id="ux">UX and product</h2>
+
+<h3>What the market is teaching, harshly</h3>
+<div class="grid2">
+<div class="card"><h4>Windows Copilot and Recall</h4><p>Forced, branded AI in every core app produced a backlash ("Microslop"), and Microsoft spent 2026 removing Copilot from Notepad, Photos and Snipping Tool. Recall's always-on capture was blocked outright by Signal, Brave and AdGuard. Lesson: opt-in, unbranded, local-first.</p></div>
+<div class="card"><h4>Apple's Siri revamp</h4><p>Slipped repeatedly, settled a class action over unshipped features, and the WWDC 2026 demo drew "not nearly half way there" from Hacker News. Lesson: never demo what does not reliably work. Set expectations by hardware tier.</p></div>
+<div class="card"><h4>Comet, Dia, Brave Leo</h4><p>Browser agents were hijacked by hidden text on Reddit posts and in screenshots. Brave's answer is the pattern to copy: isolated cookie-less profile, visible actions, confirmations, and a second model checking intent.</p></div>
+<div class="card"><h4>Raycast, Alter, Newelle</h4><p>Raycast users resent paying for AI twice. Alter wins on context-aware actions and weekly shipping. Newelle, the GNOME assistant, is criticized as not "install and use": it needs API keys. Genesis's first-boot pack download must make it work with zero setup.</p></div>
+</div>
+
+<h3>Design principles</h3>
+<ul>
+<li><strong>The model is invisible by default, never hidden.</strong> Automatic routing, with a small badge showing which model answered and a one-click override to Fast, Smart, Code or Vision. Full manual pickers belong in settings.</li>
+<li><strong>Everything local is the brand.</strong> A persistent indicator that reads "on this machine" and turns amber only when a cloud key is in use. Never a splash screen promise.</li>
+<li><strong>Show work, not magic.</strong> Long agent tasks render as a plan with live steps, file diffs, terminal output and browser actions, all interruptible and steerable mid-run.</li>
+<li><strong>Every change has an undo.</strong> The session summary lists what changed on the system and offers one button to revert it.</li>
+<li><strong>Latency is honest.</strong> The hot model answers within a second and the stronger model refines under it. Never a blank spinner.</li>
+<li><strong>Tool, not persona.</strong> No mascot, no name that speaks in first person. "Genesis" names the system. Avoid the Clippy trap.</li>
+</ul>
+
+<h3>v1 surfaces (and what not to build)</h3>
+<div class="tablewrap"><table>
+<thead><tr><th>Surface</th><th>v1</th><th>Rationale</th></tr></thead>
+<tbody>
+<tr><td>Global hotkey launcher</td><td><span class="pill acc">primary</span></td><td>Present in 11 of the 21 top-rated sheet apps. Ask anything, run a command, act on selected text or the current window.</td></tr>
+<tr><td>Agent workspace panel</td><td><span class="pill acc">primary</span></td><td>Where builds happen. Plan, steps, diffs, preview, permissions, undo.</td></tr>
+<tr><td>Model manager</td><td><span class="pill acc">primary</span></td><td>Install and remove, disk and VRAM meters, "runs at about 20 tok/s on your GPU" fit indicator, pack presets.</td></tr>
+<tr><td>Terminal assistant</td><td><span class="pill ok">yes</span></td><td>Comment-to-command, Ctrl+G opens the agent with scrollback. Cheap and beloved by the target user.</td></tr>
+<tr><td>Select text, then act</td><td><span class="pill ok">yes</span></td><td>Over-represented in top apps. Rewrite, explain, translate via a small popup.</td></tr>
+<tr><td>Browser sidebar</td><td><span class="pill warn">v2</span></td><td>Needs the injection defenses first.</td></tr>
+<tr><td>Voice</td><td><span class="pill warn">v2</span></td><td>Push-to-talk only. Whisper and Kokoro are ready, but the UX is a second project.</td></tr>
+<tr><td>Full computer-use by screenshot</td><td><span class="pill bad">not v1</span></td><td>Local vision grounding is not pixel-reliable. Use the accessibility tree; screenshots only verify.</td></tr>
+<tr><td>Always-on screen memory (Recall style)</td><td><span class="pill bad">never by default</span></td><td>The single most damaging feature in the competitive record.</td></tr>
+</tbody></table></div>
+
+<h3>Text wireframes</h3>
+<p><strong>Launcher</strong> (Super+Space, overlay, dismisses on Escape):</p>
+<div class="wire">┌──────────────────────────────────────────────────────────────┐
+│ ▸ make a small kanban app for my todo.md                     │
+├──────────────────────────────────────────────────────────────┤
+│ Context   [x] selection  [ ] this window  [ ] ~/notes/todo.md│
+│ Suggested  ⚡ Build app   💬 Ask   ⌨ Run command   ✎ Rewrite  │
+├──────────────────────────────────────────────────────────────┤
+│ ● on this machine · Smart (Qwen3.8-27B) · change ▾           │
+└──────────────────────────────────────────────────────────────┘</div>
+<p><strong>Agent workspace</strong> (during a build):</p>
+<div class="wire">┌ Kanban app ───────────────────────────── ● local · coder-27B ┐
+│ PLAN                     │ PREVIEW                            │
+│ ✔ scaffold web-vite      │  [ live webview of localhost:5173 ]│
+│ ✔ parse todo.md          │                                    │
+│ ▶ add drag and drop      │                                    │
+│ ○ run tests              │                                    │
+│ ○ package as Flatpak     ├────────────────────────────────────┤
+│                          │ CHANGES   3 files · +212 −8   diff │
+│ [Pause] [Steer…] [Stop]  │ ACTIONS   12 · all in project dir  │
+├──────────────────────────┴────────────────────────────────────┤
+│ ⚠ Wants to: install Flatpak "org.genesis.kanban" (user)       │
+│   snapshot will be taken first          [Allow once] [Deny]   │
+└───────────────────────────────────────────────────────────────┘</div>
+<p><strong>Model manager</strong>:</p>
+<div class="wire">Your hardware   RTX 4090 · 24 GB VRAM · 64 GB RAM · 412 GB free
+Pack            gpu-24 (recommended)   [Change pack]
+
+MODEL                    ROLE        SIZE     FIT                 STATUS
+Qwen3.8-27B Q5_K_M       code+vision 19.8 GB  ▮▮▮▮▮▮▮▮▯▯ ~28 tok/s  loaded
+Qwen3.6-35B-A3B Q4       chat        22.1 GB  ▮▮▮▮▮▮▮▮▮▯ ~60 tok/s  idle (unloads 9:40)
+Qwen3.5-4B Q8            fast        4.3 GB   ▮▮▯▯▯▯▯▯▯▯ ~120 tok/s always on
+Qwen3-Embedding-0.6B     search      0.6 GB   ▮▯▯▯▯▯▯▯▯▯          always on
+Whisper large-v3-turbo   speech      0.8 GB                        on demand
+                                      Disk used 47.6 GB · [Add model…]</div>
+<p><strong>First run</strong>: three screens. Hardware detected and pack proposed with download size and time. The privacy promise stated as a fact ("Nothing leaves this computer unless you add a cloud key later"). Optional cloud keys, skipped by default. The bootstrap 2B model answers questions during the download.</p>
+
+<h2 id="roadmap">Roadmap and risks</h2>
+<div class="phase"><div class="when">Weeks 1 to 10</div><div><h4>Phase 0 · Prototype in a VM</h4><p>Bluefin or Aurora VM. llama-swap with a hot 4B and a 27B coder. Gateway v0 routing by surface and intent. Goose driven over ACP. Plasma hotkey launcher. Shell and filesystem MCP in bubblewrap. Audit log.</p><p><strong>Exit:</strong> ask anything, run a command, edit a repo from the hotkey, fully local, with prompts for writes.</p></div></div>
+<div class="phase"><div class="when">Months 3 to 7</div><div><h4>Phase 1 · Alpha image</h4><p>bootc image built in GitHub Actions with two flavours. ramalama quadlets. Permission broker with modes and policy files. Transactions with btrfs snapshots and an undo UI. sqlite-vec indexer. SearXNG. First-run wizard with pack download. Zed via ACP.</p><p><strong>Exit:</strong> installable ISO; undo works for user and system-scope changes; three model tiers swap without OOM on 16 and 24 GB GPUs.</p></div></div>
+<div class="phase"><div class="when">Months 8 to 13</div><div><h4>Phase 2 · Beta</h4><p>App builder with templates, preview and Flatpak packaging. OpenHands builder container. Playwright browsing with sanitized fetch and injection defenses. Desktop control via AT-SPI and portals. Package and sysconfig MCP. Cloud BYOK.</p><p><strong>Exit:</strong> ten scripted "build me X" tasks pass with the local 27B; browsing survives an injection test suite.</p></div></div>
+<div class="phase"><div class="when">Months 14 to 20</div><div><h4>Phase 3 · Stable</h4><p>microVM tier for untrusted code. Sealed images with UKI. Voice in and out. ROCm, Intel and NPU backends. Security review against the OWASP Agentic Top 10. Thirty-day dogfood without data loss.</p></div></div>
+
+<h3>Top risks</h3>
+<ol>
+<li><strong>Local model reliability</strong> on multi-step tool use. Mitigate with grammars, small tool sets, verification loops, and cloud BYOK as a pressure valve.</li>
+<li><strong>VRAM contention</strong> between hot, coder and vision models on 16 GB cards. The gateway must serialize loads; llama-server's router has a known race under concurrency.</li>
+<li><strong>Wayland desktop control</strong> stays portal-gated, and GNOME's next accessibility stack may change AT-SPI. Abstract it behind one trait.</li>
+<li><strong>Upstream churn:</strong> Goose's API, OpenHands's V1 SDK rewrite, bootc's move to composefs and sealed images. Pin versions, vendor thin adapters.</li>
+<li><strong>Security exposure.</strong> An OS-level agent is a high-value target. Red-team injection and privilege escalation continuously.</li>
+<li><strong>Fedora has no official bootc desktop image yet</strong>, so you depend on Universal Blue's bases. Bluefin reports this is resolving in 2026.</li>
+</ol>
+
+<h3>What to do this week</h3>
+<ol>
+<li>Spin up a Bluefin or Aurora VM under UTM or OrbStack on the Mac. The dev loop for RPM-level image changes runs there; GPU tests need one Linux box with a 24 GB card.</li>
+<li>Install llama-swap and llama-server, load Qwen3.5-4B and Qwen3.8-27B, and confirm the swap behaviour on your target hardware.</li>
+<li>Point Goose at that endpoint and try three real tasks: a shell command, a repo edit, a small web app. That single afternoon tells you more than any benchmark about whether the core feels good enough.</li>
+<li>Only then start the image repo, using the layout in the Linux report: Containerfile, <code>system_files/</code>, <code>packs/</code>, <code>src/</code> for the Rust daemons, and GitHub workflows for image, ISO and VM tests.</li>
+</ol>
+
+<h2 id="open">Unverified items and gaps</h2>
+<p class="small">The research agents hit search limits and flagged the following. Check before committing.</p>
+<ul class="small">
+<li>llama-swap support for systemd socket activation. Fallback is <code>systemd-socket-proxyd</code>.</li>
+<li>Exact CUDA 13.x EULA redistribution list before shipping CUDA userspace in the image. Container delivery avoids the question.</li>
+<li>Goose's headless server API and approval modes were verified only at README level. OpenHands's bubblewrap backend came from a secondary source.</li>
+<li>Several benchmark leaderboards (SWE-bench, Terminal-Bench, LiveCodeBench, BigCodeBench) are JavaScript-rendered and were read via mirrors or vendor model cards. The Aider leaderboard appears unmaintained since October 2025.</li>
+<li>Claims of a "Llama 5" in April 2026 come from one low-quality source and contradict Meta's record. Treat as false. Meta's 2026 open model is Muse Glimmer 30B.</li>
+<li>Mistral Small 4 architecture conflicts across sources (119B-A6B MoE vs 24B dense). Mistral Medium 3.5's "modified MIT" license is from a third-party tracker only.</li>
+<li>Many community Qwen3-Reranker GGUFs lack the classification head and return meaningless scores. Use a correctly converted file or bge-reranker-v2-m3.</li>
+<li>KDE's official plans for a local assistant, and COSMIC's accessibility maturity, were not confirmed from first-party sources.</li>
+<li>The UX sub-research on coding-agent interfaces and model-manager apps was cut short by a usage limit. The v1 surfaces above draw on the spreadsheet counts, the OS-assistant landscape, and the architecture team's review of Claude Code, Codex, OpenHands and Goose.</li>
+</ul>
+
+<h2 id="sources">Key sources</h2>
+<ul class="sources">
+<li>Bluefin Spring 2026 and AI docs: docs.projectbluefin.io/blog/bluefin-spring-2026 · docs.projectbluefin.io/ai</li>
+<li>Universal Blue akmods and Bazzite nvidia-open: github.com/ublue-os/akmods · github.com/ublue-os/bazzite</li>
+<li>bootc-image-builder: github.com/osbuild/bootc-image-builder</li>
+<li>llama-swap: github.com/mostlygeek/llama-swap · llama.cpp router mode: huggingface.co/blog/ggml-org/model-management-in-llamacpp</li>
+<li>llama.cpp speculative decoding and EAGLE-3: github.com/ggml-org/llama.cpp/blob/master/docs/speculative.md · PR 18039</li>
+<li>ramalama: github.com/containers/ramalama · CNCF ModelPack: github.com/modelpack/model-spec</li>
+<li>Fedora AI/ML SIG, July 2026 minutes: discussion.fedoraproject.org/t/fedora-ai-ml-sig-meeting-2026-07-02/195526</li>
+<li>Goose: github.com/block/goose · OpenHands SDK: github.com/OpenHands/software-agent-sdk · Agent Client Protocol: agentclientprotocol.com</li>
+<li>computer-use-linux: github.com/agent-sh/computer-use-linux · kwin-mcp: github.com/isac322/kwin-mcp</li>
+<li>Bubblewrap escape analysis (April 2026): tanayshah.dev/blog/agent-sandbox-runtime-hardening · Sandlock paper: arxiv.org/pdf/2605.26298</li>
+<li>OWASP Top 10 for Agentic Applications 2026: genai.owasp.org</li>
+<li>Qwen3.8, 3.6, 3.5 and Coder-Next model cards: huggingface.co/Qwen · Unsloth size guides: unsloth.ai/docs/models</li>
+<li>Artificial Analysis open-weights index: artificialanalysis.ai/models/open-source</li>
+<li>SWE-bench bash-only summary: simonwillison.net/2026/Feb/19/swe-bench · llm-stats.com mirrors for LiveCodeBench v6 and Terminal-Bench</li>
+<li>Community local-coding reports: insiderllm.com/guides/best-local-coding-models-2026 · blog.kilo.ai · llmconfigurator.com · xda-developers.com</li>
+<li>Gemma 4 Apache 2.0 announcement: opensource.googleblog.com/2026/03/gemma-4 · Llama 4 license: developer.meta.com/ai/llama4/license</li>
+<li>OSI Open Source AI Definition: opensource.org/ai · Debian 2025 and 2026 GRs: debian.org/vote</li>
+<li>Routing research: RouteLLM arxiv 2406.18665 · LLMRouterBench arxiv 2601.07206 · Avengers arxiv 2505.19797 · vLLM Semantic Router arxiv 2510.08731</li>
+<li>Embeddings and speech: huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF · huggingface.co/blog/open-asr-leaderboard · github.com/ggml-org/whisper.cpp · huggingface.co/hexgrad/Kokoro-82M</li>
+<li>Image generation: huggingface.co/Tongyi-MAI/Z-Image-Turbo · github.com/leejet/stable-diffusion.cpp</li>
+<li>Windows Copilot pullback: windowscentral.com, windowslatest.com (May 2026) · Recall blocking: theregister.com/2025/05/22/signal_microsoft_recall</li>
+<li>Siri revamp reaction: news.ycombinator.com/item?id=48449084 · Comet prompt injection: brave.com/blog/comet-prompt-injection</li>
+<li>Brave Leo agentic mode: bleepingcomputer.com · Newelle 1.2: phoronix.com/news/GNOME-AI-Newelle-1.2 · GNOME extension AI policy: phoronix.com/news/GNOME-Extensions-Block-AI</li>
+<li>Omarchy: tbreak.com/omarchy-linux-distro-agentic-ai · OpenClaw 2.0: openclaw.ai</li>
+<li>Source spreadsheet (macOS AI apps, imported tab): docs.google.com/spreadsheets/d/14gOP1KYT5Nd2oCp35dcIfEjdWabXefqVXpusmQup7wQ</li>
+</ul>
+</main>
+</div>

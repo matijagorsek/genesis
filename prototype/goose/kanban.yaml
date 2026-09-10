@@ -1,0 +1,16 @@
+# Goose recipe: Phase 0 task 3. Run: goose run --recipe prototype/goose/kanban.yaml
+version: 1.0.0
+title: Kanban from todo.md
+description: Build a small local web app that shows ~/todo.md as a kanban board.
+instructions: |
+  You are building a small web app on the user's machine. Work inside ~/Projects/kanban.
+  Use a plain Vite + vanilla TypeScript setup, no frameworks. Keep files small.
+  After every change run the type check and fix errors before continuing.
+  When the dev server runs, tell the user the URL and stop.
+prompt: |
+  Create a kanban board web app. Columns: Todo, Doing, Done. Tasks come from ~/todo.md,
+  one task per line; a line starting with "- [x]" is Done, "- [ ]" is Todo, "- [~]" is Doing.
+  Support drag and drop between columns and write changes back to ~/todo.md.
+extensions:
+  - type: builtin
+    name: developer
