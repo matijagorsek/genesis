@@ -6,12 +6,12 @@
   "models": [
     {
       "role": "fast", "name": "Qwen3.5-4B",
-      "repo": "unsloth/Qwen3.5-4B-GGUF", "include": ["*Q8_0*.gguf", "mmproj*F16*.gguf"],
+      "repo": "unsloth/Qwen3.5-4B-GGUF", "include": ["*Q8_0*.gguf", "mmproj-F16.gguf"],
       "license": "Apache-2.0", "tier": "main", "size_gb": 4.5
     },
     {
       "role": "code", "name": "Qwen3.8-27B",
-      "repo": "unsloth/Qwen3.8-27B-GGUF", "include": ["*Q5_K_M*.gguf", "mmproj*F16*.gguf"],
+      "repo": "unsloth/Qwen3.8-27B-GGUF", "include": ["*Q5_K_M*.gguf", "mmproj-F16.gguf"],
       "license": "Apache-2.0", "tier": "main", "size_gb": 20
     },
     {

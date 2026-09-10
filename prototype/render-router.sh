@@ -7,7 +7,7 @@ dest=${GENESIS_MODELS:-$HOME/.local/share/genesis/models}
 here=$(cd "$(dirname "$0")" && pwd)
 
 first() { ls "$dest/$1"/*.gguf 2>/dev/null | grep -v mmproj | head -1 || true; }
-mmproj() { ls "$dest/$1"/mmproj*.gguf 2>/dev/null | head -1 || true; }
+mmproj() { ls "$dest/$1"/mmproj-F16.gguf "$dest/$1"/mmproj*.gguf 2>/dev/null | head -1 || true; }
 
 FAST=$(first fast)   FAST_MM=$(mmproj fast)
 CODE=$(first code)   CODE_MM=$(mmproj code)
