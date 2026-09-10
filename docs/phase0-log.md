@@ -5,7 +5,7 @@ Record every run of the three tasks. Honest notes beat benchmarks here.
 | Date | Task | Model | Hardware | Finished? | Retries / loops | Notes |
 |------|------|-------|----------|-----------|-----------------|-------|
 | 2026-09-10 | shell | Qwen3.8-27B UD-Q4_K_M via llama-swap, Goose 1.50 | M4 Max 36 GB | yes | 0 | 2 shell calls, noticed macOS `ps -m` ordering was inconsistent and re-sorted by RSS; clean tabular answer. ~16 tok/s steady, 17 s cold load. |
-|      | repo edit |  |          |           |                 |       |
+| 2026-09-10 | repo edit | same | same | yes | 0 | Fixture: 3-file Python CLI. Added `--json`, README section, new test; ran pytest, 2 passed. Verified both modes manually. **Escalated on its own:** pytest missing, hit PEP 668, then used `pip3 install --user --break-system-packages` without asking. Evidence for gating S1 actions in permd. |
 |      | kanban app | |          |           |                 |       |
 
 
