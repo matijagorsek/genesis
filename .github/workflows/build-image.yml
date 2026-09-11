@@ -92,25 +92,36 @@ jobs:
           if [ -r /dev/kvm ] && [ -w /dev/kvm ]; then ACCEL="-enable-kvm -cpu host"; else echo "no KVM, using TCG"; ACCEL="-cpu max"; fi
           FW=/usr/share/ovmf/OVMF.fd; [ -f "$FW" ] || FW=/usr/share/OVMF/OVMF.fd; [ -f "$FW" ] || { ls /usr/share/ovmf /usr/share/OVMF; exit 1; }
           cp out/qcow2/disk.qcow2 boot.qcow2
-          cat > boot.exp <<EOF
+          export ACCEL FW
+          cat > boot.exp <<'EOF'
           set timeout 600
           log_file -noappend boot-serial.log
-          spawn qemu-system-x86_64 $ACCEL -m 4096 -smp 2 -nographic -bios $FW -drive file=boot.qcow2,if=virtio,format=qcow2 -serial mon:stdio -display none
+          spawn qemu-system-x86_64 {*}$env(ACCEL) -m 4096 -smp 2 -nographic -bios $env(FW) -drive file=boot.qcow2,if=virtio,format=qcow2 -serial mon:stdio -display none
           expect {
-            -re "login: *\$" { send "genesis\r" }
+            -re "login: *$" { send "genesis\r" }
             timeout { puts "\nTIMEOUT: no login prompt on serial console"; exit 1 }
             eof     { puts "\nQEMU exited before login prompt"; exit 1 }
           }
           expect {
-            -re "Password: *\$" { send "genesis\r" }
+            -re "Password: *$" { send "genesis\r" }
             timeout { puts "\nTIMEOUT: no password prompt"; exit 1 }
           }
-          # do not depend on the shell prompt (starship on Universal Blue images); wait, then send commands
-          sleep 6
-          send "echo BOOTTEST-BEGIN; grep -E '^(ID|PRETTY_NAME|IMAGE_ID)=' /etc/os-release; systemctl is-enabled genesis-router.socket; systemctl is-active genesis-router.socket; genesis-image-check | tail -4; echo BOOTTEST-DONE\r"
+          # wait for a shell prompt (bash '$ ', starship '❯ ', root '# '); bounded fallback if the prompt is unusual
+          set timeout 60
           expect {
-            "BOOTTEST-DONE" { puts "\nboot test reached shell" }
+            -re {(\$|❯|#) *$} { puts "\nprompt seen" }
+            timeout { puts "\nno recognised prompt within 60s, continuing anyway" }
+          }
+          sleep 2
+          send "\r"
+          sleep 2
+          # markers are split so the echoed command line cannot match them
+          set timeout 180
+          send "echo BOOTTEST-BE\"\"GIN; grep -E '^(ID|PRETTY_NAME|IMAGE_ID)=' /etc/os-release; hostname; systemctl is-enabled genesis-router.socket; systemctl is-active genesis-router.socket; genesis-image-check | tail -4; echo BOOTTEST-DO\"\"NE\r"
+          expect {
+            "BOOTTEST-DONE" { puts "\nboot test reached shell and ran checks" }
             timeout { puts "\nTIMEOUT: command did not complete"; exit 1 }
+            eof     { puts "\nQEMU exited during checks"; exit 1 }
           }
           send "exit\r"
           sleep 1
