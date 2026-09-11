@@ -28,9 +28,17 @@ jobs:
       - id: meta
         run: echo "tag=0.1.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
 
+      - name: Pull base image (retry on GHCR blob timeouts)
+        run: |
+          for i in 1 2 3 4 5 6; do
+            sudo podman pull --retry 5 --retry-delay 20s ghcr.io/ublue-os/aurora:stable && break
+            echo "pull attempt $i failed, waiting"; sleep 30
+          done
+          sudo podman image exists ghcr.io/ublue-os/aurora:stable
+
       - name: Build image
         run: |
-          sudo podman build -f Containerfile \
+          sudo podman build -f Containerfile --pull=never \
             --build-arg BOOTC_LINT=strict \
             --build-arg GENESIS_VERSION=${{ steps.meta.outputs.tag }} \
             -t $IMAGE:0.1 -t $IMAGE:${{ steps.meta.outputs.tag }} .
