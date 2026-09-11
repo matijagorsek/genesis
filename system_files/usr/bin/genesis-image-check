@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ok(){ printf '  ok   %s\n' "$1"; }
+fail(){ printf '  FAIL %s\n' "$1"; rc=1; }
+rc=0
+echo "Genesis image check"
+grep -q '^ID=genesis' /usr/lib/os-release && ok "os-release ID=genesis" || fail "os-release"
+grep '^PRETTY_NAME' /usr/lib/os-release
+for b in llama-server llama-swap ramalama bwrap distrobox bootc vulkaninfo; do command -v "$b" >/dev/null && ok "binary $b" || fail "binary $b"; done
+for u in genesis-router.service genesis-router.socket; do [ -f "/usr/lib/systemd/system/$u" ] && ok "unit $u" || fail "unit $u"; done
+[ -L /etc/systemd/system/sockets.target.wants/genesis-router.socket ] && ok "router socket enabled" || fail "router socket not enabled"
+[ -f /usr/lib/sysusers.d/genesis.conf ] && ok "sysusers" || fail "sysusers"
+[ -f /usr/lib/tmpfiles.d/genesis.conf ] && ok "tmpfiles" || fail "tmpfiles"
+[ -d /etc/genesis ] && ok "/etc/genesis" || fail "/etc/genesis"
+printf '  %s\n' "$(llama-server --version 2>&1 | grep -m1 -i version || true)"
+printf '  %s\n' "$(llama-swap --version 2>&1 | grep -m1 -i version || true)"
+exit $rc

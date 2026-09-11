@@ -62,27 +62,7 @@ RUN set -eux; \
     chmod 0755 /usr/bin/llama-swap; \
     /usr/bin/llama-swap --version
 
-# ---- image self-check tool ----------------------------------------------------------------
-COPY <<'EOF' /usr/bin/genesis-image-check
-#!/usr/bin/env bash
-set -euo pipefail
-ok(){ printf '  ok   %s\n' "$1"; }
-fail(){ printf '  FAIL %s\n' "$1"; rc=1; }
-rc=0
-echo "Genesis image check"
-grep -q '^ID=genesis' /usr/lib/os-release && ok "os-release ID=genesis" || fail "os-release"
-grep '^PRETTY_NAME' /usr/lib/os-release
-for b in llama-server llama-swap ramalama bwrap distrobox bootc vulkaninfo; do command -v "$b" >/dev/null && ok "binary $b" || fail "binary $b"; done
-for u in genesis-router.service genesis-router.socket; do [ -f "/usr/lib/systemd/system/$u" ] && ok "unit $u" || fail "unit $u"; done
-[ -L /etc/systemd/system/sockets.target.wants/genesis-router.socket ] && ok "router socket enabled" || fail "router socket not enabled"
-[ -f /usr/lib/sysusers.d/genesis.conf ] && ok "sysusers" || fail "sysusers"
-[ -f /usr/lib/tmpfiles.d/genesis.conf ] && ok "tmpfiles" || fail "tmpfiles"
-[ -d /etc/genesis ] && ok "/etc/genesis" || fail "/etc/genesis"
-printf '  %s\n' "$(llama-server --version 2>&1 | grep -m1 -i version || true)"
-printf '  %s\n' "$(llama-swap --version 2>&1 | grep -m1 -i version || true)"
-exit $rc
-EOF
-RUN chmod 0755 /usr/bin/genesis-image-check
+# (genesis-image-check ships from system_files/usr/bin; podman/buildah has no COPY heredoc)
 
 # ---- enable services -------------------------------------------------------------------------
 RUN systemctl enable genesis-router.socket
