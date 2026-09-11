@@ -98,13 +98,14 @@ fetch-images:
     ls -la
 
 # Boot the qcow2 in QEMU (x86_64 emulated on Apple Silicon: slow, but works). Login genesis/genesis. Ctrl-a x to quit.
+# Forwards: ssh 2222, first-run wizard http://localhost:11510, model router http://localhost:18080
 boot disk="iso/output/disk.qcow2":
     cp -n /opt/homebrew/share/qemu/edk2-x86_64-code.fd iso/output/ovmf-code.fd 2>/dev/null || true
     qemu-system-x86_64 -machine q35 -cpu max -smp 4 -m 6144 \
       -drive if=pflash,format=raw,readonly=on,file=iso/output/ovmf-code.fd \
       -drive file={{disk}},if=virtio,format=qcow2 \
       -device virtio-vga -display default,show-cursor=on \
-      -netdev user,id=n0,hostfwd=tcp::2222-:22 -device virtio-net-pci,netdev=n0 \
+      -netdev user,id=n0,hostfwd=tcp::2222-:22,hostfwd=tcp::11510-:11510,hostfwd=tcp::18080-:8080 -device virtio-net-pci,netdev=n0 \
       -serial mon:stdio
 
 # Boot the qcow2 headless on the serial console only
