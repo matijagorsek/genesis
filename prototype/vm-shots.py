@@ -21,7 +21,7 @@ qemu = subprocess.Popen(["qemu-system-x86_64", "-machine", "q35", "-cpu", "max",
     "-drive", f"if=pflash,format=raw,readonly=on,file={fw}", "-drive", f"file={work},if=virtio,format=qcow2",
     "-device", "virtio-vga", "-display", "none", "-vga", "none", "-monitor", f"unix:{sock},server,nowait",
     "-serial", f"file:{outdir}/serial.log", "-netdev", "user,id=n0,hostfwd=tcp::11511-:11510,hostfwd=tcp::11521-:11520", "-device", "virtio-net-pci,netdev=n0"])
-time.sleep(8); t0 = time.time(); done = set(); logged = False
+time.sleep(8); t0 = time.time(); done = set(); logged = False; login_at = 0
 while time.time() - t0 < max(plan) + 5:
     el = int(time.time() - t0)
     for p in plan:
@@ -32,8 +32,15 @@ while time.time() - t0 < max(plan) + 5:
     if not logged and el > 300:
         try:
             for ch in "genesis": mon(f"sendkey {ch}"); time.sleep(0.15)
-            mon("sendkey ret"); logged = True; print("typed password", flush=True)
+            mon("sendkey ret"); logged = True; login_at = el; print("typed password", flush=True)
         except Exception as e: print("key err", e, flush=True)
+    # after login: open the application menu for one frame, then close it (GENESIS_SHOT_MENU=1)
+    if logged and os.environ.get("GENESIS_SHOT_MENU") and "menu" not in done and el > login_at + 240:
+        try:
+            mon("sendkey meta_l"); time.sleep(6); mon(f"screendump {outdir}/menu.ppm"); time.sleep(1); mon("sendkey esc")
+            print("shot menu", flush=True)
+        except Exception as e: print("menu err", e, flush=True)
+        done.add("menu")
     time.sleep(3)
 try: mon("quit")
 except Exception: pass
