@@ -68,7 +68,7 @@ ol.next{padding-left:22px;max-width:70ch}ol.next li{margin-bottom:7px}
 <div class="tiles">
   <div class="tile"><div class="k">Phase 0 tasks</div><div class="v">3 / 3 <span class="pill ok">pass</span></div><div class="s">shell, repo edit, kanban app, all with a local 27B</div></div>
   <div class="tile"><div class="k">Image</div><div class="v">3.80 GB</div><div class="s">ghcr.io/matijagorsek/genesis:0.1 · strict lint · +70 MB over base</div></div>
-  <div class="tile"><div class="k">Boot test</div><div class="v">pass <span class="pill ok">run 9</span></div><div class="s">QEMU/KVM, serial login, checks green, step green</div></div>
+  <div class="tile"><div class="k">Boot test</div><div class="v">pass <span class="pill ok">CI + Mac</span></div><div class="s">KVM on the runner; 90 s to login on the Mac under emulation</div></div>
   <div class="tile"><div class="k">Release</div><div class="v">v0.1.9 <span class="pill ok">published</span></div><div class="s">qcow2 in 3 parts + boot log · ISO job fix in run 10</div></div>
 </div>
 
@@ -141,7 +141,7 @@ Password:
   version: 0.4.0-dev (build 10901, commit 28ff09582)      <span class="d"># llama.cpp</span>
   version: v255 (7761aa1), built at 2026-09-06T05:46:05Z  <span class="d"># llama-swap</span>
 <span class="g">BOOTTEST-DONE</span></pre>
-<p class="small">The hostname still read "aurora" in that run; it is set to "genesis" in the image as of run 9.</p>
+<p class="small">Local boot of v0.1.9 on the Mac: login prompt after 90 s, and <code>genesis-router.socket</code> listening at boot. The hostname still reads "aurora" in v0.1.9; run 10 sets it to "genesis".</p>
 
 <h2>What is real and what is designed</h2>
 <div class="tablewrap"><table>
@@ -156,7 +156,7 @@ Password:
 <h2>Next, in order</h2>
 <ol class="next">
   <li><strong>ISO attached to the release</strong> by its own job (run 10). The image job is already green end to end.</li>
-  <li><strong>Boot Genesis on the Mac.</strong> <code>just fetch-images</code> then <code>just boot</code> in QEMU, and watch it reach the Plasma login.</li>
+  <li><strong>Watch it on screen.</strong> <code>just boot</code> opens the QEMU window with v0.1.9 already downloaded; login genesis / genesis.</li>
   <li><strong>genesis-permd.</strong> The permission broker, first Rust daemon, because the agent escalates on its own without it.</li>
   <li><strong>genesis-probe and the first-run wizard.</strong> Hardware profile, pack proposal, download with the bootstrap model answering meanwhile.</li>
   <li><strong>Packs as OCI artifacts</strong> on GHCR, pulled with ramalama, router config rendered from the installed pack.</li>
