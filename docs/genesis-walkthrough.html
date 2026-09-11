@@ -1,0 +1,467 @@
+<title>Genesis Walkthrough</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#0b0f14; --page-ink:#dfe6ee; --page-ink-2:#8b96a5; --line:#232c37;
+  --os-bg:#10161e; --os-panel:#161d27; --os-panel-2:#1d2631; --os-ink:#e6ebf1; --os-ink-2:#a9b4c1; --os-ink-3:#6f7a89;
+  --accent:#5fb5bd; --accent-ink:#08181a; --accent-soft:#173338;
+  --good:#6ccf94; --warn:#e0a84a; --bad:#ef7b7b;
+  --wall1:#12314a; --wall2:#0e1a26;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--page-ink);font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:15px;line-height:1.55}
+a{color:var(--accent)}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 24px 80px}
+header{display:flex;flex-wrap:wrap;align-items:end;justify-content:space-between;gap:12px;margin-bottom:18px}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:0 0 8px}
+h1{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:clamp(26px,3.6vw,38px);line-height:1.05;letter-spacing:-.02em;margin:0}
+.sub{color:var(--page-ink-2);margin:6px 0 0;max-width:62ch}
+.stage{display:grid;grid-template-columns:220px minmax(0,1fr);gap:20px}
+@media (max-width:860px){.stage{grid-template-columns:1fr}}
+.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.steps button{all:unset;display:grid;grid-template-columns:22px 1fr;gap:8px;align-items:baseline;width:100%;padding:8px 10px;border-radius:6px;cursor:pointer;color:var(--page-ink-2);font-size:13.5px}
+.steps button:hover{background:var(--line);color:var(--page-ink)}
+.steps button[aria-current="step"]{background:var(--accent-soft);color:var(--page-ink)}
+.steps button:focus-visible{outline:2px solid var(--accent)}
+.steps .n{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--accent)}
+.steps .t{font-weight:500}
+.steps small{display:block;color:var(--page-ink-2);font-size:12px;font-weight:400}
+.screen-wrap{min-width:0}
+.screen{position:relative;aspect-ratio:16/10;background:var(--os-bg);border:1px solid var(--line);border-radius:10px;overflow:hidden;color:var(--os-ink);font-size:13px}
+.screen>section{position:absolute;inset:0;display:none}
+.screen>section.active{display:block}
+.caption{display:flex;justify-content:space-between;gap:12px;align-items:start;margin-top:12px;color:var(--page-ink-2);font-size:14px}
+.caption p{margin:0;max-width:70ch}
+.nav{display:flex;gap:8px;flex-shrink:0}
+.nav button{background:var(--os-panel-2);color:var(--page-ink);border:1px solid var(--line);border-radius:6px;padding:6px 12px;font:inherit;cursor:pointer}
+.nav button:hover{border-color:var(--accent)}
+.nav button:focus-visible{outline:2px solid var(--accent)}
+.mono{font-family:"IBM Plex Mono",monospace}
+.tag{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:10.5px;padding:2px 7px;border-radius:999px;border:1px solid var(--os-ink-3);color:var(--os-ink-2)}
+.tag.local{border-color:var(--good);color:var(--good)}
+.tag.acc{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.tag.warn{border-color:var(--warn);color:var(--warn)}
+
+/* boot */
+.boot{background:#000;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px}
+.mark{width:54px;height:54px;border:2px solid var(--accent);border-radius:50%;position:relative}
+.mark:after{content:"";position:absolute;inset:14px;background:var(--accent);border-radius:50%}
+.boot .bar{width:180px;height:3px;background:#1a1f26;border-radius:3px;overflow:hidden}
+.boot .bar i{display:block;height:100%;width:62%;background:var(--accent)}
+.boot .fw{position:absolute;top:14px;left:16px;font-family:"IBM Plex Mono",monospace;font-size:11px;color:#3a4552;line-height:1.5}
+.boot .ver{position:absolute;bottom:14px;right:16px;font-family:"IBM Plex Mono",monospace;font-size:11px;color:#3a4552}
+
+/* wizard */
+.wiz{display:grid;grid-template-columns:200px 1fr;height:100%}
+.wiz aside{background:var(--os-panel);border-right:1px solid var(--line);padding:22px 18px}
+.wiz aside .brand{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:18px;margin-bottom:18px}
+.wiz aside ol{list-style:none;margin:0;padding:0;font-size:12.5px;color:var(--os-ink-3)}
+.wiz aside li{padding:6px 0;display:flex;gap:8px;align-items:center}
+.wiz aside li.done{color:var(--os-ink-2)} .wiz aside li.now{color:var(--os-ink)}
+.wiz aside li:before{content:"";width:7px;height:7px;border-radius:50%;background:var(--os-ink-3)}
+.wiz aside li.done:before{background:var(--good)} .wiz aside li.now:before{background:var(--accent)}
+.wiz main{padding:26px 30px;display:flex;flex-direction:column;gap:14px}
+.wiz h2{font-family:"Bricolage Grotesque",sans-serif;font-weight:600;font-size:22px;margin:0;letter-spacing:-.01em}
+.wiz p{margin:0;color:var(--os-ink-2);max-width:60ch}
+.hw{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.hw div{background:var(--os-panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.hw .k{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--os-ink-3)}
+.hw .v{font-weight:600;font-size:14px;margin-top:2px}
+.pack{background:var(--os-panel);border:1px solid var(--accent);border-radius:8px;padding:12px 14px}
+.pack .row{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px solid var(--line);font-size:12.5px}
+.pack .row:first-of-type{border-top:none}
+.pack .num{font-family:"IBM Plex Mono",monospace;color:var(--os-ink-2);white-space:nowrap}
+.btns{display:flex;gap:8px;margin-top:auto}
+.btn{background:var(--os-panel-2);border:1px solid var(--line);color:var(--os-ink);border-radius:6px;padding:7px 14px;font-size:13px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.prog{height:8px;background:var(--os-panel-2);border-radius:6px;overflow:hidden}
+.prog i{display:block;height:100%;width:38%;background:var(--accent)}
+.chatlet{background:var(--os-panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:12.5px}
+.chatlet .q{color:var(--os-ink-2)} .chatlet .a{margin-top:6px}
+.promise{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.promise div{background:var(--os-panel);border:1px solid var(--line);border-radius:8px;padding:12px}
+.promise h3{margin:0 0 4px;font-size:14px;font-family:"Bricolage Grotesque",sans-serif}
+.promise p{font-size:12.5px}
+.toggle{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--os-ink-2)}
+.toggle i{width:30px;height:16px;border-radius:10px;background:var(--os-panel-2);border:1px solid var(--line);position:relative}
+.toggle i:after{content:"";position:absolute;top:2px;left:2px;width:10px;height:10px;border-radius:50%;background:var(--os-ink-3)}
+
+/* desktop */
+.desk{background:radial-gradient(1200px 600px at 30% 20%,var(--wall1),var(--wall2) 70%);height:100%;position:relative}
+.panel{position:absolute;left:0;right:0;bottom:0;height:34px;background:rgba(14,19,26,.92);border-top:1px solid var(--line);display:flex;align-items:center;padding:0 10px;gap:12px;font-size:12px}
+.panel .app{width:22px;height:22px;border-radius:5px;background:var(--os-panel-2);border:1px solid var(--line)}
+.panel .sp{flex:1}
+.panel .tray{display:flex;gap:10px;align-items:center;color:var(--os-ink-2)}
+.panel .clock{font-family:"IBM Plex Mono",monospace;color:var(--os-ink)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--good);display:inline-block;margin-right:5px}
+.hint{position:absolute;right:18px;top:16px;font-size:12px;color:var(--os-ink-2);background:rgba(14,19,26,.7);border:1px solid var(--line);padding:6px 10px;border-radius:6px}
+.hint kbd{font-family:"IBM Plex Mono",monospace;background:var(--os-panel-2);padding:1px 5px;border-radius:3px;border:1px solid var(--line)}
+.window{position:absolute;background:var(--os-panel);border:1px solid var(--line);border-radius:8px;box-shadow:0 20px 50px rgba(0,0,0,.5);overflow:hidden}
+.titlebar{height:28px;display:flex;align-items:center;gap:8px;padding:0 10px;background:var(--os-panel-2);border-bottom:1px solid var(--line);font-size:12px;color:var(--os-ink-2)}
+.term{font-family:"IBM Plex Mono",monospace;font-size:11.5px;line-height:1.5;padding:10px 12px;color:var(--os-ink-2)}
+.term b{color:var(--os-ink);font-weight:500}
+
+/* launcher */
+.overlay{position:absolute;inset:0;background:rgba(5,8,12,.55);backdrop-filter:blur(2px)}
+.launcher{position:absolute;left:50%;top:22%;transform:translateX(-50%);width:66%;background:var(--os-panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 30px 80px rgba(0,0,0,.6);overflow:hidden}
+.launcher .in{display:flex;gap:10px;align-items:center;padding:14px 16px;font-size:16px;border-bottom:1px solid var(--line)}
+.launcher .in .caret{width:2px;height:18px;background:var(--accent);animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.launcher .in .caret{animation:none}}
+.launcher .ctx{display:flex;gap:14px;padding:10px 16px;font-size:12px;color:var(--os-ink-2);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.launcher .acts{display:flex;gap:8px;padding:10px 16px;flex-wrap:wrap}
+.launcher .acts span{background:var(--os-panel-2);border:1px solid var(--line);border-radius:6px;padding:5px 10px;font-size:12.5px}
+.launcher .acts span.sel{border-color:var(--accent);color:var(--accent)}
+.launcher .foot{display:flex;justify-content:space-between;padding:8px 16px;font-size:11.5px;color:var(--os-ink-3);background:var(--os-bg)}
+
+/* workspace */
+.ws{position:absolute;inset:26px 26px 60px;display:grid;grid-template-rows:30px 1fr auto;background:var(--os-panel);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.ws .head{display:flex;align-items:center;gap:10px;padding:0 12px;background:var(--os-panel-2);border-bottom:1px solid var(--line);font-size:12.5px}
+.ws .head .sp{flex:1}
+.ws .body{display:grid;grid-template-columns:240px 1fr;min-height:0}
+.plan{border-right:1px solid var(--line);padding:12px;font-size:12.5px;display:flex;flex-direction:column;gap:6px}
+.plan .h{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--os-ink-3);margin-bottom:4px}
+.plan div.s{display:flex;gap:8px;align-items:center;color:var(--os-ink-2)}
+.plan div.s.done{color:var(--os-ink)} .plan div.s.now{color:var(--accent)}
+.plan div.s:before{content:"○";width:12px} .plan .done:before{content:"✔";color:var(--good)} .plan .now:before{content:"▶"}
+.plan .ctl{margin-top:auto;display:flex;gap:6px}
+.plan .ctl span{border:1px solid var(--line);border-radius:5px;padding:3px 8px;font-size:11.5px;color:var(--os-ink-2)}
+.right{display:grid;grid-template-rows:1fr auto;min-height:0}
+.preview{position:relative;background:#f4f6f3;color:#1c2330;padding:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:11.5px;align-content:start}
+.preview .col{background:#e8ebe5;border-radius:6px;padding:8px;min-height:120px}
+.preview .col h4{margin:0 0 6px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#5a6472}
+.preview .card{background:#fff;border:1px solid #d5d9d2;border-radius:5px;padding:5px 7px;margin-bottom:5px}
+.preview .card.drag{border-color:#1f6f78;box-shadow:0 4px 12px rgba(0,0,0,.15);transform:rotate(-2deg)}
+.preview .badge{position:absolute;top:8px;right:10px;font-family:"IBM Plex Mono",monospace;font-size:10px;color:#5a6472}
+.changes{border-top:1px solid var(--line);padding:8px 12px;font-size:12px;display:flex;gap:18px;color:var(--os-ink-2)}
+.changes b{color:var(--os-ink);font-weight:500}
+.perm{border-top:1px solid var(--warn);background:#1d1a14;padding:10px 12px;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;font-size:12.5px}
+.perm .t{color:var(--warn);font-weight:600}
+.perm .d{color:var(--os-ink-2);font-size:12px;margin-top:2px}
+.perm .d code{font-family:"IBM Plex Mono",monospace;color:var(--os-ink)}
+.perm .b{display:flex;gap:6px}
+.perm .b span{border:1px solid var(--line);border-radius:5px;padding:4px 10px}
+.perm .b span.ok{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+
+/* model manager */
+.mm{position:absolute;inset:26px 26px 60px;background:var(--os-panel);border:1px solid var(--line);border-radius:8px;overflow:hidden;display:grid;grid-template-rows:30px auto 1fr}
+.mm .sum{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-bottom:1px solid var(--line)}
+.mm .sum div{padding:10px 14px;border-right:1px solid var(--line)}
+.mm .sum div:last-child{border-right:none}
+.mm .sum .k{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--os-ink-3)}
+.mm .sum .v{font-size:14px;font-weight:600;margin-top:2px}
+.mm table{width:100%;border-collapse:collapse;font-size:12.5px}
+.mm th{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--os-ink-3);text-align:left;padding:8px 14px;border-bottom:1px solid var(--line);font-weight:500}
+.mm td{padding:9px 14px;border-bottom:1px solid var(--line);vertical-align:middle}
+.mm td.num{font-family:"IBM Plex Mono",monospace;color:var(--os-ink-2);white-space:nowrap}
+.fit{display:inline-block;width:80px;height:6px;background:var(--os-panel-2);border-radius:4px;overflow:hidden;vertical-align:middle;margin-right:6px}
+.fit i{display:block;height:100%;background:var(--accent)}
+.st{font-size:11.5px}
+.st.on{color:var(--good)} .st.idle{color:var(--os-ink-2)} .st.off{color:var(--os-ink-3)}
+
+/* undo */
+.undo{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:60%;background:var(--os-panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 30px 80px rgba(0,0,0,.6);overflow:hidden}
+.undo .h{padding:12px 16px;border-bottom:1px solid var(--line);font-weight:600;font-size:14px;display:flex;justify-content:space-between}
+.undo ul{list-style:none;margin:0;padding:8px 16px;font-size:12.5px}
+.undo li{display:grid;grid-template-columns:70px 1fr;gap:10px;padding:6px 0;border-bottom:1px solid var(--line);color:var(--os-ink-2)}
+.undo li:last-child{border-bottom:none}
+.undo li b{font-weight:500;color:var(--os-ink)}
+.undo .f{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:var(--os-bg);font-size:12px;color:var(--os-ink-2)}
+
+.notes{margin-top:28px;border-top:1px solid var(--line);padding-top:16px;color:var(--page-ink-2);font-size:13.5px;max-width:72ch}
+.notes h2{font-family:"Bricolage Grotesque",sans-serif;font-size:17px;color:var(--page-ink);margin:0 0 8px}
+.notes ul{padding-left:18px;margin:0}
+.notes li{margin-bottom:4px}
+</style>
+
+<div class="wrap">
+<header>
+  <div>
+    <p class="eyebrow">Genesis · intended experience</p>
+    <h1>From power-on to a built app, on local models</h1>
+    <p class="sub">A screen-by-screen walkthrough of the design from the brief. Nothing here is a real screenshot yet: the OS image is Phase 1. The models, speeds and the kanban app in the workspace screen are from the actual Phase 0 run on 2026-09-10.</p>
+  </div>
+  <div class="nav"><button id="prev" type="button">← Prev</button><button id="next" type="button">Next →</button></div>
+</header>
+
+<div class="stage">
+<ol class="steps" id="steps">
+  <li><button type="button" data-i="0" aria-current="step"><span class="n">1</span><span class="t">Boot<small>systemd-boot, sealed image</small></span></button></li>
+  <li><button type="button" data-i="1"><span class="n">2</span><span class="t">Hardware detected<small>first run, pack proposal</small></span></button></li>
+  <li><button type="button" data-i="2"><span class="n">3</span><span class="t">Downloading models<small>bootstrap model already answers</small></span></button></li>
+  <li><button type="button" data-i="3"><span class="n">4</span><span class="t">Privacy promise<small>cloud keys optional, skipped</small></span></button></li>
+  <li><button type="button" data-i="4"><span class="n">5</span><span class="t">Desktop<small>KDE Plasma, local indicator</small></span></button></li>
+  <li><button type="button" data-i="5"><span class="n">6</span><span class="t">Launcher<small>Super+Space</small></span></button></li>
+  <li><button type="button" data-i="6"><span class="n">7</span><span class="t">Agent workspace<small>building the kanban app</small></span></button></li>
+  <li><button type="button" data-i="7"><span class="n">8</span><span class="t">Permission prompt<small>tier T2 action</small></span></button></li>
+  <li><button type="button" data-i="8"><span class="n">9</span><span class="t">Model manager<small>fit, residency, disk</small></span></button></li>
+  <li><button type="button" data-i="9"><span class="n">10</span><span class="t">Undo<small>what changed, one click back</small></span></button></li>
+</ol>
+
+<div class="screen-wrap">
+<div class="screen" id="screen">
+
+<!-- 1 boot -->
+<section class="boot active">
+  <div class="fw">systemd-boot · UKI genesis-44.20260910 · composefs verified<br>bootc: deployment 2 of 2 · rollback available</div>
+  <div class="mark" aria-hidden="true"></div>
+  <div class="bar"><i></i></div>
+  <div class="ver mono">Genesis 0.1 · Fedora bootc 44 · Plasma 6.6</div>
+</section>
+
+<!-- 2 hardware -->
+<section>
+  <div class="wiz">
+    <aside><div class="brand">Genesis</div>
+      <ol><li class="now">Hardware</li><li>Models</li><li>Privacy</li><li>Account</li></ol></aside>
+    <main>
+      <h2>Here is what this machine can run</h2>
+      <p>Genesis picks models that fit your hardware. Everything below runs on this computer.</p>
+      <div class="hw">
+        <div><div class="k">GPU</div><div class="v">NVIDIA RTX 4090</div><div class="mono" style="color:var(--os-ink-2);font-size:12px">24 GB VRAM · nvidia-open 610</div></div>
+        <div><div class="k">Memory</div><div class="v">64 GB</div><div class="mono" style="color:var(--os-ink-2);font-size:12px">AMD Ryzen 9 7950X</div></div>
+        <div><div class="k">Free disk</div><div class="v">412 GB</div><div class="mono" style="color:var(--os-ink-2);font-size:12px">btrfs, snapshots on</div></div>
+      </div>
+      <div class="pack">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b>Recommended pack: gpu-24</b><span class="tag acc">reliable app building</span></div>
+        <div class="row"><span>Qwen3.8-27B · code and vision</span><span class="num">19.8 GB · ~28 tok/s</span></div>
+        <div class="row"><span>Qwen3.6-35B-A3B · chat</span><span class="num">22.1 GB · ~60 tok/s</span></div>
+        <div class="row"><span>Qwen3.5-4B · fast, always on</span><span class="num">4.5 GB · ~120 tok/s</span></div>
+        <div class="row"><span>Embedding, reranker, speech</span><span class="num">2.8 GB</span></div>
+        <div class="row" style="color:var(--os-ink)"><span>Download</span><span class="num">49 GB · about 25 min on this connection</span></div>
+      </div>
+      <div class="btns"><span class="btn">Choose a different pack</span><span class="btn primary">Download and continue</span></div>
+    </main>
+  </div>
+</section>
+
+<!-- 3 download -->
+<section>
+  <div class="wiz">
+    <aside><div class="brand">Genesis</div>
+      <ol><li class="done">Hardware</li><li class="now">Models</li><li>Privacy</li><li>Account</li></ol></aside>
+    <main>
+      <h2>Downloading your models</h2>
+      <p>18.6 of 49 GB · Qwen3.8-27B · 12 minutes left. You can keep going; the desktop is ready when this finishes.</p>
+      <div class="prog"><i></i></div>
+      <p style="font-size:12px;color:var(--os-ink-3)">A small model shipped with the installer is already running. Try it while you wait.</p>
+      <div class="chatlet">
+        <div class="q">You: what is the difference between Flatpak and a normal package here?</div>
+        <div class="a">Genesis (Qwen3.5-2B, on this machine): On Genesis the base system is a read-only image, so apps install as Flatpaks in your user space. They update independently of the OS and can be removed without a trace. Command-line tools go into a toolbox container instead.</div>
+      </div>
+      <div class="btns"><span class="btn">Pause</span><span class="btn primary">Continue in background</span></div>
+    </main>
+  </div>
+</section>
+
+<!-- 4 privacy -->
+<section>
+  <div class="wiz">
+    <aside><div class="brand">Genesis</div>
+      <ol><li class="done">Hardware</li><li class="done">Models</li><li class="now">Privacy</li><li>Account</li></ol></aside>
+    <main>
+      <h2>Nothing leaves this computer</h2>
+      <p>Every answer, every file the assistant reads, and every action it takes stays on this machine. There is no account, no telemetry, and no cloud unless you add a key yourself.</p>
+      <div class="promise">
+        <div><h3>What the assistant can see</h3><p>Files you open or point it at. Your screen only when you ask, through a system dialog each time. Never the camera or microphone without a prompt.</p></div>
+        <div><h3>What it can change</h3><p>Files in projects freely. Settings and app installs after you approve. The base system never without a rebuild. Every change can be undone.</p></div>
+        <div><h3>Optional cloud models</h3><p>Add your own API key later in Settings. When a cloud model answers, the indicator turns amber and says so.</p><div class="toggle" style="margin-top:6px"><i></i> Cloud models: off</div></div>
+        <div><h3>Audit log</h3><p>Every action the assistant takes is recorded locally and shown in the session summary.</p></div>
+      </div>
+      <div class="btns"><span class="btn">Add a cloud key now</span><span class="btn primary">Continue local only</span></div>
+    </main>
+  </div>
+</section>
+
+<!-- 5 desktop -->
+<section>
+  <div class="desk">
+    <div class="hint">Press <kbd>Super</kbd> + <kbd>Space</kbd> to ask Genesis anything</div>
+    <div class="window" style="left:6%;top:14%;width:52%;height:52%">
+      <div class="titlebar">Terminal — ~/Projects</div>
+      <div class="term"><b>$</b> genesis status<br>router      running · 3 models resident · 27.1 GB used of 24 GB VRAM + RAM<br>fast        Qwen3.5-4B          always on<br>code        Qwen3.8-27B         idle · unloads in 8:12<br>embed       Qwen3-Embedding     always on<br>cloud       off<br>undo        2 sessions available (7 days)<br><b>$</b> <span style="color:var(--os-ink-3)"># ask: list the 5 largest files under this dir</span><br><span style="color:var(--accent)">→ du -ah . | sort -rh | head -5</span></div>
+    </div>
+    <div class="panel"><span class="app"></span><span class="app"></span><span class="app"></span><span class="sp"></span>
+      <div class="tray"><span><span class="dot"></span>on this machine</span><span>⌨</span><span>◐</span><span class="clock">Thu 10 Sep 21:14</span></div></div>
+  </div>
+</section>
+
+<!-- 6 launcher -->
+<section>
+  <div class="desk">
+    <div class="window" style="left:6%;top:14%;width:52%;height:52%;opacity:.6"><div class="titlebar">Terminal — ~/Projects</div><div class="term"><b>$</b> genesis status</div></div>
+    <div class="overlay"></div>
+    <div class="launcher">
+      <div class="in"><span style="color:var(--accent)">▸</span><span>make a small kanban app for my todo.md with drag and drop</span><span class="caret"></span></div>
+      <div class="ctx"><span>Context:</span><span>☑ ~/todo.md</span><span>☐ this window</span><span>☐ selection</span><span>☐ screen</span></div>
+      <div class="acts"><span class="sel">⚡ Build an app</span><span>💬 Ask</span><span>⌨ Run a command</span><span>✎ Rewrite</span><span>🔍 Search my files</span></div>
+      <div class="foot"><span><span class="dot"></span>on this machine · Smart (Qwen3.8-27B) · change ▾</span><span>↵ start · esc close</span></div>
+    </div>
+    <div class="panel"><span class="app"></span><span class="app"></span><span class="app"></span><span class="sp"></span>
+      <div class="tray"><span><span class="dot"></span>on this machine</span><span class="clock">Thu 10 Sep 21:14</span></div></div>
+  </div>
+</section>
+
+<!-- 7 workspace -->
+<section>
+  <div class="desk">
+    <div class="ws">
+      <div class="head"><b>Kanban app</b><span class="tag">~/Projects/kanban</span><span class="sp"></span><span class="tag local">● local · code · Qwen3.8-27B</span><span class="tag">16 tok/s</span></div>
+      <div class="body">
+        <div class="plan"><div class="h">Plan</div>
+          <div class="s done">Scaffold Vite + TypeScript</div>
+          <div class="s done">Read tasks from todo.md</div>
+          <div class="s done">Dev-server API for read and write</div>
+          <div class="s now">Drag and drop between columns</div>
+          <div class="s">Type-check and build</div>
+          <div class="s">Preview and smoke test</div>
+          <div class="s">Install as an app</div>
+          <div class="ctl"><span>Pause</span><span>Steer…</span><span>Stop</span></div>
+        </div>
+        <div class="right">
+          <div class="preview"><span class="badge">preview · localhost:5173</span>
+            <div class="col"><h4>Todo</h4><div class="card">write genesis brief</div><div class="card">run phase 0 tasks</div></div>
+            <div class="col"><h4>Doing</h4><div class="card drag">set up repo</div></div>
+            <div class="col"><h4>Done</h4><div class="card">research models</div></div>
+          </div>
+          <div class="changes"><span><b>Changes</b> 5 files · +212 −8 · diff</span><span><b>Actions</b> 14 · all inside project</span><span><b>Checks</b> tsc ✔ build ✔</span></div>
+        </div>
+      </div>
+      <div class="changes" style="border-top:1px solid var(--line)"><span style="color:var(--os-ink-3)">Working… 3 min 40 s</span></div>
+    </div>
+    <div class="panel"><span class="app"></span><span class="app"></span><span class="app"></span><span class="sp"></span>
+      <div class="tray"><span><span class="dot"></span>on this machine</span><span class="clock">Thu 10 Sep 21:19</span></div></div>
+  </div>
+</section>
+
+<!-- 8 permission -->
+<section>
+  <div class="desk">
+    <div class="ws">
+      <div class="head"><b>Kanban app</b><span class="tag">~/Projects/kanban</span><span class="sp"></span><span class="tag local">● local · code · Qwen3.8-27B</span></div>
+      <div class="body">
+        <div class="plan"><div class="h">Plan</div>
+          <div class="s done">Scaffold Vite + TypeScript</div>
+          <div class="s done">Read tasks from todo.md</div>
+          <div class="s done">Dev-server API for read and write</div>
+          <div class="s done">Drag and drop between columns</div>
+          <div class="s done">Type-check and build</div>
+          <div class="s done">Preview and smoke test</div>
+          <div class="s now">Install as an app</div>
+          <div class="ctl"><span>Pause</span><span>Steer…</span><span>Stop</span></div>
+        </div>
+        <div class="right">
+          <div class="preview"><span class="badge">preview · localhost:5173</span>
+            <div class="col"><h4>Todo</h4><div class="card">write genesis brief</div><div class="card">run phase 0 tasks</div></div>
+            <div class="col"><h4>Doing</h4><div class="card">set up repo</div></div>
+            <div class="col"><h4>Done</h4><div class="card">research models</div></div>
+          </div>
+          <div class="changes"><span><b>Changes</b> 5 files · +212 −8</span><span><b>Actions</b> 21 · 20 inside project, 1 waiting</span></div>
+        </div>
+      </div>
+      <div class="perm">
+        <div><div class="t">Genesis wants to install an app</div>
+          <div class="d">Flatpak <code>org.genesis.kanban</code> for your user only · 2.1 MB · a snapshot is taken first so this can be undone. <span class="tag warn">tier T2</span></div></div>
+        <div class="b"><span>Deny</span><span>Show details</span><span class="ok">Allow once</span></div>
+      </div>
+    </div>
+    <div class="panel"><span class="app"></span><span class="app"></span><span class="app"></span><span class="sp"></span>
+      <div class="tray"><span><span class="dot"></span>on this machine</span><span class="clock">Thu 10 Sep 21:23</span></div></div>
+  </div>
+</section>
+
+<!-- 9 model manager -->
+<section>
+  <div class="desk">
+    <div class="mm">
+      <div class="head" style="display:flex;align-items:center;gap:10px;padding:0 12px;background:var(--os-panel-2);border-bottom:1px solid var(--line);font-size:12.5px"><b>Models</b><span class="tag">pack gpu-24</span><span class="sp" style="flex:1"></span><span class="tag">Change pack</span><span class="tag acc">Add model…</span></div>
+      <div class="sum">
+        <div><div class="k">GPU</div><div class="v">RTX 4090 · 24 GB</div></div>
+        <div><div class="k">Loaded now</div><div class="v">21.4 GB of 24 GB</div></div>
+        <div><div class="k">On disk</div><div class="v">47.6 GB</div></div>
+        <div><div class="k">Cloud</div><div class="v" style="color:var(--os-ink-2)">off</div></div>
+      </div>
+      <table>
+        <tr><th>Model</th><th>Role</th><th>Size</th><th>Fit on this GPU</th><th>Status</th><th></th></tr>
+        <tr><td>Qwen3.8-27B <span class="tag">Apache 2.0</span></td><td>code, vision</td><td class="num">19.8 GB</td><td><span class="fit"><i style="width:82%"></i></span><span class="num">~28 tok/s</span></td><td class="st on">● loaded</td><td class="num">…</td></tr>
+        <tr><td>Qwen3.6-35B-A3B <span class="tag">Apache 2.0</span></td><td>chat</td><td class="num">22.1 GB</td><td><span class="fit"><i style="width:92%"></i></span><span class="num">~60 tok/s</span></td><td class="st idle">idle · unloads in 9:40</td><td class="num">…</td></tr>
+        <tr><td>Qwen3.5-4B <span class="tag">Apache 2.0</span></td><td>fast</td><td class="num">4.5 GB</td><td><span class="fit"><i style="width:19%"></i></span><span class="num">~120 tok/s</span></td><td class="st on">● always on</td><td class="num">…</td></tr>
+        <tr><td>Qwen3-Embedding-0.6B</td><td>search</td><td class="num">0.6 GB</td><td><span class="fit"><i style="width:3%"></i></span><span class="num"></span></td><td class="st on">● always on</td><td class="num">…</td></tr>
+        <tr><td>Whisper large-v3-turbo</td><td>speech</td><td class="num">0.8 GB</td><td><span class="fit"><i style="width:4%"></i></span></td><td class="st off">on demand</td><td class="num">…</td></tr>
+        <tr><td>Z-Image-Turbo</td><td>images</td><td class="num">6.2 GB</td><td><span class="fit"><i style="width:26%"></i></span><span class="num">~4 s/image</span></td><td class="st off">on demand</td><td class="num">…</td></tr>
+      </table>
+    </div>
+    <div class="panel"><span class="app"></span><span class="app"></span><span class="app"></span><span class="sp"></span>
+      <div class="tray"><span><span class="dot"></span>on this machine</span><span class="clock">Thu 10 Sep 21:25</span></div></div>
+  </div>
+</section>
+
+<!-- 10 undo -->
+<section>
+  <div class="desk">
+    <div class="overlay"></div>
+    <div class="undo">
+      <div class="h"><span>Session: Kanban app · finished 21:24</span><span class="tag local">● local</span></div>
+      <ul>
+        <li><span class="mono">project</span><span><b>~/Projects/kanban</b> created · 5 files, +212 −8</span></li>
+        <li><span class="mono">file</span><span><b>~/todo.md</b> rewritten once by the app during a test, restored to original</span></li>
+        <li><span class="mono">install</span><span><b>Flatpak org.genesis.kanban</b> (user) · approved 21:23 · snapshot #41 taken first</span></li>
+        <li><span class="mono">shell</span><span>22 commands, all inside the project · <a href="#" style="color:var(--accent)">view log</a></span></li>
+        <li><span class="mono">network</span><span>npm registry only · 3 downloads</span></li>
+      </ul>
+      <div class="f"><span>Undo restores snapshot #41 and removes the app. The project folder is kept unless you tick it.</span><span class="btn">Undo this session</span></div>
+    </div>
+    <div class="panel"><span class="app"></span><span class="app"></span><span class="app"></span><span class="sp"></span>
+      <div class="tray"><span><span class="dot"></span>on this machine</span><span class="clock">Thu 10 Sep 21:26</span></div></div>
+  </div>
+</section>
+
+</div>
+
+<div class="caption"><p id="cap"></p></div>
+</div>
+</div>
+
+<div class="notes">
+  <h2>What is real today and what is not</h2>
+  <ul>
+    <li><strong>Real:</strong> the three models, their speeds, the router that keeps the small model hot and swaps the coder, and the kanban app itself. All from the Phase 0 run on your Mac.</li>
+    <li><strong>Designed, not built:</strong> the boot image, first-run wizard, desktop integration, launcher, workspace, permission broker, model manager and undo. These are Phase 1 and 2.</li>
+    <li><strong>The permission prompt is the priority.</strong> In the real Phase 0 run the agent installed a package with a policy override without asking. Screen 8 is what should have happened.</li>
+  </ul>
+</div>
+</div>
+
+<script>
+(function(){
+  var caps=[
+    "Boot is deliberately boring: systemd-boot, a signed unified kernel image, a verified read-only system. The previous deployment is always kept, so a bad update or a bad agent day is one reboot away from undone.",
+    "First run reads the GPU, memory and disk, then proposes one pack with honest numbers: sizes, expected speed, download time, and what that tier can and cannot do.",
+    "Models download in the background. A 2 GB model shipped with the installer answers questions meanwhile, so the first minute is not a blank progress bar.",
+    "The privacy promise is stated as facts, not marketing: what the assistant can see, what it can change, that cloud is off, and that everything is logged locally.",
+    "The desktop is KDE Plasma with one addition that matters: a tray indicator that reads 'on this machine' and turns amber only when a cloud model is answering. The terminal has the assistant built in.",
+    "Super+Space opens the launcher. The request is typed in plain words, context is chosen with checkboxes, and the footer shows which model will answer and that it is local. One key changes the model.",
+    "Building an app shows the work: a plan with live steps, a preview of the running app, the file changes and every action taken. Pause, steer or stop at any time. This screen shows the real kanban app the local 27B built.",
+    "Installing an app leaves the project directory, so the agent stops and asks. The prompt says exactly what will happen, that a snapshot is taken first, and which tier the action is. This is the piece missing in Phase 0.",
+    "The model manager answers three questions at a glance: what is loaded, what fits this GPU and how fast it will run, and how much disk is used. Every model shows its license.",
+    "When a session ends, everything it touched is listed by kind. One button restores the snapshot and removes what was installed. Undo stays available for seven days."
+  ];
+  var secs=document.querySelectorAll('#screen > section');
+  var btns=document.querySelectorAll('#steps button');
+  var cap=document.getElementById('cap');
+  var i=0;
+  function show(n){
+    i=(n+secs.length)%secs.length;
+    secs.forEach(function(s,k){s.classList.toggle('active',k===i)});
+    btns.forEach(function(b,k){ if(k===i){b.setAttribute('aria-current','step')} else {b.removeAttribute('aria-current')} });
+    cap.textContent=caps[i];
+    try{localStorage.setItem('genesis-walk-step',String(i))}catch(e){}
+  }
+  btns.forEach(function(b){b.addEventListener('click',function(){show(+b.dataset.i)})});
+  document.getElementById('prev').addEventListener('click',function(){show(i-1)});
+  document.getElementById('next').addEventListener('click',function(){show(i+1)});
+  document.addEventListener('keydown',function(e){ if(e.key==='ArrowRight')show(i+1); if(e.key==='ArrowLeft')show(i-1); });
+  var start=0; try{start=parseInt(localStorage.getItem('genesis-walk-step')||'0',10)||0}catch(e){}
+  show(start);
+})();
+</script>
