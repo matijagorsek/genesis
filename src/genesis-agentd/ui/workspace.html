@@ -9,127 +9,161 @@
 *{box-sizing:border-box}
 html,body{height:100%}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans",sans-serif;font-size:14px;line-height:1.5;display:grid;grid-template-rows:auto 1fr;height:100vh}
-header{display:flex;align-items:center;gap:10px;padding:0 14px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap;min-height:44px;row-gap:4px}
-header b{font-size:15px}
+header{display:flex;align-items:center;gap:10px;padding:6px 14px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+header b{font-size:15px;letter-spacing:-.01em}
 .badge{font-family:var(--mono);font-size:11px;padding:2px 9px;border-radius:999px;border:1px solid var(--line);color:var(--ink-2);white-space:nowrap}
-.badge.local{border-color:var(--good);color:var(--good)}
-.badge.local:before{content:"● ";}
+.badge.local{border-color:var(--good);color:var(--good)} .badge.local:before{content:"● "}
 .sp{flex:1}
 select,input[type=text]{background:var(--panel-2);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:6px 9px;font:inherit}
 button{background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:6px 12px;font:inherit;cursor:pointer}
 button:hover{border-color:var(--accent)} button:focus-visible{outline:2px solid var(--accent);outline-offset:2px} button:disabled{opacity:.5;cursor:default}
 button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
 button.danger{border-color:var(--bad);color:var(--bad)}
-main{display:grid;grid-template-columns:260px 1fr;min-height:0}
-aside{background:var(--panel);border-right:1px solid var(--line);padding:12px;overflow:auto;display:flex;flex-direction:column;gap:10px}
-aside h3{margin:6px 0 2px;font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
-.sess{border:1px solid var(--line);border-radius:6px;padding:8px 10px;cursor:pointer;font-size:13px}
-.sess.sel{border-color:var(--accent)}
-.sess .p{color:var(--ink-2);font-family:var(--mono);font-size:11px;word-break:break-all}
-.sess .st{font-family:var(--mono);font-size:11px}
+#start{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;gap:22px;overflow:auto}
+#start h1{font-size:clamp(26px,4vw,40px);margin:0;letter-spacing:-.02em;text-align:center}
+#start p.sub{color:var(--ink-2);margin:0;max-width:56ch;text-align:center}
+.ask{width:min(760px,100%);display:grid;grid-template-columns:1fr auto;gap:10px}
+.ask textarea{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:14px 16px;font:inherit;font-size:16px;resize:none;min-height:64px}
+.ask button{padding:0 22px;font-size:15px}
+.tpls{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;width:min(760px,100%)}
+.tpl{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;cursor:pointer;text-align:left}
+.tpl:hover{border-color:var(--accent)}
+.tpl b{display:block;font-size:14px;margin-bottom:3px}
+.tpl span{font-size:12.5px;color:var(--ink-2)}
+.where{display:flex;gap:10px;align-items:center;font-size:12.5px;color:var(--ink-2);flex-wrap:wrap;justify-content:center}
+.recent{width:min(760px,100%);font-size:12.5px;color:var(--ink-3)}
+.recent a{color:var(--accent);cursor:pointer;margin-right:12px}
+#maker{display:none;grid-template-columns:300px 1fr;min-height:0}
+#maker.on{display:grid}
+aside{background:var(--panel);border-right:1px solid var(--line);display:grid;grid-template-rows:auto 1fr auto;min-height:0}
+.title{padding:12px 14px;border-bottom:1px solid var(--line)}
+.title b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.title .p{font-family:var(--mono);font-size:11px;color:var(--ink-3);word-break:break-all}
+.title .st{font-family:var(--mono);font-size:11px}
 .st-running,.st-waiting{color:var(--warn)} .st-done{color:var(--good)} .st-error{color:var(--bad)} .st-idle{color:var(--ink-3)}
-section{display:grid;grid-template-rows:1fr auto;min-height:0}
-.stream{overflow:auto;padding:16px 18px;display:flex;flex-direction:column;gap:6px}
-.ev{display:grid;grid-template-columns:22px 1fr;gap:10px;align-items:start;font-size:13.5px}
-.ev .i{color:var(--ink-3);font-family:var(--mono);text-align:center}
-.ev .t{white-space:pre-wrap;word-break:break-word}
-.ev.user .t{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:8px 12px}
-.ev.assistant .t{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 12px}
-.ev.tool .t{font-family:var(--mono);font-size:12.5px;color:var(--ink-2)}
-.ev.decision .t{font-family:var(--mono);font-size:12px;color:var(--ink-3)}
-.ev.result .t{font-family:var(--mono);font-size:12px;color:var(--ink-3)}
-.ev.snapshot .t{font-family:var(--mono);font-size:12px;color:var(--accent)}
-.ev.error .t{color:var(--bad)}
-.ev.done .t{color:var(--good);font-family:var(--mono);font-size:12px}
-.tier{display:inline-block;font-family:var(--mono);font-size:10.5px;padding:1px 6px;border-radius:999px;border:1px solid var(--line);margin-right:6px}
+.steps{overflow:auto;padding:10px 12px;display:flex;flex-direction:column;gap:5px}
+.step{display:grid;grid-template-columns:18px 1fr;gap:8px;font-size:12.5px;align-items:start}
+.step .i{color:var(--ink-3);font-family:var(--mono);text-align:center}
+.step .t{white-space:pre-wrap;word-break:break-word;color:var(--ink-2)}
+.step.user .t{color:var(--ink)}
+.step.assistant .t{color:var(--ink);background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:7px 10px}
+.step.tool .t{font-family:var(--mono);font-size:11.5px}
+.step.decision .t{font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+.step.result .t{font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+.step.snapshot .t{font-family:var(--mono);font-size:11px;color:var(--accent)}
+.step.error .t{color:var(--bad)} .step.done .t{color:var(--good);font-family:var(--mono);font-size:11px}
+.tier{display:inline-block;font-family:var(--mono);font-size:10px;padding:0 6px;border-radius:999px;border:1px solid var(--line);margin-right:5px}
 .tier.allow{border-color:var(--good);color:var(--good)} .tier.prompt{border-color:var(--warn);color:var(--warn)} .tier.deny{border-color:var(--bad);color:var(--bad)}
-.composer{border-top:1px solid var(--line);padding:12px 18px;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end;background:var(--panel)}
-textarea{background:var(--panel-2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:inherit;resize:vertical;min-height:44px;max-height:200px}
-.perm{border:1px solid var(--warn);background:#1d1a14;border-radius:8px;padding:12px 14px;margin:6px 0;display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}
+.steer{border-top:1px solid var(--line);padding:10px 12px;display:grid;gap:8px}
+.steer textarea{background:var(--panel-2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:9px 11px;font:inherit;resize:none;min-height:42px}
+.steer .row{display:flex;gap:6px;flex-wrap:wrap}
+.stage{display:grid;grid-template-rows:auto 1fr auto;min-height:0}
+.stagebar{display:flex;gap:10px;align-items:center;padding:8px 14px;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--ink-2);flex-wrap:wrap}
+.stagebar code{font-family:var(--mono);color:var(--accent)}
+.view{position:relative;min-height:0;background:#0b0f14}
+.view iframe{width:100%;height:100%;border:0;background:#fff}
+.view .empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--ink-3);text-align:center;padding:30px}
+.perms{border-top:1px solid var(--line);background:var(--panel);max-height:40vh;overflow:auto}
+.perm{border:1px solid var(--warn);background:#1d1a14;border-radius:8px;padding:10px 12px;margin:10px 14px;display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}
 .perm .h{color:var(--warn);font-weight:600}
-.perm .d{font-family:var(--mono);font-size:12px;color:var(--ink-2);margin-top:4px;white-space:pre-wrap;word-break:break-all}
+.perm .d{font-family:var(--mono);font-size:11.5px;color:var(--ink-2);margin-top:3px;white-space:pre-wrap;word-break:break-all;max-height:120px;overflow:auto}
 .perm .b{display:flex;gap:8px}
-.empty{color:var(--ink-3);padding:40px;text-align:center}
-.tx{font-size:12.5px;color:var(--ink-2)}
-.tx code{font-family:var(--mono);color:var(--accent)}
-.kbd{font-family:var(--mono);font-size:11px;border:1px solid var(--line);border-radius:4px;padding:0 5px;color:var(--ink-2)}
+.changes{font-size:12px;color:var(--ink-2)}
 </style>
 </head>
 <body>
 <header>
   <b>Genesis</b>
-  <span class="badge local" id="badgeLocal">on this machine</span>
+  <span class="badge local">on this machine</span>
   <span class="badge" id="badgeModel">model: …</span>
   <span class="badge" id="badgeSandbox"></span>
   <span class="sp"></span>
-  <label>Mode <select id="mode"><option value="assist">Assist (ask before writes)</option><option value="auto_edit" selected>Auto-edit (project writes allowed)</option><option value="autonomous">Autonomous (snapshots, still asks for system changes)</option></select></label>
-  <input type="text" id="project" placeholder="project directory" size="26">
-  <button id="newSession" class="primary">New session</button>
+  <button id="home">Make something new</button>
 </header>
-<main>
+
+<section id="start">
+  <h1>What do you want to make?</h1>
+  <p class="sub">Describe an app, a tool or a script. Genesis builds it here with local models, shows it running, and can put it in your app menu.</p>
+  <div class="ask"><textarea id="ask" placeholder="e.g. a pomodoro timer web app with a big countdown and a bell"></textarea><button class="primary" id="go">Make it</button></div>
+  <div class="where">
+    <label>Mode <select id="mode"><option value="auto_edit" selected>Auto-edit (project changes allowed, asks for anything else)</option><option value="assist">Assist (asks before every change)</option><option value="autonomous">Autonomous (snapshots, still asks for system changes)</option></select></label>
+    <label>Folder <input type="text" id="project" size="30"></label>
+  </div>
+  <div class="tpls" id="tpls"></div>
+  <div class="recent" id="recent"></div>
+</section>
+
+<main id="maker">
   <aside>
-    <h3>Sessions</h3>
-    <div id="sessions"></div>
-    <div class="sp"></div>
-    <div class="tx" id="txInfo"></div>
-    <button id="undo" class="danger" style="display:none">Undo this session's changes</button>
-    <p style="font-size:11.5px;color:var(--ink-3);margin:8px 0 0">Every tool call is checked by the permission broker before it runs. Anything at user or system scope is snapshotted first and can be undone.</p>
-  </aside>
-  <section>
-    <div class="stream" id="stream"><div class="empty">Create a session, then describe what you want done in the project.</div></div>
-    <div class="composer">
-      <textarea id="prompt" placeholder="What should Genesis do? (Enter to send, Shift+Enter for a new line)"></textarea>
-      <button id="send" class="primary" disabled>Send</button>
+    <div class="title"><b id="ttl">…</b><div class="p" id="tproj"></div><div class="st" id="tstate"></div></div>
+    <div class="steps" id="steps"></div>
+    <div class="steer">
+      <textarea id="steerText" placeholder="Change something, add a feature, fix a bug… (Enter to send)"></textarea>
+      <div class="row"><button id="steerSend" class="primary">Send</button><button id="installBtn">Install as app</button><button id="undo" class="danger" style="display:none">Undo changes</button></div>
+      <div class="changes" id="txInfo"></div>
     </div>
+  </aside>
+  <section class="stage">
+    <div class="stagebar"><span id="previewLabel">Preview</span><code id="previewUrl"></code><span class="sp"></span><button id="reload">Reload</button><button id="openTab">Open in browser</button></div>
+    <div class="view"><iframe id="frame" title="preview" sandbox="allow-scripts allow-forms allow-same-origin allow-modals" hidden></iframe><div class="empty" id="viewEmpty">The preview appears here as soon as the app runs.</div></div>
+    <div class="perms" id="perms"></div>
   </section>
 </main>
+
 <script>
 (function(){
   const $=s=>document.querySelector(s);
-  let current=null, sessions={}, seen=0, poll=null;
+  let current=null, seen=0, poll=null, lastUrl=null;
   async function api(path,body){const r=await fetch(path,body?{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}:{});return r.json();}
-  async function health(){try{const h=await api('/api/health');$('#badgeModel').textContent='model: '+h.model;$('#badgeSandbox').textContent=h.sandbox?'sandbox: bubblewrap':'sandbox: dev mode (none)';if(!$('#project').value)$('#project').value=h.default_project||'';}catch(e){$('#badgeModel').textContent='model: unreachable'}}
-  function renderSessions(){const box=$('#sessions');box.innerHTML='';const list=Object.values(sessions).sort((a,b)=>(b.created||0)-(a.created||0));if(!list.length){box.innerHTML='<div style="color:var(--ink-3);font-size:12.5px">none yet</div>';return}
-    list.forEach(s=>{const d=document.createElement('div');d.className='sess'+(s.id===current?' sel':'');d.innerHTML=`<div>${s.mode||''} <span class="st st-${s.state||'idle'}">${s.state||'idle'}</span></div><div class="p">${s.project||''}</div>`;d.addEventListener('click',()=>select(s.id));box.appendChild(d)})}
-  function evEl(e){const d=document.createElement('div');let cls='',icon='',text='';
+  function showStart(on){$('#start').style.display=on?'flex':'none';$('#maker').classList.toggle('on',!on);}
+  async function health(){try{const h=await api('/api/health');$('#badgeModel').textContent='model: '+h.model;$('#badgeSandbox').textContent=h.sandbox?'sandbox: bubblewrap':'sandbox: dev mode';if(!$('#project').value)$('#project').value=h.default_project||'';}catch(e){$('#badgeModel').textContent='model: unreachable'}}
+  async function templates(){const t=await api('/api/templates');const box=$('#tpls');box.innerHTML='';(t||[]).forEach(x=>{const d=document.createElement('button');d.className='tpl';d.innerHTML=`<b>${x.name}</b><span>${x.description}</span>`;d.addEventListener('click',()=>{const a=$('#ask');a.value=(a.value.trim()?a.value.trim()+' ':'')+`(use the ${x.id} template)`;a.focus()});box.appendChild(d)})}
+  async function recent(){const list=await api('/api/sessions');const r=$('#recent');r.innerHTML='';if(!Array.isArray(list)||!list.length)return;r.appendChild(document.createTextNode('Recent: '));list.slice(-6).reverse().forEach(s=>{const a=document.createElement('a');a.textContent=(s.active_project||s.project).split('/').pop()+' · '+s.state;a.addEventListener('click',()=>open(s.id));r.appendChild(a)})}
+  function stepEl(e){const d=document.createElement('div');let cls='',icon='',text='';
     switch(e.kind){
       case 'user_prompt':cls='user';icon='▶';text=e.text;break;
-      case 'assistant':cls='assistant';icon='💬';text=e.text;break;
-      case 'tool_call':cls='tool';icon='🔧';text=e.name+' '+JSON.stringify(e.args).slice(0,300);break;
-      case 'decision':cls='decision';icon='';d.innerHTML=`<div class="i"></div><div class="t"><span class="tier ${e.verdict.startsWith('allow')?'allow':e.verdict}">${e.tier} ${e.verdict}</span>${e.reason}</div>`;d.className='ev decision';return d;
+      case 'assistant':cls='assistant';icon='';text=e.text;break;
+      case 'tool_call':cls='tool';icon='🔧';text=e.name+' '+JSON.stringify(e.args).slice(0,220);break;
+      case 'decision':d.className='step decision';d.innerHTML=`<div class="i"></div><div class="t"><span class="tier ${e.verdict.startsWith('allow')?'allow':e.verdict}">${e.tier} ${e.verdict}</span>${e.reason}</div>`;return d;
       case 'tool_result':cls='result';icon=e.ok?'✓':'✗';text=e.summary;break;
-      case 'waiting':cls='decision';icon='⏸';text='waiting for your permission: '+e.name;break;
+      case 'waiting':cls='decision';icon='⏸';text='needs your permission: '+e.name;break;
       case 'resolved':cls='decision';icon='';text=e.allowed?'allowed':'denied';break;
       case 'snapshot':cls='snapshot';icon='⎘';text=e.tx+' '+e.detail;break;
       case 'error':cls='error';icon='‼';text=e.text;break;
       case 'done':cls='done';icon='■';text='done in '+e.turns+' turns';break;
       default:text=JSON.stringify(e);
     }
-    d.className='ev '+cls;d.innerHTML=`<div class="i">${icon}</div><div class="t"></div>`;d.querySelector('.t').textContent=text;return d}
-  function permEl(p){const d=document.createElement('div');d.className='perm';d.innerHTML=`<div><div class="h">Genesis wants to run <b>${p.tool}</b> · ${p.tier}</div><div class="d">${JSON.stringify(p.args,null,1)}</div><div class="d">${p.reason}</div></div><div class="b"><button data-a="0">Deny</button><button class="primary" data-a="1">Allow once</button></div>`;
-    d.querySelectorAll('button').forEach(b=>b.addEventListener('click',async()=>{await api('/api/prompts/'+p.request_id,{allow:b.dataset.a==='1'});d.remove()}));return d}
-  async function refresh(){if(!current)return;const s=await api('/api/sessions/'+current);if(s.error)return;sessions[current]={...sessions[current],...s};const st=$('#stream');
-    if(seen===0)st.innerHTML='';
-    for(let i=seen;i<s.events.length;i++){st.appendChild(evEl(s.events[i]))}
+    d.className='step '+cls;d.innerHTML=`<div class="i">${icon}</div><div class="t"></div>`;d.querySelector('.t').textContent=text;return d}
+  function permEl(p){const d=document.createElement('div');d.className='perm';d.dataset.rid=p.request_id;d.innerHTML=`<div><div class="h">Genesis wants to run <b>${p.tool}</b> · ${p.tier}</div><div class="d">${JSON.stringify(p.args,null,1)}</div><div class="d">${p.reason}</div></div><div class="b"><button data-a="0">Deny</button><button class="primary" data-a="1">Allow once</button></div>`;
+    d.querySelectorAll('button').forEach(b=>b.addEventListener('click',async()=>{b.disabled=true;await api('/api/prompts/'+p.request_id,{allow:b.dataset.a==='1'});d.remove()}));return d}
+  async function refresh(){if(!current)return;const s=await api('/api/sessions/'+current);if(s.error)return;
+    $('#ttl').textContent=(s.active_project||s.project).split('/').filter(Boolean).pop()||'project';$('#tproj').textContent=s.active_project||s.project;$('#tstate').innerHTML=`<span class="st-${s.state}">${s.state}</span> · ${s.mode}`;
+    const st=$('#steps');
+    for(let i=seen;i<s.events.length;i++){st.appendChild(stepEl(s.events[i]))}
     if(s.events.length!==seen){seen=s.events.length;st.scrollTop=st.scrollHeight}
     const want=new Set((s.pending||[]).map(p=>p.request_id));
     document.querySelectorAll('.perm').forEach(x=>{if(!want.has(x.dataset.rid))x.remove()});
-    (s.pending||[]).forEach(p=>{if(!document.querySelector('.perm[data-rid="'+p.request_id+'"]')){const el=permEl(p);el.dataset.rid=p.request_id;st.appendChild(el);st.scrollTop=st.scrollHeight}});
-    $('#send').disabled=(s.state==='running'||s.state==='waiting');
-    $('#txInfo').innerHTML=s.transaction?`Transaction <code>${s.transaction}</code>: user/system-scope changes are snapshotted.`:'No user- or system-scope changes yet.';
-    $('#undo').style.display=(s.transaction&&s.state!=='running'&&s.state!=='waiting')?'':'none';
-    renderSessions()}
-  function select(id){current=id;seen=0;$('#stream').innerHTML='';refresh();renderSessions();if(!poll)poll=setInterval(refresh,700)}
-  $('#newSession').addEventListener('click',async()=>{const r=await api('/api/sessions',{mode:$('#mode').value,project:$('#project').value});if(r.error){alert(r.error);return}sessions[r.id]={id:r.id,mode:$('#mode').value,project:$('#project').value,state:'idle',created:Date.now()};select(r.id);$('#send').disabled=false;$('#prompt').focus()});
-  async function send(){const t=$('#prompt').value.trim();if(!t||!current)return;$('#prompt').value='';$('#send').disabled=true;const r=await api('/api/sessions/'+current+'/prompt',{text:t});if(r.error){alert(r.error);$('#send').disabled=false}}
-  $('#send').addEventListener('click',send);
-  $('#prompt').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}});
-  $('#undo').addEventListener('click',async()=>{if(!confirm('Undo every user- and system-scope change this session made?'))return;const r=await api('/api/sessions/'+current+'/undo');const st=$('#stream');const d=document.createElement('div');d.className='ev snapshot';d.innerHTML='<div class="i">↶</div><div class="t"></div>';d.querySelector('.t').textContent=(r.log||[r.error]).join('\n');st.appendChild(d);st.scrollTop=st.scrollHeight;$('#undo').style.display='none'});
-  // launcher hand-off: /?prompt=...&project=...
+    (s.pending||[]).forEach(p=>{if(!document.querySelector('.perm[data-rid="'+p.request_id+'"]'))$('#perms').appendChild(permEl(p))});
+    const busy=(s.state==='running'||s.state==='waiting');$('#steerSend').disabled=busy;$('#installBtn').disabled=busy;
+    $('#txInfo').innerHTML=s.transaction?`Changes outside the project are snapshotted (<code>${s.transaction}</code>).`:'';
+    $('#undo').style.display=(s.transaction&&!busy)?'':'none';
+    if(s.preview_url&&s.preview_url!==lastUrl){lastUrl=s.preview_url;$('#frame').src=s.preview_url;$('#frame').hidden=false;$('#viewEmpty').hidden=true;$('#previewUrl').textContent=s.preview_url}
+    if(!s.preview_url&&lastUrl){lastUrl=null;$('#frame').hidden=true;$('#frame').src='about:blank';$('#viewEmpty').hidden=false;$('#previewUrl').textContent=''}
+  }
+  function open(id){current=id;seen=0;lastUrl=null;$('#steps').innerHTML='';$('#perms').innerHTML='';$('#frame').hidden=true;$('#viewEmpty').hidden=false;$('#previewUrl').textContent='';showStart(false);refresh();if(!poll)poll=setInterval(refresh,700)}
+  async function make(text){if(!text.trim())return;const r=await api('/api/sessions',{mode:$('#mode').value,project:$('#project').value});if(r.error){alert(r.error);return}open(r.id);await api('/api/sessions/'+r.id+'/prompt',{text:text.trim()})}
+  $('#go').addEventListener('click',()=>make($('#ask').value));
+  $('#ask').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();make($('#ask').value)}});
+  async function steer(){const t=$('#steerText').value.trim();if(!t||!current)return;$('#steerText').value='';$('#steerSend').disabled=true;const r=await api('/api/sessions/'+current+'/prompt',{text:t});if(r.error){alert(r.error);$('#steerSend').disabled=false}}
+  $('#steerSend').addEventListener('click',steer);
+  $('#steerText').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();steer()}});
+  $('#installBtn').addEventListener('click',async()=>{if(!current)return;const name=prompt('Name in the app menu:',$('#ttl').textContent);if(!name)return;$('#installBtn').disabled=true;await api('/api/sessions/'+current+'/prompt',{text:`Install this project as an app named "${name}" using the install_app tool, then tell me where it appears.`})});
+  $('#undo').addEventListener('click',async()=>{if(!confirm('Undo every change this session made outside the project?'))return;const r=await api('/api/sessions/'+current+'/undo');const d=stepEl({kind:'snapshot',tx:'undo',detail:(r.log||[r.error]).join(' · ')});$('#steps').appendChild(d);$('#undo').style.display='none'});
+  $('#reload').addEventListener('click',()=>{if(lastUrl)$('#frame').src=lastUrl});
+  $('#openTab').addEventListener('click',()=>{if(lastUrl)window.open(lastUrl,'_blank')});
+  $('#home').addEventListener('click',()=>{showStart(true);recent()});
   const q=new URLSearchParams(location.search);
-  health().then(async()=>{if(q.get('project'))$('#project').value=q.get('project');if(q.get('prompt')){$('#newSession').click();setTimeout(()=>{$('#prompt').value=q.get('prompt');send()},300)}});
-  api('/api/sessions').then(list=>{if(Array.isArray(list)){list.forEach((s,i)=>{sessions[s.id]={...s,created:i};});renderSessions();if(!current&&list.length)select(list[list.length-1].id)}}).catch(()=>{});
-  renderSessions();
+  health().then(async()=>{await templates();await recent();if(q.get('project'))$('#project').value=q.get('project');if(q.get('prompt')){make(q.get('prompt'))}});
 })();
 </script>
 </body>
