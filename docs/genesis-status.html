@@ -63,13 +63,13 @@ ol.next{padding-left:22px;max-width:70ch}ol.next li{margin-bottom:7px}
 <p class="eyebrow">Genesis · project status</p>
 <h1>Genesis, from idea to a booting OS in two days</h1>
 <p class="lede">One page with everything: what was investigated, what was decided, what runs today, the proof that Genesis boots, and what comes next. Links to the full brief, the interactive walkthrough, the repository and the published image.</p>
-<div class="meta"><span>updated 2026-09-11</span><span>28 commits on main</span><span>github.com/matijagorsek/genesis</span></div>
+<div class="meta"><span>updated 2026-09-11</span><span>36 commits on main</span><span>github.com/matijagorsek/genesis</span></div>
 
 <div class="tiles">
   <div class="tile"><div class="k">Phase 0 tasks</div><div class="v">3 / 3 <span class="pill ok">pass</span></div><div class="s">shell, repo edit, kanban app, all with a local 27B</div></div>
   <div class="tile"><div class="k">Image</div><div class="v">3.80 GB</div><div class="s">ghcr.io/matijagorsek/genesis:0.1 · strict lint · +70 MB over base</div></div>
   <div class="tile"><div class="k">Boot test</div><div class="v">pass <span class="pill ok">CI + Mac</span></div><div class="s">KVM on the runner; 90 s to login on the Mac under emulation</div></div>
-  <div class="tile"><div class="k">Release</div><div class="v">v0.1.10 <span class="pill ok">ISO + qcow2</span></div><div class="s">installer ISO 5.2 GB and disk image, split with checksums</div></div>
+  <div class="tile"><div class="k">Release</div><div class="v">v0.1.14 <span class="pill ok">+ permd</span></div><div class="s">ISO and disk image; first release with the permission broker inside</div></div>
 </div>
 
 <h2>Everything, in one place</h2>
@@ -93,6 +93,7 @@ ol.next{padding-left:22px;max-width:70ch}ol.next li{margin-bottom:7px}
 <tr><td>Inference</td><td>Upstream llama.cpp Vulkan build plus llama-swap, one local OpenAI-compatible endpoint. Fedora's llama-cpp package rejected: stale, no Vulkan, +2.5 GB of ROCm.</td><td><span class="pill ok">built</span></td></tr>
 <tr><td>Models</td><td>Qwen3.5 / 3.6 / 3.8 family, Apache 2.0. Seven hardware-tiered packs. Three license tiers.</td><td><span class="pill ok">packs verified</span></td></tr>
 <tr><td>Agent</td><td>Goose embedded, MCP tools, Rust daemons. Permission broker first, because Phase 0 showed the agent escalating on its own.</td><td><span class="pill warn">Phase 1</span></td></tr>
+<tr><td>Permissions</td><td>genesis-permd: eight tiers, three session modes, taint rule, hash-chained audit log, D-Bus service, TOML policy. The Phase 0 escalation now prompts. 12 unit tests; verified inside the booted VM.</td><td><span class="pill ok">built, shipped</span></td></tr>
 <tr><td>Safety</td><td>Sandbox tiers T0 to T4, btrfs snapshots and undo, agent as its own user, everything local as a visible fact.</td><td><span class="pill warn">Phase 1</span></td></tr>
 </tbody></table></div>
 
@@ -124,7 +125,7 @@ ol.next{padding-left:22px;max-width:70ch}ol.next li{margin-bottom:7px}
   <div class="step ok"><div class="n">7 · done</div>split, release v0.1.9</div>
   <div class="step ok"><div class="n">8 · done</div>installer ISO job</div>
 </div>
-<p>Ten CI runs. Run 10 was the first fully green pipeline, both jobs, ending in release v0.1.10 with the installer ISO and the disk image attached. Each failure was a distinct pipeline issue, not an image problem: podman lacking Docker's heredoc syntax, a registry pull timeout, an old podman flag, runner disk exhausted, a missing distro definition for an OS named "genesis", KVM device permissions, and a boot script typing before the shell was ready. All fixed, and a full audit removed the next ones in line: 2 GB release asset limit, private-repo artifact quota, and three bugs in the test script.</p>
+<p>Fourteen CI runs. Run 10 was the first fully green pipeline; run 14 added a Rust test job and shipped the permission broker inside the image, verified by the boot test. Open item: the hostname still reads "aurora"; diagnostics are in run 15. Each failure was a distinct pipeline issue, not an image problem: podman lacking Docker's heredoc syntax, a registry pull timeout, an old podman flag, runner disk exhausted, a missing distro definition for an OS named "genesis", KVM device permissions, and a boot script typing before the shell was ready. All fixed, and a full audit removed the next ones in line: 2 GB release asset limit, private-repo artifact quota, and three bugs in the test script.</p>
 
 <h2>Proof of first boot</h2>
 <p>Serial console from CI run 7 on 2026-09-11, trimmed. This is Genesis booting from its own disk image under KVM, logging in, and passing its checks.</p>
@@ -156,8 +157,7 @@ Password:
 <h2>Next, in order</h2>
 <ol class="next">
     <li><strong>Watch it on screen.</strong> <code>just boot</code> opens the QEMU window with v0.1.9 already downloaded; login genesis / genesis.</li>
-  <li><strong>genesis-permd.</strong> The permission broker, first Rust daemon, because the agent escalates on its own without it.</li>
-  <li><strong>genesis-probe and the first-run wizard.</strong> Hardware profile, pack proposal, download with the bootstrap model answering meanwhile.</li>
+    <li><strong>genesis-probe and the first-run wizard.</strong> Hardware profile, pack proposal, download with the bootstrap model answering meanwhile.</li>
   <li><strong>Packs as OCI artifacts</strong> on GHCR, pulled with ramalama, router config rendered from the installed pack.</li>
   <li><strong>genesis-agentd</strong> embedding Goose, every tool call through the broker, tools in bubblewrap.</li>
   <li><strong>Transactions and undo</strong>, then the launcher and workspace, then the file index and search.</li>
