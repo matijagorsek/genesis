@@ -6,7 +6,7 @@ pub mod policy;
 
 pub use broker::Broker;
 pub use model::{Decision, Intent, Mode, Network, Privilege, Session, Tier, Verdict};
-pub use policy::Policy;
+pub use policy::{command_write_paths, Policy};
 
 /// Default policy sources: system defaults, system overrides, user override.
 pub fn default_policy_sources() -> Vec<std::path::PathBuf> {

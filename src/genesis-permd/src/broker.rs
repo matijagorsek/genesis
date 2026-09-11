@@ -272,6 +272,23 @@ mod tests {
     }
 
     #[test]
+    fn shell_writes_outside_project_are_w2_and_inside_are_w1() {
+        let mut b = broker();
+        b.set_mode("s1", Mode::AutoEdit).unwrap();
+        for c in ["printf 'x\\n' >> /home/u/notes.md", "cp a.txt ~/Documents/a.txt", "sed -i 's/a/b/' /home/u/.bashrc", "mkdir -p ~/bin && touch ~/bin/x"] {
+            let d = b.evaluate(&shell(c)).unwrap();
+            assert_eq!(d.tier, Tier::WriteUser, "{}", c);
+            assert_eq!(d.verdict, Verdict::Prompt, "{}", c);
+        }
+        for c in ["echo hi > out.txt", "printf x >> /home/u/Projects/app/notes.md", "cp a b", "cat /etc/hosts", "grep -r foo /home/u/Documents"] {
+            let d = b.evaluate(&shell(c)).unwrap();
+            assert!(d.tier <= Tier::WriteProject, "{} was {:?}", c, d.tier);
+        }
+        let d = b.evaluate(&shell("echo x > /etc/motd")).unwrap();
+        assert_eq!(d.tier, Tier::System);
+    }
+
+    #[test]
     fn sudo_and_bootc_are_system_and_prompt_even_autonomous() {
         let mut b = broker();
         b.set_mode("s1", Mode::Autonomous).unwrap();

@@ -499,13 +499,24 @@ impl CompiledPolicy {
                 }
             }
             if !matched && intent.writes.is_empty() {
-                // A shell command with no declared paths: assume it can write inside the project.
-                // Read-only classics stay R0.
-                let first = cmd.split_whitespace().next().unwrap_or("");
-                let readonly = matches!(first, "ls" | "cat" | "head" | "tail" | "grep" | "rg" | "find" | "ps" | "pwd" | "echo" | "wc" | "sort" | "uniq" | "which" | "env" | "date" | "uname" | "df" | "du" | "stat" | "file" | "less" | "git");
-                let git_ro = first == "git" && cmd.split_whitespace().nth(1).map(|s| matches!(s, "status" | "diff" | "log" | "show" | "branch")).unwrap_or(false);
-                if !(readonly && (first != "git" || git_ro)) {
-                    raise(Tier::WriteProject, Some("shell.default".into()), "shell command may modify the project".into());
+                // A shell command with no declared paths. Paths named in a write context that lie outside the
+                // project are W2; read-only classics without redirects stay R0; everything else may write
+                // inside the project (W1).
+                let outside: Vec<String> = command_write_paths(cmd).into_iter().filter(|p| !in_roots(&expand_home(p), &session.project_roots)).collect();
+                if let Some(p) = outside.first() {
+                    if self.system.is_match(expand_home(p)) {
+                        raise(Tier::System, Some("shell.system-path".into()), format!("shell command writes system path {}", p));
+                    } else {
+                        raise(Tier::WriteUser, Some("shell.outside-project".into()), format!("shell command writes outside the project: {}", p));
+                    }
+                } else {
+                    let first = cmd.split_whitespace().next().unwrap_or("");
+                    let has_redirect = cmd.contains('>') || cmd.contains("| tee");
+                    let readonly = !has_redirect && matches!(first, "ls" | "cat" | "head" | "tail" | "grep" | "rg" | "find" | "ps" | "pwd" | "echo" | "printf" | "wc" | "sort" | "uniq" | "which" | "env" | "date" | "uname" | "df" | "du" | "stat" | "file" | "less" | "git");
+                    let git_ro = first == "git" && cmd.split_whitespace().nth(1).map(|s| matches!(s, "status" | "diff" | "log" | "show" | "branch")).unwrap_or(false);
+                    if !(readonly && (first != "git" || git_ro)) {
+                        raise(Tier::WriteProject, Some("shell.default".into()), "shell command may modify the project".into());
+                    }
                 }
             }
         }
@@ -549,4 +560,38 @@ fn rm_targets_inside_roots(cmd: &str, roots: &[String]) -> bool {
         }
     }
     paths > 0
+}
+
+/// Best-effort extraction of paths a shell command line writes to: redirect targets and the path
+/// arguments of common mutating commands. Only absolute and `~` paths are returned; relative paths
+/// resolve inside the project (the tool's working directory) and are ordinary project work.
+pub fn command_write_paths(cmd: &str) -> Vec<String> {
+    let mutating = ["cp", "mv", "rm", "mkdir", "touch", "chmod", "chown", "install", "tee", "ln", "rsync", "truncate", "dd"];
+    let mut out = Vec::new();
+    let is_path = |t: &str| t.starts_with('/') || t.starts_with("~/") || t == "~" || t.starts_with("$HOME");
+    let clean = |t: &str| t.trim_matches(|c| c == '"' || c == '\'' || c == ';' || c == ')' || c == '(').to_string();
+    // split into simple commands on ; && || |
+    for seg in cmd.split(|c| c == ';' || c == '|').map(|s| s.trim()).filter(|s| !s.is_empty()) {
+        let seg = seg.trim_start_matches('&').trim();
+        let toks: Vec<String> = seg.split_whitespace().map(|t| t.to_string()).collect();
+        // redirects: > path, >> path, >path
+        for (i, t) in toks.iter().enumerate() {
+            if t == ">" || t == ">>" || t == "1>" || t == "2>" || t == "&>" {
+                if let Some(n) = toks.get(i + 1) { let n = clean(n); if is_path(&n) { out.push(n); } }
+            } else if let Some(rest) = t.strip_prefix(">>").or_else(|| t.strip_prefix('>')) {
+                let n = clean(rest); if is_path(&n) { out.push(n); }
+            }
+        }
+        // sed -i FILE..., and mutating commands: every path-looking non-flag argument after the command
+        let first = toks.first().map(|s| s.as_str()).unwrap_or("");
+        let first = if first == "sudo" { toks.get(1).map(|s| s.as_str()).unwrap_or("") } else { first };
+        if first == "sed" && toks.iter().any(|t| t == "-i" || t.starts_with("-i")) {
+            for t in toks.iter().skip(1) { let n = clean(t); if is_path(&n) { out.push(n); } }
+        } else if mutating.contains(&first) {
+            for t in toks.iter().skip(1) { let n = clean(t); if !n.starts_with('-') && is_path(&n) { out.push(n); } }
+        }
+    }
+    out.sort();
+    out.dedup();
+    out
 }

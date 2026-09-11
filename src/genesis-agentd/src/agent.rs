@@ -4,7 +4,7 @@
 use crate::llm::{Client, Message};
 use crate::sandbox;
 use anyhow::{anyhow, Result};
-use genesis_permd::{Broker, Intent, Mode, Tier, Verdict};
+use genesis_permd::{command_write_paths, Broker, Intent, Mode, Tier, Verdict};
 use genesis_txd::{Store, Transaction};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -245,6 +245,12 @@ impl Agent {
             self.shared.push(Event::Snapshot { tx: tx.id.clone(), detail: format!("pre-image saved: {}", w) });
         }
         if let Some(cmd) = &intent.command {
+            // best effort: snapshot the paths the command names in a write context
+            for p in command_write_paths(cmd) {
+                let expanded = genesis_permd::policy::expand_home(&p);
+                store.pre_write(tx, Path::new(&expanded))?;
+                self.shared.push(Event::Snapshot { tx: tx.id.clone(), detail: format!("pre-image saved: {}", expanded) });
+            }
             store.note_shell(tx, cmd, tier.code())?;
         }
         Ok(())
