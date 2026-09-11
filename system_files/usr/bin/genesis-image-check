@@ -6,7 +6,7 @@ rc=0
 echo "Genesis image check"
 grep -q '^ID=genesis' /usr/lib/os-release && ok "os-release ID=genesis" || fail "os-release"
 grep '^PRETTY_NAME' /usr/lib/os-release
-for b in llama-server llama-swap ramalama bwrap distrobox bootc vulkaninfo genesis-permd genesis-probe genesis-firstrun genesis-agentd genesis-txd genesis-krunner btrfs rsync; do command -v "$b" >/dev/null && ok "binary $b" || fail "binary $b"; done
+for b in llama-server llama-swap ramalama bwrap distrobox bootc vulkaninfo genesis-permd genesis-probe genesis-firstrun genesis-agentd genesis-txd genesis-krunner btrfs rsync firefox okular gwenview kcalc plasma-discover dolphin konsole kate; do command -v "$b" >/dev/null && ok "binary $b" || fail "binary $b"; done
 for u in genesis-router.service genesis-router.socket; do [ -f "/usr/lib/systemd/system/$u" ] && ok "unit $u" || fail "unit $u"; done
 [ -L /etc/systemd/system/sockets.target.wants/genesis-router.socket ] && ok "router socket enabled" || fail "router socket not enabled"
 [ -f /usr/lib/sysusers.d/genesis.conf ] && ok "sysusers" || fail "sysusers"
@@ -23,6 +23,7 @@ for u in genesis-router.service genesis-router.socket; do [ -f "/usr/lib/systemd
 [ -f /usr/share/wallpapers/Genesis/contents/images/2560x1600.png ] && ok "wallpaper" || fail "wallpaper"
 [ -f /usr/share/icons/hicolor/scalable/apps/genesis.svg ] && ok "icon" || fail "icon"
 grep -q "wallpapers/Genesis" /usr/lib/plasmalogin/defaults.conf && ok "login wallpaper" || fail "login wallpaper"
+[ -f /etc/flatpak/preinstall.d/genesis.preinstall ] && ok "flatpak preinstall list (office, mail, media)" || fail "flatpak preinstall"
 [ "$(readlink /etc/systemd/system/plasma-setup.service)" = "/dev/null" ] && ok "plasma-setup masked" || fail "plasma-setup not masked"
 [ -L /etc/systemd/user/graphical-session.target.wants/genesis-agentd.service ] && ok "agentd user unit enabled" || fail "agentd unit not enabled"
 GENESIS_TX_STORE=/tmp/genesis-check-tx genesis-txd list >/dev/null 2>&1 && ok "txd store works" || fail "txd"

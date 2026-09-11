@@ -83,6 +83,15 @@ RUN set -eux; \
     dnf5 remove -y plasma-welcome >/dev/null 2>&1 || true; \
     dnf5 clean all
 
+# ---- a complete desktop out of the box: browser, documents, images, media, calculator, app store -----
+# These are RPMs so they work at first boot with no network. Larger suites (office) come as Flatpaks
+# from the preinstall list below once the machine is online.
+RUN set -eux; \
+    dnf5 install -y --setopt=install_weak_deps=False \
+      firefox okular gwenview kcalc plasma-discover plasma-discover-flatpak haruna elisa kcharselect kfind \
+      kdeconnect-kde kwalletmanager5 partitionmanager; \
+    dnf5 clean all
+
 # llama-swap: model router (Go, static upstream binary)
 RUN set -eux; \
     curl -fsSL "https://github.com/mostlygeek/llama-swap/releases/download/v${LLAMA_SWAP_VERSION}/llama-swap_${LLAMA_SWAP_VERSION}_linux_amd64.tar.gz" \

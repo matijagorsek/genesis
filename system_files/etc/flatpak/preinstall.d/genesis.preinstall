@@ -1,0 +1,14 @@
+# Flatpaks installed automatically once the machine is online (flatpak preinstall, Flathub).
+# Office, mail, media, graphics: the parts of a complete desktop that are too large to bake into the image.
+[Flatpak Preinstall org.libreoffice.LibreOffice]
+Branch=stable
+[Flatpak Preinstall org.mozilla.Thunderbird]
+Branch=stable
+[Flatpak Preinstall org.videolan.VLC]
+Branch=stable
+[Flatpak Preinstall org.gimp.GIMP]
+Branch=stable
+[Flatpak Preinstall org.kde.krita]
+Branch=stable
+[Flatpak Preinstall io.github.kolunmi.Bazaar]
+Branch=stable
