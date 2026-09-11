@@ -20,3 +20,6 @@ __pycache__/
 node_modules/
 dist/
 iso/output/
+
+# rust
+src/target/

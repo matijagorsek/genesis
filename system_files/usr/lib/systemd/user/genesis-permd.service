@@ -1,0 +1,19 @@
+[Unit]
+Description=Genesis permission broker (org.genesis.Permission1)
+Documentation=https://github.com/matijagorsek/genesis
+PartOf=graphical-session.target
+
+[Service]
+Type=dbus
+BusName=org.genesis.Permission1
+ExecStart=/usr/bin/genesis-permd serve
+Restart=on-failure
+Environment=RUST_LOG=info
+# the audit log lives in the user's state dir; policy overrides in ~/.config/genesis/policy.toml
+ProtectSystem=strict
+ReadWritePaths=%h/.local/state/genesis
+PrivateTmp=yes
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=default.target

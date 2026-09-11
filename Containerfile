@@ -5,6 +5,19 @@
 #   iso:    see iso/ (bootc-image-builder), Phase 1
 
 ARG BASE=ghcr.io/ublue-os/aurora:stable
+
+# ---- stage 1: Genesis daemons (Rust), cross-compiled for x86_64 on whatever the build host is -------
+FROM --platform=$BUILDPLATFORM docker.io/library/rust:1-bookworm AS daemons
+RUN apt-get update -q && apt-get install -y -q --no-install-recommends gcc-x86-64-linux-gnu libc6-dev-amd64-cross >/dev/null && rm -rf /var/lib/apt/lists/*
+RUN rustup target add x86_64-unknown-linux-gnu
+ENV CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=x86_64-linux-gnu-gcc
+WORKDIR /src
+COPY src/ /src/
+RUN cargo build --release --target x86_64-unknown-linux-gnu -p genesis-permd \
+ && install -D -m 0755 target/x86_64-unknown-linux-gnu/release/genesis-permd /out/usr/bin/genesis-permd \
+ && /out/usr/bin/genesis-permd --version 2>/dev/null || true
+
+# ---- stage 2: the OS image ------------------------------------------------------------------------
 FROM ${BASE}
 
 ARG GENESIS_VERSION=0.1
@@ -32,8 +45,9 @@ RUN set -eux; \
     grep -q '^DEFAULT_HOSTNAME=' /usr/lib/os-release || echo 'DEFAULT_HOSTNAME=genesis' >> /usr/lib/os-release; \
     grep -q '^IMAGE_ID=' /usr/lib/os-release || printf 'IMAGE_ID=genesis\nIMAGE_VERSION=%s\n' "${GENESIS_VERSION}" >> /usr/lib/os-release
 
-# ---- Genesis files: units, sysusers, tmpfiles, /etc/genesis defaults ----------------------
+# ---- Genesis files: units, sysusers, tmpfiles, policy, /etc/genesis defaults ---------------
 COPY system_files/ /
+COPY --from=daemons /out/ /
 RUN echo genesis > /etc/hostname
 
 # ---- inference stack -------------------------------------------------------------------------
@@ -68,7 +82,7 @@ RUN set -eux; \
 # (genesis-image-check ships from system_files/usr/bin; podman/buildah has no COPY heredoc)
 
 # ---- enable services -------------------------------------------------------------------------
-RUN systemctl enable genesis-router.socket
+RUN systemctl enable genesis-router.socket && systemctl --global enable genesis-permd.service
 
 # ---- bootc validation ------------------------------------------------------------------------
 RUN if [ "$BOOTC_LINT" = strict ]; then bootc container lint; else echo "bootc lint skipped (BOOTC_LINT=$BOOTC_LINT)"; fi

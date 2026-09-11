@@ -1,0 +1,32 @@
+[package]
+name = "genesis-permd"
+description = "Genesis permission broker: classifies agent tool calls into tiers and decides allow / prompt / deny, with a hash-chained audit log"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "genesis-permd"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+clap.workspace = true
+globset.workspace = true
+sha2.workspace = true
+hex.workspace = true
+time.workspace = true
+uuid.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus = { version = "5", default-features = false, features = ["tokio"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal"] }
+
+[dev-dependencies]
+tempfile = "3"

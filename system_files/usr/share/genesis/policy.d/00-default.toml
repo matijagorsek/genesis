@@ -1,0 +1,256 @@
+read_tools = [
+    "fs.read",
+    "fs.list",
+    "fs.search",
+    "index.query",
+    "desktop.tree",
+    "desktop.screenshot",
+    "git.status",
+    "git.diff",
+    "git.log",
+]
+write_tools = [
+    "fs.write",
+    "fs.edit",
+    "fs.mkdir",
+    "fs.delete",
+    "git.commit",
+    "git.checkout",
+]
+
+[modes.assist]
+read_local = "allow"
+read_network = "prompt"
+write_project = "prompt"
+write_user = "prompt"
+system_user = "prompt"
+system = "prompt"
+secrets = "deny"
+never = "deny"
+
+[modes.auto_edit]
+read_local = "allow"
+read_network = "allow"
+write_project = "allow"
+write_user = "prompt"
+system_user = "prompt"
+system = "prompt"
+secrets = "deny"
+never = "deny"
+
+[modes.autonomous]
+read_local = "allow"
+read_network = "allow"
+write_project = "allow"
+write_user = "allow_with_snapshot"
+system_user = "allow_with_snapshot"
+system = "prompt"
+secrets = "deny"
+never = "deny"
+
+[[commands]]
+id = "never.rm-root"
+patterns = [
+    "*rm -rf /",
+    "*rm -rf / *",
+    "*rm -rf ~",
+    "*rm -rf ~/",
+    "*rm -rf ~ *",
+    "*rm -rf ~/ *",
+    "*rm -rf $HOME*",
+    "*--no-preserve-root*",
+    "*rm -rf /home*",
+    "*rm -rf /usr*",
+    "*rm -rf /etc*",
+    "*rm -rf /var*",
+    "*rm -rf /boot*",
+]
+tier = "never"
+reason = "recursive delete of home or root"
+
+[[commands]]
+id = "never.disk"
+patterns = [
+    "*mkfs.*",
+    "*mkfs *",
+    "*dd if=*of=/dev/*",
+    "*parted *",
+    "*sgdisk *",
+    "*wipefs *",
+    "*fdisk /dev/*",
+]
+tier = "never"
+reason = "disk or partition operation"
+
+[[commands]]
+id = "never.sandbox"
+patterns = [
+    "*genesis-permd*",
+    "*systemctl * stop genesis-*",
+    "*systemctl * disable genesis-*",
+    "*setenforce 0*",
+]
+tier = "never"
+reason = "would disable Genesis safety services"
+
+[[commands]]
+id = "never.mok"
+patterns = [
+    "*mokutil *",
+    "*efibootmgr*",
+]
+tier = "never"
+reason = "Secure Boot or firmware boot entries"
+
+[[commands]]
+id = "system.image"
+patterns = [
+    "*bootc *",
+    "*rpm-ostree *",
+    "*dnf * install*",
+    "*dnf5 * install*",
+    "*flatpak install --system*",
+    "*flatpak install -y*",
+]
+tier = "system"
+reason = "system-wide package or image change"
+
+[[commands]]
+id = "system.config"
+patterns = [
+    "*nmcli *",
+    "*hostnamectl *",
+    "*timedatectl set*",
+    "*useradd *",
+    "*usermod *",
+    "*passwd *",
+    "*grubby *",
+]
+tier = "system"
+reason = "system configuration"
+
+[[commands]]
+id = "system.sudo"
+patterns = [
+    "sudo *",
+    "*| sudo *",
+    "*&& sudo *",
+    "pkexec *",
+    "doas *",
+]
+tier = "system"
+reason = "privilege escalation"
+
+[[commands]]
+id = "system_user.pip-override"
+patterns = ["*--break-system-packages*"]
+tier = "system_user"
+reason = "package install that overrides the distro's Python policy (PEP 668)"
+
+[[commands]]
+id = "system_user.global-install"
+patterns = [
+    "pip install*",
+    "pip3 install*",
+    "npm install -g*",
+    "npm i -g*",
+    "cargo install*",
+    "pipx install*",
+    "flatpak install*",
+    "brew install*",
+    "*systemctl --user enable*",
+]
+tier = "system_user"
+reason = "installs into the user's environment outside the project"
+
+[[commands]]
+id = "write_user.home"
+patterns = [
+    "*> ~/.*",
+    "*>> ~/.*",
+    "*~/.config/*",
+    "*~/.bashrc*",
+    "*~/.zshrc*",
+    "*gsettings set*",
+    "*kwriteconfig*",
+]
+tier = "write_user"
+reason = "changes user configuration"
+
+[[commands]]
+id = "never.messaging"
+patterns = [
+    "*sendmail*",
+    "*mail -s*",
+    "*curl * -X POST *slack.com*",
+]
+tier = "never"
+reason = "sends a message on the user's behalf"
+
+[paths]
+project_like = [
+    "~/Genesis/**",
+    "~/Projects/**",
+]
+secrets = [
+    "~/.ssh/**",
+    "~/.gnupg/**",
+    "~/.config/genesis/keys/**",
+    "~/.aws/**",
+    "~/.kube/**",
+    "~/.netrc",
+    "**/.env",
+    "**/*.pem",
+    "**/id_rsa*",
+    "**/id_ed25519*",
+]
+system = [
+    "/usr/**",
+    "/etc/**",
+    "/boot/**",
+    "/var/lib/genesis/**",
+    "/var/lib/flatpak/**",
+]
+system_user = [
+    "~/.local/share/flatpak/**",
+    "~/.config/systemd/**",
+    "~/.config/genesis/**",
+    "~/.local/bin/**",
+]
+
+[network]
+allow = [
+    "registry.npmjs.org",
+    "pypi.org",
+    "files.pythonhosted.org",
+    "crates.io",
+    "static.crates.io",
+    "github.com",
+    "objects.githubusercontent.com",
+    "huggingface.co",
+    "flathub.org",
+    "dl.flathub.org",
+    "docs.rs",
+]
+deny = [
+    "169.254.169.254",
+    "metadata.google.internal",
+    "localhost",
+    "127.0.0.1",
+]
+
+[tool_tiers]
+"bootc.upgrade" = "system"
+"browser.act" = "write_user"
+"browser.navigate" = "read_network"
+"desktop.input" = "write_user"
+"desktop.notify" = "write_user"
+"flatpak.install_system" = "system"
+"flatpak.install_user" = "system_user"
+"keyring.read" = "secrets"
+"message.send" = "never"
+payment = "never"
+"sysconfig.set" = "system"
+"web.fetch" = "read_network"
+"web.search" = "read_network"
+

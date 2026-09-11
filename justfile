@@ -113,3 +113,16 @@ boot-serial disk="iso/output/disk.qcow2":
     qemu-system-x86_64 -machine q35 -cpu max -smp 4 -m 4096 -nographic \
       -drive if=pflash,format=raw,readonly=on,file=iso/output/ovmf-code.fd \
       -drive file={{disk}},if=virtio,format=qcow2
+
+# --- Phase 1: Rust daemons -------------------------------------------------------------------
+# Run all daemon tests
+rust-test:
+    cd src && cargo test
+
+# Try the permission broker on a command, e.g. just permd-check "pip3 install --break-system-packages x"
+permd-check cmd mode="assist":
+    cd src && cargo run -q -p genesis-permd -- --audit /tmp/genesis-audit.jsonl check --mode {{mode}} --cmd "{{cmd}}"
+
+# Regenerate the shipped default policy from the binary
+permd-policy:
+    cd src && cargo run -q -p genesis-permd -- --audit /tmp/genesis-audit.jsonl policy dump > ../system_files/usr/share/genesis/policy.d/00-default.toml

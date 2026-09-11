@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=org.genesis.Permission1
+Exec=/usr/bin/genesis-permd serve
+SystemdService=genesis-permd.service
