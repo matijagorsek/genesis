@@ -72,19 +72,11 @@ jobs:
           mkdir -p out
           sudo podman run --rm --privileged --security-opt label=type:unconfined_t \
             -v "$PWD/out:/output" -v "$PWD/iso/config.toml:/config.toml:ro" \
+            -v "$PWD/iso/defs/genesis-44.yaml:/usr/share/bootc-image-builder/defs/genesis-44.yaml:ro" \
             -v /var/lib/containers/storage:/var/lib/containers/storage \
             quay.io/centos-bootc/bootc-image-builder:latest \
             --type qcow2 --rootfs btrfs --config /config.toml --local $IMAGE:0.1
           sudo chown -R "$USER" out; ls -la out/qcow2; df -h / | tail -1
-
-      - name: Build installer ISO
-        run: |
-          sudo podman run --rm --privileged --security-opt label=type:unconfined_t \
-            -v "$PWD/out:/output" -v "$PWD/iso/config.toml:/config.toml:ro" \
-            -v /var/lib/containers/storage:/var/lib/containers/storage \
-            quay.io/centos-bootc/bootc-image-builder:latest \
-            --type anaconda-iso --rootfs btrfs --config /config.toml --local $IMAGE:0.1
-          sudo chown -R "$USER" out; ls -la out/bootiso
 
       # ---- boot test: QEMU/KVM, serial console, wait for login prompt, then check via serial ----
       - name: Boot test (qcow2)
@@ -113,6 +105,16 @@ jobs:
           ' | tee boot-serial.log
           grep -q 'ID=genesis' boot-serial.log
           grep -q 'enabled' boot-serial.log
+
+      - name: Build installer ISO
+        run: |
+          sudo podman run --rm --privileged --security-opt label=type:unconfined_t \
+            -v "$PWD/out:/output" -v "$PWD/iso/config.toml:/config.toml:ro" \
+            -v "$PWD/iso/defs/genesis-44.yaml:/usr/share/bootc-image-builder/defs/genesis-44.yaml:ro" \
+            -v /var/lib/containers/storage:/var/lib/containers/storage \
+            quay.io/centos-bootc/bootc-image-builder:latest \
+            --type anaconda-iso --rootfs btrfs --config /config.toml --local $IMAGE:0.1
+          sudo chown -R "$USER" out; ls -la out/bootiso
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

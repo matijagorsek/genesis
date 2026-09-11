@@ -77,12 +77,12 @@ image tag="genesis:0.1":
 # Build an installer ISO from the image (needs a Linux/Docker host with loop devices)
 iso tag="genesis:0.1":
     mkdir -p iso/output
-    docker run --rm --privileged --platform linux/amd64 -v "$PWD/iso/output:/output" -v "$PWD/iso/config.toml:/config.toml:ro" -v /var/lib/containers/storage:/var/lib/containers/storage quay.io/centos-bootc/bootc-image-builder:latest --type anaconda-iso --rootfs btrfs --config /config.toml --local {{tag}}
+    docker run --rm --privileged --platform linux/amd64 -v "$PWD/iso/output:/output" -v "$PWD/iso/config.toml:/config.toml:ro" -v "$PWD/iso/defs/genesis-44.yaml:/usr/share/bootc-image-builder/defs/genesis-44.yaml:ro" -v /var/lib/containers/storage:/var/lib/containers/storage quay.io/centos-bootc/bootc-image-builder:latest --type anaconda-iso --rootfs btrfs --config /config.toml --local {{tag}}
 
 # Build a qcow2 disk image for QEMU boot tests
 qcow2 tag="genesis:0.1":
     mkdir -p iso/output
-    docker run --rm --privileged --platform linux/amd64 -v "$PWD/iso/output:/output" -v "$PWD/iso/config.toml:/config.toml:ro" -v /var/lib/containers/storage:/var/lib/containers/storage quay.io/centos-bootc/bootc-image-builder:latest --type qcow2 --rootfs btrfs --config /config.toml --local {{tag}}
+    docker run --rm --privileged --platform linux/amd64 -v "$PWD/iso/output:/output" -v "$PWD/iso/config.toml:/config.toml:ro" -v "$PWD/iso/defs/genesis-44.yaml:/usr/share/bootc-image-builder/defs/genesis-44.yaml:ro" -v /var/lib/containers/storage:/var/lib/containers/storage quay.io/centos-bootc/bootc-image-builder:latest --type qcow2 --rootfs btrfs --config /config.toml --local {{tag}}
 
 # Download the latest CI-built qcow2 and ISO into iso/output/
 fetch-images:
