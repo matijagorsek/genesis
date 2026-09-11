@@ -72,6 +72,11 @@ jobs:
             echo "rust pull attempt $i failed, waiting"; sleep 30
           done
           sudo podman image exists docker.io/library/rust:1-bookworm
+          for i in 1 2 3 4 5 6; do
+            sudo podman pull quay.io/fedora/fedora:44 && break
+            echo "fedora pull attempt $i failed, waiting"; sleep 30
+          done
+          sudo podman image exists quay.io/fedora/fedora:44
 
       - name: Build image
         run: |
