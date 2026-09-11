@@ -13,8 +13,8 @@ RUN rustup target add x86_64-unknown-linux-gnu
 ENV CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=x86_64-linux-gnu-gcc
 WORKDIR /src
 COPY src/ /src/
-RUN cargo build --release --target x86_64-unknown-linux-gnu -p genesis-permd -p genesis-probe -p genesis-firstrun -p genesis-agentd \
- && for b in genesis-permd genesis-probe genesis-firstrun genesis-agentd; do install -D -m 0755 target/x86_64-unknown-linux-gnu/release/$b /out/usr/bin/$b; done
+RUN cargo build --release --target x86_64-unknown-linux-gnu -p genesis-permd -p genesis-probe -p genesis-firstrun -p genesis-agentd -p genesis-txd \
+ && for b in genesis-permd genesis-probe genesis-firstrun genesis-agentd genesis-txd; do install -D -m 0755 target/x86_64-unknown-linux-gnu/release/$b /out/usr/bin/$b; done
 
 # ---- stage 2: the OS image ------------------------------------------------------------------------
 FROM ${BASE}

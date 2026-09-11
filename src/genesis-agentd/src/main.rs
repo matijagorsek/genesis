@@ -8,6 +8,7 @@
 //!   POST /api/sessions/{id}/prompt    {text}                     -> {accepted} (runs in a thread)
 //!   GET  /api/sessions/{id}                                      -> SessionInfo (state, events, pending prompts)
 //!   POST /api/prompts/{request_id}    {allow: bool}              -> resolves a pending permission prompt
+//!   POST /api/sessions/{id}/undo                                 -> rolls back the session's transaction
 //!   GET  /api/health
 
 mod agent;
@@ -18,6 +19,7 @@ use agent::{Agent, Event, SessionInfo, Shared};
 use anyhow::{anyhow, Result};
 use clap::{Parser, Subcommand};
 use genesis_permd::{default_audit_path, default_policy_sources, Broker, Mode, Policy};
+use genesis_txd::{default_store, Store};
 use llm::Client;
 use serde::Deserialize;
 use std::collections::{HashMap, VecDeque};
@@ -71,7 +73,7 @@ struct Daemon {
 }
 
 fn new_shared(id: &str, mode: Mode, project: &str, model: &str) -> Arc<Shared> {
-    Arc::new(Shared { info: Mutex::new(SessionInfo { id: id.into(), mode, project: project.into(), model: model.into(), state: "idle".into(), events: vec![], pending: vec![] }), answers: Mutex::new(VecDeque::new()), cv: Condvar::new() })
+    Arc::new(Shared { info: Mutex::new(SessionInfo { id: id.into(), mode, project: project.into(), model: model.into(), state: "idle".into(), events: vec![], pending: vec![], transaction: None }), answers: Mutex::new(VecDeque::new()), cv: Condvar::new() })
 }
 
 fn parse_mode(s: &str) -> Result<Mode> {
@@ -96,6 +98,7 @@ fn main() -> Result<()> {
             let shared = new_shared(&id, mode, &project.display().to_string(), &cli.model);
             let mut agent = Agent::new(Client { endpoint: cli.endpoint.clone(), model: cli.model.clone(), api_key: "local".into() }, broker.clone(), id.clone(), project.clone(), shared.clone());
             agent.prompt_timeout = std::time::Duration::from_secs(1);
+            agent.tx_store = Store::open(default_store()).ok();
             // headless: auto-resolve prompts per --prompts and print events as they happen
             let auto_allow = prompts == "allow";
             let printer = shared.clone();
@@ -153,6 +156,7 @@ fn fmt_event(e: &Event) -> String {
         Event::Resolved { allowed, .. } => format!("   resolved: {}", if *allowed { "allowed" } else { "denied" }),
         Event::Error { text } => format!("‼ {}", text),
         Event::Done { turns } => format!("■ done in {} turns", turns),
+        Event::Snapshot { tx, detail } => format!("⎘ {} {}", tx, detail),
     }
 }
 
@@ -181,7 +185,8 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
                     let id = uuid::Uuid::new_v4().to_string();
                     d.broker.lock().unwrap().open_session(&id, mode, vec![project.display().to_string()], "api")?;
                     let shared = new_shared(&id, mode, &project.display().to_string(), &d.model);
-                    let agent = Agent::new(Client { endpoint: d.endpoint.clone(), model: d.model.clone(), api_key: "local".into() }, d.broker.clone(), id.clone(), project, shared.clone());
+                    let mut agent = Agent::new(Client { endpoint: d.endpoint.clone(), model: d.model.clone(), api_key: "local".into() }, d.broker.clone(), id.clone(), project, shared.clone());
+                    agent.tx_store = Store::open(default_store()).ok();
                     d.sessions.lock().unwrap().insert(id.clone(), (shared, Arc::new(Mutex::new(Some(agent)))));
                     json_response(&serde_json::json!({"id": id}), 201)
                 }
@@ -214,6 +219,25 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
                 }
                 (None, _) => json_response(&serde_json::json!({"error": "no such session"}), 404),
                 (_, Err(_)) => json_response(&serde_json::json!({"error": "expected {text}"}), 400),
+            }
+        }
+        (Method::Post, ["api", "sessions", id, "undo"]) => {
+            let entry = d.sessions.lock().unwrap().get(*id).cloned();
+            match entry {
+                Some((shared, slot)) => {
+                    let state = shared.info.lock().unwrap().state.clone();
+                    if state == "running" || state == "waiting" {
+                        json_response(&serde_json::json!({"error": "session busy"}), 409)
+                    } else {
+                        let mut guard = slot.lock().unwrap();
+                        match guard.as_mut().map(|a| a.undo()) {
+                            Some(Ok(lines)) => json_response(&serde_json::json!({"undone": true, "log": lines}), 200),
+                            Some(Err(e)) => json_response(&serde_json::json!({"error": e.to_string()}), 500),
+                            None => json_response(&serde_json::json!({"error": "no agent"}), 500),
+                        }
+                    }
+                }
+                None => json_response(&serde_json::json!({"error": "no such session"}), 404),
             }
         }
         (Method::Post, ["api", "prompts", request_id]) => match serde_json::from_str::<ResolveReq>(&body) {
@@ -279,6 +303,9 @@ mod tests {
         let shared = new_shared("t", mode, &project.display().to_string(), "fake");
         let mut agent = Agent::new(Client { endpoint, model: "fake".into(), api_key: "x".into() }, broker, "t".into(), project.to_path_buf(), shared.clone());
         agent.prompt_timeout = std::time::Duration::from_millis(300);
+        let txdir = tempfile::tempdir().unwrap();
+        agent.tx_store = Some(Store::open(txdir.path()).unwrap());
+        std::mem::forget(txdir);
         (agent, shared)
     }
 
@@ -337,6 +364,25 @@ mod tests {
         let ev = shared.info.lock().unwrap().events.clone();
         assert!(ev.iter().any(|e| matches!(e, Event::Decision { tier, verdict, .. } if tier == "S1" && verdict == "prompt")));
         assert!(ev.iter().any(|e| matches!(e, Event::ToolResult { ok: false, .. })));
+    }
+
+    #[test]
+    fn user_scope_write_opens_transaction_and_undo_restores() {
+        let proj = tempfile::tempdir().unwrap();
+        let home = tempfile::tempdir().unwrap();
+        let cfg = home.path().join("notes.md");
+        std::fs::write(&cfg, "original").unwrap();
+        let ep = fake_llm(vec![tool_call("write_file", serde_json::json!({"path": cfg.display().to_string(), "content":"changed"})), serde_json::json!({"role":"assistant","content":"done"})]);
+        let (mut agent, shared) = setup(proj.path(), Mode::Autonomous, ep);
+        agent.run("edit notes").unwrap();
+        assert_eq!(std::fs::read_to_string(&cfg).unwrap(), "changed");
+        let ev = shared.info.lock().unwrap().events.clone();
+        assert!(ev.iter().any(|e| matches!(e, Event::Decision { tier, verdict, .. } if tier == "W2" && verdict == "allowwithsnapshot")));
+        assert!(ev.iter().any(|e| matches!(e, Event::Snapshot { .. })));
+        assert!(shared.info.lock().unwrap().transaction.is_some());
+        let log = agent.undo().unwrap();
+        assert!(log.iter().any(|l| l.starts_with("restored")));
+        assert_eq!(std::fs::read_to_string(&cfg).unwrap(), "original");
     }
 
     #[test]

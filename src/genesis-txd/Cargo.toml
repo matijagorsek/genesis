@@ -1,13 +1,17 @@
 [package]
-name = "genesis-agentd"
-description = "Genesis agent daemon: tool-calling agent loop against the local model endpoint, every tool call gated by the permission broker, sandboxed shell, local API for launchers"
+name = "genesis-txd"
+description = "Genesis transactions: snapshots before user- and system-scope changes, a ledger of what a session touched, and rollback"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[lib]
+name = "genesis_txd"
+path = "src/lib.rs"
+
 [[bin]]
-name = "genesis-agentd"
+name = "genesis-txd"
 path = "src/main.rs"
 
 [dependencies]
@@ -19,10 +23,6 @@ time.workspace = true
 uuid.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
-tiny_http.workspace = true
-ureq.workspace = true
-genesis-permd = { path = "../genesis-permd" }
-genesis-txd = { path = "../genesis-txd" }
 
 [dev-dependencies]
 tempfile = "3"

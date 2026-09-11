@@ -4,7 +4,8 @@
 use crate::llm::{Client, Message};
 use crate::sandbox;
 use anyhow::{anyhow, Result};
-use genesis_permd::{Broker, Intent, Mode, Verdict};
+use genesis_permd::{Broker, Intent, Mode, Tier, Verdict};
+use genesis_txd::{Store, Transaction};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::VecDeque;
@@ -40,6 +41,8 @@ pub enum Event {
     Resolved { request_id: String, allowed: bool },
     Error { text: String },
     Done { turns: usize },
+    /// A transaction was opened or a pre-image saved before a user/system-scope change.
+    Snapshot { tx: String, detail: String },
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -51,6 +54,8 @@ pub struct SessionInfo {
     pub state: String, // idle | running | waiting | done | error
     pub events: Vec<Event>,
     pub pending: Vec<PendingPrompt>,
+    /// Open or committed transaction for this session, if any user/system-scope change happened.
+    pub transaction: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -110,6 +115,8 @@ pub struct Agent {
     pub max_turns: usize,
     pub prompt_timeout: Duration,
     pub messages: Vec<Message>,
+    pub tx_store: Option<Store>,
+    pub tx: Option<Transaction>,
 }
 
 fn resolve_path(project: &Path, p: &str) -> PathBuf {
@@ -119,7 +126,7 @@ fn resolve_path(project: &Path, p: &str) -> PathBuf {
 
 impl Agent {
     pub fn new(client: Client, broker: Arc<Mutex<Broker>>, session_id: String, project: PathBuf, shared: Arc<Shared>) -> Self {
-        Agent { client, broker, session_id, project, shared, max_turns: 40, prompt_timeout: Duration::from_secs(600), messages: vec![Message::system(SYSTEM_PROMPT)] }
+        Agent { client, broker, session_id, project, shared, max_turns: 40, prompt_timeout: Duration::from_secs(600), messages: vec![Message::system(SYSTEM_PROMPT)], tx_store: None, tx: None }
     }
 
     /// Run one user prompt to completion (or until a tool call is denied and the model gives up).
@@ -147,6 +154,7 @@ impl Agent {
             }
             let calls = msg.tool_calls.clone().unwrap_or_default();
             if calls.is_empty() {
+                let _ = self.commit();
                 self.shared.push(Event::Done { turns: turn + 1 });
                 self.shared.set_state("done");
                 return Ok(final_text);
@@ -216,7 +224,46 @@ impl Agent {
         if !allowed {
             return Err(anyhow!("the user did not allow this action ({}): {}", decision.tier.code(), decision.reason));
         }
+        // User- or system-scope change: make it undoable before it happens.
+        if decision.tier >= Tier::WriteUser && decision.tier <= Tier::System {
+            self.snapshot_before(&intent, decision.tier)?;
+        }
         self.perform(name, args)
+    }
+
+    fn snapshot_before(&mut self, intent: &Intent, tier: Tier) -> Result<()> {
+        let Some(store) = self.tx_store.as_ref() else { return Ok(()) };
+        if self.tx.is_none() {
+            let tx = store.begin(&self.session_id, "agentd")?;
+            self.shared.info.lock().unwrap().transaction = Some(tx.id.clone());
+            self.shared.push(Event::Snapshot { tx: tx.id.clone(), detail: "transaction opened".into() });
+            self.tx = Some(tx);
+        }
+        let tx = self.tx.as_mut().unwrap();
+        for w in &intent.writes {
+            store.pre_write(tx, Path::new(w))?;
+            self.shared.push(Event::Snapshot { tx: tx.id.clone(), detail: format!("pre-image saved: {}", w) });
+        }
+        if let Some(cmd) = &intent.command {
+            store.note_shell(tx, cmd, tier.code())?;
+        }
+        Ok(())
+    }
+
+    /// Close the transaction (keeps snapshots for undo).
+    pub fn commit(&mut self) -> Result<()> {
+        if let (Some(store), Some(tx)) = (self.tx_store.as_ref(), self.tx.as_mut()) {
+            store.commit(tx)?;
+        }
+        Ok(())
+    }
+
+    /// Roll back everything this session changed at user/system scope.
+    pub fn undo(&mut self) -> Result<Vec<String>> {
+        match (self.tx_store.as_ref(), self.tx.as_mut()) {
+            (Some(store), Some(tx)) => store.rollback(tx),
+            _ => Ok(vec!["nothing to undo: this session made no user- or system-scope changes".into()]),
+        }
     }
 
     fn perform(&self, name: &str, args: &Value) -> Result<String> {

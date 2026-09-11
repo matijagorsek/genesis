@@ -446,6 +446,7 @@ dependencies = [
  "anyhow",
  "clap",
  "genesis-permd",
+ "genesis-txd",
  "serde",
  "serde_json",
  "tempfile",
@@ -507,6 +508,21 @@ dependencies = [
  "time",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "genesis-txd"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "time",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]

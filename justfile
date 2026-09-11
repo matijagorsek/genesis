@@ -139,3 +139,7 @@ firstrun:
 # Run the agent daemon headlessly on a task, e.g. just agent "list the files here" [mode] [project]
 agent text mode="auto_edit" project=".":
     cd src && cargo run -q -p genesis-agentd -- --audit /tmp/genesis-audit.jsonl run --project {{project}} --mode {{mode}} "{{text}}"
+
+# Transactions: just tx list | just tx show <id> | just tx undo <id>
+tx *args:
+    cd src && cargo run -q -p genesis-txd -- {{args}}
