@@ -78,16 +78,16 @@ h2{font-size:20px;margin:36px 0 6px}
 </style>
 <div class="wrap">
 <p class="eyebrow">Genesis · desktop preview</p>
-<h1>What the VM screenshots are meant to show</h1>
-<p class="sub">A rendering of the four screens, composed from the real assets in the image: the Genesis wallpaper and icon, the Plasma login manager layout, the real first-run wizard and maker interfaces, and the panel layout in the Genesis look-and-feel package.</p>
-<div class="note">This is a preview, not a capture. The real screenshots come from booting release v0.1.27 in QEMU; they replace this page when they land. Hardware values shown are what the VM will report: a virtual GPU, 4 GB of RAM, the tiny pack.</div>
+<h1>Genesis is a complete desktop; the AI is one part of it</h1>
+<p class="sub">A rendering of the screens the VM capture will show, composed from the real assets in the image: the Genesis wallpaper and icon, the login manager layout, the Plasma desktop and app menu with the shipped applications, and the two Genesis surfaces, the first-run wizard and the maker.</p>
+<div class="note">This is a preview, not a capture. Section 4 (a Genesis section inside System Settings) is planned, not yet built. The real screenshots come from booting release v0.1.27 in QEMU; they replace this page when they land. Hardware values shown are what the VM will report: a virtual GPU, 4 GB of RAM, the tiny pack.</div>
 
 <div class="grid">
 <section>
 <h2>1 · Login</h2>
 <p class="cap">The login manager with the Genesis wallpaper. Plasma's out-of-box setup screen no longer appears; the installer and the Genesis wizard own account creation.</p>
 <div class="screen"><div class="wall"></div><div class="dim"></div>
-  <div class="clock"><div class="t">18:02</div><div class="d">Thursday, 11 September</div></div>
+  <div class="clock"><div class="t">19:15</div><div class="d">Friday, 11 September</div></div>
   <div class="greeter"><div class="avatar">g</div><div class="uname">genesis</div><div class="pw"><b>••••••••</b><span>⏎</span></div></div>
   <div class="lbot"><div class="brand"><img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' width='64' height='64'>  <defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%235fb5bd'/><stop offset='1' stop-color='%231f6f78'/></linearGradient></defs>  <rect x='4' y='4' width='56' height='56' rx='14' fill='%2310161e'/>  <circle cx='32' cy='32' r='17' fill='none' stroke='url(%23g)' stroke-width='4'/>  <circle cx='32' cy='32' r='7' fill='url(%23g)'/></svg>" alt=""><span>Genesis 0.1.27</span></div><div><span class="lbtn">↻ Restart</span><span class="lbtn">⏻ Shut Down</span></div></div>
 </div>
@@ -110,16 +110,64 @@ h2{font-size:20px;margin:36px 0 6px}
 </section>
 
 <section>
-<h2>3 · The desktop, with the launcher</h2>
-<p class="cap">Genesis wallpaper, the bottom panel from the look-and-feel package with the Genesis launcher and maker button, and KRunner answering "ask make me a pomodoro timer".</p>
+<h2>3 · The desktop and its applications</h2>
+<p class="cap">A normal, complete KDE Plasma desktop with the Genesis identity. The app menu lists what ships in the image: Firefox, Dolphin files, Konsole, Kate, Okular documents, Gwenview images, Haruna video, Elisa music, KCalc, Discover app store, System Settings, plus LibreOffice, Thunderbird, VLC, GIMP and Krita once online. Genesis is one entry in the list.</p>
 <div class="screen"><div class="wall"></div>
-  <div class="krunner"><div class="q">ask make me a pomodoro timer web app</div><div class="m"><img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' width='64' height='64'>  <defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%235fb5bd'/><stop offset='1' stop-color='%231f6f78'/></linearGradient></defs>  <rect x='4' y='4' width='56' height='56' rx='14' fill='%2310161e'/>  <circle cx='32' cy='32' r='17' fill='none' stroke='url(%23g)' stroke-width='4'/>  <circle cx='32' cy='32' r='7' fill='url(%23g)'/></svg>" alt=""><div>Ask Genesis: make me a pomodoro timer web app<small>Runs on this machine · opens the Genesis workspace</small></div></div></div>
-  <div class="panel"><div class="pi"><img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' width='64' height='64'>  <defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%235fb5bd'/><stop offset='1' stop-color='%231f6f78'/></linearGradient></defs>  <rect x='4' y='4' width='56' height='56' rx='14' fill='%2310161e'/>  <circle cx='32' cy='32' r='17' fill='none' stroke='url(%23g)' stroke-width='4'/>  <circle cx='32' cy='32' r='7' fill='url(%23g)'/></svg>" alt=""></div><div class="pi"><img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' width='64' height='64'>  <defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%235fb5bd'/><stop offset='1' stop-color='%231f6f78'/></linearGradient></defs>  <rect x='4' y='4' width='56' height='56' rx='14' fill='%2310161e'/>  <circle cx='32' cy='32' r='17' fill='none' stroke='url(%23g)' stroke-width='4'/>  <circle cx='32' cy='32' r='7' fill='url(%23g)'/></svg>" alt=""></div><div class="task">▦</div><div class="tray"><span class="on">● on this machine</span><span>⌨</span><span>◐</span><span style="color:#e6ebf1">18:04</span></div></div>
+  <div class="win" style="left:2%;bottom:46px;width:46%;height:66%">
+    <div class="tb"><img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' width='64' height='64'>  <defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%235fb5bd'/><stop offset='1' stop-color='%231f6f78'/></linearGradient></defs>  <rect x='4' y='4' width='56' height='56' rx='14' fill='%2310161e'/>  <circle cx='32' cy='32' r='17' fill='none' stroke='url(%23g)' stroke-width='4'/>  <circle cx='32' cy='32' r='7' fill='url(%23g)'/></svg>" alt=""><span>Applications</span><span class="sp"></span></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;padding:10px 12px;font-size:12px;color:#e6ebf1">
+      <div>🦊 Firefox</div><div>📁 Dolphin · Files</div><div>▣ Konsole · Terminal</div><div>✎ Kate · Text editor</div><div>📄 Okular · Documents</div><div>🖼 Gwenview · Images</div><div>▶ Haruna · Video</div><div>♪ Elisa · Music</div><div>＝ KCalc</div><div>⬇ Discover · App store</div><div>⚙ System Settings</div><div>🗜 Ark · Archives</div><div>📷 Spectacle · Screenshots</div><div>📊 System Monitor</div><div>📝 LibreOffice</div><div>✉ Thunderbird</div><div>🎨 Krita · GIMP</div><div style="color:var(--accent)">◉ Genesis · Make something</div>
+    </div>
+  </div>
+  <div class="win" style="right:2%;top:6%;width:48%;height:60%">
+    <div class="tb"><span>📁</span><span>Projects — Dolphin</span><span class="sp"></span><i></i><i></i><i></i></div>
+    <div style="display:grid;grid-template-columns:120px 1fr;height:100%;font-size:12px">
+      <div style="background:#1a222c;border-right:1px solid #232c37;padding:8px 10px;color:#a9b4c1;line-height:1.9">Home<br>Desktop<br>Documents<br>Downloads<br><span style="color:#e6ebf1">Projects</span><br>Pictures<br>Music<br>Videos</div>
+      <div style="padding:10px 12px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px;color:#e6ebf1;text-align:center;align-content:start">
+        <div>📁<br>pomodoro</div><div>📁<br>notes-tool</div><div>📁<br>website</div><div>📄<br>todo.md</div><div>📄<br>ideas.txt</div><div>🖼<br>logo.png</div>
+      </div>
+    </div>
+  </div>
+  <div class="panel"><div class="pi"><img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' width='64' height='64'>  <defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%235fb5bd'/><stop offset='1' stop-color='%231f6f78'/></linearGradient></defs>  <rect x='4' y='4' width='56' height='56' rx='14' fill='%2310161e'/>  <circle cx='32' cy='32' r='17' fill='none' stroke='url(%23g)' stroke-width='4'/>  <circle cx='32' cy='32' r='7' fill='url(%23g)'/></svg>" alt=""></div><div class="pi"><img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' width='64' height='64'>  <defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%235fb5bd'/><stop offset='1' stop-color='%231f6f78'/></linearGradient></defs>  <rect x='4' y='4' width='56' height='56' rx='14' fill='%2310161e'/>  <circle cx='32' cy='32' r='17' fill='none' stroke='url(%23g)' stroke-width='4'/>  <circle cx='32' cy='32' r='7' fill='url(%23g)'/></svg>" alt=""></div><div class="task">📁 Projects — Dolphin<div class="u"></div></div><div class="task">🦊 Firefox</div><div class="tray"><span class="on">● on this machine</span><span>⌨</span><span>◐</span><span style="color:#e6ebf1">19:16</span></div></div>
 </div>
 </section>
 
 <section>
-<h2>4 · The maker, in its own window</h2>
+<h2>4 · System Settings, with Genesis as one section</h2>
+<p class="cap">Standard Plasma System Settings. Genesis adds one section of its own: models, packs, permissions and undo history. Nothing else about the desktop changes.</p>
+<div class="screen"><div class="wall"></div><div class="dim"></div>
+  <div class="win" style="left:8%;top:7%;width:84%;height:80%">
+    <div class="tb"><span>⚙</span><span>System Settings</span><span class="sp"></span><i></i><i></i><i></i></div>
+    <div style="display:grid;grid-template-columns:200px 1fr;height:100%;font-size:12px">
+      <div style="background:#1a222c;border-right:1px solid #232c37;padding:8px 0;color:#a9b4c1;line-height:2.1">
+        <div style="padding:0 12px">Appearance &amp; Style</div><div style="padding:0 12px">Colors &amp; Themes</div><div style="padding:0 12px">Workspace</div><div style="padding:0 12px">Input &amp; Output</div><div style="padding:0 12px">Network</div><div style="padding:0 12px">Security &amp; Privacy</div><div style="padding:0 12px">Users</div><div style="padding:0 12px;background:#1f2a36;color:#e6ebf1;border-left:3px solid var(--accent)">Genesis</div><div style="padding:0 12px">Software Update</div>
+      </div>
+      <div style="padding:14px 18px;color:#e6ebf1">
+        <div style="font-size:16px;font-weight:600;margin-bottom:8px">Genesis</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div style="background:#1d2631;border:1px solid #232c37;border-radius:7px;padding:10px"><b>Models</b><div style="color:#a9b4c1">Pack: tiny · Qwen3.5-2B loaded · 1.3 GB on disk<br>Everything runs on this machine. Cloud: off.</div></div>
+          <div style="background:#1d2631;border:1px solid #232c37;border-radius:7px;padding:10px"><b>Permissions</b><div style="color:#a9b4c1">Default mode: Auto-edit<br>System changes always ask. Secrets never shared.</div></div>
+          <div style="background:#1d2631;border:1px solid #232c37;border-radius:7px;padding:10px"><b>Undo history</b><div style="color:#a9b4c1">2 sessions with system-scope changes, undo available for 7 days.</div></div>
+          <div style="background:#1d2631;border:1px solid #232c37;border-radius:7px;padding:10px"><b>Shortcuts</b><div style="color:#a9b4c1">Meta+Space opens Genesis · "ask …" in KRunner</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="panel"><div class="pi"><img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' width='64' height='64'>  <defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%235fb5bd'/><stop offset='1' stop-color='%231f6f78'/></linearGradient></defs>  <rect x='4' y='4' width='56' height='56' rx='14' fill='%2310161e'/>  <circle cx='32' cy='32' r='17' fill='none' stroke='url(%23g)' stroke-width='4'/>  <circle cx='32' cy='32' r='7' fill='url(%23g)'/></svg>" alt=""></div><div class="pi"><img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' width='64' height='64'>  <defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%235fb5bd'/><stop offset='1' stop-color='%231f6f78'/></linearGradient></defs>  <rect x='4' y='4' width='56' height='56' rx='14' fill='%2310161e'/>  <circle cx='32' cy='32' r='17' fill='none' stroke='url(%23g)' stroke-width='4'/>  <circle cx='32' cy='32' r='7' fill='url(%23g)'/></svg>" alt=""></div><div class="task">⚙ System Settings<div class="u"></div></div><div class="tray"><span class="on">● on this machine</span><span style="color:#e6ebf1">19:18</span></div></div>
+</div>
+</section>
+
+<section>
+<h2>5 · The desktop, with the launcher</h2>
+<p class="cap">Genesis wallpaper, the bottom panel from the look-and-feel package with the Genesis launcher and maker button, and KRunner answering "ask make me a pomodoro timer".</p>
+<div class="screen"><div class="wall"></div>
+  <div class="krunner"><div class="q">ask make me a pomodoro timer web app</div><div class="m"><img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' width='64' height='64'>  <defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%235fb5bd'/><stop offset='1' stop-color='%231f6f78'/></linearGradient></defs>  <rect x='4' y='4' width='56' height='56' rx='14' fill='%2310161e'/>  <circle cx='32' cy='32' r='17' fill='none' stroke='url(%23g)' stroke-width='4'/>  <circle cx='32' cy='32' r='7' fill='url(%23g)'/></svg>" alt=""><div>Ask Genesis: make me a pomodoro timer web app<small>Runs on this machine · opens the Genesis workspace</small></div></div></div>
+  <div class="panel"><div class="pi"><img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' width='64' height='64'>  <defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%235fb5bd'/><stop offset='1' stop-color='%231f6f78'/></linearGradient></defs>  <rect x='4' y='4' width='56' height='56' rx='14' fill='%2310161e'/>  <circle cx='32' cy='32' r='17' fill='none' stroke='url(%23g)' stroke-width='4'/>  <circle cx='32' cy='32' r='7' fill='url(%23g)'/></svg>" alt=""></div><div class="pi"><img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' width='64' height='64'>  <defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%235fb5bd'/><stop offset='1' stop-color='%231f6f78'/></linearGradient></defs>  <rect x='4' y='4' width='56' height='56' rx='14' fill='%2310161e'/>  <circle cx='32' cy='32' r='17' fill='none' stroke='url(%23g)' stroke-width='4'/>  <circle cx='32' cy='32' r='7' fill='url(%23g)'/></svg>" alt=""></div><div class="task">▦</div><div class="tray"><span class="on">● on this machine</span><span>⌨</span><span>◐</span><span style="color:#e6ebf1">19:17</span></div></div>
+</div>
+</section>
+
+<section>
+<h2>6 · The maker, in its own window</h2>
 <p class="cap">The maker workspace in the Genesis window: steps on the left, the thing being made in the middle. The pomodoro app shown is the one the local model built earlier today.</p>
 <div class="screen"><div class="wall"></div><div class="dim"></div>
   <div class="win" style="left:5%;top:6%;width:90%;height:84%">
@@ -145,7 +193,7 @@ h2{font-size:20px;margin:36px 0 6px}
       </div>
     </div>
   </div>
-  <div class="panel"><div class="pi"><img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' width='64' height='64'>  <defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%235fb5bd'/><stop offset='1' stop-color='%231f6f78'/></linearGradient></defs>  <rect x='4' y='4' width='56' height='56' rx='14' fill='%2310161e'/>  <circle cx='32' cy='32' r='17' fill='none' stroke='url(%23g)' stroke-width='4'/>  <circle cx='32' cy='32' r='7' fill='url(%23g)'/></svg>" alt=""></div><div class="pi"><img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' width='64' height='64'>  <defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%235fb5bd'/><stop offset='1' stop-color='%231f6f78'/></linearGradient></defs>  <rect x='4' y='4' width='56' height='56' rx='14' fill='%2310161e'/>  <circle cx='32' cy='32' r='17' fill='none' stroke='url(%23g)' stroke-width='4'/>  <circle cx='32' cy='32' r='7' fill='url(%23g)'/></svg>" alt=""></div><div class="task"><img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' width='64' height='64'>  <defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%235fb5bd'/><stop offset='1' stop-color='%231f6f78'/></linearGradient></defs>  <rect x='4' y='4' width='56' height='56' rx='14' fill='%2310161e'/>  <circle cx='32' cy='32' r='17' fill='none' stroke='url(%23g)' stroke-width='4'/>  <circle cx='32' cy='32' r='7' fill='url(%23g)'/></svg>" width="14" alt=""> Genesis</div><div class="tray"><span class="on">● on this machine</span><span style="color:#e6ebf1">18:09</span></div></div>
+  <div class="panel"><div class="pi"><img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' width='64' height='64'>  <defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%235fb5bd'/><stop offset='1' stop-color='%231f6f78'/></linearGradient></defs>  <rect x='4' y='4' width='56' height='56' rx='14' fill='%2310161e'/>  <circle cx='32' cy='32' r='17' fill='none' stroke='url(%23g)' stroke-width='4'/>  <circle cx='32' cy='32' r='7' fill='url(%23g)'/></svg>" alt=""></div><div class="pi"><img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' width='64' height='64'>  <defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%235fb5bd'/><stop offset='1' stop-color='%231f6f78'/></linearGradient></defs>  <rect x='4' y='4' width='56' height='56' rx='14' fill='%2310161e'/>  <circle cx='32' cy='32' r='17' fill='none' stroke='url(%23g)' stroke-width='4'/>  <circle cx='32' cy='32' r='7' fill='url(%23g)'/></svg>" alt=""></div><div class="task"><img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' width='64' height='64'>  <defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%235fb5bd'/><stop offset='1' stop-color='%231f6f78'/></linearGradient></defs>  <rect x='4' y='4' width='56' height='56' rx='14' fill='%2310161e'/>  <circle cx='32' cy='32' r='17' fill='none' stroke='url(%23g)' stroke-width='4'/>  <circle cx='32' cy='32' r='7' fill='url(%23g)'/></svg>" width="14" alt=""> Genesis</div><div class="tray"><span class="on">● on this machine</span><span style="color:#e6ebf1">19:22</span></div></div>
 </div>
 </section>
 </div>
