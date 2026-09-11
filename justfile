@@ -84,11 +84,16 @@ qcow2 tag="genesis:0.1":
     mkdir -p iso/output
     docker run --rm --privileged --platform linux/amd64 -v "$PWD/iso/output:/output" -v "$PWD/iso/config.toml:/config.toml:ro" -v "$PWD/iso/defs/genesis-44.yaml:/usr/share/bootc-image-builder/defs/genesis-44.yaml:ro" -v /var/lib/containers/storage:/var/lib/containers/storage quay.io/centos-bootc/bootc-image-builder:latest --type qcow2 --rootfs btrfs --config /config.toml --local {{tag}}
 
-# Download the latest CI-built qcow2 and ISO into iso/output/
+# Download the latest CI-built qcow2 (and ISO if present) from GitHub Releases into iso/output/
 fetch-images:
-    mkdir -p iso/output
-    gh release download --repo matijagorsek/genesis --pattern "disk.qcow2" --pattern "*.iso" --dir iso/output --clobber
-    ls -la iso/output
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p iso/output && cd iso/output
+    gh release download --repo matijagorsek/genesis --pattern "*.part" --pattern "SHA256SUMS*" --clobber
+    sha256sum -c SHA256SUMS.qcow2 || shasum -a 256 -c SHA256SUMS.qcow2
+    cat *.qcow2.zst.*.part | zstd -d -f -o disk.qcow2
+    if ls *.iso.*.part >/dev/null 2>&1; then cat *.iso.*.part > genesis.iso; fi
+    ls -la
 
 # Boot the qcow2 in QEMU (x86_64 emulated on Apple Silicon: slow, but works). Login genesis/genesis. Ctrl-a x to quit.
 boot disk="iso/output/disk.qcow2":

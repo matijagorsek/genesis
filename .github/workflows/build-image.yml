@@ -16,10 +16,15 @@ permissions:
 
 env:
   IMAGE: ghcr.io/${{ github.repository_owner }}/genesis
+  BIB: quay.io/centos-bootc/bootc-image-builder:latest
 
 jobs:
+  # ---------------------------------------------------------------------------------------
+  # Job 1: OCI image (strict lint) -> push -> qcow2 -> QEMU boot test -> release (split parts)
+  # ---------------------------------------------------------------------------------------
   image:
-    runs-on: ubuntu-24.04     # native x86_64: bootc lint runs strict here
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
     outputs:
       tag: ${{ steps.meta.outputs.tag }}
     steps:
@@ -28,7 +33,7 @@ jobs:
       - id: meta
         run: echo "tag=0.1.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
 
-      - name: Free runner disk (image + qcow2 + ISO need ~25 GB)
+      - name: Free runner disk
         run: |
           df -h / | tail -1
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL \
@@ -66,7 +71,6 @@ jobs:
           sudo podman push $IMAGE:0.1
           sudo podman push $IMAGE:${{ steps.meta.outputs.tag }}
 
-      # ---- disk images (bootc-image-builder needs root podman + loop devices) ----
       - name: Build qcow2
         run: |
           mkdir -p out
@@ -74,72 +78,142 @@ jobs:
             -v "$PWD/out:/output" -v "$PWD/iso/config.toml:/config.toml:ro" \
             -v "$PWD/iso/defs/genesis-44.yaml:/usr/share/bootc-image-builder/defs/genesis-44.yaml:ro" \
             -v /var/lib/containers/storage:/var/lib/containers/storage \
-            quay.io/centos-bootc/bootc-image-builder:latest \
-            --type qcow2 --rootfs btrfs --config /config.toml --local $IMAGE:0.1
+            $BIB --type qcow2 --rootfs btrfs --config /config.toml $IMAGE:0.1
           sudo chown -R "$USER" out; ls -la out/qcow2; df -h / | tail -1
 
-      # ---- boot test: QEMU/KVM, serial console, wait for login prompt, then check via serial ----
-      - name: Boot test (qcow2)
+      - name: Boot test (qcow2, QEMU/KVM, serial console)
         run: |
+          set -o pipefail
           sudo apt-get update -q && sudo apt-get install -y -q qemu-system-x86 ovmf expect
-          # GitHub runners expose /dev/kvm but only root may open it; grant access (documented workaround)
+          # GitHub runners expose /dev/kvm but only root may open it
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
           sudo chmod 0666 /dev/kvm || true
-          ls -la /dev/kvm
           if [ -r /dev/kvm ] && [ -w /dev/kvm ]; then ACCEL="-enable-kvm -cpu host"; else echo "no KVM, using TCG"; ACCEL="-cpu max"; fi
+          FW=/usr/share/ovmf/OVMF.fd; [ -f "$FW" ] || FW=/usr/share/OVMF/OVMF.fd; [ -f "$FW" ] || { ls /usr/share/ovmf /usr/share/OVMF; exit 1; }
           cp out/qcow2/disk.qcow2 boot.qcow2
-          timeout 900 expect -c '
-            set timeout 840
-            spawn qemu-system-x86_64 '"$ACCEL"' -m 4096 -smp 2 -nographic \
-              -bios /usr/share/ovmf/OVMF.fd \
-              -drive file=boot.qcow2,if=virtio,format=qcow2 \
-              -serial mon:stdio -display none
-            expect {
-              -re "login:" { send "genesis\r" }
-              timeout { puts "TIMEOUT waiting for login"; exit 1 }
-            }
-            expect "Password:" { send "genesis\r" }
-            expect -re "\\$ " { send "cat /etc/os-release | head -3; systemctl is-enabled genesis-router.socket; systemctl is-active genesis-router.socket; genesis-image-check | tail -3; echo BOOTTEST-DONE\r" }
-            expect {
-              "BOOTTEST-DONE" { puts "\nboot test reached shell"; }
-              timeout { puts "TIMEOUT in shell"; exit 1 }
-            }
-            send "sudo poweroff\r"
-            expect eof
-          ' | tee boot-serial.log
-          grep -q 'ID=genesis' boot-serial.log
-          grep -q 'enabled' boot-serial.log
+          cat > boot.exp <<EOF
+          set timeout 600
+          log_file -noappend boot-serial.log
+          spawn qemu-system-x86_64 $ACCEL -m 4096 -smp 2 -nographic -bios $FW -drive file=boot.qcow2,if=virtio,format=qcow2 -serial mon:stdio -display none
+          expect {
+            -re "login: *\$" { send "genesis\r" }
+            timeout { puts "\nTIMEOUT: no login prompt on serial console"; exit 1 }
+            eof     { puts "\nQEMU exited before login prompt"; exit 1 }
+          }
+          expect {
+            -re "Password: *\$" { send "genesis\r" }
+            timeout { puts "\nTIMEOUT: no password prompt"; exit 1 }
+          }
+          # do not depend on the shell prompt (starship on Universal Blue images); wait, then send commands
+          sleep 6
+          send "echo BOOTTEST-BEGIN; grep -E '^(ID|PRETTY_NAME|IMAGE_ID)=' /etc/os-release; systemctl is-enabled genesis-router.socket; systemctl is-active genesis-router.socket; genesis-image-check | tail -4; echo BOOTTEST-DONE\r"
+          expect {
+            "BOOTTEST-DONE" { puts "\nboot test reached shell" }
+            timeout { puts "\nTIMEOUT: command did not complete"; exit 1 }
+          }
+          send "exit\r"
+          sleep 1
+          exit 0
+          EOF
+          timeout 900 expect -f boot.exp
+          echo "=== checks"
+          grep -q 'ID=genesis' boot-serial.log && echo "ok  os-release ID=genesis"
+          grep -qE '^enabled' boot-serial.log && echo "ok  genesis-router.socket enabled"
+          grep -qE '^active|^inactive' boot-serial.log && echo "ok  socket state reported"
 
-      - name: Build installer ISO
+      - name: Package qcow2 for release (2 GB per-asset limit -> zstd + split)
         run: |
-          sudo podman run --rm --privileged --security-opt label=type:unconfined_t \
-            -v "$PWD/out:/output" -v "$PWD/iso/config.toml:/config.toml:ro" \
-            -v "$PWD/iso/defs/genesis-44.yaml:/usr/share/bootc-image-builder/defs/genesis-44.yaml:ro" \
-            -v /var/lib/containers/storage:/var/lib/containers/storage \
-            quay.io/centos-bootc/bootc-image-builder:latest \
-            --type anaconda-iso --rootfs btrfs --config /config.toml --local $IMAGE:0.1
-          sudo chown -R "$USER" out; ls -la out/bootiso
+          sudo apt-get install -y -q zstd
+          mkdir -p release
+          zstd -T0 -6 --rm -q -o release/genesis-${{ steps.meta.outputs.tag }}.qcow2.zst out/qcow2/disk.qcow2
+          cd release
+          split -b 1900M -d --additional-suffix=.part genesis-${{ steps.meta.outputs.tag }}.qcow2.zst genesis-${{ steps.meta.outputs.tag }}.qcow2.zst.
+          rm genesis-${{ steps.meta.outputs.tag }}.qcow2.zst
+          sha256sum *.part > SHA256SUMS.qcow2
+          cp ../boot-serial.log .
+          ls -la
 
-      - name: Upload artifacts
+      - name: Upload boot log (small artifact only; repo is private, artifact storage is limited)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: genesis-${{ steps.meta.outputs.tag }}
-          path: |
-            out/qcow2/disk.qcow2
-            out/bootiso/*.iso
-            boot-serial.log
+          name: boot-serial-${{ steps.meta.outputs.tag }}
+          path: boot-serial.log
+          if-no-files-found: ignore
           retention-days: 14
-          compression-level: 0
 
-      - name: Release (main only)
-        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+      - name: Release qcow2 (prerelease)
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.meta.outputs.tag }}
           name: Genesis ${{ steps.meta.outputs.tag }}
           prerelease: true
+          body: |
+            Image: `ghcr.io/${{ github.repository_owner }}/genesis:${{ steps.meta.outputs.tag }}`
+
+            Disk image (QEMU/UTM/virt-manager), split because of GitHub's 2 GB asset limit:
+
+                cat genesis-${{ steps.meta.outputs.tag }}.qcow2.zst.*.part | zstd -d -o disk.qcow2
+
+            Installer ISO parts are attached by the `iso` job when it succeeds:
+
+                cat genesis-${{ steps.meta.outputs.tag }}.iso.*.part > genesis.iso
+
+            Login for boot tests: `genesis` / `genesis`. Boot-test serial log attached.
           files: |
-            out/bootiso/*.iso
-            out/qcow2/disk.qcow2
-            boot-serial.log
+            release/*
+
+  # ---------------------------------------------------------------------------------------
+  # Job 2: installer ISO from the pushed image; attaches to the same release. Does not block job 1.
+  # ---------------------------------------------------------------------------------------
+  iso:
+    needs: image
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free runner disk
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL \
+                      /usr/local/.ghcup /usr/share/swift /usr/local/share/powershell /usr/lib/jvm \
+                      /usr/local/julia* /opt/microsoft /usr/share/miniconda /usr/local/share/chromium /usr/local/share/boost
+          sudo docker image prune -af >/dev/null 2>&1 || true
+          sudo apt-get clean; df -h / | tail -1
+
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | sudo podman login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Pull Genesis image
+        run: |
+          for i in 1 2 3 4 5 6; do sudo podman pull $IMAGE:${{ needs.image.outputs.tag }} && break; sleep 30; done
+          sudo podman tag $IMAGE:${{ needs.image.outputs.tag }} $IMAGE:0.1
+
+      - name: Build installer ISO
+        run: |
+          mkdir -p out
+          sudo podman run --rm --privileged --security-opt label=type:unconfined_t \
+            -v "$PWD/out:/output" -v "$PWD/iso/config.toml:/config.toml:ro" \
+            -v "$PWD/iso/defs/genesis-44.yaml:/usr/share/bootc-image-builder/defs/genesis-44.yaml:ro" \
+            -v /var/lib/containers/storage:/var/lib/containers/storage \
+            $BIB --type anaconda-iso --rootfs btrfs --config /config.toml $IMAGE:0.1
+          sudo chown -R "$USER" out; ls -la out/bootiso
+
+      - name: Package ISO for release (split)
+        run: |
+          mkdir -p release && cd release
+          iso=$(ls ../out/bootiso/*.iso | head -1)
+          split -b 1900M -d --additional-suffix=.part "$iso" genesis-${{ needs.image.outputs.tag }}.iso.
+          sha256sum "$iso" *.part > SHA256SUMS.iso
+          ls -la
+
+      - name: Attach ISO to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.image.outputs.tag }}
+          prerelease: true
+          files: |
+            release/*
