@@ -63,7 +63,7 @@ ol.next{padding-left:22px;max-width:70ch}ol.next li{margin-bottom:7px}
 <p class="eyebrow">Genesis · project status</p>
 <h1>Genesis, from idea to a booting OS in two days</h1>
 <p class="lede">One page with everything: what was investigated, what was decided, what runs today, the proof that Genesis boots, and what comes next. Links to the full brief, the interactive walkthrough, the repository and the published image.</p>
-<div class="meta"><span>updated 2026-09-11</span><span>68 commits on main</span><span>github.com/matijagorsek/genesis</span></div>
+<div class="meta"><span>updated 2026-09-11</span><span>78 commits on main</span><span>github.com/matijagorsek/genesis</span></div>
 
 <div class="tiles">
   <div class="tile"><div class="k">Phase 0 tasks</div><div class="v">3 / 3 <span class="pill ok">pass</span></div><div class="s">shell, repo edit, kanban app, all with a local 27B</div></div>
@@ -83,7 +83,7 @@ ol.next{padding-left:22px;max-width:70ch}ol.next li{margin-bottom:7px}
 </div>
 
 <h2>What Genesis is</h2>
-<p>A Linux distribution where several local language models are a first-class OS service, and an agent can build apps, browse, install software and reconfigure the machine. Everything local by default. It is our own distribution, derived from Fedora bootc the way Ubuntu derives from Debian: own name, image, installer, services and desktop, with Fedora's kernel, drivers and security updates inherited for free.</p>
+<p>A complete desktop operating system first: files, browser, terminal, settings, app store, office and media apps, with its own identity. Local language models are one integrated capability of that desktop: a launcher entry, a maker that builds what you ask for, and helpers inside the system, all running on the machine, all gated by a permission broker and undoable. It is our own distribution, derived from Fedora bootc the way Ubuntu derives from Debian: own name, image, installer, services and desktop, with Fedora's kernel, drivers and security updates inherited for free.</p>
 
 <h2>Decisions that hold</h2>
 <div class="tablewrap"><table>
@@ -92,6 +92,7 @@ ol.next{padding-left:22px;max-width:70ch}ol.next li{margin-bottom:7px}
 <tr><td>Base</td><td>Fedora bootc via Universal Blue Aurora (KDE). Ubuntu 26.04 LTS runner-up. From-scratch rejected on evidence.</td><td><span class="pill ok">reconfirmed</span></td></tr>
 <tr><td>Inference</td><td>Upstream llama.cpp Vulkan build plus llama-swap, one local OpenAI-compatible endpoint. Fedora's llama-cpp package rejected: stale, no Vulkan, +2.5 GB of ROCm.</td><td><span class="pill ok">built</span></td></tr>
 <tr><td>Models</td><td>Qwen3.5 / 3.6 / 3.8 family, Apache 2.0. Seven hardware-tiered packs. Three license tiers.</td><td><span class="pill ok">packs verified</span></td></tr>
+<tr><td>Complete desktop</td><td>Firefox, Dolphin, Konsole, Kate, Okular, Gwenview, Haruna, Elisa, KCalc, Discover, System Settings, Ark, Spectacle, System Monitor as RPMs; LibreOffice, Thunderbird, VLC, GIMP, Krita, Bazaar preinstalled as Flatpaks once online. Genesis look-and-feel, wallpaper, login screen, panel; Plasma Setup masked; Aurora welcome removed.</td><td><span class="pill ok">built (v0.1.28 pending)</span></td></tr>
 <tr><td>Maker workspace and launcher</td><td>"What do you want to make?" → templates → the agent scaffolds a real project, writes it, runs it, and the live preview sits in the middle; steer from the side, install as an app, undo. KRunner "ask …" and Meta+Space open it on Plasma. Proven: a pomodoro timer made by the local 27B from one sentence.</td><td><span class="pill ok">built</span></td></tr>
 <tr><td>Transactions and undo</td><td>genesis-txd: snapshot before any user- or system-scope change (btrfs on the image, exact file pre-images elsewhere), a ledger of what a session touched with what is and is not undoable, commit and rollback. Wired into agentd; undo from the API or `genesis-txd undo`.</td><td><span class="pill ok">built</span></td></tr>
 <tr><td>Agent daemon</td><td>genesis-agentd: tool-calling loop on the local endpoint, every call gated by the broker before it runs (allow / prompt-and-wait / deny), bubblewrap shell sandbox on Linux, local API for the launcher. Proven on the local 27B: a project task done in six turns, and the Phase 0 escalation reproduced and stopped, with the model choosing a safe alternative.</td><td><span class="pill ok">built</span></td></tr>
