@@ -4,7 +4,7 @@ Short form. Evidence and alternatives are in [genesis-brief.html](genesis-brief.
 
 | # | Date | Decision | Status |
 |---|------|----------|--------|
-| 1 | 2026-09-10 | Base: Fedora bootc, forked from Universal Blue Aurora (KDE). NixOS runner-up. | accepted |
+| 1 | 2026-09-10 | Base: Fedora bootc, forked from Universal Blue Aurora (KDE). Re-examined against from-scratch and independent routes on 2026-09-11, see [base-decision.md](base-decision.md). Ubuntu 26.04 LTS is the runner-up. | reconfirmed |
 | 2 | 2026-09-10 | Inference: llama.cpp `llama-server` behind llama-swap, one OpenAI-compatible endpoint on localhost. Ollama only as a compatibility shim. | accepted |
 | 3 | 2026-09-10 | GPU: Vulkan on the host for all vendors; `genesis-nvidia` image flavour with open kernel modules; CUDA/ROCm/SYCL via ramalama containers. | accepted |
 | 4 | 2026-09-10 | Agent core: embed Goose (Rust, Apache 2.0, MCP-native). OpenHands SDK optional in a builder container. | accepted |
