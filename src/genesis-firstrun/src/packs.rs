@@ -125,6 +125,8 @@ pub fn plan(pack: &Pack, models_dir: &Path, lister: &dyn Fn(&str) -> Result<Vec<
 
 /// Render the llama-swap config for a pack from the files on disk. Mirrors prototype/router.yaml.
 pub fn render_router(models_dir: &Path, port_base: u16) -> Result<String> {
+    let models_dir = std::fs::canonicalize(models_dir).unwrap_or_else(|_| models_dir.to_path_buf());
+    let models_dir = models_dir.as_path();
     let find = |role: &str, mmproj: bool| -> Option<String> {
         let dir = models_dir.join(role);
         let mut files: Vec<PathBuf> = std::fs::read_dir(&dir).ok()?.filter_map(|e| e.ok().map(|e| e.path())).filter(|p| p.extension().map(|e| e == "gguf").unwrap_or(false)).collect();
