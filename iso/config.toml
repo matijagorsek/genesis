@@ -1,8 +1,7 @@
 # bootc-image-builder config for Genesis. Used for anaconda-iso, qcow2 and raw outputs.
 # Docs: https://github.com/osbuild/bootc-image-builder
 
-[customizations]
-hostname = "genesis"
+# Hostname comes from the image (bootc kargs.d: systemd.hostname=genesis); the builder rejects a hostname customization for qcow2.
 
 # Test user for boot tests and first alpha. The first-run wizard replaces this in Phase 1.
 [[customizations.user]]
