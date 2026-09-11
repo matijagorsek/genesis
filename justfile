@@ -83,3 +83,26 @@ iso tag="genesis:0.1":
 qcow2 tag="genesis:0.1":
     mkdir -p iso/output
     docker run --rm --privileged --platform linux/amd64 -v "$PWD/iso/output:/output" -v "$PWD/iso/config.toml:/config.toml:ro" -v /var/lib/containers/storage:/var/lib/containers/storage quay.io/centos-bootc/bootc-image-builder:latest --type qcow2 --rootfs btrfs --config /config.toml --local {{tag}}
+
+# Download the latest CI-built qcow2 and ISO into iso/output/
+fetch-images:
+    mkdir -p iso/output
+    gh release download --repo matijagorsek/genesis --pattern "disk.qcow2" --pattern "*.iso" --dir iso/output --clobber
+    ls -la iso/output
+
+# Boot the qcow2 in QEMU (x86_64 emulated on Apple Silicon: slow, but works). Login genesis/genesis. Ctrl-a x to quit.
+boot disk="iso/output/disk.qcow2":
+    cp -n /opt/homebrew/share/qemu/edk2-x86_64-code.fd iso/output/ovmf-code.fd 2>/dev/null || true
+    qemu-system-x86_64 -machine q35 -cpu max -smp 4 -m 6144 \
+      -drive if=pflash,format=raw,readonly=on,file=iso/output/ovmf-code.fd \
+      -drive file={{disk}},if=virtio,format=qcow2 \
+      -device virtio-vga -display default,show-cursor=on \
+      -netdev user,id=n0,hostfwd=tcp::2222-:22 -device virtio-net-pci,netdev=n0 \
+      -serial mon:stdio
+
+# Boot the qcow2 headless on the serial console only
+boot-serial disk="iso/output/disk.qcow2":
+    cp -n /opt/homebrew/share/qemu/edk2-x86_64-code.fd iso/output/ovmf-code.fd 2>/dev/null || true
+    qemu-system-x86_64 -machine q35 -cpu max -smp 4 -m 4096 -nographic \
+      -drive if=pflash,format=raw,readonly=on,file=iso/output/ovmf-code.fd \
+      -drive file={{disk}},if=virtio,format=qcow2
