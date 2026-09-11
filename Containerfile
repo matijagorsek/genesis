@@ -32,6 +32,7 @@ RUN set -eux; \
 
 # ---- Genesis files: units, sysusers, tmpfiles, /etc/genesis defaults ----------------------
 COPY system_files/ /
+RUN echo genesis > /etc/hostname
 
 # ---- inference stack -------------------------------------------------------------------------
 # llama.cpp: upstream Vulkan build (CPU + Vulkan backends, runs on NVIDIA/AMD/Intel via Mesa or vendor ICDs).
