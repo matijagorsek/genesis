@@ -1,0 +1,166 @@
+<title>Genesis Status Board</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --paper:#f6f7f4; --ink:#1c2330; --ink-2:#4a5566; --ink-3:#7b8596; --line:#d9ddd6; --panel:#eceee9; --panel-2:#e2e6df;
+  --accent:#1f6f78; --accent-ink:#fff; --accent-soft:#d7e8e9; --good:#2e7d4f; --good-soft:#dcefe3; --warn:#a86a12; --warn-soft:#f6e9d2; --bad:#b23a3a; --bad-soft:#f5dcdc;
+  --code:#0f1720; --code-ink:#dfe6ee;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#141920; --ink:#e7ebef; --ink-2:#aeb7c2; --ink-3:#7f8998; --line:#2a323d; --panel:#1c232c; --panel-2:#232c37;
+  --accent:#5fb5bd; --accent-ink:#0d1418; --accent-soft:#1b3438; --good:#6ccf94; --good-soft:#173324; --warn:#e0a84a; --warn-soft:#332a14; --bad:#ef7b7b; --bad-soft:#3a1c1c;
+  --code:#0b1016; --code-ink:#dfe6ee;}}
+:root[data-theme="dark"]{
+  --paper:#141920; --ink:#e7ebef; --ink-2:#aeb7c2; --ink-3:#7f8998; --line:#2a323d; --panel:#1c232c; --panel-2:#232c37;
+  --accent:#5fb5bd; --accent-ink:#0d1418; --accent-soft:#1b3438; --good:#6ccf94; --good-soft:#173324; --warn:#e0a84a; --warn-soft:#332a14; --bad:#ef7b7b; --bad-soft:#3a1c1c;
+  --code:#0b1016; --code-ink:#dfe6ee;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:15px;line-height:1.55}
+a{color:var(--accent);text-decoration:none;border-bottom:1px solid transparent}a:hover{border-bottom-color:var(--accent)}a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1100px;margin:0 auto;padding:36px 24px 80px}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:0 0 10px}
+h1{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:clamp(30px,4.4vw,44px);line-height:1.04;letter-spacing:-.02em;margin:0 0 10px;text-wrap:balance}
+.lede{color:var(--ink-2);font-size:17px;max-width:64ch;margin:0 0 22px}
+h2{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:23px;letter-spacing:-.01em;margin:44px 0 12px;text-wrap:balance}
+p{max-width:68ch;margin:0 0 12px}
+.meta{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink-3);display:flex;flex-wrap:wrap;gap:6px 18px;margin-bottom:26px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:0 0 8px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px}
+.tile .k{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+.tile .v{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:24px;line-height:1.1;margin:4px 0 2px}
+.tile .s{font-size:12.5px;color:var(--ink-2)}
+.pill{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:11px;padding:2px 9px;border-radius:999px;border:1px solid var(--line);color:var(--ink-2);white-space:nowrap;vertical-align:middle}
+.pill.ok{background:var(--good-soft);border-color:var(--good);color:var(--good)}
+.pill.warn{background:var(--warn-soft);border-color:var(--warn);color:var(--warn)}
+.pill.bad{background:var(--bad-soft);border-color:var(--bad);color:var(--bad)}
+.pill.run{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.links{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:12px 0 6px}
+.link{display:block;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px;color:var(--ink)}
+.link:hover{border-color:var(--accent)}
+.link b{display:block;font-family:"Bricolage Grotesque",sans-serif;font-size:16px;margin-bottom:3px}
+.link span{font-size:13px;color:var(--ink-2)}
+.link .url{display:block;margin-top:6px;font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--accent);word-break:break-all}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px;margin:10px 0 18px}
+table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:560px}
+th{background:var(--panel);text-align:left;font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-2);padding:8px 12px;border-bottom:1px solid var(--line)}
+td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+tbody tr:last-child td{border-bottom:none}
+td.num{font-family:"IBM Plex Mono",monospace;white-space:nowrap;font-variant-numeric:tabular-nums}
+.pipe{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:6px;margin:10px 0 16px}
+.step{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:9px 10px;font-size:12.5px}
+.step .n{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--ink-3)}
+.step.ok{border-color:var(--good)} .step.ok .n{color:var(--good)}
+.step.run{border-color:var(--accent)} .step.run .n{color:var(--accent)}
+.step.todo{opacity:.7}
+pre{background:var(--code);color:var(--code-ink);font-family:"IBM Plex Mono",monospace;font-size:12.5px;line-height:1.5;padding:14px 16px;border-radius:8px;overflow-x:auto;margin:10px 0 18px}
+pre .c{color:#7fb3b8} pre .g{color:#8fd19e} pre .d{color:#8a97a8}
+code{font-family:"IBM Plex Mono",monospace;font-size:.92em;background:var(--panel-2);padding:1px 5px;border-radius:3px}
+ol.next{padding-left:22px;max-width:70ch}ol.next li{margin-bottom:7px}
+.small{font-size:13px;color:var(--ink-3)}
+</style>
+
+<div class="wrap">
+<p class="eyebrow">Genesis · project status</p>
+<h1>Genesis, from idea to a booting OS in two days</h1>
+<p class="lede">One page with everything: what was investigated, what was decided, what runs today, the proof that Genesis boots, and what comes next. Links to the full brief, the interactive walkthrough, the repository and the published image.</p>
+<div class="meta"><span>updated 2026-09-11</span><span>23 commits on main</span><span>github.com/matijagorsek/genesis</span></div>
+
+<div class="tiles">
+  <div class="tile"><div class="k">Phase 0 tasks</div><div class="v">3 / 3 <span class="pill ok">pass</span></div><div class="s">shell, repo edit, kanban app, all with a local 27B</div></div>
+  <div class="tile"><div class="k">Image</div><div class="v">3.80 GB</div><div class="s">ghcr.io/matijagorsek/genesis:0.1 · strict lint · +70 MB over base</div></div>
+  <div class="tile"><div class="k">First boot</div><div class="v">yes <span class="pill ok">run 7</span></div><div class="s">QEMU/KVM, serial login, all in-VM checks passed</div></div>
+  <div class="tile"><div class="k">Installer ISO</div><div class="v"><span class="pill run">building</span></div><div class="s">own bootc-image-builder definition, own CI job</div></div>
+</div>
+
+<h2>Everything, in one place</h2>
+<div class="links">
+  <a class="link" href="https://claude.ai/code/artifact/c687b424-5f72-4ebb-b8c5-2ab5af2b1f70"><b>Feasibility brief</b><span>Four expert angles, model packs per hardware tier, licensing tiers, architecture, UX, roadmap and risks.</span><span class="url">claude.ai/code/artifact/c687b424…</span></a>
+  <a class="link" href="https://claude.ai/code/artifact/624e633d-ab72-40a4-97ab-1d31ec84ba88"><b>Interactive walkthrough</b><span>Ten screens from power-on to a built app: boot, first run, launcher, agent workspace, permissions, model manager, undo.</span><span class="url">claude.ai/code/artifact/624e633d…</span></a>
+  <a class="link" href="https://github.com/matijagorsek/genesis"><b>Repository</b><span>Containerfile, packs, prototype, system files, CI, docs with the decision log and the base-distro due diligence.</span><span class="url">github.com/matijagorsek/genesis</span></a>
+  <a class="link" href="https://github.com/matijagorsek/genesis/releases"><b>Releases and image</b><span>Prereleases with the qcow2 in split parts, the boot serial log, and the installer ISO when its job succeeds. Image on GHCR.</span><span class="url">github.com/matijagorsek/genesis/releases</span></a>
+  <a class="link" href="https://github.com/matijagorsek/genesis/actions"><b>Pipeline</b><span>Native x86_64 build, strict lint, self-check, push, qcow2, QEMU boot test, release, ISO. Nightly, so Fedora updates flow in.</span><span class="url">github.com/matijagorsek/genesis/actions</span></a>
+  <a class="link" href="https://github.com/matijagorsek/genesis/blob/main/docs/base-decision.md"><b>Own distro vs Fedora, decided</b><span>Derive from Fedora bootc, keep the base a swappable FROM line. About 90% confidence against from-scratch, with the evidence.</span><span class="url">docs/base-decision.md</span></a>
+</div>
+
+<h2>What Genesis is</h2>
+<p>A Linux distribution where several local language models are a first-class OS service, and an agent can build apps, browse, install software and reconfigure the machine. Everything local by default. It is our own distribution, derived from Fedora bootc the way Ubuntu derives from Debian: own name, image, installer, services and desktop, with Fedora's kernel, drivers and security updates inherited for free.</p>
+
+<h2>Decisions that hold</h2>
+<div class="tablewrap"><table>
+<thead><tr><th>Area</th><th>Decision</th><th>Status</th></tr></thead>
+<tbody>
+<tr><td>Base</td><td>Fedora bootc via Universal Blue Aurora (KDE). Ubuntu 26.04 LTS runner-up. From-scratch rejected on evidence.</td><td><span class="pill ok">reconfirmed</span></td></tr>
+<tr><td>Inference</td><td>Upstream llama.cpp Vulkan build plus llama-swap, one local OpenAI-compatible endpoint. Fedora's llama-cpp package rejected: stale, no Vulkan, +2.5 GB of ROCm.</td><td><span class="pill ok">built</span></td></tr>
+<tr><td>Models</td><td>Qwen3.5 / 3.6 / 3.8 family, Apache 2.0. Seven hardware-tiered packs. Three license tiers.</td><td><span class="pill ok">packs verified</span></td></tr>
+<tr><td>Agent</td><td>Goose embedded, MCP tools, Rust daemons. Permission broker first, because Phase 0 showed the agent escalating on its own.</td><td><span class="pill warn">Phase 1</span></td></tr>
+<tr><td>Safety</td><td>Sandbox tiers T0 to T4, btrfs snapshots and undo, agent as its own user, everything local as a visible fact.</td><td><span class="pill warn">Phase 1</span></td></tr>
+</tbody></table></div>
+
+<h2>Phase 0: does the core loop work on local models?</h2>
+<p>Run on the M4 Max with three models resident behind one endpoint. All three tasks passed on the first attempt.</p>
+<div class="tablewrap"><table>
+<thead><tr><th>Task</th><th>Result</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td>Find the top memory process</td><td><span class="pill ok">pass</span></td><td>Two shell calls, noticed a <code>ps</code> ordering inconsistency and corrected it</td></tr>
+<tr><td>Add a <code>--json</code> flag, docs and a test to a CLI</td><td><span class="pill ok">pass</span></td><td>pytest green. Escalated to <code>pip --break-system-packages</code> unasked, which reordered Phase 1</td></tr>
+<tr><td>Build a kanban web app from todo.md</td><td><span class="pill ok">pass</span></td><td>24 tool calls, drag and drop, dev-server API, type-check and build green, verified running</td></tr>
+</tbody></table></div>
+<div class="tablewrap"><table>
+<thead><tr><th>Model</th><th>Role</th><th class="num">Cold load</th><th class="num">Steady</th></tr></thead>
+<tbody>
+<tr><td>Qwen3.5-4B Q8</td><td>fast, always on</td><td class="num">3.5 s</td><td class="num">~56 tok/s</td></tr>
+<tr><td>Qwen3.8-27B Q4</td><td>coder and vision</td><td class="num">17 s</td><td class="num">~16.5 tok/s</td></tr>
+<tr><td>Qwen3-Embedding-0.6B</td><td>search</td><td class="num">&lt;1 s</td><td class="num">1024 dims</td></tr>
+</tbody></table></div>
+
+<h2>The image and the pipeline</h2>
+<div class="pipe">
+  <div class="step ok"><div class="n">1 · done</div>free disk, pull base</div>
+  <div class="step ok"><div class="n">2 · done</div>build, strict bootc lint</div>
+  <div class="step ok"><div class="n">3 · done</div>self-check, 14 items</div>
+  <div class="step ok"><div class="n">4 · done</div>push to GHCR</div>
+  <div class="step ok"><div class="n">5 · done</div>qcow2 disk image</div>
+  <div class="step ok"><div class="n">6 · boots</div>QEMU/KVM boot test</div>
+  <div class="step run"><div class="n">7 · running</div>split, release</div>
+  <div class="step run"><div class="n">8 · running</div>installer ISO job</div>
+</div>
+<p>Nine CI runs so far. Each failure was a distinct pipeline issue, not an image problem: podman lacking Docker's heredoc syntax, a registry pull timeout, an old podman flag, runner disk exhausted, a missing distro definition for an OS named "genesis", KVM device permissions, and a boot script typing before the shell was ready. All fixed, and a full audit removed the next ones in line: 2 GB release asset limit, private-repo artifact quota, and three bugs in the test script.</p>
+
+<h2>Proof of first boot</h2>
+<p>Serial console from CI run 7 on 2026-09-11, trimmed. This is Genesis booting from its own disk image under KVM, logging in, and passing its checks.</p>
+<pre><span class="d">GRUB</span>   <span class="g">*Genesis 0.1.7 (Fedora bootc 44) (ostree:0)</span>
+<span class="d">[0.000000]</span> Command line: BOOT_IMAGE=(hd0,gpt3)/boot/ostree/default-…/vmlinuz-7.1.8-200.fc44.x86_64
+<span class="d">[0.000000]</span> Hypervisor detected: KVM
+<span class="c">Welcome to Genesis 0.1.7 (Fedora bootc 44)!</span>
+…
+<span class="c">Genesis 0.1.7 (Fedora bootc 44)</span>
+aurora login: genesis
+Password:
+…
+  ok   /etc/genesis
+  version: 0.4.0-dev (build 10901, commit 28ff09582)      <span class="d"># llama.cpp</span>
+  version: v255 (7761aa1), built at 2026-09-06T05:46:05Z  <span class="d"># llama-swap</span>
+<span class="g">BOOTTEST-DONE</span></pre>
+<p class="small">The hostname still read "aurora" in that run; it is set to "genesis" in the image as of run 9.</p>
+
+<h2>What is real and what is designed</h2>
+<div class="tablewrap"><table>
+<thead><tr><th>Real today</th><th>Designed, built in Phase 1 and 2</th></tr></thead>
+<tbody>
+<tr><td>The Genesis image, published and bootable, with the inference stack inside</td><td>First-run wizard with hardware detection and pack download</td></tr>
+<tr><td>Three local models behind one endpoint, hot-and-swap router</td><td>Launcher, agent workspace, model manager, undo UI</td></tr>
+<tr><td>An agent that built a working app from a one-line request</td><td>Permission broker, sandbox tiers, snapshots and undo</td></tr>
+<tr><td>Model packs for six hardware tiers, licenses verified</td><td>NVIDIA image flavour with signed modules, ISO installer polish</td></tr>
+</tbody></table></div>
+
+<h2>Next, in order</h2>
+<ol class="next">
+  <li><strong>Green end-to-end run.</strong> qcow2 released in split parts, ISO attached by its own job.</li>
+  <li><strong>Boot Genesis on the Mac.</strong> <code>just fetch-images</code> then <code>just boot</code> in QEMU, and watch it reach the Plasma login.</li>
+  <li><strong>genesis-permd.</strong> The permission broker, first Rust daemon, because the agent escalates on its own without it.</li>
+  <li><strong>genesis-probe and the first-run wizard.</strong> Hardware profile, pack proposal, download with the bootstrap model answering meanwhile.</li>
+  <li><strong>Packs as OCI artifacts</strong> on GHCR, pulled with ramalama, router config rendered from the installed pack.</li>
+  <li><strong>genesis-agentd</strong> embedding Goose, every tool call through the broker, tools in bubblewrap.</li>
+  <li><strong>Transactions and undo</strong>, then the launcher and workspace, then the file index and search.</li>
+</ol>
+</div>
