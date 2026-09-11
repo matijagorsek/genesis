@@ -1,0 +1,25 @@
+[package]
+name = "genesis-firstrun"
+description = "Genesis first-run wizard: local web UI + API that proposes a model pack from the hardware profile, downloads it, renders the router config and records the privacy choice"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "genesis-firstrun"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+clap.workspace = true
+globset.workspace = true
+time.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tiny_http.workspace = true
+
+[dev-dependencies]
+tempfile = "3"

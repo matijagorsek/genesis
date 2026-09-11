@@ -4,9 +4,21 @@
     {
       "name": "kanban-phase0",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--", "--port", "5199"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5199"
+      ],
       "cwd": "examples/kanban-phase0/kanban",
       "port": 5199
+    },
+    {
+      "name": "firstrun-wizard",
+      "runtimeExecutable": "prototype/firstrun-dev.sh",
+      "runtimeArgs": [],
+      "port": 11510
     }
   ]
 }

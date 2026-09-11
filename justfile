@@ -130,3 +130,7 @@ permd-policy:
 # Hardware probe on this machine (or a pretend one: just probe "gpu=nvidia,vram=24,ram=64,disk=400")
 probe fake="":
     cd src && cargo run -q -p genesis-probe -- --packs ../packs {{ if fake != "" { "--fake " + fake } else { "" } }}
+
+# Run the first-run wizard locally (real hardware profile, scratch writes) on http://127.0.0.1:11510
+firstrun:
+    prototype/firstrun-dev.sh

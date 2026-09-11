@@ -1,0 +1,21 @@
+[Unit]
+Description=Genesis first-run wizard service (local web UI on 127.0.0.1:11510)
+Documentation=https://github.com/matijagorsek/genesis
+After=network-online.target genesis-probe.service
+Wants=network-online.target
+ConditionPathExists=!/var/lib/genesis/first-run-done
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/genesis-firstrun
+Restart=on-failure
+RestartSec=3
+Environment=RUST_LOG=info
+StateDirectory=genesis
+# writes models, router.yaml and settings; root because /etc/genesis and /var/lib/genesis are system-owned in the alpha
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

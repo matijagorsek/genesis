@@ -6,7 +6,7 @@ rc=0
 echo "Genesis image check"
 grep -q '^ID=genesis' /usr/lib/os-release && ok "os-release ID=genesis" || fail "os-release"
 grep '^PRETTY_NAME' /usr/lib/os-release
-for b in llama-server llama-swap ramalama bwrap distrobox bootc vulkaninfo genesis-permd genesis-probe; do command -v "$b" >/dev/null && ok "binary $b" || fail "binary $b"; done
+for b in llama-server llama-swap ramalama bwrap distrobox bootc vulkaninfo genesis-permd genesis-probe genesis-firstrun; do command -v "$b" >/dev/null && ok "binary $b" || fail "binary $b"; done
 for u in genesis-router.service genesis-router.socket; do [ -f "/usr/lib/systemd/system/$u" ] && ok "unit $u" || fail "unit $u"; done
 [ -L /etc/systemd/system/sockets.target.wants/genesis-router.socket ] && ok "router socket enabled" || fail "router socket not enabled"
 [ -f /usr/lib/sysusers.d/genesis.conf ] && ok "sysusers" || fail "sysusers"
@@ -16,6 +16,8 @@ for u in genesis-router.service genesis-router.socket; do [ -f "/usr/lib/systemd
 [ -f /usr/lib/bootc/kargs.d/10-genesis.toml ] && ok "kargs.d hostname" || fail "kargs.d hostname"
 [ -d /usr/share/genesis/packs ] && [ "$(ls /usr/share/genesis/packs/*.json 2>/dev/null | wc -l)" -ge 7 ] && ok "packs shipped" || fail "packs shipped"
 [ -L /etc/systemd/system/multi-user.target.wants/genesis-probe.service ] && ok "probe first-boot service enabled" || fail "probe service not enabled"
+[ -L /etc/systemd/system/multi-user.target.wants/genesis-firstrun.service ] && ok "first-run service enabled" || fail "first-run service not enabled"
+[ -L /etc/systemd/user/graphical-session.target.wants/genesis-firstrun-ui.service ] && ok "first-run UI user unit enabled" || fail "first-run UI unit not enabled"
 probe_out=$(genesis-probe --json 2>&1 || true)
 if grep -q '"recommended_pack": "' <<<"$probe_out"; then ok "probe: $(grep -o '"recommended_pack": "[^"]*"' <<<"$probe_out")"; else fail "probe run"; printf '%s\n' "$probe_out" | tail -5 | sed 's/^/       /'; fi
 [ -L /etc/systemd/user/default.target.wants/genesis-permd.service ] && ok "permd user service enabled" || fail "permd user service not enabled"

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["genesis-permd", "genesis-probe"]
+members = ["genesis-permd", "genesis-probe", "genesis-firstrun"]
 
 [workspace.package]
 version = "0.1.0"
@@ -22,3 +22,4 @@ uuid = { version = "1", features = ["v4"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 nix = { version = "0.29", features = ["fs"] }
+tiny_http = "0.12"

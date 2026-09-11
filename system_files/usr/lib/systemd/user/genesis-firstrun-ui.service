@@ -1,0 +1,13 @@
+[Unit]
+Description=Open the Genesis first-run wizard at first graphical login
+PartOf=graphical-session.target
+After=graphical-session.target
+ConditionPathExists=!/var/lib/genesis/first-run-done
+
+[Service]
+Type=oneshot
+# wait for the service, then open the wizard in the default browser (kiosk-style window is Phase 1 polish)
+ExecStart=/bin/sh -c 'for i in $(seq 1 60); do curl -fsS http://127.0.0.1:11510/api/state >/dev/null 2>&1 && break; sleep 1; done; xdg-open http://127.0.0.1:11510/'
+
+[Install]
+WantedBy=graphical-session.target
