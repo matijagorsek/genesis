@@ -38,7 +38,6 @@ fn hash_line(line: &str) -> String {
     hex::encode(h.finalize())
 }
 
-#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 impl AuditLog {
     pub fn open(path: impl AsRef<Path>) -> Result<AuditLog> {
         let path = path.as_ref().to_path_buf();

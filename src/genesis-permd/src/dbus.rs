@@ -3,8 +3,7 @@
 
 #![cfg(target_os = "linux")]
 
-use crate::broker::Broker;
-use crate::model::{Intent, Mode};
+use genesis_permd::{Broker, Intent, Mode};
 use anyhow::Result;
 use std::sync::{Arc, Mutex};
 use zbus::{connection, interface};

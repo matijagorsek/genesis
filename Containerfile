@@ -13,8 +13,8 @@ RUN rustup target add x86_64-unknown-linux-gnu
 ENV CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=x86_64-linux-gnu-gcc
 WORKDIR /src
 COPY src/ /src/
-RUN cargo build --release --target x86_64-unknown-linux-gnu -p genesis-permd -p genesis-probe -p genesis-firstrun \
- && for b in genesis-permd genesis-probe genesis-firstrun; do install -D -m 0755 target/x86_64-unknown-linux-gnu/release/$b /out/usr/bin/$b; done
+RUN cargo build --release --target x86_64-unknown-linux-gnu -p genesis-permd -p genesis-probe -p genesis-firstrun -p genesis-agentd \
+ && for b in genesis-permd genesis-probe genesis-firstrun genesis-agentd; do install -D -m 0755 target/x86_64-unknown-linux-gnu/release/$b /out/usr/bin/$b; done
 
 # ---- stage 2: the OS image ------------------------------------------------------------------------
 FROM ${BASE}
@@ -83,7 +83,7 @@ RUN set -eux; \
 # (genesis-image-check ships from system_files/usr/bin; podman/buildah has no COPY heredoc)
 
 # ---- enable services -------------------------------------------------------------------------
-RUN systemctl enable genesis-router.socket genesis-probe.service genesis-firstrun.service && systemctl --global enable genesis-permd.service genesis-firstrun-ui.service
+RUN systemctl enable genesis-router.socket genesis-probe.service genesis-firstrun.service && systemctl --global enable genesis-permd.service genesis-firstrun-ui.service genesis-agentd.service
 
 # ---- bootc validation ------------------------------------------------------------------------
 RUN if [ "$BOOTC_LINT" = strict ]; then bootc container lint; else echo "bootc lint skipped (BOOTC_LINT=$BOOTC_LINT)"; fi

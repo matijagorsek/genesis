@@ -1,0 +1,17 @@
+[Unit]
+Description=Genesis agent daemon (local API on 127.0.0.1:11520)
+Documentation=https://github.com/matijagorsek/genesis
+After=graphical-session.target genesis-permd.service
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/genesis-agentd serve
+Restart=on-failure
+RestartSec=2
+Environment=RUST_LOG=info
+Environment=GENESIS_ENDPOINT=http://127.0.0.1:8080/v1
+Environment=GENESIS_MODEL=code
+
+[Install]
+WantedBy=graphical-session.target

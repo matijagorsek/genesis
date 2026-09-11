@@ -6,17 +6,11 @@
 //!   genesis-permd policy dump                print the effective policy as TOML
 //!   genesis-permd audit verify               verify the audit chain
 
-mod audit;
-mod broker;
 mod dbus;
-mod model;
-mod policy;
 
 use anyhow::Result;
-use broker::Broker;
 use clap::{Parser, Subcommand};
-use model::{Intent, Mode};
-use policy::Policy;
+use genesis_permd::{audit, model, Broker, Intent, Mode, Policy};
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -79,24 +73,7 @@ enum AuditCmd {
     Verify,
 }
 
-fn default_policy_sources() -> Vec<PathBuf> {
-    let mut v = vec![
-        PathBuf::from("/usr/share/genesis/policy.d"),
-        PathBuf::from("/etc/genesis/policy.d"),
-    ];
-    if let Some(home) = policy::home_dir() {
-        v.push(PathBuf::from(format!("{}/.config/genesis/policy.toml", home)));
-    }
-    v
-}
-
-fn default_audit_path() -> PathBuf {
-    if let Ok(p) = std::env::var("GENESIS_AUDIT") {
-        return PathBuf::from(p);
-    }
-    let home = policy::home_dir().unwrap_or_else(|| "/tmp".into());
-    PathBuf::from(format!("{}/.local/state/genesis/audit.jsonl", home))
-}
+use genesis_permd::{default_audit_path, default_policy_sources};
 
 fn main() -> Result<()> {
     tracing_subscriber::fmt()

@@ -135,3 +135,7 @@ probe fake="":
 # Run the first-run wizard locally (real hardware profile, scratch writes) on http://127.0.0.1:11510
 firstrun:
     prototype/firstrun-dev.sh
+
+# Run the agent daemon headlessly on a task, e.g. just agent "list the files here" [mode] [project]
+agent text mode="auto_edit" project=".":
+    cd src && cargo run -q -p genesis-agentd -- --audit /tmp/genesis-audit.jsonl run --project {{project}} --mode {{mode}} "{{text}}"

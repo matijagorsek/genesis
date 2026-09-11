@@ -15,8 +15,6 @@ pub struct Broker {
     audit: AuditLog,
 }
 
-// Several methods are only called from the Linux D-Bus service.
-#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 impl Broker {
     pub fn new(policy: Policy, audit_path: impl AsRef<Path>) -> Result<Broker> {
         Ok(Broker {

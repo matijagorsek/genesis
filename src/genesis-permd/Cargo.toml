@@ -6,6 +6,10 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[lib]
+name = "genesis_permd"
+path = "src/lib.rs"
+
 [[bin]]
 name = "genesis-permd"
 path = "src/main.rs"
