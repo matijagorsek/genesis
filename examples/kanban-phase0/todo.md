@@ -1,0 +1,4 @@
+- [ ] write genesis brief
+- [~] set up repo
+- [x] research models
+- [ ] run phase 0 tasks

@@ -1,0 +1,180 @@
+:root {
+  color-scheme: light dark;
+  --bg: #f4f5f7;
+  --panel: #ffffff;
+  --ink: #1f2430;
+  --muted: #6b7280;
+  --line: #e3e6ea;
+  --accent: #4f6df5;
+  --danger: #d64545;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14161a;
+    --panel: #1e2127;
+    --ink: #e8eaed;
+    --muted: #9aa1ab;
+    --line: #2c3038;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+#app {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 20px 40px;
+}
+
+.topbar {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  letter-spacing: 0.02em;
+}
+
+#save-status {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+#save-status[data-state='saving'] {
+  color: var(--accent);
+}
+
+#save-status[data-state='saved'] {
+  color: #2e9e5b;
+}
+
+#save-status[data-state='error'] {
+  color: var(--danger);
+}
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 720px) {
+  .board {
+    grid-template-columns: 1fr;
+  }
+}
+
+.column {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.column-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.column-header h2 {
+  margin: 0;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.column-todo .column-header h2 {
+  color: #4f6df5;
+}
+
+.column-doing .column-header h2 {
+  color: #d98e04;
+}
+
+.column-done .column-header h2 {
+  color: #2e9e5b;
+}
+
+.count {
+  font-size: 0.75rem;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+
+.card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 48px;
+  border-radius: 8px;
+  transition: background 0.15s ease;
+}
+
+.card-list.drag-over {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  outline: 2px dashed color-mix(in srgb, var(--accent) 45%, transparent);
+  outline-offset: 4px;
+}
+
+.card {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  line-height: 1.35;
+  cursor: grab;
+  user-select: none;
+  word-break: break-word;
+}
+
+.card:hover {
+  border-color: var(--accent);
+}
+
+.card.dragging {
+  opacity: 0.45;
+  cursor: grabbing;
+}
+
+.add-task {
+  margin-top: 4px;
+}
+
+.add-task input {
+  width: 100%;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  outline: none;
+}
+
+.add-task input:focus {
+  border-color: var(--accent);
+}

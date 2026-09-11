@@ -1,0 +1,1230 @@
+
+    __( O)>  ● new session · openai code
+   \____)    20260910_3 · /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws
+     L L     goose is ready
+
+  ────────────────────────────────────────
+  ▸ todo_write todo
+    content: - [ ] Scaffold Vite vanilla-ts app in ./kanban (non-interactive)
+- [ ] Check ./todo.md exists (create sample if needed for testing)
+- [ ] Write vite.config.ts with dev-server middleware (GET/POST /api/todo)
+- [ ] Implement kanban UI (Todo/Doing/Done columns) + drag & drop + API sync
+- [ ] Run `npx tsc --noEmit` in ./kanban after each change; fix errors
+- [ ] Verify build/typecheck clean; report start command (do NOT start server)
+
+
+
+  ────────────────────────────────────────
+  ▸ shell
+    command: pwd && ls -la && cat todo.md 2>/dev/null || echo "NO todo.md"
+
+/private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws
+total 16
+drwxr-xr-x@  4 matijagorsek  wheel   128 Sep 10 20:46 .
+drwx------@ 12 matijagorsek  wheel   384 Sep 10 20:46 ..
+-rw-r--r--@  1 matijagorsek  wheel  1032 Sep 10 20:47 goose-task3.log
+-rw-r--r--@  1 matijagorsek  wheel    90 Sep 10 20:46 todo.md
+- [ ] write genesis brief
+- [~] set up repo
+- [x] research models
+- [ ] run phase 0 taskstodo.md exists with 4 tasks. Now scaffolding the Vite app:
+
+
+  ────────────────────────────────────────
+  ▸ shell
+    command: cd /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws && npm create vite@latest kanban -- --template vanilla-ts --yes 2>&1 | tail -20
+    timeout_secs: 180
+
+npm warn exec The following package was not found and will be installed: create-vite@9.2.1
+
+> npx
+> create-vite kanban --template vanilla-ts --yes
+
+│
+◇  Scaffolding project in /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban...
+│
+└  Done. Now run:
+
+  cd kanban
+  npm install
+  npm run dev
+
+  ────────────────────────────────────────
+  ▸ shell
+    command: cd /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban && npm install 2>&1 | tail -5 && ls -la && cat package.json vite.config.ts tsconfig.json
+    timeout_secs: 300
+
+
+8 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities
+total 88
+drwxr-xr-x@ 10 matijagorsek  wheel    320 Sep 10 20:48 .
+drwxr-xr-x@  5 matijagorsek  wheel    160 Sep 10 20:48 ..
+-rw-r--r--@  1 matijagorsek  wheel    253 Sep 10 20:48 .gitignore
+-rw-r--r--@  1 matijagorsek  wheel    356 Sep 10 20:48 index.html
+drwxr-xr-x@ 19 matijagorsek  wheel    608 Sep 10 20:48 node_modules
+-rw-r--r--@  1 matijagorsek  wheel  25396 Sep 10 20:48 package-lock.json
+-rw-r--r--@  1 matijagorsek  wheel    264 Sep 10 20:48 package.json
+drwxr-xr-x@  4 matijagorsek  wheel    128 Sep 10 20:48 public
+drwxr-xr-x@  6 matijagorsek  wheel    192 Sep 10 20:48 src
+-rw-r--r--@  1 matijagorsek  wheel    560 Sep 10 20:48 tsconfig.json
+{
+  "name": "kanban",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.2",
+    "vite": "^8.3.0"
+  }
+}
+cat: vite.config.ts: No such file or directory
+{
+  "compilerOptions": {
+    "target": "es2023",
+    "module": "esnext",
+    "lib": ["ES2023", "DOM"],
+    "types": ["vite/client"],
+    "allowArbitraryExtensions": true,
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    /* Linting */
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src"]
+}
+
+Command exited with code 1Scaffolded and installed. The template has no `vite.config.ts` (I'll create one) and `tsconfig.json` only includes `src`. Let me look at the template files:
+
+
+  ────────────────────────────────────────
+  ▸ shell
+    command: cd /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban && find src public -type f | head && echo ---- && cat index.html src/main.ts src/counter.ts && node --version
+
+src/counter.ts
+src/main.ts
+src/style.css
+src/assets/hero.png
+src/assets/vite.svg
+src/assets/typescript.svg
+public/icons.svg
+public/favicon.svg
+----
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>kanban</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
+import './style.css'
+import heroImg from './assets/hero.png'
+import typescriptLogo from './assets/typescript.svg'
+import viteLogo from './assets/vite.svg'
+import { setupCounter } from './counter.ts'
+
+document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
+<section id="center">
+  <div class="hero">
+    <img src="${heroImg}" class="base" width="170" height="179">
+    <img src="${typescriptLogo}" class="framework" alt="TypeScript logo"/>
+    <img src="${viteLogo}" class="vite" alt="Vite logo" />
+  </div>
+  <div>
+    <h1>Get started</h1>
+    <p>Edit <code>src/main.ts</code> and save to test <code>HMR</code></p>
+  </div>
+  <button id="counter" type="button" class="counter"></button>
+</section>
+
+<div class="ticks"></div>
+
+<section id="next-steps">
+  <div id="docs">
+    <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#documentation-icon"></use></svg>
+    <h2>Documentation</h2>
+    <p>Your questions, answered</p>
+    <ul>
+      <li>
+        <a href="https://vite.dev/" target="_blank">
+          <img class="logo" src="${viteLogo}" alt="" />
+          Explore Vite
+        </a>
+      </li>
+      <li>
+        <a href="https://www.typescriptlang.org" target="_blank">
+          <img class="button-icon" src="${typescriptLogo}" alt="">
+          Learn more
+        </a>
+      </li>
+    </ul>
+  </div>
+  <div id="social">
+    <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#social-icon"></use></svg>
+    <h2>Connect with us</h2>
+    <p>Join the Vite community</p>
+    <ul>
+      <li><a href="https://github.com/vitejs/vite" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#github-icon"></use></svg>GitHub</a></li>
+      <li><a href="https://chat.vite.dev/" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#discord-icon"></use></svg>Discord</a></li>
+      <li><a href="https://x.com/vite_js" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#x-icon"></use></svg>X.com</a></li>
+      <li><a href="https://bsky.app/profile/vite.dev" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#bluesky-icon"></use></svg>Bluesky</a></li>
+    </ul>
+  </div>
+</section>
+
+<div class="ticks"></div>
+<section id="spacer"></section>
+`
+
+setupCounter(document.querySelector<HTMLButtonElement>('#counter')!)
+export function setupCounter(element: HTMLButtonElement) {
+  let counter = 0
+  const setCounter = (count: number) => {
+    counter = count
+    element.innerHTML = `Count is ${counter}`
+  }
+  element.addEventListener('click', () => setCounter(counter + 1))
+  setCounter(0)
+}
+v20.19.5Node v20.19.5 satisfies Vite 8's requirements. Now I'll write the app files. First, the Vite config with the dev-server middleware plugin:
+
+
+  ────────────────────────────────────────
+  ▸ write
+    path /p/t/c/-/3/s/k/kanban/vite.config.ts
+    content: import { defineConfig, type Plugin } from 'vite';
+import { readFileSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import type { IncomingMessage, ServerResponse } from 'node:http';
+
+/**
+ * The todo.md file lives in the parent directory of this Vite project
+ * (i.e. the directory where the kanban board was created).
+ */
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const TODO_FILE = path.resolve(HERE, '..', 'todo.md');
+
+export type TaskStatus = 'todo' | 'doing' | 'done';
+
+export interface Task {
+  id: string;
+  text: string;
+  status: TaskStatus;
+}
+
+const STATUS_TO_MARKER: Record<TaskStatus, string> = {
+  todo: ' ',
+  doing: '~',
+  done: 'x',
+};
+
+const MARKER_TO_STATUS: Record<string, TaskStatus> = {
+  ' ': 'todo',
+  '~': 'doing',
+  x: 'done',
+  X: 'done',
+};
+
+/** Matches lines like "- [ ] text", "- [~] text", "- [x] text". */
+const TASK_LINE = /^- \[([ xX~])\]\s*(.*)$/;
+
+function parseTodo(content: string): Task[] {
+  const tasks: Task[] = [];
+  content.split(/\r?\n/).forEach((line, index) => {
+    const match = TASK_LINE.exec(line.trim());
+    if (!match) return;
+    tasks.push({
+      id: `t${index}`,
+      text: match[2].trim(),
+      status: MARKER_TO_STATUS[match[1]],
+    });
+  });
+  return tasks;
+}
+
+function serializeTodo(tasks: Task[]): string {
+  const lines = tasks.map((t) => `- [${STATUS_TO_MARKER[t.status]}] ${t.text}`);
+  return lines.length > 0 ? `${lines.join('\n')}\n` : '';
+}
+
+function sendJson(res: ServerResponse, status: number, body: unknown): void {
+  if (res.headersSent) return;
+  res.statusCode = status;
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.end(JSON.stringify(body));
+}
+
+function isTask(value: unknown): value is Task {
+  if (typeof value !== 'object' || value === null) return false;
+  const t = value as Task;
+  return (
+    typeof t.text === 'string' &&
+    (t.status === 'todo' || t.status === 'doing' || t.status === 'done')
+  );
+}
+
+/**
+ * Tiny dev-server middleware that bridges the browser and ./todo.md:
+ *   GET  /api/todo -> { tasks: Task[] }            (file order preserved)
+ *   POST /api/todo <- { tasks: Task[] }            (rewrites the file)
+ */
+function todoApiPlugin(): Plugin {
+  return {
+    name: 'kanban-todo-api',
+    configureServer(server) {
+      server.middlewares.use(
+        '/api/todo',
+        (req: IncomingMessage, res: ServerResponse) => {
+          if (req.method === 'GET') {
+            try {
+              const content = readFileSync(TODO_FILE, 'utf8');
+              sendJson(res, 200, { tasks: parseTodo(content) });
+            } catch (err) {
+              sendJson(res, 500, {
+                error: `Failed to read ${TODO_FILE}: ${String(err)}`,
+              });
+            }
+            return;
+          }
+
+          if (req.method === 'POST') {
+            let body = '';
+            req.on('data', (chunk: Buffer) => {
+              body += chunk;
+            });
+            req.on('end', () => {
+              try {
+                const parsed = JSON.parse(body) as { tasks?: unknown };
+                const incoming = Array.isArray(parsed.tasks) ? parsed.tasks : [];
+                const tasks = incoming.filter(isTask);
+                writeFileSync(TODO_FILE, serializeTodo(tasks), 'utf8');
+                sendJson(res, 200, {
+                  ok: true,
+                  tasks: parseTodo(readFileSync(TODO_FILE, 'utf8')),
+                });
+              } catch (err) {
+                sendJson(res, 400, { error: `Invalid request: ${String(err)}` });
+              }
+            });
+            req.on('error', () => {
+              sendJson(res, 400, { error: 'Request stream error' });
+            });
+            return;
+          }
+
+          res.setHeader('Allow', 'GET, POST');
+          sendJson(res, 405, { error: 'Method not allowed' });
+        },
+      );
+    },
+  };
+}
+
+export default defineConfig({
+  plugins: [todoApiPlugin()],
+});
+
+
+Created /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban/vite.config.ts (132 lines)Now the client side — `index.html`, `src/main.ts`, `src/kanban.ts`, and `src/style.css`:
+
+
+  ────────────────────────────────────────
+  ▸ write
+    path /p/t/c/-/3/s/k/kanban/index.html
+    content: <!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kanban</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
+
+
+
+  ────────────────────────────────────────
+  ▸ write
+    path /p/t/c/-/3/s/k/k/src/main.ts
+    content: import './style.css';
+import { initBoard } from './kanban';
+
+initBoard(document.querySelector<HTMLDivElement>('#app')!);
+
+
+Wrote /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban/index.html (13 lines)Wrote /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban/src/main.ts (4 lines)
+  ────────────────────────────────────────
+  ▸ write
+    path /p/t/c/-/3/s/k/k/src/kanban.ts
+    content: type TaskStatus = 'todo' | 'doing' | 'done';
+
+interface Task {
+  id: string;
+  text: string;
+  status: TaskStatus;
+}
+
+const COLUMNS: ReadonlyArray<{ status: TaskStatus; title: string }> = [
+  { status: 'todo', title: 'Todo' },
+  { status: 'doing', title: 'Doing' },
+  { status: 'done', title: 'Done' },
+];
+
+type SaveState = 'idle' | 'saving' | 'saved' | 'error';
+
+let root: HTMLElement | null = null;
+let tasks: Task[] = [];
+let saveState: SaveState = 'idle';
+let saveTimer: number | undefined;
+
+/* ---------------------------------- API ---------------------------------- */
+
+async function fetchTasks(): Promise<Task[]> {
+  const res = await fetch('/api/todo');
+  if (!res.ok) throw new Error(`GET /api/todo -> ${res.status}`);
+  const data = (await res.json()) as { tasks?: Task[] };
+  return data.tasks ?? [];
+}
+
+async function saveTasks(next: Task[]): Promise<void> {
+  setSaveState('saving');
+  try {
+    const res = await fetch('/api/todo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tasks: next }),
+    });
+    if (!res.ok) throw new Error(`POST /api/todo -> ${res.status}`);
+    const data = (await res.json()) as { tasks?: Task[] };
+    // Adopt the server's canonical copy (ids are line-index based).
+    tasks = data.tasks ?? next;
+    setSaveState('saved');
+  } catch (err) {
+    console.error('Failed to save todo.md', err);
+    setSaveState('error');
+  }
+}
+
+function queueSave(): void {
+  if (saveTimer !== undefined) window.clearTimeout(saveTimer);
+  saveTimer = window.setTimeout(() => {
+    saveTimer = undefined;
+    void saveTasks(tasks);
+  }, 150);
+}
+
+function setSaveState(state: SaveState): void {
+  saveState = state;
+  const el = document.querySelector<HTMLSpanElement>('#save-status');
+  if (!el) return;
+  el.dataset.state = state;
+  el.textContent =
+    state === 'saving'
+      ? 'Saving…'
+      : state === 'saved'
+        ? 'Saved to todo.md'
+        : state === 'error'
+          ? 'Save failed — see console'
+          : '';
+}
+
+/* -------------------------------- Rendering ------------------------------- */
+
+function render(): void {
+  if (!root) return;
+  root.innerHTML = '';
+
+  const board = document.createElement('main');
+  board.className = 'board';
+
+  for (const column of COLUMNS) {
+    const columnTasks = tasks.filter((t) => t.status === column.status);
+
+    const section = document.createElement('section');
+    section.className = `column column-${column.status}`;
+
+    const header = document.createElement('header');
+    header.className = 'column-header';
+    const title = document.createElement('h2');
+    title.textContent = column.title;
+    const count = document.createElement('span');
+    count.className = 'count';
+    count.textContent = String(columnTasks.length);
+    header.append(title, count);
+
+    const list = document.createElement('div');
+    list.className = 'card-list';
+    list.dataset.status = column.status;
+    for (const task of columnTasks) {
+      list.appendChild(createCard(task));
+    }
+    if (column.status === 'todo') {
+      list.appendChild(createAddForm());
+    }
+    attachDropHandlers(list);
+
+    section.append(header, list);
+    board.appendChild(section);
+  }
+
+  root.appendChild(board);
+}
+
+function createCard(task: Task): HTMLElement {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.draggable = true;
+  card.dataset.id = task.id;
+  card.textContent = task.text;
+
+  card.addEventListener('dragstart', (e: DragEvent) => {
+    if (e.dataTransfer) {
+      e.dataTransfer.setData('text/plain', task.id);
+      e.dataTransfer.effectAllowed = 'move';
+    }
+    // Defer the class change so the browser can snapshot the element first.
+    requestAnimationFrame(() => card.classList.add('dragging'));
+  });
+  card.addEventListener('dragend', () => {
+    card.classList.remove('dragging');
+    clearDropHints();
+  });
+  return card;
+}
+
+function createAddForm(): HTMLFormElement {
+  const form = document.createElement('form');
+  form.className = 'add-task';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.placeholder = 'Add a task…';
+  input.setAttribute('aria-label', 'Add a task to Todo');
+  form.appendChild(input);
+  form.addEventListener('submit', (e: SubmitEvent) => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
+    tasks.push({ id: `new-${Date.now()}`, text, status: 'todo' });
+    render();
+    queueSave();
+  });
+  return form;
+}
+
+/* ------------------------------- Drag & drop ------------------------------ */
+
+function attachDropHandlers(list: HTMLElement): void {
+  list.addEventListener('dragover', (e: DragEvent) => {
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+    list.classList.add('drag-over');
+  });
+  list.addEventListener('dragleave', (e: DragEvent) => {
+    if (!list.contains(e.relatedTarget as Node | null)) {
+      list.classList.remove('drag-over');
+    }
+  });
+  list.addEventListener('drop', (e: DragEvent) => {
+    e.preventDefault();
+    list.classList.remove('drag-over');
+    const dragId = e.dataTransfer?.getData('text/plain') ?? '';
+    if (!dragId) return;
+    const after = getDragAfterElement(list, e.clientY);
+    moveTask(dragId, list.dataset.status as TaskStatus, after?.dataset.id ?? null);
+  });
+}
+
+/** The first non-dragged card whose vertical midpoint is below the cursor. */
+function getDragAfterElement(list: HTMLElement, y: number): HTMLElement | null {
+  const cards = Array.from(
+    list.querySelectorAll<HTMLElement>('.card:not(.dragging)'),
+  );
+  let closest: { el: HTMLElement; offset: number } | null = null;
+  for (const el of cards) {
+    const box = el.getBoundingClientRect();
+    const offset = y - box.top - box.height / 2;
+    if (offset < 0 && (closest === null || offset > closest.offset)) {
+      closest = { el, offset };
+    }
+  }
+  return closest === null ? null : closest.el;
+}
+
+function clearDropHints(): void {
+  document
+    .querySelectorAll<HTMLElement>('.card-list.drag-over')
+    .forEach((el) => el.classList.remove('drag-over'));
+}
+
+/**
+ * Move a task to a column, optionally before another task.
+ * The global `tasks` array is the canonical file order, so reordering within
+ * a column and moving across columns both reduce to reinserting the task.
+ */
+function moveTask(dragId: string, toStatus: TaskStatus, beforeId: string | null): void {
+  const task = tasks.find((t) => t.id === dragId);
+  if (!task) return;
+
+  const snapshot = (ts: Task[]) => ts.map((t) => `${t.id}:${t.status}`).join('|');
+  const before = snapshot(tasks);
+
+  task.status = toStatus;
+  const rest = tasks.filter((t) => t.id !== dragId);
+  if (beforeId === null) {
+    // Append after the last task of the target column.
+    let insertAt = rest.length;
+    for (let i = rest.length - 1; i >= 0; i--) {
+      if (rest[i].status === toStatus) {
+        insertAt = i + 1;
+        break;
+      }
+    }
+    rest.splice(insertAt, 0, task);
+  } else {
+    const idx = rest.findIndex((t) => t.id === beforeId);
+    rest.splice(idx === -1 ? rest.length : idx, 0, task);
+  }
+
+  tasks = rest;
+  if (before === snapshot(tasks)) return; // dropped exactly where it was
+  render();
+  queueSave();
+}
+
+/* --------------------------------- Bootstrap ------------------------------ */
+
+export function initBoard(appRoot: HTMLElement): void {
+  root = appRoot;
+
+  const topBar = document.createElement('header');
+  topBar.className = 'topbar';
+  const heading = document.createElement('h1');
+  heading.textContent = 'Kanban';
+  const status = document.createElement('span');
+  status.id = 'save-status';
+  status.dataset.state = 'idle';
+  topBar.append(heading, status);
+  appRoot.appendChild(topBar);
+
+  void (async () => {
+    try {
+      tasks = await fetchTasks();
+    } catch (err) {
+      console.error('Failed to load todo.md', err);
+      setSaveState('error');
+      tasks = [];
+    }
+    render();
+  })();
+}
+
+
+
+  ────────────────────────────────────────
+  ▸ write
+    path /p/t/c/-/3/s/k/k/src/style.css
+    content: :root {
+  color-scheme: light dark;
+  --bg: #f4f5f7;
+  --panel: #ffffff;
+  --ink: #1f2430;
+  --muted: #6b7280;
+  --line: #e3e6ea;
+  --accent: #4f6df5;
+  --danger: #d64545;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14161a;
+    --panel: #1e2127;
+    --ink: #e8eaed;
+    --muted: #9aa1ab;
+    --line: #2c3038;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+#app {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 20px 40px;
+}
+
+.topbar {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  letter-spacing: 0.02em;
+}
+
+#save-status {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+#save-status[data-state='saving'] {
+  color: var(--accent);
+}
+
+#save-status[data-state='saved'] {
+  color: #2e9e5b;
+}
+
+#save-status[data-state='error'] {
+  color: var(--danger);
+}
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 720px) {
+  .board {
+    grid-template-columns: 1fr;
+  }
+}
+
+.column {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.column-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.column-header h2 {
+  margin: 0;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.column-todo .column-header h2 {
+  color: #4f6df5;
+}
+
+.column-doing .column-header h2 {
+  color: #d98e04;
+}
+
+.column-done .column-header h2 {
+  color: #2e9e5b;
+}
+
+.count {
+  font-size: 0.75rem;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+
+.card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 48px;
+  border-radius: 8px;
+  transition: background 0.15s ease;
+}
+
+.card-list.drag-over {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  outline: 2px dashed color-mix(in srgb, var(--accent) 45%, transparent);
+  outline-offset: 4px;
+}
+
+.card {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  line-height: 1.35;
+  cursor: grab;
+  user-select: none;
+  word-break: break-word;
+}
+
+.card:hover {
+  border-color: var(--accent);
+}
+
+.card.dragging {
+  opacity: 0.45;
+  cursor: grabbing;
+}
+
+.add-task {
+  margin-top: 4px;
+}
+
+.add-task input {
+  width: 100%;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  outline: none;
+}
+
+.add-task input:focus {
+  border-color: var(--accent);
+}
+
+
+Created /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban/src/kanban.ts (261 lines)Wrote /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban/src/style.css (180 lines)Now remove the unused template `counter.ts`, extend `tsconfig.json` so `vite.config.ts` is also type-checked, and add `@types/node`:
+
+
+  ────────────────────────────────────────
+  ▸ shell
+    command: cd /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban && rm src/counter.ts && npm install -D @types/node 2>&1 | tail -2
+    timeout_secs: 180
+
+
+found 0 vulnerabilities
+  ────────────────────────────────────────
+  ▸ edit
+    path /p/t/c/-/3/s/k/kanban/tsconfig.json
+    before:     "types": ["vite/client"],
+    after:     "types": ["vite/client", "node"],
+
+
+  ────────────────────────────────────────
+  ▸ edit
+    path /p/t/c/-/3/s/k/kanban/tsconfig.json
+    before:   "include": ["src"]
+    after:   "include": ["src", "vite.config.ts"]
+
+Edited /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban/tsconfig.json (1 lines -> 1 lines)Edited /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban/tsconfig.json (1 lines -> 1 lines)
+  ────────────────────────────────────────
+  ▸ shell
+    command: cd /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban && npx tsc --noEmit; echo "exit=$?"
+    timeout_secs: 180
+
+src/kanban.ts(19,5): error TS6133: 'saveState' is declared but its value is never read.
+exit=2One unused variable. Fixing:
+
+
+  ────────────────────────────────────────
+  ▸ edit
+    path /p/t/c/-/3/s/k/k/src/kanban.ts
+    before: let root: HTMLElement | null = null;
+let tasks: Task[] = [];
+let saveState: SaveState = 'idle';
+let saveTimer: number | undefined;
+    after: let root: HTMLElement | null = null;
+let tasks: Task[] = [];
+let saveTimer: number | undefined;
+
+
+  ────────────────────────────────────────
+  ▸ edit
+    path /p/t/c/-/3/s/k/k/src/kanban.ts
+    before: function setSaveState(state: SaveState): void {
+  saveState = state;
+  const el = document.querySelector<HTMLSpanElement>('#save-status');
+    after: function setSaveState(state: SaveState): void {
+  const el = document.querySelector<HTMLSpanElement>('#save-status');
+
+Edited /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban/src/kanban.ts (4 lines -> 3 lines)Edited /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban/src/kanban.ts (3 lines -> 2 lines)
+  ────────────────────────────────────────
+  ▸ shell
+    command: cd /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban && npx tsc --noEmit; echo "exit=$?"
+    timeout_secs: 180
+
+exit=0Type checking passed. Next, I'll verify the middleware end-to-end without starting the dev server: bundle `vite.config.ts` with esbuild, call its `configureServer` with a mock middleware harness, and test GET/POST against the actual `todo.md` (with backup/restore):
+
+
+  ────────────────────────────────────────
+  ▸ write
+    path /p/t/c/-/3/s/k/kanban/.test-middleware.mjs
+    content: /* Throwaway harness: exercises the /api/todo middleware without starting a dev server. */
+import { build } from 'esbuild';
+import {
+  readFileSync,
+  writeFileSync,
+  copyFileSync,
+  existsSync,
+  unlinkSync,
+} from 'node:fs';
+import path from 'node:path';
+import { EventEmitter } from 'node:events';
+
+const here = path.dirname(new URL(import.meta.url).pathname);
+const todoFile = path.resolve(here, '..', 'todo.md');
+const backup = path.join(here, '.todo.md.bak');
+const tmpConfig = path.join(here, '.tmp-config.mjs');
+
+const assert = (cond, msg) => {
+  if (!cond) throw new Error('ASSERT FAILED: ' + msg);
+};
+
+copyFileSync(todoFile, backup);
+try {
+  await build({
+    entryPoints: [path.join(here, 'vite.config.ts')],
+    bundle: true,
+    format: 'esm',
+    platform: 'node',
+    outfile: tmpConfig,
+    external: ['vite'],
+  });
+  const mod = await import(tmpConfig);
+  const plugin = mod.default.plugins[0];
+  let handler;
+  plugin.configureServer({
+    middlewares: { use: (_p, h) => (handler = h) },
+  });
+  assert(typeof handler === 'function', 'middleware registered');
+
+  const makeRes = () => ({
+    statusCode: 0,
+    headers: {},
+    chunks: [],
+    headersSent: false,
+    setHeader(k, v) {
+      this.headers[k] = String(v);
+    },
+    end(body) {
+      if (body) this.chunks.push(body);
+      this.headersSent = true;
+    },
+  });
+  const makeReq = (method, body) => {
+    const req = new EventEmitter();
+    req.method = method;
+    queueMicrotask(() => {
+      if (body !== undefined) req.emit('data', Buffer.from(body));
+      req.emit('end');
+    });
+    return req;
+  };
+  const run = (req, res) =>
+    new Promise((resolve) => {
+      const origEnd = res.end.bind(res);
+      res.end = (b) => {
+        origEnd(b);
+        resolve(res);
+      };
+      handler(req, res);
+    });
+
+  // 1) GET -> parses the real todo.md
+  let res = await run(makeReq('GET'), makeRes());
+  let data = JSON.parse(res.chunks.join(''));
+  console.log('GET', res.statusCode, JSON.stringify(data.tasks));
+  assert(res.statusCode === 200, 'GET returns 200');
+  assert(data.tasks.length === 4, '4 tasks parsed');
+  assert(
+    data.tasks[0].text === 'write genesis brief' &&
+      data.tasks[0].status === 'todo',
+    'task 0 = todo',
+  );
+  assert(data.tasks[1].text === 'set up repo' && data.tasks[1].status === 'doing', 'task 1 = doing');
+  assert(data.tasks[2].text === 'research models' && data.tasks[2].status === 'done', 'task 2 = done');
+  assert(data.tasks[3].text === 'run phase 0 tasks' && data.tasks[3].status === 'todo', 'task 3 = todo');
+
+  // 2) POST -> move "set up repo" to end of Todo, "research models" -> Doing
+  const moved = data.tasks.map((t) => ({ ...t }));
+  const target = moved.find((t) => t.text === 'set up repo');
+  target.status = 'todo';
+  moved.push(moved.splice(moved.indexOf(target), 1)[0]);
+  const research = moved.find((t) => t.text === 'research models');
+  research.status = 'doing';
+  res = await run(makeReq('POST', JSON.stringify({ tasks: moved })), makeRes());
+  const posted = JSON.parse(res.chunks.join(''));
+  console.log('POST', res.statusCode, JSON.stringify(posted.tasks));
+  assert(res.statusCode === 200, 'POST returns 200');
+  const fileAfter = readFileSync(todoFile, 'utf8');
+  console.log('--- todo.md after POST ---\n' + fileAfter + '-----------------------------');
+  assert(
+    fileAfter ===
+      '- [ ] write genesis brief\n- [~] research models\n- [ ] run phase 0 tasks\n- [ ] set up repo\n',
+    'file rewritten with new order/markers',
+  );
+  assert(posted.ok === true, 'POST echoes ok');
+  assert(posted.tasks[3].text === 'set up repo' && posted.tasks[3].status === 'todo', 'POST echo order');
+
+  // 3) POST invalid JSON -> 400
+  res = await run(makeReq('POST', 'not json'), makeRes());
+  console.log('POST bad json ->', res.statusCode);
+  assert(res.statusCode === 400, '400 on invalid JSON');
+
+  // 4) DELETE -> 405
+  res = await run(makeReq('DELETE'), makeRes());
+  console.log('DELETE ->', res.statusCode);
+  assert(res.statusCode === 405, '405 on DELETE');
+
+  console.log('ALL MIDDLEWARE TESTS PASSED');
+} finally {
+  copyFileSync(backup, todoFile);
+  for (const f of [backup, tmpConfig]) {
+    if (existsSync(f)) unlinkSync(f);
+  }
+}
+console.log('restored original todo.md');
+
+
+Created /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban/.test-middleware.mjs (125 lines)
+  ────────────────────────────────────────
+  ▸ shell
+    command: cd /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban && node .test-middleware.mjs; echo "exit=$?"
+    timeout_secs: 120
+
+node:internal/modules/esm/resolve:873
+  throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null);
+        ^
+
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'esbuild' imported from /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban/.test-middleware.mjs
+    at packageResolve (node:internal/modules/esm/resolve:873:9)
+    at moduleResolve (node:internal/modules/esm/resolve:946:18)
+    at defaultResolve (node:internal/modules/esm/resolve:1188:11)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:708:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:657:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:640:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:264:38)
+    at ModuleJob._link (node:internal/modules/esm/module_job:168:49) {
+  code: 'ERR_MODULE_NOT_FOUND'
+}
+
+Node.js v20.19.5
+exit=1
+  ────────────────────────────────────────
+  ▸ shell
+    command: cd /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban && ls node_modules | head -30 && ls node_modules/.bin | head -20 && node -e "console.log(require.resolve('esbuild'))" 2>&1 | head -3
+
+@oxc-project
+@rolldown
+@types
+detect-libc
+fdir
+fsevents
+lightningcss
+lightningcss-darwin-arm64
+nanoid
+picocolors
+picomatch
+postcss
+rolldown
+source-map-js
+tinyglobby
+typescript
+undici-types
+vite
+nanoid
+rolldown
+tsc
+tsserver
+vite
+node:internal/modules/cjs/loader:1210
+  throw err;
+  ^Vite 8 uses rolldown, not esbuild. I'll transpile the config with the `typescript` package instead:
+
+
+  ────────────────────────────────────────
+  ▸ edit
+    path /p/t/c/-/3/s/k/kanban/.test-middleware.mjs
+    before: /* Throwaway harness: exercises the /api/todo middleware without starting a dev server. */
+import { build } from 'esbuild';
+import {
+  readFileSync,
+  writeFileSync,
+  copyFileSync,
+  existsSync,
+  unlinkSync,
+} from 'node:fs';
+import path from 'node:path';
+import { EventEmitter } from 'node:events';
+
+const here = path.dirname(new URL(import.meta.url).pathname);
+const todoFile = path.resolve(here, '..', 'todo.md');
+const backup = path.join(here, '.todo.md.bak');
+const tmpConfig = path.join(here, '.tmp-config.mjs');
+
+const assert = (cond, msg) => {
+  if (!cond) throw new Error('ASSERT FAILED: ' + msg);
+};
+
+copyFileSync(todoFile, backup);
+try {
+  await build({
+    entryPoints: [path.join(here, 'vite.config.ts')],
+    bundle: true,
+    format: 'esm',
+    platform: 'node',
+    outfile: tmpConfig,
+    external: ['vite'],
+  });
+  const mod = await import(tmpConfig);
+    after: /* Throwaway harness: exercises the /api/todo middleware without starting a dev server. */
+import {
+  readFileSync,
+  writeFileSync,
+  copyFileSync,
+  existsSync,
+  unlinkSync,
+} from 'node:fs';
+import path from 'node:path';
+import { EventEmitter } from 'node:events';
+import ts from 'typescript';
+
+const here = path.dirname(new URL(import.meta.url).pathname);
+const todoFile = path.resolve(here, '..', 'todo.md');
+const backup = path.join(here, '.todo.md.bak');
+const tmpConfig = path.join(here, '.tmp-config.mjs');
+
+const assert = (cond, msg) => {
+  if (!cond) throw new Error('ASSERT FAILED: ' + msg);
+};
+
+copyFileSync(todoFile, backup);
+try {
+  // Transpile the TS config to ESM JS so we can import its plugin object.
+  const source = readFileSync(path.join(here, 'vite.config.ts'), 'utf8');
+  const out = ts.transpileModule(source, {
+    compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+  });
+  writeFileSync(tmpConfig, out.outputText);
+  const mod = await import(tmpConfig);
+
+Edited /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban/.test-middleware.mjs (32 lines -> 30 lines)
+  ────────────────────────────────────────
+  ▸ shell
+    command: cd /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban && node .test-middleware.mjs; echo "exit=$?"
+    timeout_secs: 120
+
+GET 200 [{"id":"t0","text":"write genesis brief","status":"todo"},{"id":"t1","text":"set up repo","status":"doing"},{"id":"t2","text":"research models","status":"done"},{"id":"t3","text":"run phase 0 tasks","status":"todo"}]
+POST 200 [{"id":"t0","text":"write genesis brief","status":"todo"},{"id":"t1","text":"research models","status":"doing"},{"id":"t2","text":"run phase 0 tasks","status":"todo"},{"id":"t3","text":"set up repo","status":"todo"}]
+--- todo.md after POST ---
+- [ ] write genesis brief
+- [~] research models
+- [ ] run phase 0 tasks
+- [ ] set up repo
+-----------------------------
+POST bad json -> 400
+DELETE -> 405
+ALL MIDDLEWARE TESTS PASSED
+restored original todo.md
+exit=0All middleware tests pass and the original `todo.md` was restored. Cleaning up the harness and running final verification (typecheck + production build, which validates the config without starting the dev server):
+
+
+  ────────────────────────────────────────
+  ▸ shell
+    command: cd /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban && rm -f .test-middleware.mjs && cat ../todo.md && echo ================= && npx tsc --noEmit; echo "tsc exit=$?" && npm run build 2>&1 | tail -8
+    timeout_secs: 300
+
+- [ ] write genesis brief
+- [~] set up repo
+- [x] research models
+- [ ] run phase 0 tasks
+=================
+tsc exit=0
+✓ 6 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                 0.45 kB │ gzip: 0.29 kB
+dist/assets/index-BNamDUyr.css  2.42 kB │ gzip: 1.00 kB
+dist/assets/index-MRH5ZzQx.js   4.47 kB │ gzip: 1.85 kB
+
+✓ built in 287ms
+  ────────────────────────────────────────
+  ▸ todo_write todo
+    content: - [x] Scaffold Vite vanilla-ts app in ./kanban (non-interactive)
+- [x] Check ./todo.md exists (create sample if needed for testing)
+- [x] Write vite.config.ts with dev-server middleware (GET/POST /api/todo)
+- [x] Implement kanban UI (Todo/Doing/Done columns) + drag & drop + API sync
+- [x] Run `npx tsc --noEmit` in ./kanban after each change; fix errors (1 fix: unused var)
+- [x] Verify build/typecheck clean; report start command (do NOT start server)
+
+
+Done. The kanban app is built and verified.
+
+## What was created in `./kanban`
+
+| File | Purpose |
+|---|---|
+| `vite.config.ts` | Dev-server middleware plugin `kanban-todo-api`: `GET /api/todo` reads and parses `../todo.md` (the file in the current directory), `POST /api/todo` validates the task list and rewrites the file. Returns 400 on bad JSON, 405 on other methods. |
+| `src/kanban.ts` | Board logic: fetches tasks, renders 3 columns, HTML5 drag & drop with precise drop-position calculation, debounced save-back, plus a small "add task" input in the Todo column. |
+| `src/main.ts`, `src/style.css`, `index.html` | Entry point, styling (light/dark, 3-column grid), page shell. |
+| `tsconfig.json` | Extended to include `vite.config.ts` + `@types/node` so the config is type-checked too. |
+
+## How it works
+
+- **Parsing**: `- [ ]` → Todo, `- [~]` → Doing, `- [x]`/`- [X]` → Done; file order is preserved as the canonical task order.
+- **Drag & drop**: drag a card onto any column; dropping between cards reorders within the column, dropping across columns changes the marker. The whole ordered list is POSTed back and the file is rewritten with the correct markers. A status indicator shows *Saving… / Saved to todo.md / Save failed*.
+
+## Verification
+
+- `npx tsc --noEmit` in `./kanban` → **exit 0** (one error found and fixed: an unused variable under `noUnusedLocals`).
+- `npm run build` (`tsc && vite build`) → succeeds.
+- The middleware was tested end-to-end against the real `todo.md` via a mock request harness (no dev server started): GET returned all 4 tasks with correct statuses; a simulated drag (move "set up repo" to end of Todo, "research models" → Doing) rewrote the file correctly; bad JSON → 400; DELETE → 405. Your original `todo.md` was restored byte-for-byte.
+
+## Start it
+
+```bash
+cd kanban && npm run dev
+```
+
+Then open http://localhost:5173 (Vite will print the exact URL).
+exit=0
