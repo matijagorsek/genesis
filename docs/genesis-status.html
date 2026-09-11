@@ -63,7 +63,7 @@ ol.next{padding-left:22px;max-width:70ch}ol.next li{margin-bottom:7px}
 <p class="eyebrow">Genesis · project status</p>
 <h1>Genesis, from idea to a booting OS in two days</h1>
 <p class="lede">One page with everything: what was investigated, what was decided, what runs today, the proof that Genesis boots, and what comes next. Links to the full brief, the interactive walkthrough, the repository and the published image.</p>
-<div class="meta"><span>updated 2026-09-11</span><span>46 commits on main</span><span>github.com/matijagorsek/genesis</span></div>
+<div class="meta"><span>updated 2026-09-11</span><span>50 commits on main</span><span>github.com/matijagorsek/genesis</span></div>
 
 <div class="tiles">
   <div class="tile"><div class="k">Phase 0 tasks</div><div class="v">3 / 3 <span class="pill ok">pass</span></div><div class="s">shell, repo edit, kanban app, all with a local 27B</div></div>
@@ -93,6 +93,7 @@ ol.next{padding-left:22px;max-width:70ch}ol.next li{margin-bottom:7px}
 <tr><td>Inference</td><td>Upstream llama.cpp Vulkan build plus llama-swap, one local OpenAI-compatible endpoint. Fedora's llama-cpp package rejected: stale, no Vulkan, +2.5 GB of ROCm.</td><td><span class="pill ok">built</span></td></tr>
 <tr><td>Models</td><td>Qwen3.5 / 3.6 / 3.8 family, Apache 2.0. Seven hardware-tiered packs. Three license tiers.</td><td><span class="pill ok">packs verified</span></td></tr>
 <tr><td>Agent</td><td>Goose embedded, MCP tools, Rust daemons. Permission broker first, because Phase 0 showed the agent escalating on its own.</td><td><span class="pill warn">Phase 1</span></td></tr>
+<tr><td>First-run wizard</td><td>genesis-firstrun: local web wizard at first boot. Hardware summary, pack choice with reasons, live size check from Hugging Face, resumable download with progress, router config rendered from the installed files, privacy screen, done marker. Runs on the Mac against real hardware; end-to-end tested.</td><td><span class="pill ok">built</span></td></tr>
 <tr><td>Hardware probe</td><td>genesis-probe: GPUs, VRAM, RAM, CPU flags, disk; memory budget; every shipped pack scored with reasons; profile written at first boot by a oneshot service. 6 tests; verified in the booted VM.</td><td><span class="pill ok">built, shipped</span></td></tr>
 <tr><td>Permissions</td><td>genesis-permd: eight tiers, three session modes, taint rule, hash-chained audit log, D-Bus service, TOML policy. The Phase 0 escalation now prompts. 12 unit tests; verified inside the booted VM.</td><td><span class="pill ok">built, shipped</span></td></tr>
 <tr><td>Safety</td><td>Sandbox tiers T0 to T4, btrfs snapshots and undo, agent as its own user, everything local as a visible fact.</td><td><span class="pill warn">Phase 1</span></td></tr>
@@ -149,7 +150,7 @@ Password:
 <div class="tablewrap"><table>
 <thead><tr><th>Real today</th><th>Designed, built in Phase 1 and 2</th></tr></thead>
 <tbody>
-<tr><td>The Genesis image, published and bootable, with the inference stack inside</td><td>First-run wizard with hardware detection and pack download</td></tr>
+<tr><td>The Genesis image, published and bootable, with the inference stack, permission broker, hardware probe and first-run wizard inside</td><td>Bootstrap model answering during the download; real account creation in the wizard</td></tr>
 <tr><td>Three local models behind one endpoint, hot-and-swap router</td><td>Launcher, agent workspace, model manager, undo UI</td></tr>
 <tr><td>An agent that built a working app from a one-line request</td><td>Permission broker, sandbox tiers, snapshots and undo</td></tr>
 <tr><td>Model packs for six hardware tiers, licenses verified</td><td>NVIDIA image flavour with signed modules, ISO installer polish</td></tr>
@@ -158,8 +159,7 @@ Password:
 <h2>Next, in order</h2>
 <ol class="next">
     <li><strong>Watch it on screen.</strong> <code>just boot</code> opens the QEMU window with v0.1.9 already downloaded; login genesis / genesis.</li>
-    <li><strong>First-run wizard.</strong> Consumes the profile: pack proposal with sizes and time, download with the bootstrap model answering meanwhile, privacy screen, real user account.</li>
-  <li><strong>Packs as OCI artifacts</strong> on GHCR, pulled with ramalama, router config rendered from the installed pack.</li>
+      <li><strong>Packs as OCI artifacts</strong> on GHCR, pulled with ramalama, router config rendered from the installed pack.</li>
   <li><strong>genesis-agentd</strong> embedding Goose, every tool call through the broker, tools in bubblewrap.</li>
   <li><strong>Transactions and undo</strong>, then the launcher and workspace, then the file index and search.</li>
 </ol>
