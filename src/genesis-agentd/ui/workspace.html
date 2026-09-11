@@ -63,6 +63,7 @@ aside{background:var(--panel);border-right:1px solid var(--line);display:grid;gr
 .view{position:relative;min-height:0;background:#0b0f14}
 .view iframe{width:100%;height:100%;border:0;background:#fff}
 .view .empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--ink-3);text-align:center;padding:30px}
+.view .empty[hidden],.view iframe[hidden]{display:none}
 .perms{border-top:1px solid var(--line);background:var(--panel);max-height:40vh;overflow:auto}
 .perm{border:1px solid var(--warn);background:#1d1a14;border-radius:8px;padding:10px 12px;margin:10px 14px;display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}
 .perm .h{color:var(--warn);font-weight:600}
