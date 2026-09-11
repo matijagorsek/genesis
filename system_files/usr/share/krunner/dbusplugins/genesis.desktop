@@ -1,0 +1,15 @@
+[Desktop Entry]
+Name=Genesis
+Comment=Ask Genesis, the local assistant: type "ask …"
+Icon=genesis
+Type=Service
+X-KDE-ServiceTypes=Plasma/Runner
+X-Plasma-API=DBus
+X-Plasma-DBusRunner-Service=org.genesis.Runner
+X-Plasma-DBusRunner-Path=/runner
+X-Plasma-Request-Actions-Once=true
+X-KDE-PluginInfo-Author=Genesis
+X-KDE-PluginInfo-Name=genesis
+X-KDE-PluginInfo-Version=0.1
+X-KDE-PluginInfo-License=Apache-2.0
+X-KDE-PluginInfo-EnabledByDefault=true

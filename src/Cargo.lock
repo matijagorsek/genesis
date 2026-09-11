@@ -475,6 +475,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "genesis-krunner"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "zbus",
+]
+
+[[package]]
 name = "genesis-permd"
 version = "0.1.0"
 dependencies = [

@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=org.genesis.Runner
+Exec=/usr/bin/genesis-krunner

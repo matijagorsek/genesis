@@ -10,6 +10,7 @@
 //!   POST /api/prompts/{request_id}    {allow: bool}              -> resolves a pending permission prompt
 //!   POST /api/sessions/{id}/undo                                 -> rolls back the session's transaction
 //!   GET  /api/health
+//!   GET  /                          the workspace UI
 
 mod agent;
 mod llm;
@@ -26,6 +27,8 @@ use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;
 use std::sync::{Arc, Condvar, Mutex};
 use tiny_http::{Header, Method, Request, Response, Server};
+
+const WORKSPACE_HTML: &str = include_str!("../ui/workspace.html");
 
 #[derive(Parser)]
 #[command(name = "genesis-agentd", version, about = "Genesis agent daemon")]
@@ -160,6 +163,13 @@ fn fmt_event(e: &Event) -> String {
     }
 }
 
+/// Where new sessions default to: ~/Projects if it exists, else the home directory.
+fn default_project() -> String {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
+    let p = format!("{}/Projects", home);
+    if std::path::Path::new(&p).is_dir() { p } else { home }
+}
+
 fn json_response<T: serde::Serialize>(v: &T, status: u16) -> Response<std::io::Cursor<Vec<u8>>> {
     Response::from_data(serde_json::to_vec(v).unwrap_or_default()).with_status_code(status).with_header(Header::from_bytes("Content-Type", "application/json").unwrap())
 }
@@ -178,7 +188,12 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
     let mut body = String::new();
     let _ = req.as_reader().read_to_string(&mut body);
     let resp = match (method, path.as_slice()) {
-        (Method::Get, ["api", "health"]) => json_response(&serde_json::json!({"ok": true, "endpoint": d.endpoint, "model": d.model, "sandbox": sandbox::bwrap_available()}), 200),
+        (Method::Get, [""]) | (Method::Get, ["index.html"]) | (Method::Get, ["workspace"]) => Response::from_string(WORKSPACE_HTML).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
+        (Method::Get, ["api", "health"]) => json_response(&serde_json::json!({"ok": true, "endpoint": d.endpoint, "model": d.model, "sandbox": sandbox::bwrap_available(), "default_project": default_project()}), 200),
+        (Method::Get, ["api", "sessions"]) => {
+            let list: Vec<serde_json::Value> = d.sessions.lock().unwrap().values().map(|(s, _)| { let i = s.info.lock().unwrap(); serde_json::json!({"id": i.id, "mode": i.mode, "project": i.project, "state": i.state, "transaction": i.transaction}) }).collect();
+            json_response(&list, 200)
+        }
         (Method::Post, ["api", "sessions"]) => match serde_json::from_str::<NewSession>(&body) {
             Ok(n) => match (parse_mode(&n.mode), std::fs::canonicalize(&n.project)) {
                 (Ok(mode), Ok(project)) => {

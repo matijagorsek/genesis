@@ -19,6 +19,12 @@
       "runtimeExecutable": "prototype/firstrun-dev.sh",
       "runtimeArgs": [],
       "port": 11510
+    },
+    {
+      "name": "agent-workspace",
+      "runtimeExecutable": "prototype/agentd-dev.sh",
+      "runtimeArgs": [],
+      "port": 11520
     }
   ]
 }

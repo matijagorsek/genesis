@@ -1,0 +1,3 @@
+# Genesis defaults: Meta+Space opens the workspace. Users can change this in System Settings > Shortcuts.
+[services][org.genesis.workspace.desktop]
+_launch=Meta+Space

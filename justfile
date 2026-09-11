@@ -143,3 +143,7 @@ agent text mode="auto_edit" project=".":
 # Transactions: just tx list | just tx show <id> | just tx undo <id>
 tx *args:
     cd src && cargo run -q -p genesis-txd -- {{args}}
+
+# Run the agent daemon + workspace UI locally on http://127.0.0.1:11520 (router must be up: just up)
+workspace:
+    prototype/agentd-dev.sh
