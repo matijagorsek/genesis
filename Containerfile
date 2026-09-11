@@ -93,7 +93,8 @@ RUN set -eux; \
 # (genesis-image-check ships from system_files/usr/bin; podman/buildah has no COPY heredoc)
 
 # ---- enable services -------------------------------------------------------------------------
-RUN systemctl enable genesis-router.socket genesis-probe.service genesis-firstrun.service && systemctl --global enable genesis-permd.service genesis-agentd.service
+RUN systemctl enable genesis-router.socket genesis-probe.service genesis-firstrun.service && systemctl --global enable genesis-permd.service genesis-agentd.service \
+ && systemctl mask plasma-setup.service
 
 # ---- bootc validation ------------------------------------------------------------------------
 RUN if [ "$BOOTC_LINT" = strict ]; then bootc container lint; else echo "bootc lint skipped (BOOTC_LINT=$BOOTC_LINT)"; fi
