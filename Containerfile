@@ -13,9 +13,9 @@ RUN rustup target add x86_64-unknown-linux-gnu
 ENV CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=x86_64-linux-gnu-gcc
 WORKDIR /src
 COPY src/ /src/
-RUN cargo build --release --target x86_64-unknown-linux-gnu -p genesis-permd \
+RUN cargo build --release --target x86_64-unknown-linux-gnu -p genesis-permd -p genesis-probe \
  && install -D -m 0755 target/x86_64-unknown-linux-gnu/release/genesis-permd /out/usr/bin/genesis-permd \
- && /out/usr/bin/genesis-permd --version 2>/dev/null || true
+ && install -D -m 0755 target/x86_64-unknown-linux-gnu/release/genesis-probe /out/usr/bin/genesis-probe
 
 # ---- stage 2: the OS image ------------------------------------------------------------------------
 FROM ${BASE}
@@ -47,6 +47,7 @@ RUN set -eux; \
 
 # ---- Genesis files: units, sysusers, tmpfiles, policy, /etc/genesis defaults ---------------
 COPY system_files/ /
+COPY packs/ /usr/share/genesis/packs/
 COPY --from=daemons /out/ /
 # /etc/hostname ships from system_files/etc/hostname: during a container build /etc/hostname is a runtime
 # bind mount, so a RUN that writes it never reaches the layer; COPY does.
@@ -83,7 +84,7 @@ RUN set -eux; \
 # (genesis-image-check ships from system_files/usr/bin; podman/buildah has no COPY heredoc)
 
 # ---- enable services -------------------------------------------------------------------------
-RUN systemctl enable genesis-router.socket && systemctl --global enable genesis-permd.service
+RUN systemctl enable genesis-router.socket genesis-probe.service && systemctl --global enable genesis-permd.service
 
 # ---- bootc validation ------------------------------------------------------------------------
 RUN if [ "$BOOTC_LINT" = strict ]; then bootc container lint; else echo "bootc lint skipped (BOOTC_LINT=$BOOTC_LINT)"; fi

@@ -126,3 +126,7 @@ permd-check cmd mode="assist":
 # Regenerate the shipped default policy from the binary
 permd-policy:
     cd src && cargo run -q -p genesis-permd -- --audit /tmp/genesis-audit.jsonl policy dump > ../system_files/usr/share/genesis/policy.d/00-default.toml
+
+# Hardware probe on this machine (or a pretend one: just probe "gpu=nvidia,vram=24,ram=64,disk=400")
+probe fake="":
+    cd src && cargo run -q -p genesis-probe -- --packs ../packs {{ if fake != "" { "--fake " + fake } else { "" } }}

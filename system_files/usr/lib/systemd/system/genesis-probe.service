@@ -1,0 +1,16 @@
+[Unit]
+Description=Genesis hardware probe (writes /etc/genesis/profile.json on first boot and after hardware changes)
+Documentation=https://github.com/matijagorsek/genesis
+DefaultDependencies=no
+After=local-fs.target systemd-udev-settle.service
+Before=display-manager.service genesis-router.socket
+ConditionPathExists=!/etc/genesis/profile.json
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/genesis-probe --write --models-dir /var/lib/genesis
+RemainAfterExit=yes
+StandardOutput=journal
+
+[Install]
+WantedBy=multi-user.target
