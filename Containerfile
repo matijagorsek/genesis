@@ -48,7 +48,8 @@ RUN set -eux; \
 # ---- Genesis files: units, sysusers, tmpfiles, policy, /etc/genesis defaults ---------------
 COPY system_files/ /
 COPY --from=daemons /out/ /
-RUN echo genesis > /etc/hostname
+# /etc/hostname ships from system_files/etc/hostname: during a container build /etc/hostname is a runtime
+# bind mount, so a RUN that writes it never reaches the layer; COPY does.
 
 # ---- inference stack -------------------------------------------------------------------------
 # llama.cpp: upstream Vulkan build (CPU + Vulkan backends, runs on NVIDIA/AMD/Intel via Mesa or vendor ICDs).
