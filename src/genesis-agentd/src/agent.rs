@@ -2,6 +2,7 @@
 //! Every tool call becomes a permd Intent. Prompts block the loop until a client resolves them.
 
 use crate::llm::{Client, Message};
+use crate::maker;
 use crate::sandbox;
 use anyhow::{anyhow, Result};
 use genesis_permd::{command_write_paths, Broker, Intent, Mode, Tier, Verdict};
@@ -13,8 +14,9 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 
-pub const SYSTEM_PROMPT: &str = "You are Genesis, the local assistant built into this computer. You work inside one project directory. \
-Use tools to inspect and change files and to run commands; never guess file contents. \
+pub const SYSTEM_PROMPT: &str = "You are Genesis, the maker built into this computer. The user tells you what they want made; you make it, here, with local tools. \
+When asked to make an app, tool or script, start with the scaffold tool (pick the closest template), then edit the generated files, then start a preview so the user can see it running. \
+You work inside one project directory. Use tools to inspect and change files and to run commands; never guess file contents. \
 Before changing anything, read what is there. Keep changes small and verify them (run tests or the program). \
 Some actions need the user's permission; if a tool result says the action was denied or is waiting, do not retry it, explain instead. \
 When the task is complete, reply with a short summary of what you did and how to run or verify it.";
@@ -25,7 +27,12 @@ pub fn tool_schemas() -> Value {
         {"type":"function","function":{"name":"read_file","description":"Read a text file. Path relative to the project or absolute.","parameters":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}}},
         {"type":"function","function":{"name":"write_file","description":"Create or overwrite a text file with the given content.","parameters":{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"]}}},
         {"type":"function","function":{"name":"edit_file","description":"Replace one exact occurrence of old_text with new_text in a file. Fails if old_text is not found exactly once.","parameters":{"type":"object","properties":{"path":{"type":"string"},"old_text":{"type":"string"},"new_text":{"type":"string"}},"required":["path","old_text","new_text"]}}},
-        {"type":"function","function":{"name":"list_dir","description":"List files and directories under a path (non-recursive).","parameters":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}}}
+        {"type":"function","function":{"name":"list_dir","description":"List files and directories under a path (non-recursive).","parameters":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}}},
+        {"type":"function","function":{"name":"list_templates","description":"List the project templates Genesis can scaffold (id, name, description).","parameters":{"type":"object","properties":{}}}},
+        {"type":"function","function":{"name":"scaffold","description":"Create a new project from a template inside the current project directory (as a subdirectory named `name`), or in the project directory itself if it is empty. Returns the files created and how to preview.","parameters":{"type":"object","properties":{"template":{"type":"string","description":"template id from list_templates, e.g. web-static, python-cli, python-script"},"name":{"type":"string","description":"short name: letters, digits, - or _"}},"required":["template","name"]}}},
+        {"type":"function","function":{"name":"preview_start","description":"Run the project's dev command from genesis.json (a web server for web apps; tests or the script for others) and return the preview URL or output.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"project directory containing genesis.json (default: the session project)"}},"required":[]}}},
+        {"type":"function","function":{"name":"preview_stop","description":"Stop the running preview for a project.","parameters":{"type":"object","properties":{"path":{"type":"string"}},"required":[]}}},
+        {"type":"function","function":{"name":"install_app","description":"Install the project as an app in the desktop menu (writes a desktop entry under the user's applications directory).","parameters":{"type":"object","properties":{"path":{"type":"string"},"display_name":{"type":"string"}},"required":["display_name"]}}}
     ])
 }
 
@@ -56,6 +63,10 @@ pub struct SessionInfo {
     pub pending: Vec<PendingPrompt>,
     /// Open or committed transaction for this session, if any user/system-scope change happened.
     pub transaction: Option<String>,
+    /// Live preview URL of the thing being made, when a web preview is running.
+    pub preview_url: Option<String>,
+    /// The project the maker tools currently target.
+    pub active_project: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -117,6 +128,9 @@ pub struct Agent {
     pub messages: Vec<Message>,
     pub tx_store: Option<Store>,
     pub tx: Option<Transaction>,
+    pub previews: maker::Previews,
+    /// Project directory the maker tools currently target (set by scaffold).
+    pub active_project: Option<PathBuf>,
 }
 
 fn resolve_path(project: &Path, p: &str) -> PathBuf {
@@ -126,7 +140,7 @@ fn resolve_path(project: &Path, p: &str) -> PathBuf {
 
 impl Agent {
     pub fn new(client: Client, broker: Arc<Mutex<Broker>>, session_id: String, project: PathBuf, shared: Arc<Shared>) -> Self {
-        Agent { client, broker, session_id, project, shared, max_turns: 40, prompt_timeout: Duration::from_secs(600), messages: vec![Message::system(SYSTEM_PROMPT)], tx_store: None, tx: None }
+        Agent { client, broker, session_id, project, shared, max_turns: 40, prompt_timeout: Duration::from_secs(600), messages: vec![Message::system(SYSTEM_PROMPT)], tx_store: None, tx: None, previews: maker::Previews::default(), active_project: None }
     }
 
     /// Run one user prompt to completion (or until a tool call is denied and the model gives up).
@@ -181,8 +195,10 @@ impl Agent {
         let path = |k: &str| resolve_path(&self.project, &s(k)).display().to_string();
         let mut i = Intent { session_id: self.session_id.clone(), origin: "agentd".into(), tool: match name {
             "shell" => "shell",
-            "read_file" | "list_dir" => "fs.read",
-            "write_file" | "edit_file" => "fs.write",
+            "read_file" | "list_dir" | "list_templates" => "fs.read",
+            "write_file" | "edit_file" | "scaffold" => "fs.write",
+            "preview_start" | "preview_stop" => "shell",
+            "install_app" => "fs.write",
             other => other,
         }.into(), ..Default::default() };
         match name {
@@ -194,6 +210,12 @@ impl Agent {
             }
             "read_file" | "list_dir" => i.reads = vec![path("path")],
             "write_file" | "edit_file" => i.writes = vec![path("path")],
+            "scaffold" => i.writes = vec![self.scaffold_dest(&s("name")).display().to_string()],
+            "preview_start" | "preview_stop" => i.command = Some(format!("{} {}", name, self.target_project(args).display())),
+            "install_app" => {
+                let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
+                i.writes = vec![format!("{}/.local/share/applications/genesis-{}.desktop", home, self.target_project(args).file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_default())];
+            }
             _ => {}
         }
         i
@@ -272,9 +294,54 @@ impl Agent {
         }
     }
 
-    fn perform(&self, name: &str, args: &Value) -> Result<String> {
+    /// Where `scaffold` puts a project: the session project itself if empty, else a subdirectory.
+    fn scaffold_dest(&self, name: &str) -> PathBuf {
+        let empty = std::fs::read_dir(&self.project).map(|mut d| d.next().is_none()).unwrap_or(true);
+        if empty { self.project.clone() } else { self.project.join(name) }
+    }
+
+    fn target_project(&self, args: &Value) -> PathBuf {
+        match args.get("path").and_then(|v| v.as_str()).filter(|p| !p.is_empty()) {
+            Some(p) => resolve_path(&self.project, p),
+            None => self.active_project.clone().unwrap_or_else(|| self.project.clone()),
+        }
+    }
+
+    fn perform(&mut self, name: &str, args: &Value) -> Result<String> {
         let s = |k: &str| args.get(k).and_then(|v| v.as_str()).unwrap_or("").to_string();
         match name {
+            "list_templates" => {
+                let t = maker::list_templates();
+                if t.is_empty() { return Ok(format!("no templates found in {}", maker::templates_dir().display())); }
+                Ok(t.iter().map(|t| format!("{}: {} — {}", t.id, t.name, t.description)).collect::<Vec<_>>().join("\n"))
+            }
+            "scaffold" => {
+                let dest = self.scaffold_dest(&s("name"));
+                let t = maker::scaffold(&s("template"), &s("name"), &dest)?;
+                self.active_project = Some(dest.clone());
+                self.shared.info.lock().unwrap().active_project = Some(dest.display().to_string());
+                let mut files: Vec<String> = std::fs::read_dir(&dest)?.filter_map(|e| e.ok()).map(|e| e.file_name().to_string_lossy().to_string()).collect();
+                files.sort();
+                Ok(format!("created {} from template {} with files: {}. Entry file: {}. Preview: call preview_start (dev command: {}).", dest.display(), t.id, files.join(", "), t.entry.replace("{name}", &s("name")), t.dev.cmd))
+            }
+            "preview_start" => {
+                let p = self.target_project(args);
+                let msg = self.previews.start(&p)?;
+                let url = self.previews.url(&p);
+                self.shared.info.lock().unwrap().preview_url = url;
+                Ok(msg)
+            }
+            "preview_stop" => {
+                let p = self.target_project(args);
+                let msg = self.previews.stop(&p)?;
+                self.shared.info.lock().unwrap().preview_url = None;
+                Ok(msg)
+            }
+            "install_app" => {
+                let p = self.target_project(args);
+                let entry = maker::install_app(&p, &s("display_name"))?;
+                Ok(format!("installed: {} (appears in the application menu as \"{}\")", entry.display(), s("display_name")))
+            }
             "shell" => {
                 let net = args.get("needs_network").and_then(|v| v.as_bool()).unwrap_or(false);
                 let r = sandbox::run_shell(&self.project, &s("command"), net, Duration::from_secs(300))?;

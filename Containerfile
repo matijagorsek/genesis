@@ -47,6 +47,7 @@ RUN set -eux; \
 # ---- Genesis files: units, sysusers, tmpfiles, policy, /etc/genesis defaults ---------------
 COPY system_files/ /
 COPY packs/ /usr/share/genesis/packs/
+COPY templates/ /usr/share/genesis/templates/
 COPY --from=daemons /out/ /
 # /etc/hostname ships from system_files/etc/hostname: during a container build /etc/hostname is a runtime
 # bind mount, so a RUN that writes it never reaches the layer; COPY does.

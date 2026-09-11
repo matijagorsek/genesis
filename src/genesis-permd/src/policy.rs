@@ -95,6 +95,8 @@ impl Default for PathRules {
             ],
             system_user: vec![
                 "~/.local/share/flatpak/**".into(),
+                "~/.local/share/applications/**".into(),
+                "~/.local/share/icons/**".into(),
                 "~/.config/systemd/**".into(),
                 "~/.config/genesis/**".into(),
                 "~/.local/bin/**".into(),

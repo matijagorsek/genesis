@@ -1,0 +1,8 @@
+{
+  "id": "python-script",
+  "name": "Script (Python)",
+  "description": "A single script for automation: files, data, one-off jobs.",
+  "dev": { "cmd": "python3 {name}.py", "port": 0 },
+  "run": { "cmd": "python3 {name}.py" },
+  "entry": "{name}.py"
+}

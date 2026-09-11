@@ -213,6 +213,8 @@ system = [
 ]
 system_user = [
     "~/.local/share/flatpak/**",
+    "~/.local/share/applications/**",
+    "~/.local/share/icons/**",
     "~/.config/systemd/**",
     "~/.config/genesis/**",
     "~/.local/bin/**",

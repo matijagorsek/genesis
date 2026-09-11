@@ -8,10 +8,10 @@
 :root{--bg:#10161e;--panel:#161d27;--panel-2:#1d2631;--ink:#e6ebf1;--ink-2:#a9b4c1;--ink-3:#6f7a89;--line:#232c37;--accent:#5fb5bd;--accent-ink:#08181a;--good:#6ccf94;--warn:#e0a84a;--bad:#ef7b7b;--mono:ui-monospace,Menlo,Consolas,monospace}
 *{box-sizing:border-box}
 html,body{height:100%}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans",sans-serif;font-size:14px;line-height:1.5;display:grid;grid-template-rows:44px 1fr;height:100vh}
-header{display:flex;align-items:center;gap:12px;padding:0 14px;background:var(--panel);border-bottom:1px solid var(--line)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans",sans-serif;font-size:14px;line-height:1.5;display:grid;grid-template-rows:auto 1fr;height:100vh}
+header{display:flex;align-items:center;gap:10px;padding:0 14px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap;min-height:44px;row-gap:4px}
 header b{font-size:15px}
-.badge{font-family:var(--mono);font-size:11px;padding:2px 9px;border-radius:999px;border:1px solid var(--line);color:var(--ink-2)}
+.badge{font-family:var(--mono);font-size:11px;padding:2px 9px;border-radius:999px;border:1px solid var(--line);color:var(--ink-2);white-space:nowrap}
 .badge.local{border-color:var(--good);color:var(--good)}
 .badge.local:before{content:"● ";}
 .sp{flex:1}
@@ -63,7 +63,7 @@ textarea{background:var(--panel-2);color:var(--ink);border:1px solid var(--line)
   <span class="badge" id="badgeSandbox"></span>
   <span class="sp"></span>
   <label>Mode <select id="mode"><option value="assist">Assist (ask before writes)</option><option value="auto_edit" selected>Auto-edit (project writes allowed)</option><option value="autonomous">Autonomous (snapshots, still asks for system changes)</option></select></label>
-  <input type="text" id="project" placeholder="project directory" size="34">
+  <input type="text" id="project" placeholder="project directory" size="26">
   <button id="newSession" class="primary">New session</button>
 </header>
 <main>
@@ -112,9 +112,9 @@ textarea{background:var(--panel-2);color:var(--ink);border:1px solid var(--line)
     if(seen===0)st.innerHTML='';
     for(let i=seen;i<s.events.length;i++){st.appendChild(evEl(s.events[i]))}
     if(s.events.length!==seen){seen=s.events.length;st.scrollTop=st.scrollHeight}
-    document.querySelectorAll('.perm').forEach(x=>x.remove());
-    (s.pending||[]).forEach(p=>{st.appendChild(permEl(p))});
-    if(s.pending&&s.pending.length)st.scrollTop=st.scrollHeight;
+    const want=new Set((s.pending||[]).map(p=>p.request_id));
+    document.querySelectorAll('.perm').forEach(x=>{if(!want.has(x.dataset.rid))x.remove()});
+    (s.pending||[]).forEach(p=>{if(!document.querySelector('.perm[data-rid="'+p.request_id+'"]')){const el=permEl(p);el.dataset.rid=p.request_id;st.appendChild(el);st.scrollTop=st.scrollHeight}});
     $('#send').disabled=(s.state==='running'||s.state==='waiting');
     $('#txInfo').innerHTML=s.transaction?`Transaction <code>${s.transaction}</code>: user/system-scope changes are snapshotted.`:'No user- or system-scope changes yet.';
     $('#undo').style.display=(s.transaction&&s.state!=='running'&&s.state!=='waiting')?'':'none';
@@ -128,6 +128,7 @@ textarea{background:var(--panel-2);color:var(--ink);border:1px solid var(--line)
   // launcher hand-off: /?prompt=...&project=...
   const q=new URLSearchParams(location.search);
   health().then(async()=>{if(q.get('project'))$('#project').value=q.get('project');if(q.get('prompt')){$('#newSession').click();setTimeout(()=>{$('#prompt').value=q.get('prompt');send()},300)}});
+  api('/api/sessions').then(list=>{if(Array.isArray(list)){list.forEach((s,i)=>{sessions[s.id]={...s,created:i};});renderSessions();if(!current&&list.length)select(list[list.length-1].id)}}).catch(()=>{});
   renderSessions();
 })();
 </script>

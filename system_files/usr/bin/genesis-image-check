@@ -23,6 +23,7 @@ GENESIS_TX_STORE=/tmp/genesis-check-tx genesis-txd list >/dev/null 2>&1 && ok "t
 [ -f /usr/share/krunner/dbusplugins/genesis.desktop ] && ok "krunner plugin registered" || fail "krunner plugin"
 [ -f /usr/share/applications/org.genesis.workspace.desktop ] && ok "workspace desktop entry" || fail "workspace desktop entry"
 grep -q "Meta+Space" /etc/xdg/kglobalshortcutsrc 2>/dev/null && ok "Meta+Space default shortcut" || fail "global shortcut default"
+[ "$(ls -d /usr/share/genesis/templates/*/ 2>/dev/null | wc -l)" -ge 3 ] && ok "project templates shipped" || fail "templates"
 probe_out=$(genesis-probe --json 2>&1 || true)
 if grep -q '"recommended_pack": "' <<<"$probe_out"; then ok "probe: $(grep -o '"recommended_pack": "[^"]*"' <<<"$probe_out")"; else fail "probe run"; printf '%s\n' "$probe_out" | tail -5 | sed 's/^/       /'; fi
 [ -L /etc/systemd/user/default.target.wants/genesis-permd.service ] && ok "permd user service enabled" || fail "permd user service not enabled"
