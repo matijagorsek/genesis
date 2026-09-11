@@ -23,6 +23,15 @@ COPY src/genesis-window/ /src/genesis-window/
 RUN cmake -S /src/genesis-window -B /build -G Ninja -DCMAKE_BUILD_TYPE=Release >/dev/null && cmake --build /build >/dev/null \
  && install -D -m 0755 /build/genesis-window /out/usr/bin/genesis-window
 
+# whisper.cpp: local speech-to-text for voice input (Fedora ships only the library, no CLI)
+FROM quay.io/fedora/fedora:44 AS whisperbuild
+ARG WHISPER_CPP_VERSION=v1.8.1
+RUN dnf install -y --setopt=install_weak_deps=False cmake gcc-c++ ninja-build git >/dev/null && dnf clean all
+RUN git clone --depth 1 --branch ${WHISPER_CPP_VERSION} https://github.com/ggml-org/whisper.cpp /src >/dev/null 2>&1 \
+ && cmake -S /src -B /build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=ON -DGGML_NATIVE=OFF >/dev/null \
+ && cmake --build /build --target whisper-cli >/dev/null \
+ && mkdir -p /out/usr/lib/genesis/whisper/bin && cp /build/bin/whisper-cli /out/usr/lib/genesis/whisper/bin/
+
 # ---- stage 2: the OS image ------------------------------------------------------------------------
 FROM ${BASE}
 
@@ -57,6 +66,7 @@ COPY packs/ /usr/share/genesis/packs/
 COPY templates/ /usr/share/genesis/templates/
 COPY --from=daemons /out/ /
 COPY --from=qtbuild /out/ /
+COPY --from=whisperbuild /out/ /
 # /etc/hostname ships from system_files/etc/hostname: during a container build /etc/hostname is a runtime
 # bind mount, so a RUN that writes it never reaches the layer; COPY does.
 
@@ -88,7 +98,7 @@ RUN set -eux; \
 # from the preinstall list below once the machine is online.
 RUN set -eux; \
     dnf5 install -y --setopt=install_weak_deps=False \
-      firefox okular gwenview kcalc plasma-discover plasma-discover-flatpak haruna elisa kcharselect kfind \
+      chromium firefox okular gwenview kcalc plasma-discover plasma-discover-flatpak haruna elisa kcharselect kfind \
       kdeconnect-kde kwalletmanager5 partitionmanager; \
     dnf5 clean all
 

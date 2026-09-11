@@ -259,6 +259,7 @@ impl Policy {
                 ("web.search".to_string(), ReadNetwork),
                 ("browser.navigate".to_string(), ReadNetwork),
                 ("browser.act".to_string(), WriteUser),
+                ("browser.read".to_string(), ReadLocal),
                 ("desktop.input".to_string(), WriteUser),
                 ("desktop.notify".to_string(), WriteUser),
                 ("flatpak.install_user".to_string(), SystemUser),

@@ -14,6 +14,10 @@
 #include <QWebEngineProfile>
 #include <QWebEngineSettings>
 #include <QWebEngineView>
+#include <QWebEnginePage>
+#if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
+#include <QWebEnginePermission>
+#endif
 #include <QtGlobal>
 #include <QThread>
 #include <QIcon>
@@ -54,6 +58,16 @@ int main(int argc, char **argv) {
     auto *view = new QWebEngineView(win);
     view->settings()->setAttribute(QWebEngineSettings::LocalContentCanAccessRemoteUrls, false);
     view->settings()->setAttribute(QWebEngineSettings::JavascriptCanOpenWindows, false);
+    // local surfaces may use the microphone (voice input goes to whisper.cpp on this machine)
+#if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
+    QObject::connect(view->page(), &QWebEnginePage::permissionRequested, [](QWebEnginePermission p) {
+        if (p.permissionType() == QWebEnginePermission::PermissionType::MediaAudioCapture && p.origin().host() == "127.0.0.1") p.grant(); else p.deny();
+    });
+#else
+    QObject::connect(view->page(), &QWebEnginePage::featurePermissionRequested, [view](const QUrl &o, QWebEnginePage::Feature f) {
+        view->page()->setFeaturePermission(o, f, (f == QWebEnginePage::MediaAudioCapture && o.host() == "127.0.0.1") ? QWebEnginePage::PermissionGrantedByUser : QWebEnginePage::PermissionDeniedByUser);
+    });
+#endif
     view->load(QUrl(url));
     win->setCentralWidget(view);
     win->resize(1280, 820);

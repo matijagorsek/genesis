@@ -1,0 +1,5 @@
+
+# headless_chrome generates its DevTools bindings in a build script and runs rustfmt on them unless told not to;
+# rustfmt is not part of minimal toolchains (dev Macs, the cross-compile stage), so skip the formatting.
+[env]
+DO_NOT_FORMAT = "1"

@@ -245,6 +245,7 @@ deny = [
 "bootc.upgrade" = "system"
 "browser.act" = "write_user"
 "browser.navigate" = "read_network"
+"browser.read" = "read_local"
 "desktop.input" = "write_user"
 "desktop.notify" = "write_user"
 "flatpak.install_system" = "system"

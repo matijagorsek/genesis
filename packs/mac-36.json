@@ -1,23 +1,59 @@
 {
   "id": "mac-36",
   "description": "Phase 0 dev pack for a 32-36 GB Apple Silicon Mac. fast + embed stay resident (~5 GB), code loads on demand (~17 GB).",
-  "trigger": { "gpu": "apple", "unified_memory": true, "min_ram_gb": 32 },
+  "trigger": {
+    "gpu": "apple",
+    "unified_memory": true,
+    "min_ram_gb": 32
+  },
   "disk_gb": 22,
   "models": [
     {
-      "role": "fast", "name": "Qwen3.5-4B",
-      "repo": "unsloth/Qwen3.5-4B-GGUF", "include": ["*Q8_0*.gguf", "mmproj-F16.gguf"],
-      "license": "Apache-2.0", "tier": "main", "size_gb": 4.5
+      "role": "fast",
+      "name": "Qwen3.5-4B",
+      "repo": "unsloth/Qwen3.5-4B-GGUF",
+      "include": [
+        "*Q8_0*.gguf",
+        "mmproj-F16.gguf"
+      ],
+      "license": "Apache-2.0",
+      "tier": "main",
+      "size_gb": 4.5
     },
     {
-      "role": "code", "name": "Qwen3.8-27B",
-      "repo": "unsloth/Qwen3.8-27B-GGUF", "include": ["*Q4_K_M*.gguf", "mmproj-F16.gguf"],
-      "license": "Apache-2.0", "tier": "main", "size_gb": 17
+      "role": "code",
+      "name": "Qwen3.8-27B",
+      "repo": "unsloth/Qwen3.8-27B-GGUF",
+      "include": [
+        "*Q4_K_M*.gguf",
+        "mmproj-F16.gguf"
+      ],
+      "license": "Apache-2.0",
+      "tier": "main",
+      "size_gb": 17
     },
     {
-      "role": "embed", "name": "Qwen3-Embedding-0.6B",
-      "repo": "Qwen/Qwen3-Embedding-0.6B-GGUF", "include": ["*Q8_0*.gguf"],
-      "license": "Apache-2.0", "tier": "main", "size_gb": 0.7
+      "role": "embed",
+      "name": "Qwen3-Embedding-0.6B",
+      "repo": "Qwen/Qwen3-Embedding-0.6B-GGUF",
+      "include": [
+        "*Q8_0*.gguf"
+      ],
+      "license": "Apache-2.0",
+      "tier": "main",
+      "size_gb": 0.7
+    },
+    {
+      "role": "stt",
+      "name": "whisper-base",
+      "repo": "ggerganov/whisper.cpp",
+      "include": [
+        "ggml-base-q5_1.bin"
+      ],
+      "license": "MIT",
+      "tier": "main",
+      "size_gb": 0.06,
+      "optional": true
     }
   ]
 }

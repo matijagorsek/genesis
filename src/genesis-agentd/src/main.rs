@@ -13,6 +13,8 @@
 //!   GET  /                          the workspace UI
 
 mod agent;
+mod browser;
+mod voice;
 mod llm;
 mod maker;
 mod sandbox;
@@ -186,11 +188,19 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
     let url = req.url().to_string();
     let path: Vec<&str> = url.split('?').next().unwrap_or("/").trim_matches('/').split('/').collect();
     let method = req.method().clone();
-    let mut body = String::new();
-    let _ = req.as_reader().read_to_string(&mut body);
+    let mut raw: Vec<u8> = Vec::new();
+    let _ = req.as_reader().read_to_end(&mut raw);
+    if method == Method::Post && path.as_slice() == ["api", "transcribe"] {
+        let resp = match voice::transcribe(&raw) {
+            Ok(text) => json_response(&serde_json::json!({"text": text}), 200),
+            Err(e) => json_response(&serde_json::json!({"error": e.to_string()}), 503),
+        };
+        return req.respond(resp).map_err(|e| anyhow!(e));
+    }
+    let body = String::from_utf8_lossy(&raw).to_string();
     let resp = match (method, path.as_slice()) {
         (Method::Get, [""]) | (Method::Get, ["index.html"]) | (Method::Get, ["workspace"]) => Response::from_string(WORKSPACE_HTML).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
-        (Method::Get, ["api", "health"]) => json_response(&serde_json::json!({"ok": true, "endpoint": d.endpoint, "model": d.model, "sandbox": sandbox::bwrap_available(), "default_project": default_project()}), 200),
+        (Method::Get, ["api", "health"]) => json_response(&serde_json::json!({"ok": true, "endpoint": d.endpoint, "model": d.model, "sandbox": sandbox::bwrap_available(), "voice": voice::available(), "default_project": default_project()}), 200),
         (Method::Get, ["api", "templates"]) => json_response(&maker::list_templates(), 200),
         (Method::Get, ["api", "sessions"]) => {
             let list: Vec<serde_json::Value> = d.sessions.lock().unwrap().values().map(|(s, _)| { let i = s.info.lock().unwrap(); serde_json::json!({"id": i.id, "mode": i.mode, "project": i.project, "state": i.state, "transaction": i.transaction}) }).collect();

@@ -6,7 +6,7 @@ rc=0
 echo "Genesis image check"
 grep -q '^ID=genesis' /usr/lib/os-release && ok "os-release ID=genesis" || fail "os-release"
 grep '^PRETTY_NAME' /usr/lib/os-release
-for b in llama-server llama-swap ramalama bwrap distrobox bootc vulkaninfo genesis-permd genesis-probe genesis-firstrun genesis-agentd genesis-txd genesis-krunner btrfs rsync firefox okular gwenview kcalc plasma-discover dolphin konsole kate; do command -v "$b" >/dev/null && ok "binary $b" || fail "binary $b"; done
+for b in llama-server llama-swap ramalama bwrap distrobox bootc vulkaninfo genesis-permd genesis-probe genesis-firstrun genesis-agentd genesis-txd genesis-krunner btrfs rsync chromium firefox okular gwenview kcalc plasma-discover dolphin konsole kate; do command -v "$b" >/dev/null && ok "binary $b" || fail "binary $b"; done
 for u in genesis-router.service genesis-router.socket; do [ -f "/usr/lib/systemd/system/$u" ] && ok "unit $u" || fail "unit $u"; done
 [ -L /etc/systemd/system/sockets.target.wants/genesis-router.socket ] && ok "router socket enabled" || fail "router socket not enabled"
 [ -f /usr/lib/sysusers.d/genesis.conf ] && ok "sysusers" || fail "sysusers"
@@ -19,6 +19,7 @@ for u in genesis-router.service genesis-router.socket; do [ -f "/usr/lib/systemd
 [ -L /etc/systemd/system/multi-user.target.wants/genesis-firstrun.service ] && ok "first-run service enabled" || fail "first-run service not enabled"
 [ -f /etc/xdg/autostart/org.genesis.firstrun.desktop ] && ok "first-run autostart" || fail "first-run autostart"
 [ -x /usr/bin/genesis-window ] && ok "genesis-window" || fail "genesis-window"
+[ -x /usr/lib/genesis/whisper/bin/whisper-cli ] && ok "whisper-cli (voice input)" || fail "whisper-cli"
 [ -d /usr/share/plasma/look-and-feel/org.genesis.desktop ] && grep -q org.genesis.desktop /etc/xdg/kdeglobals && ok "Genesis look-and-feel default" || fail "look-and-feel"
 [ -f /usr/share/wallpapers/Genesis/contents/images/2560x1600.png ] && ok "wallpaper" || fail "wallpaper"
 [ -f /usr/share/icons/hicolor/scalable/apps/genesis.svg ] && ok "icon" || fail "icon"

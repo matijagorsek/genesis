@@ -1,11 +1,56 @@
 {
   "id": "cpu",
   "description": "16 GB RAM, no usable GPU. Good assistant, scripts and small edits. Multi-step agent work is slow.",
-  "trigger": { "gpu": "none", "min_ram_gb": 16 },
+  "trigger": {
+    "gpu": "none",
+    "min_ram_gb": 16
+  },
   "disk_gb": 10,
   "models": [
-    { "role": "fast",  "name": "Qwen3.5-4B",           "repo": "unsloth/Qwen3.5-4B-GGUF",        "include": ["*Q4_K_M*.gguf"], "license": "Apache-2.0", "tier": "main", "size_gb": 2.6 },
-    { "role": "code",  "name": "Qwen3.5-9B",           "repo": "unsloth/Qwen3.5-9B-GGUF",        "include": ["*Q4_K_M*.gguf"], "license": "Apache-2.0", "tier": "main", "size_gb": 6 },
-    { "role": "embed", "name": "Qwen3-Embedding-0.6B", "repo": "Qwen/Qwen3-Embedding-0.6B-GGUF", "include": ["*Q8_0*.gguf"],   "license": "Apache-2.0", "tier": "main", "size_gb": 0.7 }
+    {
+      "role": "fast",
+      "name": "Qwen3.5-4B",
+      "repo": "unsloth/Qwen3.5-4B-GGUF",
+      "include": [
+        "*Q4_K_M*.gguf"
+      ],
+      "license": "Apache-2.0",
+      "tier": "main",
+      "size_gb": 2.6
+    },
+    {
+      "role": "code",
+      "name": "Qwen3.5-9B",
+      "repo": "unsloth/Qwen3.5-9B-GGUF",
+      "include": [
+        "*Q4_K_M*.gguf"
+      ],
+      "license": "Apache-2.0",
+      "tier": "main",
+      "size_gb": 6
+    },
+    {
+      "role": "embed",
+      "name": "Qwen3-Embedding-0.6B",
+      "repo": "Qwen/Qwen3-Embedding-0.6B-GGUF",
+      "include": [
+        "*Q8_0*.gguf"
+      ],
+      "license": "Apache-2.0",
+      "tier": "main",
+      "size_gb": 0.7
+    },
+    {
+      "role": "stt",
+      "name": "whisper-base",
+      "repo": "ggerganov/whisper.cpp",
+      "include": [
+        "ggml-base-q5_1.bin"
+      ],
+      "license": "MIT",
+      "tier": "main",
+      "size_gb": 0.06,
+      "optional": true
+    }
   ]
 }
