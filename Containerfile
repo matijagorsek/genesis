@@ -16,6 +16,13 @@ COPY src/ /src/
 RUN cargo build --release --target x86_64-unknown-linux-gnu -p genesis-permd -p genesis-probe -p genesis-firstrun -p genesis-agentd -p genesis-txd -p genesis-krunner \
  && for b in genesis-permd genesis-probe genesis-firstrun genesis-agentd genesis-txd genesis-krunner; do install -D -m 0755 target/x86_64-unknown-linux-gnu/release/$b /out/usr/bin/$b; done
 
+# ---- stage 1b: genesis-window (Qt WebEngine), built on Fedora so it links against the image's Qt ------
+FROM quay.io/fedora/fedora:44 AS qtbuild
+RUN dnf install -y --setopt=install_weak_deps=False cmake gcc-c++ ninja-build qt6-qtbase-devel qt6-qtwebengine-devel >/dev/null && dnf clean all
+COPY src/genesis-window/ /src/genesis-window/
+RUN cmake -S /src/genesis-window -B /build -G Ninja -DCMAKE_BUILD_TYPE=Release >/dev/null && cmake --build /build >/dev/null \
+ && install -D -m 0755 /build/genesis-window /out/usr/bin/genesis-window
+
 # ---- stage 2: the OS image ------------------------------------------------------------------------
 FROM ${BASE}
 
@@ -49,6 +56,7 @@ COPY system_files/ /
 COPY packs/ /usr/share/genesis/packs/
 COPY templates/ /usr/share/genesis/templates/
 COPY --from=daemons /out/ /
+COPY --from=qtbuild /out/ /
 # /etc/hostname ships from system_files/etc/hostname: during a container build /etc/hostname is a runtime
 # bind mount, so a RUN that writes it never reaches the layer; COPY does.
 
@@ -72,6 +80,7 @@ RUN set -eux; \
 # ramalama: model pulls (OCI/HF/Ollama) and containerised CUDA/ROCm runners. vulkan-tools for genesis-probe.
 RUN set -eux; \
     dnf5 install -y --setopt=install_weak_deps=False ramalama vulkan-tools; \
+    dnf5 remove -y plasma-welcome >/dev/null 2>&1 || true; \
     dnf5 clean all
 
 # llama-swap: model router (Go, static upstream binary)
@@ -84,7 +93,7 @@ RUN set -eux; \
 # (genesis-image-check ships from system_files/usr/bin; podman/buildah has no COPY heredoc)
 
 # ---- enable services -------------------------------------------------------------------------
-RUN systemctl enable genesis-router.socket genesis-probe.service genesis-firstrun.service && systemctl --global enable genesis-permd.service genesis-firstrun-ui.service genesis-agentd.service
+RUN systemctl enable genesis-router.socket genesis-probe.service genesis-firstrun.service && systemctl --global enable genesis-permd.service genesis-agentd.service
 
 # ---- bootc validation ------------------------------------------------------------------------
 RUN if [ "$BOOTC_LINT" = strict ]; then bootc container lint; else echo "bootc lint skipped (BOOTC_LINT=$BOOTC_LINT)"; fi

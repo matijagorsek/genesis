@@ -1,0 +1,5 @@
+{
+  "KPackageStructure": "Plasma/LookAndFeel",
+  "KPlugin": { "Id": "org.genesis.desktop", "Name": "Genesis", "Description": "Genesis desktop: dark, quiet, the maker one key away.", "License": "Apache-2.0", "Version": "0.1", "Authors": [{"Name": "Genesis"}] },
+  "X-Plasma-MainScript": "defaults"
+}

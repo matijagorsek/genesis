@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Genesis first run
+Comment=Opens the Genesis first-run wizard until setup is complete
+Exec=/usr/bin/genesis-window --first-run
+Icon=genesis
+OnlyShowIn=KDE;
+X-KDE-autostart-phase=2

@@ -50,7 +50,7 @@ mod runner {
         #[zbus(name = "Run")]
         fn run(&self, match_id: &str, _action_id: &str) {
             let url = format!("{}?prompt={}", WORKSPACE_URL, urlencode(match_id));
-            let _ = std::process::Command::new("xdg-open").arg(url).spawn();
+            let _ = std::process::Command::new("genesis-window").arg(url).spawn();
         }
     }
 

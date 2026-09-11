@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.20)
+project(genesis-window LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_AUTOMOC ON)
+find_package(Qt6 REQUIRED COMPONENTS Widgets WebEngineWidgets)
+add_executable(genesis-window main.cpp)
+target_link_libraries(genesis-window PRIVATE Qt6::Widgets Qt6::WebEngineWidgets)
+install(TARGETS genesis-window RUNTIME DESTINATION bin)

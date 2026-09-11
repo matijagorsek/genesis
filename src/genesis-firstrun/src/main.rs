@@ -135,6 +135,9 @@ fn handle(app: &Arc<App>, mut req: Request) -> Result<bool> {
                                 }
                                 std::fs::write(&router_out, yaml).with_context(|| format!("writing {}", router_out.display()))?;
                                 tracing::info!(path = %router_out.display(), "router config rendered");
+                                // (re)start the local model router so the maker works right away
+                                let _ = std::process::Command::new("systemctl").args(["restart", "genesis-router.socket"]).status();
+                                let _ = std::process::Command::new("systemctl").args(["restart", "genesis-router.service"]).status();
                                 Ok(())
                             });
                             download::start(app.progress.clone(), pack.id.clone(), files.clone(), on_done);

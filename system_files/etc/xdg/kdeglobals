@@ -1,0 +1,5 @@
+[KDE]
+LookAndFeelPackage=org.genesis.desktop
+
+[General]
+ColorScheme=BreezeDark

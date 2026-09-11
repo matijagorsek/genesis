@@ -1,0 +1,21 @@
+// Genesis default layout: one bottom panel with the app launcher, the Genesis maker, task manager and tray.
+var plasma = getApiVersion(1);
+var layoutDesktop = new Desktop();
+layoutDesktop.wallpaperPlugin = "org.kde.image";
+layoutDesktop.currentConfigGroup = ["Wallpaper", "org.kde.image", "General"];
+layoutDesktop.writeConfig("Image", "file:///usr/share/wallpapers/Genesis/contents/images/2560x1600.png");
+var panel = new Panel();
+panel.location = "bottom";
+panel.height = 2 * Math.floor(gridUnit * 2.5 / 2);
+var kickoff = panel.addWidget("org.kde.plasma.kickoff");
+kickoff.currentConfigGroup = ["General"];
+kickoff.writeConfig("icon", "genesis");
+var maker = panel.addWidget("org.kde.plasma.icon");
+maker.currentConfigGroup = ["General"];
+maker.writeConfig("url", "file:///usr/share/applications/org.genesis.workspace.desktop");
+panel.addWidget("org.kde.plasma.pager");
+panel.addWidget("org.kde.plasma.icontasks");
+panel.addWidget("org.kde.plasma.marginsseparator");
+panel.addWidget("org.kde.plasma.systemtray");
+panel.addWidget("org.kde.plasma.digitalclock");
+panel.addWidget("org.kde.plasma.showdesktop");
