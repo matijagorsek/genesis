@@ -25,9 +25,11 @@ RUN set -eux; \
       -e 's|^SUPPORT_URL=.*|SUPPORT_URL="https://github.com/matijagorsek/genesis/issues"|' \
       -e 's|^BUG_REPORT_URL=.*|BUG_REPORT_URL="https://github.com/matijagorsek/genesis/issues"|' \
       -e 's/^IMAGE_ID=.*/IMAGE_ID=genesis/' \
+      -e 's/^DEFAULT_HOSTNAME=.*/DEFAULT_HOSTNAME=genesis/' \
       -e "s/^IMAGE_VERSION=.*/IMAGE_VERSION=${GENESIS_VERSION}/" \
       /usr/lib/os-release; \
     grep -q '^ID_LIKE=' /usr/lib/os-release || echo 'ID_LIKE="fedora"' >> /usr/lib/os-release; \
+    grep -q '^DEFAULT_HOSTNAME=' /usr/lib/os-release || echo 'DEFAULT_HOSTNAME=genesis' >> /usr/lib/os-release; \
     grep -q '^IMAGE_ID=' /usr/lib/os-release || printf 'IMAGE_ID=genesis\nIMAGE_VERSION=%s\n' "${GENESIS_VERSION}" >> /usr/lib/os-release
 
 # ---- Genesis files: units, sysusers, tmpfiles, /etc/genesis defaults ----------------------
