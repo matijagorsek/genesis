@@ -147,3 +147,7 @@ tx *args:
 # Run the agent daemon + workspace UI locally on http://127.0.0.1:11520 (router must be up: just up)
 workspace:
     prototype/agentd-dev.sh
+
+# Boot a disk image headless and capture screenshots: just vm-shots iso/output/v22/disk.qcow2 iso/output/shots-v22
+vm-shots disk outdir:
+    python3 prototype/vm-shots.py {{disk}} {{outdir}}
