@@ -13,6 +13,7 @@ for u in genesis-router.service genesis-router.socket; do [ -f "/usr/lib/systemd
 [ -f /usr/lib/tmpfiles.d/genesis.conf ] && ok "tmpfiles" || fail "tmpfiles"
 [ -d /etc/genesis ] && ok "/etc/genesis" || fail "/etc/genesis"
 [ -f /usr/share/genesis/policy.d/00-default.toml ] && ok "default policy" || fail "default policy"
+[ -f /usr/lib/bootc/kargs.d/10-genesis.toml ] && ok "kargs.d hostname" || fail "kargs.d hostname"
 [ -L /etc/systemd/user/default.target.wants/genesis-permd.service ] && ok "permd user service enabled" || fail "permd user service not enabled"
 [ -f /usr/share/dbus-1/services/org.genesis.Permission1.service ] && ok "permd dbus activation" || fail "permd dbus activation"
 permd_out=$(genesis-permd --audit /tmp/genesis-check-audit.jsonl check --cmd "pip3 install --break-system-packages x" 2>&1 || true)

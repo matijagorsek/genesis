@@ -1,0 +1,4 @@
+# Kernel arguments shipped with the Genesis image (bootc kargs.d).
+# systemd.hostname sets the hostname at PID 1 regardless of /etc/hostname handling in the deployment;
+# Aurora's prebuilt initramfs would otherwise name the machine "aurora" from its own os-release copy.
+kargs = ["systemd.hostname=genesis"]
