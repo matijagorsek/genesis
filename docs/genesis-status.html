@@ -63,13 +63,13 @@ ol.next{padding-left:22px;max-width:70ch}ol.next li{margin-bottom:7px}
 <p class="eyebrow">Genesis · project status</p>
 <h1>Genesis, from idea to a booting OS in two days</h1>
 <p class="lede">One page with everything: what was investigated, what was decided, what runs today, the proof that Genesis boots, and what comes next. Links to the full brief, the interactive walkthrough, the repository and the published image.</p>
-<div class="meta"><span>updated 2026-09-11</span><span>23 commits on main</span><span>github.com/matijagorsek/genesis</span></div>
+<div class="meta"><span>updated 2026-09-11</span><span>25 commits on main</span><span>github.com/matijagorsek/genesis</span></div>
 
 <div class="tiles">
   <div class="tile"><div class="k">Phase 0 tasks</div><div class="v">3 / 3 <span class="pill ok">pass</span></div><div class="s">shell, repo edit, kanban app, all with a local 27B</div></div>
   <div class="tile"><div class="k">Image</div><div class="v">3.80 GB</div><div class="s">ghcr.io/matijagorsek/genesis:0.1 · strict lint · +70 MB over base</div></div>
-  <div class="tile"><div class="k">First boot</div><div class="v">yes <span class="pill ok">run 7</span></div><div class="s">QEMU/KVM, serial login, all in-VM checks passed</div></div>
-  <div class="tile"><div class="k">Installer ISO</div><div class="v"><span class="pill run">building</span></div><div class="s">own bootc-image-builder definition, own CI job</div></div>
+  <div class="tile"><div class="k">Boot test</div><div class="v">pass <span class="pill ok">run 9</span></div><div class="s">QEMU/KVM, serial login, checks green, step green</div></div>
+  <div class="tile"><div class="k">Release</div><div class="v">v0.1.9 <span class="pill ok">published</span></div><div class="s">qcow2 in 3 parts + boot log · ISO job fix in run 10</div></div>
 </div>
 
 <h2>Everything, in one place</h2>
@@ -121,10 +121,10 @@ ol.next{padding-left:22px;max-width:70ch}ol.next li{margin-bottom:7px}
   <div class="step ok"><div class="n">4 · done</div>push to GHCR</div>
   <div class="step ok"><div class="n">5 · done</div>qcow2 disk image</div>
   <div class="step ok"><div class="n">6 · boots</div>QEMU/KVM boot test</div>
-  <div class="step run"><div class="n">7 · running</div>split, release</div>
-  <div class="step run"><div class="n">8 · running</div>installer ISO job</div>
+  <div class="step ok"><div class="n">7 · done</div>split, release v0.1.9</div>
+  <div class="step run"><div class="n">8 · run 10</div>installer ISO job</div>
 </div>
-<p>Nine CI runs so far. Each failure was a distinct pipeline issue, not an image problem: podman lacking Docker's heredoc syntax, a registry pull timeout, an old podman flag, runner disk exhausted, a missing distro definition for an OS named "genesis", KVM device permissions, and a boot script typing before the shell was ready. All fixed, and a full audit removed the next ones in line: 2 GB release asset limit, private-repo artifact quota, and three bugs in the test script.</p>
+<p>Ten CI runs so far. Run 9 was the first fully green image job, ending in release v0.1.9. Its ISO job failed on a builder rule about kickstart content, fixed in run 10. Each failure was a distinct pipeline issue, not an image problem: podman lacking Docker's heredoc syntax, a registry pull timeout, an old podman flag, runner disk exhausted, a missing distro definition for an OS named "genesis", KVM device permissions, and a boot script typing before the shell was ready. All fixed, and a full audit removed the next ones in line: 2 GB release asset limit, private-repo artifact quota, and three bugs in the test script.</p>
 
 <h2>Proof of first boot</h2>
 <p>Serial console from CI run 7 on 2026-09-11, trimmed. This is Genesis booting from its own disk image under KVM, logging in, and passing its checks.</p>
@@ -155,7 +155,7 @@ Password:
 
 <h2>Next, in order</h2>
 <ol class="next">
-  <li><strong>Green end-to-end run.</strong> qcow2 released in split parts, ISO attached by its own job.</li>
+  <li><strong>ISO attached to the release</strong> by its own job (run 10). The image job is already green end to end.</li>
   <li><strong>Boot Genesis on the Mac.</strong> <code>just fetch-images</code> then <code>just boot</code> in QEMU, and watch it reach the Plasma login.</li>
   <li><strong>genesis-permd.</strong> The permission broker, first Rust daemon, because the agent escalates on its own without it.</li>
   <li><strong>genesis-probe and the first-run wizard.</strong> Hardware profile, pack proposal, download with the bootstrap model answering meanwhile.</li>
