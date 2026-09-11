@@ -17,4 +17,4 @@ Short form. Evidence and alternatives are in [genesis-brief.html](genesis-brief.
 | 11 | 2026-09-11 | llama.cpp ships as the upstream Vulkan release build under `/usr/lib/genesis/llama.cpp`, not Fedora's `llama-cpp` package (months behind, no Vulkan backend, drags the full ROCm stack in, +2.5 GB). CUDA/ROCm builds via ramalama containers. | accepted |
 | 12 | 2026-09-11 | First Genesis image built: `genesis:0.1` from `ghcr.io/ublue-os/aurora:stable`, 3.80 GB (base 3.70). `bootc container lint` is strict in CI, skipped in emulated local builds. | done |
 | 13 | 2026-09-11 | First boot. Release v0.1.9: CI boot test green under KVM; the same image boots on the dev Mac under QEMU emulation in 90 s with `genesis-router.socket` listening. Pipeline: strict lint, self-check, push, qcow2, boot test, split release; ISO in its own job. | done |
-| 14 | 2026-09-11 | Release v0.1.10: first fully green pipeline, both jobs. Installer ISO (5.2 GB, split) and qcow2 attached. Hostname now `genesis`. | done |
+| 14 | 2026-09-11 | Release v0.1.10: first fully green pipeline, both jobs. Installer ISO (5.2 GB, split) and qcow2 attached. Hostname still `aurora` (open). | done |
