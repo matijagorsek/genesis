@@ -1,6 +1,6 @@
 # src — Genesis daemons (Phase 1, Rust)
 
-Nothing here yet on purpose. Phase 0 proves the loop with off-the-shelf parts first.
+Cargo workspace. `cd src && cargo test`. Phase 0 proved the loop with off-the-shelf parts; the daemons below add what the OS must own.
 
 Planned crates, per the brief:
 
