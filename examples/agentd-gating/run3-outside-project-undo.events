@@ -1,0 +1,19 @@
+▶ task: Append the line 'edited by genesis' to the file /Users/matijagorsek/genesis-undo-test.md (it is outside the project). Then read it back.
+🔧 read_file {"path":"/Users/matijagorsek/genesis-undo-test.md"}
+   permd: R0 allow — read-only
+   ✓ original note 
+🔧 shell {"command":"printf 'edited by genesis\\n' >> /Users/matijagorsek/genesis-undo-test.md"}
+   permd: W2 allowwithsnapshot — shell command writes outside the project: /Users/matijagorsek/genesis-undo-test.md
+⎘ tx-756bbbe9 transaction opened
+⎘ tx-756bbbe9 pre-image saved: /Users/matijagorsek/genesis-undo-test.md
+   ✓ exit=0 [unsandboxed dev mode] 
+🔧 read_file {"path":"/Users/matijagorsek/genesis-undo-test.md"}
+   permd: R0 allow — read-only
+   ✓ original note edited by genesis 
+💬 Done. I appended `edited by genesis` to `/Users/matijagorsek/genesis-undo-test.md` (outside the project directory) and read it back. The file now contains:
+
+```
+original note
+edited by genesis
+```
+■ done in 4 turns
