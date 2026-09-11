@@ -1,0 +1,43 @@
+name: build-image
+
+on:
+  push:
+    branches: [main]
+    paths: [Containerfile, system_files/**, .github/workflows/build-image.yml]
+  pull_request:
+    paths: [Containerfile, system_files/**]
+  workflow_dispatch:
+  schedule:
+    - cron: "17 4 * * *"   # nightly: inherit Fedora/Aurora updates
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    runs-on: ubuntu-24.04     # native x86_64: bootc lint runs strict here
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: |
+          podman build -f Containerfile \
+            --build-arg BOOTC_LINT=strict \
+            --build-arg GENESIS_VERSION=0.1.${{ github.run_number }} \
+            -t ghcr.io/${{ github.repository_owner }}/genesis:0.1 \
+            -t ghcr.io/${{ github.repository_owner }}/genesis:0.1.${{ github.run_number }} \
+            .
+
+      - name: Image self-check
+        run: podman run --rm ghcr.io/${{ github.repository_owner }}/genesis:0.1 genesis-image-check
+
+      - name: Login to GHCR
+        if: github.event_name != 'pull_request'
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Push
+        if: github.event_name != 'pull_request'
+        run: |
+          podman push ghcr.io/${{ github.repository_owner }}/genesis:0.1
+          podman push ghcr.io/${{ github.repository_owner }}/genesis:0.1.${{ github.run_number }}

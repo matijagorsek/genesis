@@ -1,23 +1,91 @@
-# Genesis OS image — Phase 1 skeleton. NOT YET BUILT OR TESTED.
-# Base: Aurora (KDE Plasma on Fedora bootc) from Universal Blue.
-# Build:  podman build --platform linux/amd64 -t ghcr.io/<you>/genesis:44 .
-# ISO:    osbuild/bootc-image-builder → anaconda-iso (see .github/workflows in Phase 1)
+# Genesis OS image. Derived from Universal Blue Aurora (KDE Plasma on Fedora bootc).
+#
+#   build:  docker buildx build --platform linux/amd64 -t genesis:0.1 .
+#   check:  docker run --rm --platform linux/amd64 genesis:0.1 genesis-image-check
+#   iso:    see iso/ (bootc-image-builder), Phase 1
 
-ARG BASE=ghcr.io/ublue-os/aurora-main:stable
+ARG BASE=ghcr.io/ublue-os/aurora:stable
 FROM ${BASE}
 
-# system files: units, sysusers, tmpfiles, /etc/genesis defaults
+ARG GENESIS_VERSION=0.1
+ARG LLAMA_SWAP_VERSION=255
+# BOOTC_LINT=strict (CI, native amd64) | skip (local emulated builds: lint needs syscalls QEMU lacks)
+ARG BOOTC_LINT=strict
+
+# ---- identity (Fedora Remix rules: own name, no Fedora marks) -----------------------------
+RUN set -eux; \
+    sed -i \
+      -e 's/^NAME=.*/NAME="Genesis"/' \
+      -e "s/^PRETTY_NAME=.*/PRETTY_NAME=\"Genesis ${GENESIS_VERSION} (Fedora bootc 44)\"/" \
+      -e 's/^ID=.*/ID=genesis/' \
+      -e 's/^ID_LIKE=.*/ID_LIKE="fedora"/' \
+      -e 's/^VARIANT=.*/VARIANT="Genesis Desktop"/' \
+      -e 's/^VARIANT_ID=.*/VARIANT_ID=genesis/' \
+      -e 's|^HOME_URL=.*|HOME_URL="https://github.com/matijagorsek/genesis"|' \
+      -e 's|^SUPPORT_URL=.*|SUPPORT_URL="https://github.com/matijagorsek/genesis/issues"|' \
+      -e 's|^BUG_REPORT_URL=.*|BUG_REPORT_URL="https://github.com/matijagorsek/genesis/issues"|' \
+      -e 's/^IMAGE_ID=.*/IMAGE_ID=genesis/' \
+      -e "s/^IMAGE_VERSION=.*/IMAGE_VERSION=${GENESIS_VERSION}/" \
+      /usr/lib/os-release; \
+    grep -q '^ID_LIKE=' /usr/lib/os-release || echo 'ID_LIKE="fedora"' >> /usr/lib/os-release; \
+    grep -q '^IMAGE_ID=' /usr/lib/os-release || printf 'IMAGE_ID=genesis\nIMAGE_VERSION=%s\n' "${GENESIS_VERSION}" >> /usr/lib/os-release
+
+# ---- Genesis files: units, sysusers, tmpfiles, /etc/genesis defaults ----------------------
 COPY system_files/ /
 
-# inference stack (Vulkan build of llama.cpp from Fedora repos; CUDA/ROCm via ramalama containers)
-RUN dnf install -y llama-cpp bubblewrap ramalama distrobox && dnf clean all
+# ---- inference stack -------------------------------------------------------------------------
+# llama.cpp: upstream Vulkan build (CPU + Vulkan backends, runs on NVIDIA/AMD/Intel via Mesa or vendor ICDs).
+# Fedora's llama-cpp package is not used: it is months behind upstream, has no Vulkan backend, and pulls
+# the entire ROCm stack (+2.5 GB) into the image. CUDA/ROCm builds come via ramalama containers instead.
+ARG LLAMA_CPP_BUILD=b10901
+RUN set -eux; \
+    mkdir -p /usr/lib/genesis/llama.cpp; \
+    curl -fsSL "https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_CPP_BUILD}/llama-${LLAMA_CPP_BUILD}-bin-ubuntu-vulkan-x64.tar.gz" \
+      | tar -xz -C /usr/lib/genesis/llama.cpp --strip-components=1; \
+    for b in llama-server llama-cli llama-bench llama-embedding llama-quantize llama-mtmd-cli; do \
+      [ -x "/usr/lib/genesis/llama.cpp/$b" ] || continue; \
+      printf '#!/bin/sh\nexport LD_LIBRARY_PATH=/usr/lib/genesis/llama.cpp${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}\nexec /usr/lib/genesis/llama.cpp/%s "$@"\n' "$b" > "/usr/bin/$b"; \
+      chmod 0755 "/usr/bin/$b"; \
+    done; \
+    echo "${LLAMA_CPP_BUILD}" > /usr/lib/genesis/llama.cpp/BUILD; \
+    /usr/bin/llama-server --version 2>&1 | head -2
 
-# llama-swap release binary
-ARG LLAMA_SWAP_VERSION=255
-RUN curl -fsSL "https://github.com/mostlygeek/llama-swap/releases/download/v${LLAMA_SWAP_VERSION}/llama-swap_${LLAMA_SWAP_VERSION}_linux_amd64.tar.gz" \
-    | tar -xz -C /usr/bin llama-swap && chmod 0755 /usr/bin/llama-swap
+# ramalama: model pulls (OCI/HF/Ollama) and containerised CUDA/ROCm runners. vulkan-tools for genesis-probe.
+RUN set -eux; \
+    dnf5 install -y --setopt=install_weak_deps=False ramalama vulkan-tools; \
+    dnf5 clean all
 
-RUN systemctl enable genesis-router.socket \
- && echo 'ID=genesis' > /usr/lib/os-release.genesis   # TODO(phase1): proper os-release rebrand, ID_LIKE=fedora
+# llama-swap: model router (Go, static upstream binary)
+RUN set -eux; \
+    curl -fsSL "https://github.com/mostlygeek/llama-swap/releases/download/v${LLAMA_SWAP_VERSION}/llama-swap_${LLAMA_SWAP_VERSION}_linux_amd64.tar.gz" \
+      | tar -xz -C /usr/bin llama-swap; \
+    chmod 0755 /usr/bin/llama-swap; \
+    /usr/bin/llama-swap --version
 
-RUN bootc container lint
+# ---- image self-check tool ----------------------------------------------------------------
+COPY <<'EOF' /usr/bin/genesis-image-check
+#!/usr/bin/env bash
+set -euo pipefail
+ok(){ printf '  ok   %s\n' "$1"; }
+fail(){ printf '  FAIL %s\n' "$1"; rc=1; }
+rc=0
+echo "Genesis image check"
+grep -q '^ID=genesis' /usr/lib/os-release && ok "os-release ID=genesis" || fail "os-release"
+grep '^PRETTY_NAME' /usr/lib/os-release
+for b in llama-server llama-swap ramalama bwrap distrobox bootc vulkaninfo; do command -v "$b" >/dev/null && ok "binary $b" || fail "binary $b"; done
+for u in genesis-router.service genesis-router.socket; do [ -f "/usr/lib/systemd/system/$u" ] && ok "unit $u" || fail "unit $u"; done
+[ -L /etc/systemd/system/sockets.target.wants/genesis-router.socket ] && ok "router socket enabled" || fail "router socket not enabled"
+[ -f /usr/lib/sysusers.d/genesis.conf ] && ok "sysusers" || fail "sysusers"
+[ -f /usr/lib/tmpfiles.d/genesis.conf ] && ok "tmpfiles" || fail "tmpfiles"
+[ -d /etc/genesis ] && ok "/etc/genesis" || fail "/etc/genesis"
+printf '  %s\n' "$(llama-server --version 2>&1 | grep -m1 -i version || true)"
+printf '  %s\n' "$(llama-swap --version 2>&1 | grep -m1 -i version || true)"
+exit $rc
+EOF
+RUN chmod 0755 /usr/bin/genesis-image-check
+
+# ---- enable services -------------------------------------------------------------------------
+RUN systemctl enable genesis-router.socket
+
+# ---- bootc validation ------------------------------------------------------------------------
+RUN if [ "$BOOTC_LINT" = strict ]; then bootc container lint; else echo "bootc lint skipped (BOOTC_LINT=$BOOTC_LINT)"; fi

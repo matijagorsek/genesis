@@ -14,3 +14,5 @@ Short form. Evidence and alternatives are in [genesis-brief.html](genesis-brief.
 | 8 | 2026-09-10 | Stack: Rust for daemons and UI; Python only in containers; TypeScript only for the browser extension. | accepted |
 | 9 | 2026-09-10 | v1 surfaces: launcher, agent workspace, model manager, terminal, select-to-act. Browser sidebar and voice in v2. No always-on screen memory. | accepted |
 | 10 | 2026-09-10 | Phase 0 runs natively on the dev Mac first (Metal), Fedora VM second. Linux-only parts deferred to Phase 1. | accepted |
+| 11 | 2026-09-11 | llama.cpp ships as the upstream Vulkan release build under `/usr/lib/genesis/llama.cpp`, not Fedora's `llama-cpp` package (months behind, no Vulkan backend, drags the full ROCm stack in, +2.5 GB). CUDA/ROCm builds via ramalama containers. | accepted |
+| 12 | 2026-09-11 | First Genesis image built: `genesis:0.1` from `ghcr.io/ublue-os/aurora:stable`, 3.80 GB (base 3.70). `bootc container lint` is strict in CI, skipped in emulated local builds. | done |

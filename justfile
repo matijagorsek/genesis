@@ -68,3 +68,18 @@ run text model="code":
 # Run a Goose recipe from prototype/goose/, e.g. just recipe kanban
 recipe name:
     GOOSE_PROVIDER=openai OPENAI_HOST={{endpoint}} OPENAI_API_KEY=local GOOSE_MODEL=code GOOSE_MODE=auto goose run --no-session --recipe prototype/goose/{{name}}.yaml
+
+# Build the Genesis OCI image (x86_64) with Docker
+image tag="genesis:0.1":
+    docker buildx build -f Containerfile --platform linux/amd64 --build-arg BOOTC_LINT=skip --load -t {{tag}} .
+    docker run --rm --platform linux/amd64 {{tag}} genesis-image-check
+
+# Build an installer ISO from the image (needs a Linux/Docker host with loop devices)
+iso tag="genesis:0.1":
+    mkdir -p iso/output
+    docker run --rm --privileged --platform linux/amd64 -v "$PWD/iso/output:/output" -v "$PWD/iso/config.toml:/config.toml:ro" -v /var/lib/containers/storage:/var/lib/containers/storage quay.io/centos-bootc/bootc-image-builder:latest --type anaconda-iso --rootfs btrfs --config /config.toml --local {{tag}}
+
+# Build a qcow2 disk image for QEMU boot tests
+qcow2 tag="genesis:0.1":
+    mkdir -p iso/output
+    docker run --rm --privileged --platform linux/amd64 -v "$PWD/iso/output:/output" -v "$PWD/iso/config.toml:/config.toml:ro" -v /var/lib/containers/storage:/var/lib/containers/storage quay.io/centos-bootc/bootc-image-builder:latest --type qcow2 --rootfs btrfs --config /config.toml --local {{tag}}

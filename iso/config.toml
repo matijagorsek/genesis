@@ -1,0 +1,16 @@
+# bootc-image-builder config for Genesis (anaconda-iso / qcow2 / raw).
+# Run on a Linux host (or Docker Desktop VM) as a privileged container:
+#   docker run --rm -it --privileged --platform linux/amd64 \
+#     -v ./iso/output:/output -v ./iso/config.toml:/config.toml:ro \
+#     -v /var/lib/containers/storage:/var/lib/containers/storage \
+#     quay.io/centos-bootc/bootc-image-builder:latest \
+#     --type anaconda-iso --rootfs btrfs --config /config.toml localhost/genesis:0.1
+# Docs: https://github.com/osbuild/bootc-image-builder
+
+[customizations.installer.kickstart]
+contents = """
+# minimal: let Anaconda ask for disk/user; Genesis first-run wizard handles the rest (Phase 1)
+"""
+
+[customizations.installer.modules]
+enable = ["org.fedoraproject.Anaconda.Modules.Storage", "org.fedoraproject.Anaconda.Modules.Users", "org.fedoraproject.Anaconda.Modules.Network", "org.fedoraproject.Anaconda.Modules.Localization"]
