@@ -89,7 +89,9 @@ fetch-images:
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p iso/output && cd iso/output
-    gh release download --repo matijagorsek/genesis --pattern "*.part" --pattern "SHA256SUMS*" --clobber
+    tag=$(gh release list --repo matijagorsek/genesis --limit 1 --json tagName --jq '.[0].tagName')
+    echo "release $tag"
+    gh release download "$tag" --repo matijagorsek/genesis --pattern "*.part" --pattern "SHA256SUMS*" --clobber
     sha256sum -c SHA256SUMS.qcow2 || shasum -a 256 -c SHA256SUMS.qcow2
     cat *.qcow2.zst.*.part | zstd -d -f -o disk.qcow2
     if ls *.iso.*.part >/dev/null 2>&1; then cat *.iso.*.part > genesis.iso; fi
