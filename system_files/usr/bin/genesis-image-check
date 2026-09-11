@@ -15,7 +15,8 @@ for u in genesis-router.service genesis-router.socket; do [ -f "/usr/lib/systemd
 [ -f /usr/share/genesis/policy.d/00-default.toml ] && ok "default policy" || fail "default policy"
 [ -L /etc/systemd/user/default.target.wants/genesis-permd.service ] && ok "permd user service enabled" || fail "permd user service not enabled"
 [ -f /usr/share/dbus-1/services/org.genesis.Permission1.service ] && ok "permd dbus activation" || fail "permd dbus activation"
-genesis-permd --audit /tmp/genesis-check-audit.jsonl check --cmd "pip3 install --break-system-packages x" 2>/dev/null | grep -q "^S1 *prompt" && ok "permd: S1 prompt for --break-system-packages" || fail "permd classification"
+permd_out=$(genesis-permd --audit /tmp/genesis-check-audit.jsonl check --cmd "pip3 install --break-system-packages x" 2>&1 || true)
+if grep -q "^S1 *prompt" <<<"$permd_out"; then ok "permd: S1 prompt for --break-system-packages"; else fail "permd classification"; printf '%s\n' "$permd_out" | sed 's/^/       /'; fi
 printf '  %s\n' "$(llama-server --version 2>&1 | grep -m1 -i version || true)"
 printf '  %s\n' "$(llama-swap --version 2>&1 | grep -m1 -i version || true)"
 printf '  genesis-permd %s\n' "$(genesis-permd --version 2>&1 | head -1 || true)"

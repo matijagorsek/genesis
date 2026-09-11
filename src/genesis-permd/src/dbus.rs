@@ -59,6 +59,12 @@ impl PermissionService {
     fn version(&self) -> String {
         env!("CARGO_PKG_VERSION").to_string()
     }
+
+    /// Where this broker writes its hash-chained audit log.
+    #[zbus(property)]
+    fn audit_path(&self) -> String {
+        self.broker.lock().unwrap().audit_path().display().to_string()
+    }
 }
 
 pub async fn serve(broker: Arc<Mutex<Broker>>) -> Result<()> {

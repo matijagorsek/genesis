@@ -84,10 +84,6 @@ impl Broker {
         })
     }
 
-    pub fn session(&self, id: &str) -> Option<&Session> {
-        self.sessions.get(id)
-    }
-
     /// The core call: classify the intent, apply the mode table, apply taint, log, and answer.
     pub fn evaluate(&mut self, intent: &Intent) -> Result<Decision> {
         let session = self
