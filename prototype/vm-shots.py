@@ -19,7 +19,7 @@ def mon(cmd):
     s.close()
 qemu = subprocess.Popen(["qemu-system-x86_64", "-machine", "q35", "-cpu", "max", "-smp", "4", "-m", "4096",
     "-drive", f"if=pflash,format=raw,readonly=on,file={fw}", "-drive", f"file={work},if=virtio,format=qcow2",
-    "-device", "virtio-vga", "-display", "none", "-vga", "none", "-monitor", f"unix:{sock},server,nowait",
+    "-device", "virtio-vga", "-device", "usb-tablet", "-display", "none", "-vga", "none", "-monitor", f"unix:{sock},server,nowait",
     "-serial", f"file:{outdir}/serial.log", "-netdev", "user,id=n0,hostfwd=tcp::11511-:11510,hostfwd=tcp::11521-:11520", "-device", "virtio-net-pci,netdev=n0"])
 time.sleep(8); t0 = time.time(); done = set(); logged = False; login_at = 0
 while time.time() - t0 < max(plan) + 5:
@@ -34,6 +34,14 @@ while time.time() - t0 < max(plan) + 5:
             for ch in "genesis": mon(f"sendkey {ch}"); time.sleep(0.15)
             mon("sendkey ret"); logged = True; login_at = el; print("typed password", flush=True)
         except Exception as e: print("key err", e, flush=True)
+    # after login: skip the wizard (GENESIS_SHOT_SKIP=1 clicks "Set up models later", bottom-left of the kiosk window)
+    if logged and os.environ.get("GENESIS_SHOT_SKIP") and "skip" not in done and el > login_at + 200:
+        try:
+            x, y = int(90 * 32767 / 1280), int(770 * 32767 / 800)
+            mon(f"mouse_move {x} {y}"); time.sleep(0.5); mon("mouse_button 1"); time.sleep(0.2); mon("mouse_button 0")
+            print("clicked skip", flush=True)
+        except Exception as e: print("skip err", e, flush=True)
+        done.add("skip")
     # after login: open the application menu for one frame, then close it (GENESIS_SHOT_MENU=1)
     if logged and os.environ.get("GENESIS_SHOT_MENU") and "menu" not in done and el > login_at + 240:
         try:

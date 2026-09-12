@@ -61,6 +61,7 @@ label.tog{display:inline-flex;align-items:center;gap:10px;font-size:14px;color:v
 .dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--good);margin-right:6px}
 section{display:none}section.active{display:block}
 .small{font-size:12.5px;color:var(--ink-3)}
+.skip{position:fixed;left:24px;bottom:22px;font-size:13px;color:var(--ink-3);text-decoration:underline dotted}.skip:hover{color:var(--ink)}
 </style>
 </head>
 <body>
@@ -74,6 +75,7 @@ section{display:none}section.active{display:block}
     <li data-s="3">Ready</li>
   </ol>
   <p class="small" style="margin-top:28px"><span class="dot"></span>Everything on this page runs on this computer.</p>
+  <a id="skip" href="#" class="skip">Set up models later</a>
 </aside>
 <main>
 
@@ -184,6 +186,8 @@ section{display:none}section.active{display:block}
   $('#btnFinish').addEventListener('click',async()=>{$('#btnFinish').disabled=true;const r=await api('/api/finish');$('#finishInfo').textContent=r.done?'Setup complete. You can close this window.':(r.error||'');});
   load();
 })();
+  // Skip: Genesis works as a normal desktop without models; the wizard can be reopened from the Genesis menu entry.
+  document.getElementById('skip').addEventListener('click',async e=>{e.preventDefault();if(!confirm('Skip model setup for now? Genesis works as a normal desktop; you can download models later from the Genesis app.'))return;await fetch('/api/finish',{method:'POST'});document.body.innerHTML='<div style="display:grid;place-items:center;height:100vh;font-size:20px">Done. Genesis is ready to use.</div>'});
 </script>
 </body>
 </html>
