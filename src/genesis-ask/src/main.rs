@@ -44,7 +44,7 @@ fn ask_model(cli: &Cli, question: &str) -> Result<String> {
         ]
     });
     let resp: serde_json::Value = ureq::post(&format!("{}/chat/completions", cli.endpoint.trim_end_matches('/')))
-        .set("Authorization", "Bearer local").timeout(std::time::Duration::from_secs(60)).send_json(body)
+        .set("Authorization", "Bearer local").timeout(std::time::Duration::from_secs(600)).send_json(body)
         .map_err(|e| anyhow!("the local model service did not answer ({}). Is Genesis set up? Open Genesis Settings.", e))?
         .into_json().context("bad reply from the model service")?;
     let text = resp["choices"][0]["message"]["content"].as_str().unwrap_or("").trim().to_string();
@@ -93,7 +93,9 @@ fn main() -> Result<()> {
         eprintln!("usage: genesis-ask <what you want, in plain words>   (or: ask ...; or type it and press Ctrl+G)");
         std::process::exit(2);
     }
+    if !cli.print { eprint!("\x1b[2mthinking on this machine…\x1b[0m\r"); }
     let cmd = ask_model(&cli, &question)?;
+    if !cli.print { eprint!("\x1b[2K"); }
     if cmd.is_empty() { return Err(anyhow!("the model gave no command")); }
     if cli.print {
         if cmd.starts_with('#') { std::process::exit(1); }
