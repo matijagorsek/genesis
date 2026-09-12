@@ -26,6 +26,7 @@ for u in genesis-router.service genesis-router.socket; do [ -f "/usr/lib/systemd
 [ -d /usr/share/fonts/rsms-inter-fonts ] && ok "Inter font" || fail "Inter font"
 [ -d /usr/share/fonts/ibm-plex-mono-fonts ] && ok "IBM Plex Mono font" || fail "Plex Mono font"
 [ -d /usr/share/icons/Papirus-Dark ] && ok "Papirus-Dark icons" || fail "Papirus-Dark icons"
+[ -f /usr/share/plasma/plasmoids/org.genesis.status/contents/ui/main.qml ] && ok "Genesis status widget" || fail "status widget"
 [ -f /usr/share/kde-settings/kde-profile/default/xdg/kwinrc ] && ok "kwinrc defaults (blur, no borders)" || fail "kwinrc defaults"
 [ -x /usr/lib/genesis/piper/piper ] && ok "piper (voice output)" || fail "piper"
 [ -x /usr/lib/genesis/whisper/bin/whisper-cli ] && ok "whisper-cli (voice input)" || fail "whisper-cli"

@@ -36,4 +36,5 @@ panel.addWidget("org.kde.plasma.systemtray");
 var clock = panel.addWidget("org.kde.plasma.digitalclock");
 clock.currentConfigGroup = ["Appearance"];
 clock.writeConfig("showDate", false);
+panel.addWidget("org.genesis.status");   // "on this machine": model, network use, one click to the maker
 panel.addWidget("org.kde.plasma.showdesktop");
