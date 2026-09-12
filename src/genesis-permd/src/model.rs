@@ -62,7 +62,7 @@ impl fmt::Display for Tier {
     }
 }
 
-/// Session modes, from most to least cautious. Mirrors Claude Code's default / acceptEdits / bypass ladder.
+/// Session modes, from most to least cautious. Mirrors the ask / accept-edits / bypass ladder common to coding agents.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum Mode {

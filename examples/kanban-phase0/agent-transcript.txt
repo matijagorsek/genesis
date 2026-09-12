@@ -1,6 +1,6 @@
 
     __( O)>  ● new session · openai code
-   \____)    20260910_3 · /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws
+   \____)    20260910_3 · /tmp/genesis-dev/kanban-ws
      L L     goose is ready
 
   ────────────────────────────────────────
@@ -18,7 +18,7 @@
   ▸ shell
     command: pwd && ls -la && cat todo.md 2>/dev/null || echo "NO todo.md"
 
-/private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws
+/tmp/genesis-dev/kanban-ws
 total 16
 drwxr-xr-x@  4 matijagorsek  wheel   128 Sep 10 20:46 .
 drwx------@ 12 matijagorsek  wheel   384 Sep 10 20:46 ..
@@ -32,7 +32,7 @@ drwx------@ 12 matijagorsek  wheel   384 Sep 10 20:46 ..
 
   ────────────────────────────────────────
   ▸ shell
-    command: cd /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws && npm create vite@latest kanban -- --template vanilla-ts --yes 2>&1 | tail -20
+    command: cd /tmp/genesis-dev/kanban-ws && npm create vite@latest kanban -- --template vanilla-ts --yes 2>&1 | tail -20
     timeout_secs: 180
 
 npm warn exec The following package was not found and will be installed: create-vite@9.2.1
@@ -41,7 +41,7 @@ npm warn exec The following package was not found and will be installed: create-
 > create-vite kanban --template vanilla-ts --yes
 
 │
-◇  Scaffolding project in /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban...
+◇  Scaffolding project in /tmp/genesis-dev/kanban-ws/kanban...
 │
 └  Done. Now run:
 
@@ -51,7 +51,7 @@ npm warn exec The following package was not found and will be installed: create-
 
   ────────────────────────────────────────
   ▸ shell
-    command: cd /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban && npm install 2>&1 | tail -5 && ls -la && cat package.json vite.config.ts tsconfig.json
+    command: cd /tmp/genesis-dev/kanban-ws/kanban && npm install 2>&1 | tail -5 && ls -la && cat package.json vite.config.ts tsconfig.json
     timeout_secs: 300
 
 
@@ -116,7 +116,7 @@ Command exited with code 1Scaffolded and installed. The template has no `vite.co
 
   ────────────────────────────────────────
   ▸ shell
-    command: cd /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban && find src public -type f | head && echo ---- && cat index.html src/main.ts src/counter.ts && node --version
+    command: cd /tmp/genesis-dev/kanban-ws/kanban && find src public -type f | head && echo ---- && cat index.html src/main.ts src/counter.ts && node --version
 
 src/counter.ts
 src/main.ts
@@ -349,7 +349,7 @@ export default defineConfig({
 });
 
 
-Created /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban/vite.config.ts (132 lines)Now the client side — `index.html`, `src/main.ts`, `src/kanban.ts`, and `src/style.css`:
+Created /tmp/genesis-dev/kanban-ws/kanban/vite.config.ts (132 lines)Now the client side — `index.html`, `src/main.ts`, `src/kanban.ts`, and `src/style.css`:
 
 
   ────────────────────────────────────────
@@ -380,7 +380,7 @@ import { initBoard } from './kanban';
 initBoard(document.querySelector<HTMLDivElement>('#app')!);
 
 
-Wrote /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban/index.html (13 lines)Wrote /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban/src/main.ts (4 lines)
+Wrote /tmp/genesis-dev/kanban-ws/kanban/index.html (13 lines)Wrote /tmp/genesis-dev/kanban-ws/kanban/src/main.ts (4 lines)
   ────────────────────────────────────────
   ▸ write
     path /p/t/c/-/3/s/k/k/src/kanban.ts
@@ -833,12 +833,12 @@ body {
 }
 
 
-Created /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban/src/kanban.ts (261 lines)Wrote /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban/src/style.css (180 lines)Now remove the unused template `counter.ts`, extend `tsconfig.json` so `vite.config.ts` is also type-checked, and add `@types/node`:
+Created /tmp/genesis-dev/kanban-ws/kanban/src/kanban.ts (261 lines)Wrote /tmp/genesis-dev/kanban-ws/kanban/src/style.css (180 lines)Now remove the unused template `counter.ts`, extend `tsconfig.json` so `vite.config.ts` is also type-checked, and add `@types/node`:
 
 
   ────────────────────────────────────────
   ▸ shell
-    command: cd /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban && rm src/counter.ts && npm install -D @types/node 2>&1 | tail -2
+    command: cd /tmp/genesis-dev/kanban-ws/kanban && rm src/counter.ts && npm install -D @types/node 2>&1 | tail -2
     timeout_secs: 180
 
 
@@ -856,10 +856,10 @@ found 0 vulnerabilities
     before:   "include": ["src"]
     after:   "include": ["src", "vite.config.ts"]
 
-Edited /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban/tsconfig.json (1 lines -> 1 lines)Edited /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban/tsconfig.json (1 lines -> 1 lines)
+Edited /tmp/genesis-dev/kanban-ws/kanban/tsconfig.json (1 lines -> 1 lines)Edited /tmp/genesis-dev/kanban-ws/kanban/tsconfig.json (1 lines -> 1 lines)
   ────────────────────────────────────────
   ▸ shell
-    command: cd /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban && npx tsc --noEmit; echo "exit=$?"
+    command: cd /tmp/genesis-dev/kanban-ws/kanban && npx tsc --noEmit; echo "exit=$?"
     timeout_secs: 180
 
 src/kanban.ts(19,5): error TS6133: 'saveState' is declared but its value is never read.
@@ -887,10 +887,10 @@ let saveTimer: number | undefined;
     after: function setSaveState(state: SaveState): void {
   const el = document.querySelector<HTMLSpanElement>('#save-status');
 
-Edited /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban/src/kanban.ts (4 lines -> 3 lines)Edited /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban/src/kanban.ts (3 lines -> 2 lines)
+Edited /tmp/genesis-dev/kanban-ws/kanban/src/kanban.ts (4 lines -> 3 lines)Edited /tmp/genesis-dev/kanban-ws/kanban/src/kanban.ts (3 lines -> 2 lines)
   ────────────────────────────────────────
   ▸ shell
-    command: cd /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban && npx tsc --noEmit; echo "exit=$?"
+    command: cd /tmp/genesis-dev/kanban-ws/kanban && npx tsc --noEmit; echo "exit=$?"
     timeout_secs: 180
 
 exit=0Type checking passed. Next, I'll verify the middleware end-to-end without starting the dev server: bundle `vite.config.ts` with esbuild, call its `configureServer` with a mock middleware harness, and test GET/POST against the actual `todo.md` (with backup/restore):
@@ -1026,17 +1026,17 @@ try {
 console.log('restored original todo.md');
 
 
-Created /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban/.test-middleware.mjs (125 lines)
+Created /tmp/genesis-dev/kanban-ws/kanban/.test-middleware.mjs (125 lines)
   ────────────────────────────────────────
   ▸ shell
-    command: cd /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban && node .test-middleware.mjs; echo "exit=$?"
+    command: cd /tmp/genesis-dev/kanban-ws/kanban && node .test-middleware.mjs; echo "exit=$?"
     timeout_secs: 120
 
 node:internal/modules/esm/resolve:873
   throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null);
         ^
 
-Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'esbuild' imported from /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban/.test-middleware.mjs
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'esbuild' imported from /tmp/genesis-dev/kanban-ws/kanban/.test-middleware.mjs
     at packageResolve (node:internal/modules/esm/resolve:873:9)
     at moduleResolve (node:internal/modules/esm/resolve:946:18)
     at defaultResolve (node:internal/modules/esm/resolve:1188:11)
@@ -1052,7 +1052,7 @@ Node.js v20.19.5
 exit=1
   ────────────────────────────────────────
   ▸ shell
-    command: cd /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban && ls node_modules | head -30 && ls node_modules/.bin | head -20 && node -e "console.log(require.resolve('esbuild'))" 2>&1 | head -3
+    command: cd /tmp/genesis-dev/kanban-ws/kanban && ls node_modules | head -30 && ls node_modules/.bin | head -20 && node -e "console.log(require.resolve('esbuild'))" 2>&1 | head -3
 
 @oxc-project
 @rolldown
@@ -1148,10 +1148,10 @@ try {
   writeFileSync(tmpConfig, out.outputText);
   const mod = await import(tmpConfig);
 
-Edited /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban/.test-middleware.mjs (32 lines -> 30 lines)
+Edited /tmp/genesis-dev/kanban-ws/kanban/.test-middleware.mjs (32 lines -> 30 lines)
   ────────────────────────────────────────
   ▸ shell
-    command: cd /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban && node .test-middleware.mjs; echo "exit=$?"
+    command: cd /tmp/genesis-dev/kanban-ws/kanban && node .test-middleware.mjs; echo "exit=$?"
     timeout_secs: 120
 
 GET 200 [{"id":"t0","text":"write genesis brief","status":"todo"},{"id":"t1","text":"set up repo","status":"doing"},{"id":"t2","text":"research models","status":"done"},{"id":"t3","text":"run phase 0 tasks","status":"todo"}]
@@ -1171,7 +1171,7 @@ exit=0All middleware tests pass and the original `todo.md` was restored. Cleanin
 
   ────────────────────────────────────────
   ▸ shell
-    command: cd /private/tmp/claude-501/-Users-matijagorsek-my-stuff-linux-genesis/3c584f16-0591-4675-a351-103bd38105b6/scratchpad/kanban-ws/kanban && rm -f .test-middleware.mjs && cat ../todo.md && echo ================= && npx tsc --noEmit; echo "tsc exit=$?" && npm run build 2>&1 | tail -8
+    command: cd /tmp/genesis-dev/kanban-ws/kanban && rm -f .test-middleware.mjs && cat ../todo.md && echo ================= && npx tsc --noEmit; echo "tsc exit=$?" && npm run build 2>&1 | tail -8
     timeout_secs: 300
 
 - [ ] write genesis brief

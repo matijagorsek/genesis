@@ -157,7 +157,7 @@ hr{border:0;border-top:1px solid var(--line);margin:40px 0}
 <thead><tr><th>Role</th><th>Primary pick</th><th>Alternate</th><th>Why</th></tr></thead>
 <tbody>
 <tr><td>Coding agent, 24 GB</td><td>Qwen3.8-27B (Apache 2.0)</td><td>Qwen3.6-27B, Gemma 4 31B, Devstral Small 2</td><td>Top open model on LiveCodeBench v6 (0.903), SWE-bench Pro 61.7, Terminal-Bench 2.1 73.0. Q4 to Q5 fits 24 GB.</td></tr>
-<tr><td>Coding agent, 48 GB+</td><td>Qwen3-Coder-Next 80B-A3B</td><td>gpt-oss-120b, Devstral 2 123B</td><td>Explicitly tuned for Claude Code / Codex style harnesses. Q4 is 48.5 GB.</td></tr>
+<tr><td>Coding agent, 48 GB+</td><td>Qwen3-Coder-Next 80B-A3B</td><td>gpt-oss-120b, Devstral 2 123B</td><td>Explicitly tuned for agentic coding harnesses. Q4 is 48.5 GB.</td></tr>
 <tr><td>General chat / reasoning</td><td>Qwen3.6-35B-A3B (MoE, fast)</td><td>Qwen3.5-9B for small tiers, Gemma 4 26B-A4B</td><td>Only 3B active parameters, so 30 to 50 tok/s even with partial CPU offload.</td></tr>
 <tr><td>Small always-hot model</td><td>Qwen3.5-4B</td><td>Qwen3.5-2B, Gemma 4 E2B, LFM2.5-1.2B</td><td>Best quality under 4B, includes vision. Used for intent routing, summaries, quick answers.</td></tr>
 <tr><td>Shell / inline completion</td><td>Qwen2.5-Coder-1.5B (FIM)</td><td>Qwen2.5-Coder-3B</td><td>Still the de-facto fill-in-the-middle standard under 4B.</td></tr>
@@ -184,7 +184,7 @@ hr{border:0;border-top:1px solid var(--line);margin:40px 0}
 </tbody></table></div>
 
 <div class="callout"><p class="label">Evidence on capability</p>
-<p>Community reports converge: Qwen3.6-27B pointed at Claude Code or OpenCode gives "genuinely useful agentic runs" comparable to Claude Haiku on multi-file refactors. Local models still take shortcuts, loop after a failed tool call, or lose the architectural thread on large cross-repo work. Local sits at roughly 70% SWE-bench versus 80% for frontier cloud. One practical warning: Q4 quantization degrades tool-call formatting on 20 to 40B models, so use Q5 or Q6 for the agent model when memory allows.</p></div>
+<p>Community reports converge: Qwen3.6-27B pointed at OpenCode or a similar agent harness gives "genuinely useful agentic runs" comparable to small hosted models on multi-file refactors. Local models still take shortcuts, loop after a failed tool call, or lose the architectural thread on large cross-repo work. Local sits at roughly 70% SWE-bench versus 80% for frontier cloud. One practical warning: Q4 quantization degrades tool-call formatting on 20 to 40B models, so use Q5 or Q6 for the agent model when memory allows.</p></div>
 
 <h3>Runtime choice</h3>
 <p><strong>llama.cpp's llama-server behind llama-swap</strong> is the system service. It gives per-model process control, groups that keep small models resident while large ones swap, TTL unloading, an OpenAI-compatible API, and grammar-constrained JSON for tool calls. Ollama is easier to start with but its model store is proprietary-shaped, its eviction policy is a global setting, and Fedora's packaging of it stalled in July 2026. Keep an Ollama-compatible shim on port 11434 for app compatibility. vLLM only for multi-GPU workstations. Speculative decoding (EAGLE-3 or MTP in llama.cpp) roughly doubles throughput on dense 27B coders and should be enabled per model, but it slows down the 35B-A3B MoE models and must stay off there.</p>
@@ -431,7 +431,7 @@ Whisper large-v3-turbo   speech      0.8 GB                        on demand
 <li>Mistral Small 4 architecture conflicts across sources (119B-A6B MoE vs 24B dense). Mistral Medium 3.5's "modified MIT" license is from a third-party tracker only.</li>
 <li>Many community Qwen3-Reranker GGUFs lack the classification head and return meaningless scores. Use a correctly converted file or bge-reranker-v2-m3.</li>
 <li>KDE's official plans for a local assistant, and COSMIC's accessibility maturity, were not confirmed from first-party sources.</li>
-<li>The UX sub-research on coding-agent interfaces and model-manager apps was cut short by a usage limit. The v1 surfaces above draw on the spreadsheet counts, the OS-assistant landscape, and the architecture team's review of Claude Code, Codex, OpenHands and Goose.</li>
+<li>The UX sub-research on coding-agent interfaces and model-manager apps was cut short by a usage limit. The v1 surfaces above draw on the spreadsheet counts, the OS-assistant landscape, and the architecture team's review of current coding-agent tools.</li>
 </ul>
 
 <h2 id="sources">Key sources</h2>
