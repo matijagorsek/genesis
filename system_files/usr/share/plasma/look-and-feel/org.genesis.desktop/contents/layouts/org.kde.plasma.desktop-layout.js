@@ -1,10 +1,14 @@
 // Genesis default layout: a centered, floating dock at the bottom. Launcher with the Genesis mark,
 // the maker one click away, pinned everyday apps, tray and clock. Nothing else on the desktop.
+// Note: Plasma 6 layout scripts have no `new Desktop()`; desktops come from desktopsForActivity().
 var plasma = getApiVersion(1);
-var layoutDesktop = new Desktop();
-layoutDesktop.wallpaperPlugin = "org.kde.image";
-layoutDesktop.currentConfigGroup = ["Wallpaper", "org.kde.image", "General"];
-layoutDesktop.writeConfig("Image", "file:///usr/share/wallpapers/Genesis/");
+var desktopsArray = desktopsForActivity(currentActivity());
+for (var i = 0; i < desktopsArray.length; i++) {
+    var d = desktopsArray[i];
+    d.wallpaperPlugin = "org.kde.image";
+    d.currentConfigGroup = ["Wallpaper", "org.kde.image", "General"];
+    d.writeConfig("Image", "file:///usr/share/wallpapers/Genesis/");
+}
 
 var panel = new Panel();
 panel.location = "bottom";
