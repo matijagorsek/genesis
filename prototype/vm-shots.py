@@ -20,7 +20,7 @@ def mon(cmd):
 qemu = subprocess.Popen(["qemu-system-x86_64", "-machine", "q35", "-cpu", "max", "-smp", "4", "-m", "4096",
     "-drive", f"if=pflash,format=raw,readonly=on,file={fw}", "-drive", f"file={work},if=virtio,format=qcow2",
     "-device", "virtio-vga", "-device", "qemu-xhci", "-device", "usb-tablet", "-display", "none", "-vga", "none", "-monitor", f"unix:{sock},server,nowait",
-    "-serial", f"file:{outdir}/serial.log", "-netdev", "user,id=n0,hostfwd=tcp::11511-:11510,hostfwd=tcp::11521-:11520", "-device", "virtio-net-pci,netdev=n0"])
+    "-serial", f"file:{outdir}/serial.log", "-netdev", "user,id=n0,hostfwd=tcp::11512-:11510,hostfwd=tcp::11522-:11520", "-device", "virtio-net-pci,netdev=n0"])
 time.sleep(8); t0 = time.time(); done = set(); logged = False; login_at = 0
 while time.time() - t0 < max(plan) + 5:
     el = int(time.time() - t0)
