@@ -64,3 +64,69 @@ mod tests {
         assert!(e.contains("running"), "{}", e);
     }
 }
+
+// ---- voice output: Piper text-to-speech, on this machine ----------------------------------------
+
+pub fn piper_bin() -> Option<PathBuf> {
+    if let Ok(p) = std::env::var("GENESIS_PIPER") { return Some(PathBuf::from(p)); }
+    for c in ["/usr/lib/genesis/piper/piper", "/usr/local/bin/piper", "/opt/homebrew/bin/piper"] {
+        if std::path::Path::new(c).is_file() { return Some(PathBuf::from(c)); }
+    }
+    None
+}
+
+pub fn tts_model() -> Option<PathBuf> {
+    if let Ok(p) = std::env::var("GENESIS_TTS_MODEL") { return Some(PathBuf::from(p)); }
+    let dir = std::env::var("GENESIS_MODELS_DIR").map(PathBuf::from).unwrap_or_else(|_| PathBuf::from("/var/lib/genesis/models")).join("tts");
+    let mut c: Vec<PathBuf> = std::fs::read_dir(dir).ok()?.filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.extension().map(|x| x == "onnx").unwrap_or(false)).collect();
+    c.sort();
+    c.into_iter().next()
+}
+
+pub fn speech_available() -> bool { piper_bin().is_some() && tts_model().is_some() }
+
+/// Returns a WAV clip of `text` spoken by the local Piper voice.
+pub fn speak(text: &str) -> Result<Vec<u8>> {
+    let bin = piper_bin().ok_or_else(|| anyhow!("piper is not installed"))?;
+    let model = tts_model().ok_or_else(|| anyhow!("no voice under the models directory (tts/*.onnx); the first-run wizard downloads one"))?;
+    speak_with(&bin, &model, text)
+}
+
+pub fn speak_with(bin: &std::path::Path, model: &std::path::Path, text: &str) -> Result<Vec<u8>> {
+    use std::io::Write;
+    let text: String = text.chars().take(4000).collect();
+    if text.trim().is_empty() { return Err(anyhow!("nothing to say")); }
+    let out = std::env::temp_dir().join(format!("genesis-say-{}.wav", uuid::Uuid::new_v4()));
+    // the upstream build ships its libraries (espeak-ng, onnxruntime) next to the binary
+    let libdir = bin.parent().map(|d| d.display().to_string()).unwrap_or_default();
+    let mut child = Command::new(bin).args(["--model"]).arg(model).args(["--output_file"]).arg(&out)
+        .env("LD_LIBRARY_PATH", &libdir).env("DYLD_LIBRARY_PATH", &libdir)
+        .stdin(std::process::Stdio::piped()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::piped())
+        .spawn().map_err(|e| anyhow!("running {}: {}", bin.display(), e))?;
+    child.stdin.take().unwrap().write_all(text.as_bytes())?;
+    let res = child.wait_with_output()?;
+    let wav = std::fs::read(&out);
+    let _ = std::fs::remove_file(&out);
+    if !res.status.success() {
+        return Err(anyhow!("piper failed: {}", String::from_utf8_lossy(&res.stderr).chars().take(400).collect::<String>()));
+    }
+    Ok(wav?)
+}
+
+#[cfg(test)]
+mod tts_tests {
+    use super::*;
+
+    #[test]
+    fn speaks_when_piper_is_present() {
+        if !speech_available() { eprintln!("piper not available; skipping"); return; }
+        let wav = speak("Genesis is ready.").unwrap();
+        assert!(wav.len() > 10_000 && &wav[..4] == b"RIFF", "{} bytes", wav.len());
+    }
+
+    #[test]
+    fn missing_piper_is_reported() {
+        let e = speak_with(std::path::Path::new("/nonexistent/piper"), std::path::Path::new("/nonexistent/v.onnx"), "hi").unwrap_err().to_string();
+        assert!(e.contains("running"), "{}", e);
+    }
+}

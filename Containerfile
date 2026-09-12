@@ -37,6 +37,7 @@ FROM ${BASE}
 
 ARG GENESIS_VERSION=0.1
 ARG LLAMA_SWAP_VERSION=255
+ARG PIPER_VERSION=2023.11.14-2
 # BOOTC_LINT=strict (CI, native amd64) | skip (local emulated builds: lint needs syscalls QEMU lacks)
 ARG BOOTC_LINT=strict
 
@@ -101,6 +102,12 @@ RUN set -eux; \
       chromium firefox okular gwenview kcalc plasma-discover plasma-discover-flatpak haruna elisa kcharselect kfind \
       kdeconnect-kde kwalletmanager5 partitionmanager; \
     dnf5 clean all
+
+# Piper: local text-to-speech (static upstream build with its espeak-ng data and onnxruntime)
+RUN set -eux; \
+    mkdir -p /usr/lib/genesis; \
+    curl -fsSL "https://github.com/rhasspy/piper/releases/download/${PIPER_VERSION}/piper_linux_x86_64.tar.gz" | tar -xz -C /usr/lib/genesis; \
+    test -x /usr/lib/genesis/piper/piper
 
 # llama-swap: model router (Go, static upstream binary)
 RUN set -eux; \

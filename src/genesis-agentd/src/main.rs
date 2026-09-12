@@ -198,9 +198,17 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
         return req.respond(resp).map_err(|e| anyhow!(e));
     }
     let body = String::from_utf8_lossy(&raw).to_string();
+    if method == Method::Post && path.as_slice() == ["api", "speak"] {
+        let text = serde_json::from_str::<serde_json::Value>(&body).ok().and_then(|v| v.get("text").and_then(|t| t.as_str()).map(|s| s.to_string())).unwrap_or_default();
+        let resp = match voice::speak(&text) {
+            Ok(wav) => Response::from_data(wav).with_header(Header::from_bytes("Content-Type", "audio/wav").unwrap()),
+            Err(e) => json_response(&serde_json::json!({"error": e.to_string()}), 503),
+        };
+        return req.respond(resp).map_err(|e| anyhow!(e));
+    }
     let resp = match (method, path.as_slice()) {
         (Method::Get, [""]) | (Method::Get, ["index.html"]) | (Method::Get, ["workspace"]) => Response::from_string(WORKSPACE_HTML).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
-        (Method::Get, ["api", "health"]) => json_response(&serde_json::json!({"ok": true, "endpoint": d.endpoint, "model": d.model, "sandbox": sandbox::bwrap_available(), "voice": voice::available(), "default_project": default_project()}), 200),
+        (Method::Get, ["api", "health"]) => json_response(&serde_json::json!({"ok": true, "endpoint": d.endpoint, "model": d.model, "sandbox": sandbox::bwrap_available(), "voice": voice::available(), "speech": voice::speech_available(), "default_project": default_project()}), 200),
         (Method::Get, ["api", "templates"]) => json_response(&maker::list_templates(), 200),
         (Method::Get, ["api", "sessions"]) => {
             let list: Vec<serde_json::Value> = d.sessions.lock().unwrap().values().map(|(s, _)| { let i = s.info.lock().unwrap(); serde_json::json!({"id": i.id, "mode": i.mode, "project": i.project, "state": i.state, "transaction": i.transaction}) }).collect();

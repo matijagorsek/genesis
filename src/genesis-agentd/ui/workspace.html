@@ -106,7 +106,7 @@ aside{background:var(--panel);border-right:1px solid var(--line);display:grid;gr
     </div>
   </aside>
   <section class="stage">
-    <div class="stagebar"><span id="previewLabel">Preview</span><code id="previewUrl"></code><span class="sp"></span><button id="reload">Reload</button><button id="openTab">Open in browser</button></div>
+    <div class="stagebar"><span id="previewLabel">Preview</span><code id="previewUrl"></code><span class="sp"></span><button id="speakBtn" title="Read replies aloud" hidden>🔇</button><button id="reload">Reload</button><button id="openTab">Open in browser</button></div>
     <div class="view"><iframe id="frame" title="preview" sandbox="allow-scripts allow-forms allow-same-origin allow-modals" hidden></iframe><div class="empty" id="viewEmpty">The preview appears here as soon as the app runs.</div></div>
     <div class="perms" id="perms"></div>
   </section>
@@ -130,6 +130,13 @@ aside{background:var(--panel);border-right:1px solid var(--line);display:grid;gr
     btn.addEventListener('pointerdown',start);btn.addEventListener('pointerup',stop);btn.addEventListener('pointerleave',stop);
   }
   fetch('/api/health').then(r=>r.json()).then(h=>{if(h.voice){document.getElementById('micAsk').hidden=false;document.getElementById('micSteer').hidden=false}}).catch(()=>{});
+  // Voice output: Piper on this machine reads the maker's replies aloud when the speaker is on.
+  let speakOn=false;try{speakOn=localStorage.getItem('genesis.speak')==='1'}catch(e){}
+  const speakBtn=document.getElementById('speakBtn');
+  function renderSpeak(){speakBtn.textContent=speakOn?'🔊':'🔇';speakBtn.title=speakOn?'Replies are read aloud (click to mute)':'Read replies aloud'}
+  speakBtn.addEventListener('click',()=>{speakOn=!speakOn;try{localStorage.setItem('genesis.speak',speakOn?'1':'0')}catch(e){}renderSpeak()});
+  window.__speak=async text=>{if(!speakOn||!text)return;try{const r=await fetch('/api/speak',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text:text.slice(0,600)})});if(!r.ok)return;const a=new Audio(URL.createObjectURL(await r.blob()));a.play().catch(()=>{})}catch(e){}};
+  fetch('/api/health').then(r=>r.json()).then(h=>{if(h.speech){speakBtn.hidden=false;renderSpeak()}}).catch(()=>{});
   holdToTalk(document.getElementById('micAsk'),document.getElementById('ask'));
   holdToTalk(document.getElementById('micSteer'),document.getElementById('steerText'));
 
@@ -143,7 +150,7 @@ aside{background:var(--panel);border-right:1px solid var(--line);display:grid;gr
   function stepEl(e){const d=document.createElement('div');let cls='',icon='',text='';
     switch(e.kind){
       case 'user_prompt':cls='user';icon='▶';text=e.text;break;
-      case 'assistant':cls='assistant';icon='';text=e.text;break;
+      case 'assistant':cls='assistant';icon='';text=e.text;if(window.__speak)window.__speak(e.text);break;
       case 'tool_call':cls='tool';icon='🔧';text=e.name+' '+JSON.stringify(e.args).slice(0,220);break;
       case 'decision':d.className='step decision';d.innerHTML=`<div class="i"></div><div class="t"><span class="tier ${e.verdict.startsWith('allow')?'allow':e.verdict}">${e.tier} ${e.verdict}</span>${e.reason}</div>`;return d;
       case 'tool_result':cls='result';icon=e.ok?'✓':'✗';text=e.summary;break;

@@ -77,6 +77,19 @@
       "tier": "main",
       "size_gb": 0.06,
       "optional": true
+    },
+    {
+      "role": "tts",
+      "name": "piper-en_US-lessac",
+      "repo": "rhasspy/piper-voices",
+      "include": [
+        "en/en_US/lessac/medium/en_US-lessac-medium.onnx",
+        "en/en_US/lessac/medium/en_US-lessac-medium.onnx.json"
+      ],
+      "license": "MIT",
+      "tier": "main",
+      "size_gb": 0.07,
+      "optional": true
     }
   ]
 }
