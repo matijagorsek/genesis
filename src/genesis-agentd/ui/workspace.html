@@ -88,6 +88,7 @@ aside{background:var(--panel);border-right:1px solid var(--line);display:grid;gr
   <span class="badge" id="badgeNet" title="Network use in this job">no network used</span>
   <span class="sp"></span>
   <button id="home">Make something new</button>
+  <button id="settingsBtn" title="Genesis settings">Settings</button>
 </header>
 
 <section id="start">
@@ -217,6 +218,8 @@ aside{background:var(--panel);border-right:1px solid var(--line);display:grid;gr
   $('#reload').addEventListener('click',()=>{if(lastUrl)$('#frame').src=lastUrl});
   $('#openTab').addEventListener('click',()=>{if(lastUrl)window.open(lastUrl,'_blank')});
   $('#home').addEventListener('click',()=>{showStart(true);recent();made()});
+  $('#settingsBtn').addEventListener('click',()=>{location.href='/settings'});
+  api('/api/system').then(sy=>{const m=sy.user&&sy.user.default_mode;if(m&&$('#mode').querySelector('option[value="'+m+'"]'))$('#mode').value=m}).catch(()=>{});
   const q=new URLSearchParams(location.search);
   async function made(){const list=await api('/api/made');const sec=$('#made'),c=$('#madeCards');c.innerHTML='';if(!Array.isArray(list)||!list.length){sec.hidden=true;return}sec.hidden=false;
     list.slice(0,12).forEach(m=>{const d=document.createElement('div');d.className='mcard';const when=m.made_at?new Date(m.made_at).toLocaleDateString():'';

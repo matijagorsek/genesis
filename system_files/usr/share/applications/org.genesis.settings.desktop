@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Genesis Settings
+Comment=Models, permissions, voice and undo history, all on this machine
+Exec=/usr/bin/genesis-window http://127.0.0.1:11520/settings
+Icon=genesis
+Terminal=false
+Categories=Settings;System;
+Keywords=AI;models;permissions;undo;

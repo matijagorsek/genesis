@@ -32,6 +32,7 @@ use std::sync::{Arc, Condvar, Mutex};
 use tiny_http::{Header, Method, Request, Response, Server};
 
 const WORKSPACE_HTML: &str = include_str!("../ui/workspace.html");
+const SETTINGS_HTML: &str = include_str!("../ui/settings.html");
 
 #[derive(Parser)]
 #[command(name = "genesis-agentd", version, about = "Genesis agent daemon")]
@@ -210,6 +211,12 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
         (Method::Get, [""]) | (Method::Get, ["index.html"]) | (Method::Get, ["workspace"]) => Response::from_string(WORKSPACE_HTML).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
         (Method::Get, ["api", "health"]) => json_response(&serde_json::json!({"ok": true, "endpoint": d.endpoint, "model": d.model, "sandbox": sandbox::bwrap_available(), "voice": voice::available(), "speech": voice::speech_available(), "default_project": default_project()}), 200),
         (Method::Get, ["api", "templates"]) => json_response(&maker::list_templates(), 200),
+        (Method::Get, ["settings"]) => Response::from_string(SETTINGS_HTML).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
+        (Method::Get, ["api", "system"]) => json_response(&system_overview(d), 200),
+        (Method::Post, ["api", "system", "mode"]) => match serde_json::from_str::<serde_json::Value>(&body).ok().and_then(|v| v.get("mode").and_then(|m| m.as_str()).map(|s| s.to_string())) {
+            Some(mode) if parse_mode(&mode).is_ok() => { write_user_settings(&serde_json::json!({"default_mode": mode})); json_response(&serde_json::json!({"ok": true, "default_mode": mode}), 200) }
+            _ => json_response(&serde_json::json!({"error": "expected {mode: assist|auto_edit|autonomous}"}), 400),
+        },
         (Method::Get, ["api", "made"]) => json_response(&maker::made_here(std::path::Path::new(&default_project())), 200),
         (Method::Get, ["api", "sessions"]) => {
             let list: Vec<serde_json::Value> = d.sessions.lock().unwrap().values().map(|(s, _)| { let i = s.info.lock().unwrap(); serde_json::json!({"id": i.id, "mode": i.mode, "project": i.project, "state": i.state, "transaction": i.transaction}) }).collect();
@@ -441,4 +448,51 @@ mod tests {
         let ev = shared.info.lock().unwrap().events.clone();
         assert!(ev.iter().any(|e| matches!(e, Event::ToolResult { ok: true, summary, .. } if summary.contains("a.txt"))));
     }
+}
+
+
+// ---- settings: everything a person needs to see about "their" Genesis, from local sources only --------
+
+fn user_settings_path() -> std::path::PathBuf {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
+    std::path::Path::new(&home).join(".config/genesis/settings.json")
+}
+
+fn read_user_settings() -> serde_json::Value {
+    std::fs::read_to_string(user_settings_path()).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(serde_json::json!({}))
+}
+
+fn write_user_settings(patch: &serde_json::Value) {
+    let mut cur = read_user_settings();
+    if let (Some(c), Some(p)) = (cur.as_object_mut(), patch.as_object()) { for (k, v) in p { c.insert(k.clone(), v.clone()); } }
+    let p = user_settings_path();
+    if let Some(d) = p.parent() { let _ = std::fs::create_dir_all(d); }
+    let _ = std::fs::write(&p, serde_json::to_string_pretty(&cur).unwrap_or_default());
+}
+
+fn system_overview(d: &Arc<Daemon>) -> serde_json::Value {
+    let read_json = |p: &str| std::fs::read_to_string(p).ok().and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok());
+    let profile = read_json("/etc/genesis/profile.json");
+    let setup = read_json("/etc/genesis/settings.json");
+    let models_dir = std::env::var("GENESIS_MODELS_DIR").unwrap_or_else(|_| "/var/lib/genesis/models".into());
+    let mut on_disk = Vec::new();
+    if let Ok(rd) = std::fs::read_dir(&models_dir) {
+        for role in rd.flatten().filter(|e| e.path().is_dir()) {
+            if let Ok(files) = std::fs::read_dir(role.path()) {
+                for f in files.flatten() {
+                    let size = f.metadata().map(|m| m.len()).unwrap_or(0);
+                    on_disk.push(serde_json::json!({"role": role.file_name().to_string_lossy(), "file": f.file_name().to_string_lossy(), "size_gb": (size as f64 / 1e9 * 10.0).round() / 10.0}));
+                }
+            }
+        }
+    }
+    let router = d.endpoint.trim_end_matches("/v1").to_string();
+    let running = ureq::get(&format!("{}/running", router)).timeout(std::time::Duration::from_secs(2)).call().ok().and_then(|r| r.into_json::<serde_json::Value>().ok());
+    let history: Vec<serde_json::Value> = Store::open(default_store()).ok().and_then(|s| s.list().ok()).unwrap_or_default().into_iter().rev().take(30)
+        .map(|t| serde_json::json!({"id": t.id, "started_at": t.started_at, "finished_at": t.finished_at, "status": format!("{:?}", t.status).to_lowercase(), "changes": t.entries.len()})).collect();
+    serde_json::json!({
+        "profile": profile, "setup": setup, "models_on_disk": on_disk, "router": {"endpoint": d.endpoint, "running": running},
+        "voice": {"input": voice::available(), "output": voice::speech_available()},
+        "sandbox": sandbox::bwrap_available(), "user": read_user_settings(), "history": history,
+    })
 }

@@ -1,0 +1,42 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Genesis settings</title>
+<style>
+:root{--bg:#0b0f14;--panel:#161d27;--panel-2:#1d2631;--line:#232c37;--ink:#e6ebf1;--ink-2:#a9b4c1;--ink-3:#6f7a89;--accent:#5fb5bd;--good:#6ccf94;--warn:#e0a84a;--bad:#e16060;--mono:ui-monospace,Menlo,monospace}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-size:14px}
+header{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel)}header b{font-size:15px}header .sp{flex:1}
+button,select{font:inherit;color:var(--ink);background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer}button.primary{background:var(--accent);border-color:var(--accent);color:#08181a;font-weight:600}
+main{max-width:920px;margin:0 auto;padding:22px 20px 60px;display:grid;gap:18px}
+section{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}section h2{margin:0 0 4px;font-size:16px}section p.d{margin:0 0 12px;color:var(--ink-2)}
+.kv{display:grid;grid-template-columns:180px 1fr;gap:6px 14px;font-size:13.5px}.kv div:nth-child(odd){color:var(--ink-3)}
+.pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;border:1px solid var(--line)}.pill.on{border-color:var(--good);color:var(--good)}.pill.off{border-color:var(--ink-3);color:var(--ink-3)}
+table{width:100%;border-collapse:collapse;font-size:13px}td,th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}th{color:var(--ink-3);font-weight:600;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase}
+.mono{font-family:var(--mono);font-size:12px}.muted{color:var(--ink-3)}
+</style></head><body>
+<header><b>Genesis settings</b><span class="muted">Everything here is read from this computer.</span><span class="sp"></span><button id="back">Back to the maker</button></header>
+<main>
+<section><h2>On this machine</h2><p class="d">What runs locally, and whether anything else is involved.</p><div class="kv" id="machine"></div></section>
+<section><h2>Models</h2><p class="d">Chosen at first run for this hardware. Downloaded once, kept under /var/lib/genesis/models.</p><div id="models"></div></section>
+<section><h2>How much Genesis may do on its own</h2><p class="d">The default for new jobs. You can change it per job in the maker.</p>
+  <select id="mode"><option value="assist">Ask: asks before every change</option><option value="auto_edit">Trusted: works inside the project on its own, asks before installing, going online or touching anything else</option><option value="autonomous">Hands-off: also allowed outside the project, everything snapshotted; system changes still ask</option></select>
+  <button class="primary" id="saveMode" style="margin-left:8px">Save</button> <span id="modeInfo" class="muted"></span></section>
+<section><h2>Voice</h2><div class="kv" id="voice"></div></section>
+<section><h2>Undo history</h2><p class="d">Every job that changed something outside its project was snapshotted first. Undo from the maker, or with <span class="mono">genesis-txd undo &lt;id&gt;</span> in a terminal.</p><div id="history"></div></section>
+</main>
+<script>
+(async function(){
+  const $=s=>document.querySelector(s);const esc=t=>String(t==null?'':t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  document.getElementById('back').addEventListener('click',()=>{location.href='/'});
+  const r=await fetch('/api/system');const s=await r.json();
+  const p=s.profile||{};const gpu=(p.gpus&&p.gpus[0])?(p.gpus[0].name||p.gpus[0].vendor||'GPU'):'none (CPU only)';
+  const running=s.router&&s.router.running&&Array.isArray(s.router.running.running)?s.router.running.running.map(x=>x.model).join(', '):'';
+  $('#machine').innerHTML=`<div>Models run on</div><div>${esc(gpu)}${p.ram_mb?` · ${Math.round(p.ram_mb/1024)} GB RAM`:''}</div>
+    <div>Model service</div><div>${s.router&&s.router.running?'<span class="pill on">running</span> '+esc(running||'idle, loads on demand'):'<span class="pill off">not reachable</span> <span class="muted">the local model service is not up</span>'}</div>
+    <div>Command sandbox</div><div>${s.sandbox?'<span class="pill on">on</span>':'<span class="pill off">off</span> <span class="muted">dev mode</span>'}</div>
+    <div>Cloud</div><div>${s.setup&&s.setup.cloud_enabled?'<span class="pill">allowed by you at first run</span>':'<span class="pill on">off</span> <span class="muted">nothing leaves this computer</span>'}</div>`;
+  const md=s.models_on_disk||[];$('#models').innerHTML=md.length?`<table><tr><th>Role</th><th>File</th><th>Size</th></tr>${md.map(m=>`<tr><td>${esc(m.role)}</td><td class="mono">${esc(m.file)}</td><td>${m.size_gb} GB</td></tr>`).join('')}</table>`:`<p class="muted">No models downloaded yet${s.setup&&s.setup.pack?'':' (setup was skipped)'}. Open the first-run wizard from the Genesis menu entry to pick a pack.</p>`;
+  if(s.user&&s.user.default_mode)$('#mode').value=s.user.default_mode;
+  $('#saveMode').addEventListener('click',async()=>{const x=await fetch('/api/system/mode',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({mode:$('#mode').value})});$('#modeInfo').textContent=x.ok?'Saved.':'Could not save.'});
+  $('#voice').innerHTML=`<div>Listening (hold to talk)</div><div>${s.voice.input?'<span class="pill on">ready</span> whisper.cpp on this machine':'<span class="pill off">no speech model yet</span> <span class="muted">optional in every pack</span>'}</div><div>Speaking replies</div><div>${s.voice.output?'<span class="pill on">ready</span> Piper on this machine':'<span class="pill off">no voice yet</span> <span class="muted">optional in every pack</span>'}</div>`;
+  const h=s.history||[];$('#history').innerHTML=h.length?`<table><tr><th>When</th><th>Job</th><th>Changes</th><th>Status</th></tr>${h.map(t=>`<tr><td>${esc((t.started_at||'').replace('T',' ').slice(0,16))}</td><td class="mono">${esc(t.id)}</td><td>${t.changes}</td><td>${esc(t.status)}</td></tr>`).join('')}</table>`:'<p class="muted">No job has changed anything outside its project yet.</p>';
+})();
+</script></body></html>

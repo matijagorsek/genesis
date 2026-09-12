@@ -26,6 +26,7 @@ for u in genesis-router.service genesis-router.socket; do [ -f "/usr/lib/systemd
 [ -d /usr/share/fonts/rsms-inter-fonts ] && ok "Inter font" || fail "Inter font"
 [ -d /usr/share/fonts/ibm-plex-mono-fonts ] && ok "IBM Plex Mono font" || fail "Plex Mono font"
 [ -d /usr/share/icons/Papirus-Dark ] && ok "Papirus-Dark icons" || fail "Papirus-Dark icons"
+[ -f /usr/share/applications/org.genesis.settings.desktop ] && ok "Genesis Settings entry" || fail "settings entry"
 [ -x /usr/bin/genesis-ask-selection ] && grep -q "Meta+Shift+Space" /etc/xdg/kglobalshortcutsrc && ok "select-to-act (Meta+Shift+Space)" || fail "select-to-act"
 [ -f /usr/share/plasma/plasmoids/org.genesis.status/contents/ui/main.qml ] && ok "Genesis status widget" || fail "status widget"
 [ -f /usr/share/kde-settings/kde-profile/default/xdg/kwinrc ] && ok "kwinrc defaults (blur, no borders)" || fail "kwinrc defaults"
