@@ -31,8 +31,9 @@ Design brief: [docs/genesis-brief.html](docs/genesis-brief.html) · Design plan:
   boot watermark, login screen.
 - **Local models as an OS service**: llama.cpp (Vulkan) behind llama-swap on `127.0.0.1:8080`,
   one OpenAI-compatible endpoint; model packs per hardware tier (`packs/`), chosen at first run.
-- **First-run wizard** (`genesis-firstrun`): detects GPU, RAM and disk (`genesis-probe`), proposes a
-  pack, downloads it, or lets you set models up later.
+- **First-run wizard** (`genesis-firstrun`): detects GPU, RAM and disk (`genesis-probe`), shows every
+  pack with "fits your machine" bars for memory and disk, proposes one, downloads it, or lets you set
+  models up later.
 - **Maker** (`genesis-agentd` + `genesis-window`): "what do you want to make?" → template → files →
   live preview → steer → install as app. Starter prompts, plain-language permission prompts, a
   Keep / Undo toast, and a "Made here" gallery with shareable recipes and one-click export bundles. Templates: static web app,
