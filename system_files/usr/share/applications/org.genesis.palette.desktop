@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Ask Genesis
+Comment=Tell Genesis what you want made or done, on this machine
+Exec=/usr/bin/genesis-window --palette
+Icon=genesis
+Terminal=false
+Categories=Utility;
+NoDisplay=true

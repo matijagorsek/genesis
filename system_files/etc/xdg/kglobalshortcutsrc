@@ -1,5 +1,5 @@
 # Genesis defaults: Meta+Space opens the workspace. Users can change this in System Settings > Shortcuts.
-[services][org.genesis.workspace.desktop]
+[services][org.genesis.palette.desktop]
 _launch=Meta+Space
 
 # Meta+Shift+Space: ask Genesis about the current selection.

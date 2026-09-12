@@ -6,8 +6,7 @@ sel="$(wl-paste -p -n 2>/dev/null || true)"
 [ -n "$sel" ] || sel="$(wl-paste -n 2>/dev/null || true)"
 if [ -z "$sel" ]; then
   notify-send -a Genesis -i genesis "Nothing selected" "Select some text first, then press Meta+Shift+Space." 2>/dev/null
-  exec genesis-window "http://127.0.0.1:11520/"
+  exec genesis-window --palette
 fi
 sel="${sel:0:4000}"
-enc="$(printf '%s' "About this selection: $sel" | jq -sRr @uri 2>/dev/null || printf '%s' "$sel" | sed 's/ /%20/g')"
-exec genesis-window "http://127.0.0.1:11520/?prompt=${enc}"
+exec genesis-window --palette --selection "$sel"

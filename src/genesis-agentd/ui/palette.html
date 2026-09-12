@@ -1,0 +1,45 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Genesis</title>
+<style>
+:root{--bg:#10161e;--panel:#161d27;--panel-2:#1d2631;--line:#232c37;--ink:#e6ebf1;--ink-2:#a9b4c1;--ink-3:#6f7a89;--accent:#5fb5bd}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-size:15px;overflow:hidden}
+.wrap{display:flex;flex-direction:column;gap:12px;padding:18px 20px;height:100%}
+.top{display:flex;align-items:center;gap:10px;color:var(--ink-3);font-size:12px}.top b{color:var(--ink);font-size:14px}.top .local{color:#6ccf94}
+.ask{display:flex;gap:8px;align-items:stretch}.ask textarea{flex:1;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:14px 16px;font:inherit;font-size:18px;resize:none;height:76px;outline:none}.ask textarea:focus{border-color:var(--accent)}
+.mic{font-size:20px;padding:0 14px;border-radius:12px;border:1px solid var(--line);background:var(--panel-2);cursor:pointer;user-select:none;touch-action:none;color:var(--ink)}.mic.rec{background:#a33;border-color:#e66}
+.chip{display:inline-flex;align-items:center;gap:8px;background:var(--panel-2);border:1px solid var(--accent);border-radius:999px;padding:6px 12px;font-size:13px;max-width:100%}.chip span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:520px}.chip button{background:none;border:0;color:var(--ink-3);cursor:pointer;font-size:14px}
+.starters{display:flex;flex-wrap:wrap;gap:8px}.starter{background:var(--panel);border:1px solid var(--line);color:var(--ink-2);border-radius:999px;padding:6px 12px;font:inherit;font-size:13px;cursor:pointer}.starter:hover{border-color:var(--accent);color:var(--ink)}
+.foot{margin-top:auto;display:flex;gap:16px;color:var(--ink-3);font-size:12px}.foot kbd{background:var(--panel-2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-family:inherit}
+</style></head><body>
+<div class="wrap">
+  <div class="top"><b>Genesis</b><span class="local">● on this machine</span><span id="hint">Tell it what you want made, or what to do with this.</span></div>
+  <div class="ask"><textarea id="q" placeholder="a timer, a tool that renames my photos, a website for the club…" autofocus></textarea><button id="mic" class="mic" title="Hold to talk" hidden>🎤</button></div>
+  <div id="sel" hidden><span class="chip">Using your selection: <span id="selText"></span><button id="selDrop" title="Don't use the selection">✕</button></span></div>
+  <div class="starters" id="starters"></div>
+  <div class="foot"><span><kbd>Enter</kbd> make it</span><span><kbd>Esc</kbd> close</span><span><kbd>hold 🎤</kbd> talk</span><span>Everything runs here. Nothing is sent anywhere.</span></div>
+</div>
+<script>
+(function(){
+  const $=s=>document.querySelector(s);const q=$('#q');const params=new URLSearchParams(location.search);
+  let selection=(params.get('selection')||'').trim();
+  if(selection){$('#sel').hidden=false;$('#selText').textContent=selection.slice(0,140);q.placeholder='What should Genesis do with it? e.g. summarize, turn into a checklist, fix the grammar…';$('#hint').textContent='You selected some text.'}
+  $('#selDrop').addEventListener('click',()=>{selection='';$('#sel').hidden=true;q.placeholder='a timer, a tool that renames my photos, a website for the club…';q.focus()});
+  const STARTERS=['a checklist app that saves to a file','a pomodoro timer with a bell','rename the photos in a folder by date taken','a simple website for a club','a word-count tool for text files'];
+  STARTERS.forEach(t=>{const b=document.createElement('button');b.className='starter';b.textContent=t;b.addEventListener('click',()=>go(t));$('#starters').appendChild(b)});
+  function go(text){text=(text||'').trim();if(!text&&!selection)return;const prompt=selection?(text||'Help me with this')+'\n\nSelected text:\n'+selection:text;location.href='/?prompt='+encodeURIComponent(prompt)}
+  q.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();go(q.value)}if(e.key==='Escape'){location.hash='close'}});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')location.hash='close'});
+  // hold to talk: 16 kHz WAV recorded here, transcribed by whisper.cpp on this machine
+  function wavEncode(chunks, rate){let n=0;for(const c of chunks)n+=c.length;const ratio=rate/16000,len=Math.floor(n/ratio);const pcm=new Int16Array(len);let all=new Float32Array(n),o=0;for(const c of chunks){all.set(c,o);o+=c.length}
+    for(let i=0;i<len;i++){const v=Math.max(-1,Math.min(1,all[Math.floor(i*ratio)]));pcm[i]=v<0?v*0x8000:v*0x7fff}
+    const b=new ArrayBuffer(44+pcm.length*2),d=new DataView(b);const str=(p,s)=>{for(let i=0;i<s.length;i++)d.setUint8(p+i,s.charCodeAt(i))};
+    str(0,'RIFF');d.setUint32(4,36+pcm.length*2,true);str(8,'WAVE');str(12,'fmt ');d.setUint32(16,16,true);d.setUint16(20,1,true);d.setUint16(22,1,true);d.setUint32(24,16000,true);d.setUint32(28,32000,true);d.setUint16(32,2,true);d.setUint16(34,16,true);str(36,'data');d.setUint32(40,pcm.length*2,true);new Int16Array(b,44).set(pcm);return new Blob([b],{type:'audio/wav'})}
+  const mic=$('#mic');let ctx,src,proc,chunks=[],stream;
+  async function start(e){e.preventDefault();if(ctx)return;try{stream=await navigator.mediaDevices.getUserMedia({audio:true})}catch(err){mic.title='Microphone not available';return}ctx=new AudioContext();src=ctx.createMediaStreamSource(stream);proc=ctx.createScriptProcessor(4096,1,1);chunks=[];proc.onaudioprocess=ev=>chunks.push(new Float32Array(ev.inputBuffer.getChannelData(0)));src.connect(proc);proc.connect(ctx.destination);mic.classList.add('rec');q.placeholder='Listening…'}
+  async function stop(e){if(!ctx)return;e&&e.preventDefault();proc.disconnect();src.disconnect();stream.getTracks().forEach(t=>t.stop());const rate=ctx.sampleRate;await ctx.close();ctx=null;mic.classList.remove('rec');q.placeholder='Transcribing…';
+    try{const r=await fetch('/api/transcribe',{method:'POST',headers:{'content-type':'audio/wav'},body:wavEncode(chunks,rate)});const j=await r.json();if(j.error)throw new Error(j.error);q.value=(q.value?q.value+' ':'')+j.text;q.placeholder='';if(j.text)go(q.value)}catch(err){q.placeholder='Could not transcribe: '+err.message}}
+  mic.addEventListener('pointerdown',start);mic.addEventListener('pointerup',stop);mic.addEventListener('pointerleave',stop);
+  fetch('/api/health').then(r=>r.json()).then(h=>{if(h.voice)mic.hidden=false}).catch(()=>{});
+  q.focus();
+})();
+</script></body></html>

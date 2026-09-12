@@ -4,6 +4,7 @@
 //   genesis-window http://127.0.0.1:11520/          open the maker workspace
 //   genesis-window --first-run                        open the wizard if first run is not complete, else exit
 //   genesis-window --kiosk URL                        fullscreen
+//   genesis-window --palette [--selection TEXT]       the one door: a small centered window for a request
 
 #include <QApplication>
 #include <QFile>
@@ -37,6 +38,10 @@ int main(int argc, char **argv) {
     QStringList args = app.arguments();
     bool kiosk = args.removeAll("--kiosk") > 0;
     bool firstRun = args.removeAll("--first-run") > 0;
+    bool palette = args.removeAll("--palette") > 0;
+    QString selection;
+    int si = args.indexOf("--selection");
+    if (si >= 0 && si + 1 < args.size()) { selection = args.at(si + 1); args.removeAt(si + 1); args.removeAt(si); }
     QString url = args.size() > 1 ? args.at(1) : QStringLiteral("http://127.0.0.1:11520/");
 
     if (firstRun) {
@@ -44,6 +49,10 @@ int main(int argc, char **argv) {
             return 0;
         url = QStringLiteral("http://127.0.0.1:11510/");
         kiosk = true;
+    }
+    if (palette) {
+        url = QStringLiteral("http://127.0.0.1:11520/palette");
+        if (!selection.isEmpty()) url += "?selection=" + QString::fromUtf8(QUrl::toPercentEncoding(selection));
     }
     if (!url.startsWith("http://127.0.0.1") && !url.startsWith("http://localhost"))
         return 2; // local surfaces only
@@ -71,6 +80,20 @@ int main(int argc, char **argv) {
     view->load(QUrl(url));
     win->setCentralWidget(view);
     win->resize(1280, 820);
+    if (palette) {
+        // the palette is a small, frameless, centered window; once a request is sent it grows into the maker
+        win->setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
+        win->resize(760, 330);
+        QObject::connect(view, &QWebEngineView::urlChanged, [win, view](const QUrl &u) {
+            if (u.fragment() == "close") { win->close(); return; }
+            if (!u.path().startsWith("/palette")) {
+                win->setWindowFlags(Qt::Window);
+                win->resize(1280, 820);
+                win->show();
+                view->setFocus();
+            }
+        });
+    }
     if (kiosk) win->showFullScreen(); else win->show();
 
     // first-run: close automatically once setup is complete

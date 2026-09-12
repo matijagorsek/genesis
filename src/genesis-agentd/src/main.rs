@@ -33,6 +33,7 @@ use tiny_http::{Header, Method, Request, Response, Server};
 
 const WORKSPACE_HTML: &str = include_str!("../ui/workspace.html");
 const SETTINGS_HTML: &str = include_str!("../ui/settings.html");
+const PALETTE_HTML: &str = include_str!("../ui/palette.html");
 
 #[derive(Parser)]
 #[command(name = "genesis-agentd", version, about = "Genesis agent daemon")]
@@ -211,6 +212,7 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
         (Method::Get, [""]) | (Method::Get, ["index.html"]) | (Method::Get, ["workspace"]) => Response::from_string(WORKSPACE_HTML).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
         (Method::Get, ["api", "health"]) => json_response(&serde_json::json!({"ok": true, "endpoint": d.endpoint, "model": d.model, "sandbox": sandbox::bwrap_available(), "voice": voice::available(), "speech": voice::speech_available(), "default_project": default_project()}), 200),
         (Method::Get, ["api", "templates"]) => json_response(&maker::list_templates(), 200),
+        (Method::Get, ["palette"]) => Response::from_string(PALETTE_HTML).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
         (Method::Get, ["settings"]) => Response::from_string(SETTINGS_HTML).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
         (Method::Get, ["api", "system"]) => json_response(&system_overview(d), 200),
         (Method::Post, ["api", "system", "mode"]) => match serde_json::from_str::<serde_json::Value>(&body).ok().and_then(|v| v.get("mode").and_then(|m| m.as_str()).map(|s| s.to_string())) {
