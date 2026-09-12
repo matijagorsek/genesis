@@ -42,8 +42,9 @@ Design brief: [docs/genesis-brief.html](docs/genesis-brief.html) · Design plan:
   (assist / auto-edit / autonomous). Hash-chained audit log. D-Bus `org.genesis.Permission1`.
 - **Undo** (`genesis-txd`): snapshots (btrfs or file pre-images) before risky changes;
   `genesis-txd undo`.
-- **Launcher**: `Meta+Space`, and `ask …` in KRunner. `Meta+Shift+Space` sends the current selection to
-  the maker (select-to-act).
+- **One door**: `Meta+Space` opens the palette, a small centered window that takes a typed request,
+  a spoken one (hold the mic), or the current selection (`Meta+Shift+Space`), and hands it to the maker.
+  `ask …` also works in KRunner.
 - **Genesis Settings**: a Settings menu entry showing the machine, models on disk, the default autonomy
   mode (Ask / Trusted / Hands-off), voice readiness and the undo history.
 - **Status widget** in the dock: model loaded, whether any job used the network, sandbox on, one click
