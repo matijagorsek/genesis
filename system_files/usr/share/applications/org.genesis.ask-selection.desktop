@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Ask Genesis about the selection
+Comment=Send the selected text to the maker, on this machine
+Exec=/usr/bin/genesis-ask-selection
+Icon=genesis
+Terminal=false
+Categories=Utility;
+NoDisplay=true
