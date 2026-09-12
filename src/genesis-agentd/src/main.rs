@@ -219,6 +219,13 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
             Some(mode) if parse_mode(&mode).is_ok() => { write_user_settings(&serde_json::json!({"default_mode": mode})); json_response(&serde_json::json!({"ok": true, "default_mode": mode}), 200) }
             _ => json_response(&serde_json::json!({"error": "expected {mode: assist|auto_edit|autonomous}"}), 400),
         },
+        (Method::Post, ["api", "made", "export"]) => match serde_json::from_str::<serde_json::Value>(&body).ok().and_then(|v| v.get("path").and_then(|p| p.as_str()).map(|s| s.to_string())) {
+            Some(p) => match maker::export_bundle(std::path::Path::new(&p)) {
+                Ok(out) => json_response(&serde_json::json!({"bundle": out.display().to_string()}), 200),
+                Err(e) => json_response(&serde_json::json!({"error": e.to_string()}), 400),
+            },
+            None => json_response(&serde_json::json!({"error": "expected {path}"}), 400),
+        },
         (Method::Get, ["api", "made"]) => json_response(&maker::made_here(std::path::Path::new(&default_project())), 200),
         (Method::Get, ["api", "sessions"]) => {
             let list: Vec<serde_json::Value> = d.sessions.lock().unwrap().values().map(|(s, _)| { let i = s.info.lock().unwrap(); serde_json::json!({"id": i.id, "mode": i.mode, "project": i.project, "state": i.state, "transaction": i.transaction}) }).collect();

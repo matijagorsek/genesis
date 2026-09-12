@@ -260,6 +260,22 @@ pub fn made_here(projects_dir: &Path) -> Vec<Made> {
     out
 }
 
+/// Bundle a project (files plus its recipe) into ~/Downloads/<name>-genesis.tar.gz for sharing.
+pub fn export_bundle(project: &Path) -> Result<PathBuf> {
+    if !project.join("genesis.json").is_file() { return Err(anyhow!("{} is not a Genesis project", project.display())); }
+    let name = project.file_name().map(|s| s.to_string_lossy().to_string()).unwrap_or_else(|| "project".into());
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
+    let downloads = Path::new(&home).join("Downloads");
+    std::fs::create_dir_all(&downloads)?;
+    let out = downloads.join(format!("{}-genesis.tar.gz", name));
+    let parent = project.parent().ok_or_else(|| anyhow!("project has no parent directory"))?;
+    let status = Command::new("tar").arg("-czf").arg(&out).arg("-C").arg(parent)
+        .args(["--exclude=.genesis-preview.log", "--exclude=node_modules", "--exclude=__pycache__", "--exclude=.venv"]).arg(&name)
+        .status().context("running tar")?;
+    if !status.success() { return Err(anyhow!("tar failed with {}", status)); }
+    Ok(out)
+}
+
 fn shell_quote(s: &str) -> String {
     format!("'{}'", s.replace('\'', "'\\''"))
 }
@@ -304,6 +320,11 @@ mod tests {
         std::fs::create_dir_all(projects.path().join("not-genesis")).unwrap();
         let made = made_here(projects.path());
         assert_eq!(made.len(), 1);
+        let bundle = export_bundle(&a).unwrap();
+        assert!(bundle.ends_with("timer-genesis.tar.gz") && bundle.is_file());
+        let listing = String::from_utf8(Command::new("tar").arg("-tzf").arg(&bundle).output().unwrap().stdout).unwrap();
+        assert!(listing.contains("timer/genesis.json") && listing.contains("timer/.genesis-recipe.json"), "{}", listing);
+        assert!(export_bundle(projects.path()).is_err());
         assert_eq!(made[0].name, "timer");
         assert!(made[0].installed);
         assert_eq!(made[0].template, "web-static");
