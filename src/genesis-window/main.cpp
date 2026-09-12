@@ -22,6 +22,8 @@
 #include <QtGlobal>
 #include <QThread>
 #include <QIcon>
+#include <QScreen>
+#include <QGuiApplication>
 
 static bool reachable(const QString &url) {
     QProcess p;
@@ -79,16 +81,24 @@ int main(int argc, char **argv) {
 #endif
     view->load(QUrl(url));
     win->setCentralWidget(view);
-    win->resize(1280, 820);
+    // a comfortable window, not a screen-filling one: 78% of the screen, capped, centered
+    auto fitWindow = [win]() {
+        QRect avail = QGuiApplication::primaryScreen() ? QGuiApplication::primaryScreen()->availableGeometry() : QRect(0, 0, 1280, 800);
+        int w = qMin(1280, int(avail.width() * 0.78));
+        int h = qMin(820, int(avail.height() * 0.78));
+        win->resize(w, h);
+        win->move(avail.x() + (avail.width() - w) / 2, avail.y() + (avail.height() - h) / 2);
+    };
+    fitWindow();
     if (palette) {
         // the palette is a small, frameless, centered window; once a request is sent it grows into the maker
         win->setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
         win->resize(760, 330);
-        QObject::connect(view, &QWebEngineView::urlChanged, [win, view](const QUrl &u) {
+        QObject::connect(view, &QWebEngineView::urlChanged, [win, view, fitWindow](const QUrl &u) {
             if (u.fragment() == "close") { win->close(); return; }
             if (!u.path().startsWith("/palette")) {
                 win->setWindowFlags(Qt::Window);
-                win->resize(1280, 820);
+                fitWindow();
                 win->show();
                 view->setFocus();
             }
