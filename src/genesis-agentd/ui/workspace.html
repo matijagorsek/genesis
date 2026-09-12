@@ -71,6 +71,9 @@ aside{background:var(--panel);border-right:1px solid var(--line);display:grid;gr
 .perm .b{display:flex;gap:8px}
 .changes{font-size:12px;color:var(--ink-2)}
 .mic{font-size:18px;padding:0 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel-2);cursor:pointer;user-select:none;touch-action:none}.mic.rec{background:#a33;border-color:#e66;color:#fff}
+.starters{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 18px}.starter{background:var(--panel);border:1px solid var(--line);color:var(--ink-2);border-radius:999px;padding:6px 12px;font:inherit;font-size:13px;cursor:pointer}.starter:hover{border-color:var(--accent);color:var(--ink)}
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);display:flex;gap:10px;align-items:center;background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:12px 16px;box-shadow:0 20px 60px rgba(0,0,0,.5);font-size:14px;z-index:20}
+.perm .mono{font-family:var(--mono);font-size:11px;white-space:pre-wrap;word-break:break-all}
 </style>
 </head>
 <body>
@@ -88,9 +91,10 @@ aside{background:var(--panel);border-right:1px solid var(--line);display:grid;gr
   <p class="sub">Describe an app, a tool or a script. Genesis builds it here with local models, shows it running, and can put it in your app menu.</p>
   <div class="ask"><textarea id="ask" placeholder="e.g. a pomodoro timer web app with a big countdown and a bell"></textarea><button id="micAsk" class="mic" title="Hold to talk" hidden>🎤</button><button class="primary" id="go">Make it</button></div>
   <div class="where">
-    <label>Mode <select id="mode"><option value="auto_edit" selected>Auto-edit (project changes allowed, asks for anything else)</option><option value="assist">Assist (asks before every change)</option><option value="autonomous">Autonomous (snapshots, still asks for system changes)</option></select></label>
+    <label>Mode <select id="mode"><option value="auto_edit" selected>Trusted: works inside the project on its own, asks before installing, going online or touching anything else</option><option value="assist">Ask: asks before every change</option><option value="autonomous">Hands-off: also allowed outside the project, everything snapshotted; system changes still ask</option></select></label>
     <label>Folder <input type="text" id="project" size="30"></label>
   </div>
+  <div class="starters" id="starters"></div>
   <div class="tpls" id="tpls"></div>
   <div class="recent" id="recent"></div>
 </section>
@@ -152,17 +156,28 @@ aside{background:var(--panel);border-right:1px solid var(--line);display:grid;gr
       case 'user_prompt':cls='user';icon='▶';text=e.text;break;
       case 'assistant':cls='assistant';icon='';text=e.text;if(window.__speak)window.__speak(e.text);break;
       case 'tool_call':cls='tool';icon='🔧';text=e.name+' '+JSON.stringify(e.args).slice(0,220);break;
-      case 'decision':d.className='step decision';d.innerHTML=`<div class="i"></div><div class="t"><span class="tier ${e.verdict.startsWith('allow')?'allow':e.verdict}">${e.tier} ${e.verdict}</span>${e.reason}</div>`;return d;
+      case 'decision':{if(e.verdict.startsWith('allow')){return document.createComment('allowed')}d.className='step decision';d.innerHTML=`<div class="i">${e.verdict==='deny'?'✗':'⏸'}</div><div class="t"><span class="tier ${e.verdict}" title="${e.tier}">${e.verdict==='deny'?'not allowed':'asks you'}</span>${plainReason(e.reason)}</div>`;return d;}
       case 'tool_result':cls='result';icon=e.ok?'✓':'✗';text=e.summary;break;
       case 'waiting':cls='decision';icon='⏸';text='needs your permission: '+e.name;break;
       case 'resolved':cls='decision';icon='';text=e.allowed?'allowed':'denied';break;
       case 'snapshot':cls='snapshot';icon='⎘';text=e.tx+' '+e.detail;break;
       case 'error':cls='error';icon='‼';text=e.text;break;
-      case 'done':cls='done';icon='■';text='done in '+e.turns+' turns';break;
+      case 'done':cls='done';icon='■';text='done';keepToast();break;
       default:text=JSON.stringify(e);
     }
     d.className='step '+cls;d.innerHTML=`<div class="i">${icon}</div><div class="t"></div>`;d.querySelector('.t').textContent=text;return d}
-  function permEl(p){const d=document.createElement('div');d.className='perm';d.dataset.rid=p.request_id;d.innerHTML=`<div><div class="h">Genesis wants to run <b>${p.tool}</b> · ${p.tier}</div><div class="d">${JSON.stringify(p.args,null,1)}</div><div class="d">${p.reason}</div></div><div class="b"><button data-a="0">Deny</button><button class="primary" data-a="1">Allow once</button></div>`;
+  // Permission prompts speak in plain verbs; the tier code lives in the tooltip for the curious.
+  function plainReason(r){return (r||'').replace(/^tier [A-Z0-9]+: /,'').replace(/\b(W1|W2|S1|S2|R0|R1|X)\b/g,'').replace(/\(.*?policy.*?\)/,'').trim()}
+  function verb(p){const a=p.args||{};const t=p.tool;
+    if(t==='shell'){const c=(a.command||'').trim();if(/\b(pip3?|npm|dnf5?|flatpak|cargo|apt)\b.*\binstall\b/.test(c))return['install software',c];if(a.needs_network)return['use the network',c];return['run a command',c]}
+    if(t==='write_file'||t==='edit_file')return['change a file outside the project',a.path||''];
+    if(t==='read_file'||t==='list_dir')return['read a file',a.path||''];
+    if(t==='browser_open')return['open a web page',a.url||''];
+    if(t==='browser_click'||t==='browser_type')return['act on the web page',a.text||('element '+a.n)];
+    if(t==='install_app')return['add an app to your menu',a.display_name||''];
+    if(t==='scaffold')return['create a project',a.name||''];
+    return [t.replace(/_/g,' '),JSON.stringify(a)]}
+  function permEl(p){const d=document.createElement('div');d.className='perm';d.dataset.rid=p.request_id;const [v,detail]=verb(p);d.innerHTML=`<div><div class="h">Genesis wants to <b>${v}</b></div><div class="d mono"></div><div class="d"></div></div><div class="b"><button data-a="0">Not now</button><button class="primary" data-a="1">Allow once</button></div>`;d.querySelector('.mono').textContent=detail;d.querySelectorAll('.d')[1].textContent=plainReason(p.reason);
     d.querySelectorAll('button').forEach(b=>b.addEventListener('click',async()=>{b.disabled=true;await api('/api/prompts/'+p.request_id,{allow:b.dataset.a==='1'});d.remove()}));return d}
   async function refresh(){if(!current)return;const s=await api('/api/sessions/'+current);if(s.error)return;
     $('#ttl').textContent=(s.active_project||s.project).split('/').filter(Boolean).pop()||'project';$('#tproj').textContent=s.active_project||s.project;$('#tstate').innerHTML=`<span class="st-${s.state}">${s.state}</span> · ${s.mode}`;
@@ -178,6 +193,9 @@ aside{background:var(--panel);border-right:1px solid var(--line);display:grid;gr
     if(s.preview_url&&s.preview_url!==lastUrl){lastUrl=s.preview_url;$('#frame').src=s.preview_url;$('#frame').hidden=false;$('#viewEmpty').hidden=true;$('#previewUrl').textContent=s.preview_url}
     if(!s.preview_url&&lastUrl){lastUrl=null;$('#frame').hidden=true;$('#frame').src='about:blank';$('#viewEmpty').hidden=false;$('#previewUrl').textContent=''}
   }
+  function keepToast(){if(!current)return;api('/api/sessions/'+current).then(s=>{if(!s.transaction)return;const t=document.createElement('div');t.className='toast';t.innerHTML='<span>Done. Changes outside the project are kept unless you undo them.</span><button class="primary" data-k="1">Keep</button><button data-k="0">Undo</button>';
+    t.querySelectorAll('button').forEach(b=>b.addEventListener('click',async()=>{if(b.dataset.k==='0'){const r=await api('/api/sessions/'+current+'/undo');$('#steps').appendChild(stepEl({kind:'snapshot',tx:'undo',detail:(r.log||[r.error]).join(' · ')}))}t.remove()}));
+    document.body.appendChild(t);setTimeout(()=>t.remove(),20000)})}
   function open(id){current=id;seen=0;lastUrl=null;$('#steps').innerHTML='';$('#perms').innerHTML='';$('#frame').hidden=true;$('#viewEmpty').hidden=false;$('#previewUrl').textContent='';showStart(false);refresh();if(!poll)poll=setInterval(refresh,700)}
   async function make(text){if(!text.trim())return;const r=await api('/api/sessions',{mode:$('#mode').value,project:$('#project').value});if(r.error){alert(r.error);return}open(r.id);await api('/api/sessions/'+r.id+'/prompt',{text:text.trim()})}
   $('#go').addEventListener('click',()=>make($('#ask').value));
@@ -191,6 +209,8 @@ aside{background:var(--panel);border-right:1px solid var(--line);display:grid;gr
   $('#openTab').addEventListener('click',()=>{if(lastUrl)window.open(lastUrl,'_blank')});
   $('#home').addEventListener('click',()=>{showStart(true);recent()});
   const q=new URLSearchParams(location.search);
+  const STARTERS=['a checklist app that saves to a file','a pomodoro timer with a bell','a script that renames photos in a folder by date taken','a simple website for a club with three pages','a word-count tool for text files'];
+  (function(){const el=document.getElementById('starters');STARTERS.forEach(t=>{const b=document.createElement('button');b.className='starter';b.textContent=t;b.addEventListener('click',()=>{$('#ask').value=t;make(t)});el.appendChild(b)})})();
   health().then(async()=>{await templates();await recent();if(q.get('project'))$('#project').value=q.get('project');if(q.get('prompt')){make(q.get('prompt'))}});
 })();
 </script>

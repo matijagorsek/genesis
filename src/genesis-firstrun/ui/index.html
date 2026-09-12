@@ -62,6 +62,7 @@ label.tog{display:inline-flex;align-items:center;gap:10px;font-size:14px;color:v
 section{display:none}section.active{display:block}
 .small{font-size:12.5px;color:var(--ink-3)}
 .skip{position:fixed;left:24px;bottom:22px;font-size:13px;color:var(--ink-3);text-decoration:underline dotted}.skip:hover{color:var(--ink)}
+.starters{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 18px}.starter{background:var(--panel);border:1px solid var(--line);color:var(--ink-2);border-radius:999px;padding:7px 14px;font:inherit;font-size:13px;cursor:pointer}.starter.on,.starter:hover{border-color:var(--accent);color:var(--ink)}
 </style>
 </head>
 <body>
@@ -121,7 +122,12 @@ section{display:none}section.active{display:block}
   <h1>Genesis is ready</h1>
   <p id="doneText">Your models are installed and the local AI service is configured.</p>
   <ul class="models" id="doneList"></ul>
-  <p class="small">Press <b>Super + Space</b> anywhere to ask Genesis something. Login: your account. This wizard will not show again.</p>
+  <p><b>Make something now.</b> Pick one and Genesis builds it the moment the desktop opens, or press <b>Super + Space</b> later and describe your own.</p>
+  <div class="starters">
+    <button class="starter" data-p="a checklist app that saves to a file">A checklist app</button>
+    <button class="starter" data-p="a pomodoro timer with a bell">A pomodoro timer</button>
+    <button class="starter" data-p="a script that renames photos in a folder by the date they were taken">Rename my photos by date</button>
+  </div>
   <div class="btns"><button class="primary" id="btnFinish">Start using Genesis</button></div>
   <p class="small" id="finishInfo"></p>
 </section>
@@ -183,7 +189,8 @@ section{display:none}section.active{display:block}
   $('#btnNextPrivacy').addEventListener('click',()=>step(2));
   $('#btnPrivacy').addEventListener('click',async()=>{await api('/api/privacy',{cloud:$('#cloud').checked});const st=await api('/api/state');const p=st.packs.find(x=>x.id===chosen);const ul=$('#doneList');ul.innerHTML='';(p?p.models:[]).filter(m=>!m.optional).forEach(m=>{const li=document.createElement('li');li.innerHTML=`<span>${m.name||m.repo} <span class="n">${m.role}</span></span><span class="n">${m.size_gb} GB</span>`;ul.appendChild(li)});step(3)});
   $('#cloud').addEventListener('change',e=>{$('#btnPrivacy').textContent=e.target.checked?'Continue':'Continue local only'});
-  $('#btnFinish').addEventListener('click',async()=>{$('#btnFinish').disabled=true;const r=await api('/api/finish');$('#finishInfo').textContent=r.done?'Setup complete. You can close this window.':(r.error||'');});
+  let starter='';document.querySelectorAll('.starter').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.starter').forEach(x=>x.classList.toggle('on',x===b));starter=b.dataset.p;$('#btnFinish').textContent='Start using Genesis and make it'}));
+  $('#btnFinish').addEventListener('click',async()=>{$('#btnFinish').disabled=true;const r=await api('/api/finish',{starter});$('#finishInfo').textContent=r.done?'Setup complete. You can close this window.':(r.error||'');});
   load();
 })();
   // Skip: Genesis works as a normal desktop without models; the wizard can be reopened from the Genesis menu entry.

@@ -164,6 +164,12 @@ fn handle(app: &Arc<App>, mut req: Request) -> Result<bool> {
             }
         }
         (Method::Post, "/api/finish") => {
+            // an optional first thing to make: genesis-window opens the maker with it after this wizard closes
+            let body = read_body(&mut req);
+            let starter = serde_json::from_str::<serde_json::Value>(&body).ok().and_then(|v| v.get("starter").and_then(|s| s.as_str()).map(|s| s.trim().to_string())).unwrap_or_default();
+            if !starter.is_empty() {
+                if let Some(d) = app.cli.done_marker.parent() { let _ = std::fs::write(d.join("first-run-starter"), format!("{}\n", starter.chars().take(300).collect::<String>())); }
+            }
             let mut s = app.settings.lock().unwrap();
             s.completed_at = Some(now());
             if let Some(d) = app.cli.settings_out.parent() {

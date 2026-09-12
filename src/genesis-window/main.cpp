@@ -78,7 +78,13 @@ int main(int argc, char **argv) {
         auto *t = new QTimer(win);
         QObject::connect(t, &QTimer::timeout, [&]() {
             if (QFile::exists("/var/lib/genesis/first-run-done")) {
-                QProcess::startDetached("genesis-window", {"http://127.0.0.1:11520/"});
+                QString target = "http://127.0.0.1:11520/";
+                QFile starter("/var/lib/genesis/first-run-starter");
+                if (starter.open(QIODevice::ReadOnly)) {
+                    QString p = QString::fromUtf8(starter.readAll()).trimmed();
+                    if (!p.isEmpty()) target += "?prompt=" + QString::fromUtf8(QUrl::toPercentEncoding(p));
+                }
+                QProcess::startDetached("genesis-window", {target});
                 app.quit();
             }
         });
