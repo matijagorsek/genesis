@@ -75,7 +75,8 @@ Or install from the ISO in a VM (UTM, virt-manager, VirtualBox) or on a spare ma
 Fast loop, no image build:
 
 ```bash
-just vm-dev            # boots the last downloaded disk with a window and SSH (port 2222)
+just vm-dev            # boots the last downloaded disk with a window and SSH (port 2222); the VM has
+                       # internet, so the wizard can download the tiny pack and the maker and `ask` work
 just vm-push           # cross-compiles the daemons in Docker and copies them into the running VM
 prototype/serial-cmd.py iso/output/dev/serial.sock 'cmd'   # run commands over the serial console
 just firstrun          # the wizard, natively on this Mac, at http://127.0.0.1:11510
