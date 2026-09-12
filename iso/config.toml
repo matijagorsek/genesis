@@ -11,11 +11,7 @@ groups = ["wheel"]
 
 # Serial console so headless boot tests can read the log.
 [customizations.kernel]
-append = "console=ttyS0,115200 console=tty0"
+append = "console=ttyS0,115200 console=tty0 genesis.devssh=1"
 
 # Note: bootc-image-builder refuses [[customizations.user]] together with custom kickstart content,
 # so no kickstart block here. Anaconda asks for disk, locale and user; the test user above is also created.
-
-# Test/dev disks only: SSH for the dev loop (prototype/vm-push.sh). The installed OS does not enable sshd.
-[customizations.services]
-enabled = ["sshd"]
