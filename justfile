@@ -151,3 +151,10 @@ workspace:
 # Boot a disk image headless and capture screenshots: just vm-shots iso/output/v22/disk.qcow2 iso/output/shots-v22
 vm-shots disk outdir:
     python3 prototype/vm-shots.py {{disk}} {{outdir}}
+
+# Fast loop: a dev VM with a window and SSH, then push freshly built daemons into it in a minute or two.
+vm-dev disk="":
+    prototype/vm-dev.sh {{disk}}
+
+vm-push *bins:
+    prototype/vm-push.sh {{bins}}

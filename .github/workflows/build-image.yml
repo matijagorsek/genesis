@@ -78,19 +78,22 @@ jobs:
           done
           sudo podman image exists quay.io/fedora/fedora:44
 
+      - name: Login to GHCR (build cache)
+        if: github.event_name != 'pull_request'
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | sudo podman login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      # Layer cache in GHCR: unchanged stages (Rust cross-compile, Qt window, whisper.cpp, package
+      # installs) are pulled instead of rebuilt, so a typical push rebuilds only what changed.
       - name: Build image
         run: |
-          sudo podman build -f Containerfile --pull=never \
+          sudo podman build -f Containerfile --pull=never --layers \
+            --cache-from $IMAGE-cache --cache-to $IMAGE-cache --cache-ttl 168h \
             --build-arg BOOTC_LINT=strict \
             --build-arg GENESIS_VERSION=${{ steps.meta.outputs.tag }} \
             -t $IMAGE:0.1 -t $IMAGE:${{ steps.meta.outputs.tag }} .
 
       - name: Image self-check
         run: sudo podman run --rm $IMAGE:0.1 genesis-image-check
-
-      - name: Login to GHCR
-        if: github.event_name != 'pull_request'
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | sudo podman login ghcr.io -u ${{ github.actor }} --password-stdin
 
       - name: Push
         if: github.event_name != 'pull_request'
