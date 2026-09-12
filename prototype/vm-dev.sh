@@ -20,4 +20,5 @@ exec qemu-system-x86_64 -machine q35 -cpu max -smp 4 -m 6144 \
   -drive if=pflash,format=raw,readonly=on,file=iso/output/ovmf-code.fd \
   -drive file="$ovl",format=qcow2,if=virtio \
   -device virtio-vga -display cocoa -device qemu-xhci -device usb-tablet \
+  -monitor unix:iso/output/dev/mon.sock,server,nowait -serial file:iso/output/dev/serial-window.log \
   -netdev user,id=n0,hostfwd=tcp::2222-:22,hostfwd=tcp::11511-:11510,hostfwd=tcp::11521-:11520 -device virtio-net-pci,netdev=n0
