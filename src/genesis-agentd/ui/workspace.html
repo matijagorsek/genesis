@@ -77,6 +77,7 @@ aside{background:var(--panel);border-right:1px solid var(--line);display:grid;gr
 .made{width:calc(100vw - 80px);max-width:1100px;position:relative;left:50%;transform:translateX(-50%);margin:34px 0 0;text-align:left}.made h2{font-size:16px;color:var(--ink-2);margin:0 0 10px;font-weight:600}.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
 .mcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:grid;gap:6px}.mcard b{font-size:15px}.mcard .meta{color:var(--ink-3);font-size:12px}.mcard .prompt{color:var(--ink-2);font-size:13px;min-height:2.6em}.mcard .row{display:flex;gap:6px}.mcard button{font:inherit;font-size:12px;padding:5px 10px;border-radius:7px;border:1px solid var(--line);background:var(--panel-2);color:var(--ink);cursor:pointer}
 .badge.net{border-color:var(--warn);color:var(--warn)}
+body.listening header{box-shadow:inset 0 -2px 0 var(--accent)}body.listening textarea{border-color:var(--accent)!important;box-shadow:0 0 24px rgba(95,181,189,.25)}
 </style>
 </head>
 <body>
@@ -134,9 +135,13 @@ aside{background:var(--panel);border-right:1px solid var(--line);display:grid;gr
     const b=new ArrayBuffer(44+pcm.length*2),d=new DataView(b);const str=(p,s)=>{for(let i=0;i<s.length;i++)d.setUint8(p+i,s.charCodeAt(i))};
     str(0,'RIFF');d.setUint32(4,36+pcm.length*2,true);str(8,'WAVE');str(12,'fmt ');d.setUint32(16,16,true);d.setUint16(20,1,true);d.setUint16(22,1,true);d.setUint32(24,16000,true);d.setUint32(28,32000,true);d.setUint16(32,2,true);d.setUint16(34,16,true);str(36,'data');d.setUint32(40,pcm.length*2,true);
     new Int16Array(b,44).set(pcm);return new Blob([b],{type:'audio/wav'})}
+  // Voice feedback within a few milliseconds of the press: a short chime and a glow, before the mic is even open.
+  let __ac=null;function tone(f,ms,g){try{__ac=__ac||new (window.AudioContext||window.webkitAudioContext)();const o=__ac.createOscillator(),v=__ac.createGain();o.type='sine';o.frequency.value=f;v.gain.value=0;o.connect(v);v.connect(__ac.destination);const t=__ac.currentTime;v.gain.linearRampToValueAtTime(g||0.08,t+0.01);v.gain.exponentialRampToValueAtTime(0.0001,t+ms/1000);o.start(t);o.stop(t+ms/1000+0.02)}catch(e){}}
+  function listenOn(btn){document.body.classList.add('listening');tone(880,140)}
+  function listenOff(btn){listenOff(btn);document.body.classList.remove('listening');tone(520,160)}
   function holdToTalk(btn, target, onDone){
     let ctx,src,proc,chunks=[],stream;
-    async function start(e){e.preventDefault();if(ctx)return;try{stream=await navigator.mediaDevices.getUserMedia({audio:true})}catch(err){btn.title='Microphone not available: '+err.message;return}
+    async function start(e){e.preventDefault();if(ctx)return;listenOn(btn);try{stream=await navigator.mediaDevices.getUserMedia({audio:true})}catch(err){btn.title='Microphone not available: '+err.message;listenOff(btn);return}
       ctx=new AudioContext();src=ctx.createMediaStreamSource(stream);proc=ctx.createScriptProcessor(4096,1,1);chunks=[];proc.onaudioprocess=ev=>chunks.push(new Float32Array(ev.inputBuffer.getChannelData(0)));src.connect(proc);proc.connect(ctx.destination);btn.classList.add('rec');target.placeholder='Listening…'}
     async function stop(e){if(!ctx)return;e&&e.preventDefault();proc.disconnect();src.disconnect();stream.getTracks().forEach(t=>t.stop());const rate=ctx.sampleRate;await ctx.close();ctx=null;btn.classList.remove('rec');target.placeholder='Transcribing…';
       try{const r=await fetch('/api/transcribe',{method:'POST',headers:{'content-type':'audio/wav'},body:wavEncode(chunks,rate)});const j=await r.json();if(j.error)throw new Error(j.error);target.value=(target.value?target.value+' ':'')+j.text;target.placeholder='';if(onDone&&j.text)onDone(j.text)}catch(err){target.placeholder='Could not transcribe: '+err.message}}
