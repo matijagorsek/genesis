@@ -12,7 +12,10 @@ use serde_json::{json, Value};
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Condvar, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
+
+/// The most recent generation: (completion tokens, seconds, model). Read by the settings page as tokens/s.
+pub static LAST_GENERATION: Mutex<Option<(u64, f64, String)>> = Mutex::new(None);
 
 pub const SYSTEM_PROMPT: &str = "You are Genesis, the maker built into this computer. The user tells you what they want made; you make it, here, with local tools. \
 When asked to make an app, tool or script, start with the scaffold tool (pick the closest template), then edit the generated files, then start a preview so the user can see it running. \
@@ -165,8 +168,15 @@ impl Agent {
         let tools = tool_schemas();
         let mut final_text = String::new();
         for turn in 0..self.max_turns {
+            let started = Instant::now();
             let reply = match self.client.chat(&self.messages, &tools, 0.2) {
-                Ok(r) => r,
+                Ok(r) => {
+                    let secs = started.elapsed().as_secs_f64();
+                    if let Some(tok) = r.usage.as_ref().and_then(|u| u.get("completion_tokens")).and_then(|t| t.as_u64()) {
+                        if secs > 0.0 { *LAST_GENERATION.lock().unwrap() = Some((tok, secs, self.client.model.clone())); }
+                    }
+                    r
+                }
                 Err(e) => {
                     self.shared.push(Event::Error { text: e.to_string() });
                     self.shared.set_state("error");

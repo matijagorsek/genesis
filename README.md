@@ -47,12 +47,13 @@ Design brief: [docs/genesis-brief.html](docs/genesis-brief.html) · Design plan:
   a spoken one (hold the mic), or the current selection (`Meta+Shift+Space`), and hands it to the maker.
   `ask …` also works in KRunner.
 - **Genesis Settings**: a Settings menu entry showing the machine, models on disk, the default autonomy
-  mode (Ask / Trusted / Hands-off), voice readiness and the undo history.
+  mode (Ask / Trusted / Hands-off), voice readiness, the measured tokens per second, and the undo history.
 - **Status widget** in the dock: model loaded, whether any job used the network, sandbox on, one click
   to the maker.
 - **Browser control**: the agent drives a headless Chromium with a throw-away profile (open, read,
   click, type, screenshot). Page content is treated as untrusted and taints the session.
-- **Voice**: hold-to-talk (whisper.cpp) and spoken replies (Piper), all local.
+- **Voice**: hold-to-talk (whisper.cpp) with a chime and glow the instant you press, and spoken replies
+  (Piper), all local.
 
 ## Try it
 

@@ -502,6 +502,7 @@ fn system_overview(d: &Arc<Daemon>) -> serde_json::Value {
     serde_json::json!({
         "profile": profile, "setup": setup, "models_on_disk": on_disk, "router": {"endpoint": d.endpoint, "running": running},
         "voice": {"input": voice::available(), "output": voice::speech_available()},
+        "last_generation": agent::LAST_GENERATION.lock().unwrap().clone().map(|(tok, secs, model)| serde_json::json!({"tokens": tok, "seconds": (secs * 10.0).round() / 10.0, "tokens_per_second": (tok as f64 / secs * 10.0).round() / 10.0, "model": model})),
         "sandbox": sandbox::bwrap_available(), "user": read_user_settings(), "history": history,
     })
 }
