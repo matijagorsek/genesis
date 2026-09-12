@@ -136,7 +136,7 @@ fn handle(app: &Arc<App>, mut req: Request) -> Result<bool> {
                                 std::fs::write(&router_out, yaml).with_context(|| format!("writing {}", router_out.display()))?;
                                 tracing::info!(path = %router_out.display(), "router config rendered");
                                 // (re)start the local model router so the maker works right away
-                                let _ = std::process::Command::new("systemctl").args(["restart", "genesis-router.socket"]).status();
+                                // the service has ConditionPathExists on the config we just wrote; (re)start it now
                                 let _ = std::process::Command::new("systemctl").args(["restart", "genesis-router.service"]).status();
                                 Ok(())
                             });

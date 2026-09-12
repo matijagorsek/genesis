@@ -1,9 +1,11 @@
-# Genesis local AI router (llama-swap). Phase 1: ships in the bootc image. Not used by the Phase 0 prototype.
+# Genesis local AI router (llama-swap): one OpenAI-compatible endpoint on 127.0.0.1:8080.
+# llama-swap binds the port itself (no socket activation: a socket unit on the same port made it crash-loop).
+# It starts once the first-run wizard has rendered the router config; the wizard starts it right after.
 [Unit]
 Description=Genesis local AI router (llama-swap)
 Documentation=https://github.com/mostlygeek/llama-swap
 After=network.target
-Wants=genesis-router.socket
+ConditionPathExists=/etc/genesis/router.yaml
 
 [Service]
 User=genesis-ai

@@ -120,7 +120,7 @@ RUN set -eux; \
 # (genesis-image-check ships from system_files/usr/bin; podman/buildah has no COPY heredoc)
 
 # ---- enable services -------------------------------------------------------------------------
-RUN systemctl enable genesis-router.socket genesis-probe.service genesis-firstrun.service genesis-devssh.service && systemctl --global enable genesis-permd.service genesis-agentd.service \
+RUN systemctl enable genesis-router.service genesis-probe.service genesis-firstrun.service genesis-devssh.service && systemctl --global enable genesis-permd.service genesis-agentd.service \
  && systemctl mask plasma-setup.service
 
 # ---- bootc validation ------------------------------------------------------------------------
