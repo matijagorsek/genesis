@@ -10,7 +10,6 @@ var panel = new Panel();
 panel.location = "bottom";
 panel.alignment = "center";
 panel.lengthMode = "fit";
-panel.floating = true;
 panel.hiding = "none";
 panel.height = 2 * Math.floor(gridUnit * 2.9 / 2);
 

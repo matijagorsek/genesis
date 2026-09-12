@@ -1,3 +1,8 @@
 [General]
 FreeFloating=true
 ActivateWhenTypingOnDesktop=true
+
+[Plugins]
+# Discover results off, Bazaar (app store) results on, as in Aurora
+krunner_appstreamEnabled=false
+bazaarrunnerEnabled=true
