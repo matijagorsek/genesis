@@ -86,8 +86,16 @@ jobs:
       # installs) are pulled instead of rebuilt, so a typical push rebuilds only what changed.
       - name: Build image
         run: |
+          # First try with the registry cache (read and write). Pushing cache blobs to GHCR sometimes
+          # fails transiently and aborts podman; the fallback rebuilds from the local layer cache without
+          # writing the remote cache, which is fast because every layer is already local.
           sudo podman build -f Containerfile --pull=never --layers \
             --cache-from $IMAGE-cache --cache-to $IMAGE-cache --cache-ttl 168h \
+            --build-arg BOOTC_LINT=strict \
+            --build-arg GENESIS_VERSION=${{ steps.meta.outputs.tag }} \
+            -t $IMAGE:0.1 -t $IMAGE:${{ steps.meta.outputs.tag }} . \
+          || sudo podman build -f Containerfile --pull=never --layers \
+            --cache-from $IMAGE-cache \
             --build-arg BOOTC_LINT=strict \
             --build-arg GENESIS_VERSION=${{ steps.meta.outputs.tag }} \
             -t $IMAGE:0.1 -t $IMAGE:${{ steps.meta.outputs.tag }} .
