@@ -11,10 +11,10 @@ permission-gated and undoable.
 
 | | |
 |---|---|
-| ![Desktop](docs/screens/real/desktop-v0.1.34.png) | ![App menu](docs/screens/real/menu-v0.1.34.png) |
-| The desktop with the floating dock, v0.1.34 in QEMU | The application menu, same session |
-| ![Login](docs/screens/real/login-v0.1.30.png) | ![First run](docs/screens/real/first-run-v0.1.30.png) |
-| Login screen, v0.1.30 | The first-run wizard, same boot |
+| ![Desktop](docs/screens/real/desktop-v0.1.47.png) | ![Login](docs/screens/real/login-v0.1.47.png) |
+| The desktop, release v0.1.47 booted in QEMU | The login screen, same boot |
+| ![Maker](docs/screens/real/maker-v0.1.47.png) | ![App menu](docs/screens/real/menu-v0.1.34.png) |
+| The maker, opened after first run | The application menu (v0.1.34 session) |
 
 Preview renderings of the rest (desktop, launcher, maker): [docs/screens/preview](docs/screens/preview).
 Design brief: [docs/genesis-brief.html](docs/genesis-brief.html) · Design plan: [docs/genesis-design-plan.html](docs/genesis-design-plan.html)
