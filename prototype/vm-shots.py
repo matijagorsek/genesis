@@ -29,7 +29,7 @@ while time.time() - t0 < max(plan) + 5:
             try: mon(f"screendump {outdir}/t{p:04d}.ppm")
             except Exception as e: print("mon err", e, flush=True)
             done.add(p); print("shot", p, flush=True)
-    if not logged and el > 300:
+    if not logged and el > int(os.environ.get("GENESIS_SHOT_LOGIN_AT", "300")):
         try:
             for ch in "genesis": mon(f"sendkey {ch}"); time.sleep(0.15)
             mon("sendkey ret"); logged = True; login_at = el; print("typed password", flush=True)
