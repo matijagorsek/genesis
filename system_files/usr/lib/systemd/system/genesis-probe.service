@@ -3,7 +3,7 @@ Description=Genesis hardware probe (writes /etc/genesis/profile.json on first bo
 Documentation=https://github.com/matijagorsek/genesis
 DefaultDependencies=no
 After=local-fs.target systemd-udev-settle.service
-Before=display-manager.service genesis-router.socket
+Before=display-manager.service genesis-router.service
 ConditionPathExists=!/etc/genesis/profile.json
 
 [Service]
