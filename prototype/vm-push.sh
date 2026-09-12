@@ -21,7 +21,7 @@ docker build -q -f Containerfile --target daemons -t genesis-daemons . >/dev/nul
 cid=$(docker create genesis-daemons)
 tmp=$(mktemp -d)
 for b in "${bins[@]}"; do docker cp -q "$cid:/out/usr/bin/$b" "$tmp/$b"; done
-docker rm -q "$cid" >/dev/null
+docker rm "$cid" >/dev/null
 echo "== copying ${bins[*]} into the VM"
 run_scp "${tmp[@]}"/* genesis@127.0.0.1:/tmp/
 run_ssh "echo genesis | sudo -S true 2>/dev/null; sudo bootc usr-overlay >/dev/null 2>&1 || true; for b in ${bins[*]}; do sudo install -m 0755 /tmp/\$b /usr/bin/\$b; done; sudo systemctl daemon-reload; sudo systemctl try-restart genesis-probe.service genesis-firstrun.service 2>/dev/null; systemctl --user try-restart genesis-permd.service genesis-agentd.service 2>/dev/null; echo pushed: ${bins[*]}; genesis-agentd --version 2>/dev/null"
