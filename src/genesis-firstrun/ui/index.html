@@ -194,7 +194,10 @@ section{display:none}section.active{display:block}
   load();
 })();
   // Skip: Genesis works as a normal desktop without models; the wizard can be reopened from the Genesis menu entry.
-  document.getElementById('skip').addEventListener('click',async e=>{e.preventDefault();if(!confirm('Skip model setup for now? Genesis works as a normal desktop; you can download models later from the Genesis app.'))return;await fetch('/api/finish',{method:'POST'});document.body.innerHTML='<div style="display:grid;place-items:center;height:100vh;font-size:20px">Done. Genesis is ready to use.</div>'});
+  async function skipSetup(ask){if(ask&&!confirm('Skip model setup for now? Genesis works as a normal desktop; you can download models later from the Genesis app.'))return;await fetch('/api/finish',{method:'POST',headers:{'content-type':'application/json'},body:'{}'});document.body.innerHTML='<div style="display:grid;place-items:center;height:100vh;font-size:20px">Done. Genesis is ready to use.</div>'}
+  document.getElementById('skip').addEventListener('click',e=>{e.preventDefault();skipSetup(true)});
+  // Ctrl+Shift+S skips without the confirmation (used by automated captures and by people who know)
+  document.addEventListener('keydown',e=>{if(e.ctrlKey&&e.shiftKey&&e.key.toLowerCase()==='s'){e.preventDefault();skipSetup(false)}});
 </script>
 </body>
 </html>

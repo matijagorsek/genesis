@@ -39,7 +39,8 @@ while time.time() - t0 < max(plan) + 5:
         try:
             x, y = int(90 * 32767 / 1280), int(770 * 32767 / 800)
             mon(f"mouse_move {x} {y}"); time.sleep(0.5); mon("mouse_button 1"); time.sleep(0.2); mon("mouse_button 0")
-            print("clicked skip", flush=True)
+            time.sleep(1.5); mon("sendkey ctrl-shift-s")   # the wizard's keyboard skip (no confirmation)
+            print("clicked skip + ctrl-shift-s", flush=True)
         except Exception as e: print("skip err", e, flush=True)
         done.add("skip")
     # after login: open the application menu for one frame, then close it (GENESIS_SHOT_MENU=1)
