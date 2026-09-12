@@ -210,7 +210,7 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
     }
     let resp = match (method, path.as_slice()) {
         (Method::Get, [""]) | (Method::Get, ["index.html"]) | (Method::Get, ["workspace"]) => Response::from_string(WORKSPACE_HTML).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
-        (Method::Get, ["api", "health"]) => json_response(&serde_json::json!({"ok": true, "endpoint": d.endpoint, "model": d.model, "sandbox": sandbox::bwrap_available(), "voice": voice::available(), "speech": voice::speech_available(), "default_project": default_project()}), 200),
+        (Method::Get, ["api", "health"]) => json_response(&serde_json::json!({"ok": true, "endpoint": d.endpoint, "model": served_model(&d.endpoint, &d.model), "sandbox": sandbox::bwrap_available(), "voice": voice::available(), "speech": voice::speech_available(), "default_project": default_project()}), 200),
         (Method::Get, ["api", "templates"]) => json_response(&maker::list_templates(), 200),
         (Method::Get, ["palette"]) => Response::from_string(PALETTE_HTML).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
         (Method::Get, ["settings"]) => Response::from_string(SETTINGS_HTML).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
@@ -245,8 +245,9 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
                 (Ok(mode), Ok(project)) => {
                     let id = uuid::Uuid::new_v4().to_string();
                     d.broker.lock().unwrap().open_session(&id, mode, vec![project.display().to_string()], "api")?;
-                    let shared = new_shared(&id, mode, &project.display().to_string(), &d.model);
-                    let mut agent = Agent::new(Client { endpoint: d.endpoint.clone(), model: d.model.clone(), api_key: "local".into() }, d.broker.clone(), id.clone(), project, shared.clone());
+                    let model = served_model(&d.endpoint, &d.model);
+                    let shared = new_shared(&id, mode, &project.display().to_string(), &model);
+                    let mut agent = Agent::new(Client { endpoint: d.endpoint.clone(), model, api_key: "local".into() }, d.broker.clone(), id.clone(), project, shared.clone());
                     agent.tx_store = Store::open(default_store()).ok();
                     d.sessions.lock().unwrap().insert(id.clone(), (shared, Arc::new(Mutex::new(Some(agent)))));
                     json_response(&serde_json::json!({"id": id}), 201)
@@ -514,4 +515,20 @@ fn system_overview(d: &Arc<Daemon>) -> serde_json::Value {
         "last_generation": agent::LAST_GENERATION.lock().unwrap().clone().map(|(tok, secs, model)| serde_json::json!({"tokens": tok, "seconds": (secs * 10.0).round() / 10.0, "tokens_per_second": (tok as f64 / secs * 10.0).round() / 10.0, "model": model})),
         "sandbox": sandbox::bwrap_available(), "user": read_user_settings(), "history": history,
     })
+}
+
+/// The model to use: the configured one if the router serves it, otherwise the best one the router does
+/// serve (small packs have no "code" model; the tiny pack has only "fast"). Falls back to the configured name.
+fn served_model(endpoint: &str, wanted: &str) -> String {
+    let list = ureq::get(&format!("{}/models", endpoint.trim_end_matches('/'))).timeout(std::time::Duration::from_secs(2)).call().ok()
+        .and_then(|r| r.into_json::<serde_json::Value>().ok())
+        .and_then(|v| v.get("data").and_then(|d| d.as_array()).map(|a| a.iter().filter_map(|m| m.get("id").and_then(|i| i.as_str()).map(|s| s.to_string())).collect::<Vec<_>>()));
+    match list {
+        Some(ids) if !ids.is_empty() => {
+            if ids.iter().any(|i| i == wanted) { return wanted.to_string(); }
+            for pref in ["code", "chat", "fast", "auto"] { if ids.iter().any(|i| i == pref) { return pref.to_string(); } }
+            wanted.to_string()
+        }
+        _ => wanted.to_string(),
+    }
 }
