@@ -520,7 +520,7 @@ fn system_overview(d: &Arc<Daemon>) -> serde_json::Value {
 /// The model to use: the configured one if the router serves it, otherwise the best one the router does
 /// serve (small packs have no "code" model; the tiny pack has only "fast"). Falls back to the configured name.
 fn served_model(endpoint: &str, wanted: &str) -> String {
-    let list = ureq::get(&format!("{}/models", endpoint.trim_end_matches('/'))).timeout(std::time::Duration::from_secs(2)).call().ok()
+    let list = ureq::get(&format!("{}/models", endpoint.trim_end_matches('/'))).timeout(std::time::Duration::from_secs(8)).call().ok()
         .and_then(|r| r.into_json::<serde_json::Value>().ok())
         .and_then(|v| v.get("data").and_then(|d| d.as_array()).map(|a| a.iter().filter_map(|m| m.get("id").and_then(|i| i.as_str()).map(|s| s.to_string())).collect::<Vec<_>>()));
     match list {
