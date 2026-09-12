@@ -99,6 +99,7 @@ RUN set -eux; \
 # from the preinstall list below once the machine is online.
 RUN set -eux; \
     dnf5 install -y --setopt=install_weak_deps=False \
+      rsms-inter-fonts ibm-plex-mono-fonts papirus-icon-theme ocean-sound-theme \
       chromium firefox okular gwenview kcalc plasma-discover plasma-discover-flatpak haruna elisa kcharselect kfind \
       kdeconnect-kde kwalletmanager5 partitionmanager; \
     dnf5 clean all

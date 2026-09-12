@@ -1,0 +1,80 @@
+<title>Genesis Design Plan</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=IBM+Plex+Mono&display=swap">
+<style>
+:root{--bg:#0b0f14;--bg2:#10161e;--panel:#161d27;--line:#232c37;--ink:#eef3f8;--ink2:#a9b4c1;--mute:#6f7a89;--acc:#5fb5bd;--v:#8f7be0;--good:#6ccf94;--warn:#e0a84a}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Manrope,system-ui,sans-serif;font-size:17px;line-height:1.6}
+.wrap{max-width:1080px;margin:0 auto;padding:60px 28px 100px}
+.k{color:var(--acc);letter-spacing:.2em;text-transform:uppercase;font-weight:800;font-size:12px;margin:0 0 12px}
+h1{font-size:clamp(34px,5vw,60px);line-height:1;letter-spacing:-.03em;margin:0 0 18px;font-weight:800;max-width:18ch;text-wrap:balance}
+h2{font-size:28px;margin:64px 0 12px;letter-spacing:-.02em}h3{font-size:19px;margin:28px 0 8px}
+p{max-width:68ch}.lead{font-size:20px;color:var(--ink2)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin:18px 0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}.card b{display:block;margin-bottom:6px}.card p{margin:0;color:var(--ink2);font-size:15px}
+table{border-collapse:collapse;width:100%;font-size:15px;margin:14px 0}th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--mute);font-weight:700;font-size:12px;letter-spacing:.1em;text-transform:uppercase}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:700}.ok{background:#173a2a;color:var(--good)}.now{background:#143a3d;color:var(--acc)}.next{background:#2a2540;color:#c4b8ff}.later{background:#2b2418;color:var(--warn)}
+.sw{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}.sw div{width:120px;height:64px;border-radius:10px;border:1px solid var(--line);display:flex;align-items:flex-end;padding:6px 8px;font-size:12px;font-family:"IBM Plex Mono",monospace}
+ol.rules li{margin:8px 0}code{font-family:"IBM Plex Mono",monospace;font-size:14px;color:var(--acc)}
+.src{color:var(--mute);font-size:13px}.src a{color:var(--mute)}
+</style>
+<div class="wrap">
+<p class="k">Genesis · design plan · 12 September 2026</p>
+<h1>What has to be true for Genesis to be mind-blowing</h1>
+<p class="lead">Three research passes (Plasma visual identity, what wows people in 2025–26 products, and agent interaction design) boiled down into one identity stack, twelve moments, ten rules, and an order of work.</p>
+
+<h2>1 · The look: one identity, everywhere</h2>
+<p>The distros people screenshot at minute one (Omarchy, Aurora) win with coherent defaults, not with replaced widgets. Identity comes from colour, wallpaper, type, panel and boot-to-login continuity. Breeze stays; everything around it becomes Genesis.</p>
+<div class="sw"><div style="background:#0b0f14">ground</div><div style="background:#161d27">panel</div><div style="background:#232c37">line</div><div style="background:#5fb5bd;color:#08181a">accent</div><div style="background:#8f7be0;color:#0b0f14">second</div><div style="background:#dfe6ee;color:#0b0f14">ink</div></div>
+<div class="grid">
+<div class="card"><b>Colour scheme: Genesis Dark</b><p>Near-black neutrals with a blue bias, one teal accent, violet as the only second colour. Ships as a real KDE colour scheme, so every Qt app, Kirigami app and the login screen follow it.</p></div>
+<div class="card"><b>Wallpaper: First Light</b><p>Procedural: luminous ribbons over a deep field, a horizon glow, faint stars. Rendered at 2560×1600 and 4K. The same image is the boot, splash, login, lock and desktop background.</p></div>
+<div class="card"><b>Type: Inter + IBM Plex Mono</b><p>Inter for the interface at 10pt, Plex Mono for code and the terminal. Both packaged in Fedora, both open licences, set system-wide with fontconfig aliases.</p></div>
+<div class="card"><b>Icons and sound</b><p>Papirus-Dark icons (packaged, complete coverage), Ocean sound theme, Breeze cursors. No third-party window decoration or Kvantum: Plasma 6.5 already rounds every window at the compositor.</p></div>
+<div class="card"><b>Panel: a floating dock</b><p>Centered, fit-to-content, floating at the bottom. Genesis mark as the launcher, the maker next to it, five pinned apps, tray, clock. KRunner free-floating in the middle of the screen.</p></div>
+<div class="card"><b>Boot to login, one composition</b><p>Plymouth spinner carries the Genesis watermark, the Plasma splash shows the mark on the wallpaper with a thin progress line, the login manager uses the same wallpaper and colours.</p></div>
+</div>
+<p><span class="pill now">built today</span> colour scheme, wallpaper, fonts, icons, sound, dock layout, splash, boot watermark, system defaults under <code>/usr/share/kde-settings</code>. Lands in the next image.</p>
+
+<h2>2 · Twelve moments that make people say “wait, what?”</h2>
+<table><tr><th>#</th><th>Moment</th><th>Why it lands</th><th>Effort</th><th>Status</th></tr>
+<tr><td>1</td><td>First boot is already beautiful and configured; the wizard ends with something made</td><td>Screenshots at minute one sell distros; the first session must leave something the user keeps</td><td>L</td><td><span class="pill now">look built · “make something” step next</span></td></tr>
+<tr><td>2</td><td>A launcher that acts: Meta+Space, “resize these photos to 1080p and zip them”, done, with the command shown</td><td>Tahoe’s Spotlight actions were the one thing reviewers loved</td><td>M</td><td><span class="pill ok">maker path built</span> · select-to-act next</td></tr>
+<tr><td>3</td><td>Pull the cable: everything still works, and a tray badge proves “on this machine”</td><td>The exact inverse of Recall; what r/linux rewards</td><td>S</td><td><span class="pill next">next</span></td></tr>
+<tr><td>4</td><td>“Ask about this” on any selection or screen region, local only</td><td>Copilot Vision usefulness without the capture stigma</td><td>M</td><td><span class="pill next">next</span></td></tr>
+<tr><td>5</td><td>One-key theme swap that re-skins desktop, terminal, editor and the maker together</td><td>Omarchy’s most-shared moment</td><td>S</td><td><span class="pill later">later</span></td></tr>
+<tr><td>6</td><td>Proactive cards: a repo with failing tests, a calendar file in Downloads, a stuck update</td><td>Proactive beats a chat window (Pixel’s Magic Cue)</td><td>L</td><td><span class="pill later">later</span></td></tr>
+<tr><td>7</td><td>Agent with files and shell, sandboxed, visible diff and Keep / Undo before it sticks</td><td>Claude Code’s “different beast” feeling plus the trust Comet lacks</td><td>L</td><td><span class="pill ok">built</span> · Keep/Undo toast next</td></tr>
+<tr><td>8</td><td>Silent updates with rollback, never an “installing, don’t turn off” screen</td><td>Aurora’s polish marker; bootc gives it for free</td><td>M</td><td><span class="pill ok">inherited</span></td></tr>
+<tr><td>9</td><td>“Fits your machine” model picker with a memory bar and live tokens/s</td><td>LM Studio’s most loved screen, at OS level</td><td>S</td><td><span class="pill ok">built</span> · tokens/s next</td></tr>
+<tr><td>10</td><td>Hold to talk anywhere; “dark mode at sunset” just happens</td><td>Demo-able and private</td><td>M</td><td><span class="pill ok">voice built</span> · system intents next</td></tr>
+<tr><td>11</td><td>Phone continuity on day one (notifications, clipboard, files)</td><td>Absent on Linux, so it reads as magic; KDE Connect ships in the image</td><td>M</td><td><span class="pill later">polish later</span></td></tr>
+<tr><td>12</td><td>Terminal with natural language to command, block output</td><td>Developers are the launch audience; Warp is their benchmark</td><td>M</td><td><span class="pill later">later</span></td></tr>
+</table>
+
+<h2>3 · Ten rules for how it behaves</h2>
+<ol class="rules">
+<li><b>Meta+Space is the one door.</b> Typing, holding to talk, and “do this with the selection” all live in the same palette. Starter prompts sit under the empty field.</li>
+<li><b>A plan card before anything touches the system.</b> “Will touch: these files, this app, the network” as chips, then Proceed / Edit / I’ll do it myself.</li>
+<li><b>Plain verbs, never tier names.</b> “Genesis wants to install a package. Allow once · Allow for this project · Not now.” Tiers live in Settings.</li>
+<li><b>Three modes on the status bar, one key to cycle:</b> Ask · Trusted · Hands-off. Per-app always/never beats the classifier.</li>
+<li><b>Every job runs on a snapshot and ends with Keep / Undo.</b> A timeline lists jobs; irreversible steps (sent, deleted remotely) are marked in red.</li>
+<li><b>Show the thing being made, live.</b> Steps with checkmarks, never a spinner alone; a stalled step says why after ten seconds.</li>
+<li><b>“On this machine” is provable.</b> A tray indicator shows the model and “no network used”; any download is listed per job.</li>
+<li><b>Voice: acknowledge in 300 ms, transcript first.</b> Push-to-talk by default, wake word opt-in with a visible mic, risky spoken intents get a visual confirm, Esc stops speech.</li>
+<li><b>First run ends with something made.</b> Three one-line offers; the result lands in a “Made here” gallery with a shareable recipe.</li>
+<li><b>Accessible by construction.</b> Keyboard-complete, screen-reader status region, reduced-motion respected, every sound has a visual twin.</li>
+</ol>
+
+<h2>4 · Order of work</h2>
+<table><tr><th>Phase</th><th>Deliverable</th><th>Status</th></tr>
+<tr><td>A · Identity</td><td>Colour scheme, wallpaper, fonts, icons, dock, splash, boot watermark, login, lock screen</td><td><span class="pill now">in the next image</span></td></tr>
+<tr><td>B · Trust surface</td><td>Tray indicator (“on this machine”, model, network use), plain-verb permission dialogs, Keep / Undo toast, mode switch on the bar</td><td><span class="pill next">next</span></td></tr>
+<tr><td>C · One door</td><td>Meta+Space palette with typed, spoken and selection input; starter prompts; “ask about this” on a selection</td><td><span class="pill next">next</span></td></tr>
+<tr><td>D · First run that makes something</td><td>Last wizard step offers three makes; “Made here” gallery; share recipe</td><td><span class="pill next">next</span></td></tr>
+<tr><td>E · Settings section</td><td>Genesis in System Settings: models, permissions, undo history, voice</td><td><span class="pill later">planned</span></td></tr>
+<tr><td>F · Proactive and continuity</td><td>Context cards, theme swap, terminal, KDE Connect polish</td><td><span class="pill later">later</span></td></tr>
+</table>
+
+<h2>5 · What we deliberately do not do</h2>
+<p>No screen recording or always-on capture (Recall). No AI button on every surface (Copilot). No cloud fallback by default (Siri). No replaced window decorations or Kvantum (Garuda’s breakage). No features announced before they run (Siri again). Basics first: a timer must still be a timer.</p>
+<p class="src">Sources are in the three research reports summarised in <a href="decisions.md">decisions.md</a> (33) and the brief. Product research: MacRumors, Tom’s Guide, GeekWire, DoublePulsar, Android Central, Tedium, XDA, HN. Plasma: KDE developer docs, Fedora change pages, Aurora and Nitrux sources. Interaction: Smashing Magazine (2026), Claude Code, Goose, OpenHands and Devin docs, NN/g, AssemblyAI.</p>
+</div>

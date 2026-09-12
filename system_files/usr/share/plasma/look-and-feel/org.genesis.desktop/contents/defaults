@@ -2,10 +2,10 @@
 widgetStyle=Breeze
 
 [kdeglobals][General]
-ColorScheme=BreezeDark
+ColorScheme=GenesisDark
 
 [kdeglobals][Icons]
-Theme=breeze-dark
+Theme=Papirus-Dark
 
 [plasmarc][Theme]
 name=default
@@ -14,7 +14,7 @@ name=default
 cursorTheme=breeze_cursors
 
 [kwinrc][WindowSwitcher]
-LayoutName=org.kde.breeze.desktop
+LayoutName=thumbnail_grid
 
 [kwinrc][DesktopSwitcher]
 LayoutName=org.kde.breeze.desktop
@@ -26,4 +26,4 @@ library=org.kde.breeze
 Image=Genesis
 
 [KSplash]
-Theme=org.kde.breeze.desktop
+Theme=org.genesis.desktop
