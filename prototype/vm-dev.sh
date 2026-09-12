@@ -16,7 +16,7 @@ if [ ! -f "$ovl" ] || [ "$(cat iso/output/dev-overlay.base 2>/dev/null)" != "$ba
 fi
 cp -n /opt/homebrew/share/qemu/edk2-x86_64-code.fd iso/output/ovmf-code.fd 2>/dev/null || true
 echo "dev VM: window opens; ssh -p 2222 genesis@127.0.0.1 (password genesis); wizard http://127.0.0.1:11511 ; maker http://127.0.0.1:11521"
-exec qemu-system-x86_64 -machine q35 -cpu max -smp 4 -m 6144 \
+exec qemu-system-x86_64 -machine q35 -cpu max -smp 4 -m 4096 \
   -drive if=pflash,format=raw,readonly=on,file=iso/output/ovmf-code.fd \
   -drive file="$ovl",format=qcow2,if=virtio \
   -device virtio-vga -display cocoa -device qemu-xhci -device usb-tablet \
