@@ -215,6 +215,15 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
         (Method::Get, ["palette"]) => Response::from_string(PALETTE_HTML).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
         (Method::Get, ["settings"]) => Response::from_string(SETTINGS_HTML).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
         (Method::Get, ["api", "system"]) => json_response(&system_overview(d), 200),
+        (Method::Post, ["api", "system", "theme"]) => {
+            let want = serde_json::from_str::<serde_json::Value>(&body).ok().and_then(|v| v.get("theme").and_then(|m| m.as_str()).map(|s| s.to_string())).unwrap_or_else(|| "toggle".into());
+            if !["dark", "light", "toggle"].contains(&want.as_str()) { json_response(&serde_json::json!({"error": "expected {theme: dark|light|toggle}"}), 400) }
+            else { match std::process::Command::new("genesis-theme").arg(&want).output() {
+                Ok(o) if o.status.success() => json_response(&serde_json::json!({"scheme": String::from_utf8_lossy(&o.stdout).trim()}), 200),
+                Ok(o) => json_response(&serde_json::json!({"error": String::from_utf8_lossy(&o.stderr).trim()}), 500),
+                Err(e) => json_response(&serde_json::json!({"error": format!("genesis-theme: {}", e)}), 503),
+            } }
+        }
         (Method::Post, ["api", "system", "mode"]) => match serde_json::from_str::<serde_json::Value>(&body).ok().and_then(|v| v.get("mode").and_then(|m| m.as_str()).map(|s| s.to_string())) {
             Some(mode) if parse_mode(&mode).is_ok() => { write_user_settings(&serde_json::json!({"default_mode": mode})); json_response(&serde_json::json!({"ok": true, "default_mode": mode}), 200) }
             _ => json_response(&serde_json::json!({"error": "expected {mode: assist|auto_edit|autonomous}"}), 400),

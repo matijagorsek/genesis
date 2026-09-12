@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Switch Genesis day / night
+Comment=Toggle between Genesis Dark and Genesis Light for the whole desktop
+Exec=/usr/bin/genesis-theme toggle
+Icon=genesis
+Terminal=false
+Categories=Settings;
+NoDisplay=true

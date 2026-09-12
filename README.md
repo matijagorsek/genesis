@@ -47,7 +47,8 @@ Design brief: [docs/genesis-brief.html](docs/genesis-brief.html) · Design plan:
   a spoken one (hold the mic), or the current selection (`Meta+Shift+Space`), and hands it to the maker.
   `ask …` also works in KRunner.
 - **Genesis Settings**: a Settings menu entry showing the machine, models on disk, the default autonomy
-  mode (Ask / Trusted / Hands-off), voice readiness, the measured tokens per second, and the undo history.
+  mode (Ask / Trusted / Hands-off), voice readiness, the measured tokens per second, the undo history,
+  and a Day / Night switch for the whole desktop (also `Meta+Shift+T`).
 - **Status widget** in the dock: model loaded, whether any job used the network, sandbox on, one click
   to the maker.
 - **Browser control**: the agent drives a headless Chromium with a throw-away profile (open, read,

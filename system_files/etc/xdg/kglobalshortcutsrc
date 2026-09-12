@@ -5,3 +5,7 @@ _launch=Meta+Space
 # Meta+Shift+Space: ask Genesis about the current selection.
 [services][org.genesis.ask-selection.desktop]
 _launch=Meta+Shift+Space
+
+# Meta+Shift+T: day / night for the whole desktop.
+[services][org.genesis.theme.desktop]
+_launch=Meta+Shift+T

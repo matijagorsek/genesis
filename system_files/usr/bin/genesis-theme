@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# One key, whole desktop: switch between Genesis Dark and Genesis Light (colour scheme for every app,
+# the panel and the login screen follow). Usage: genesis-theme [dark|light|toggle]   (default: toggle)
+set -u
+want="${1:-toggle}"
+cur="$(kreadconfig6 --file kdeglobals --group General --key ColorScheme 2>/dev/null || echo GenesisDark)"
+if [ "$want" = toggle ]; then [ "$cur" = GenesisLight ] && want=dark || want=light; fi
+case "$want" in
+  light) scheme=GenesisLight; icons=Papirus-Light ;;
+  *)     scheme=GenesisDark;  icons=Papirus-Dark ;;
+esac
+plasma-apply-colorscheme "$scheme" >/dev/null 2>&1
+[ -d "/usr/share/icons/$icons" ] && /usr/libexec/plasma-changeicons "$icons" >/dev/null 2>&1
+kwriteconfig6 --file kdeglobals --group General --key ColorScheme "$scheme"
+notify-send -a Genesis -i genesis "Genesis ${want^}" "Colours switched for every app." 2>/dev/null || true
+echo "$scheme"
