@@ -267,6 +267,8 @@ fn shell_quote(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    /// Tests that set HOME must not overlap (cargo runs tests in parallel).
+    static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
     #[test]
     fn scaffold_substitutes_names_and_lists_templates() {
@@ -288,6 +290,7 @@ mod tests {
 
     #[test]
     fn gallery_lists_projects_with_recipes() {
+        let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let repo_templates = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../templates");
         std::env::set_var("GENESIS_TEMPLATES", repo_templates.display().to_string());
         let projects = tempfile::tempdir().unwrap();
@@ -309,6 +312,7 @@ mod tests {
 
     #[test]
     fn install_app_writes_desktop_entry() {
+        let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let repo_templates = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../templates");
         std::env::set_var("GENESIS_TEMPLATES", repo_templates.display().to_string());
         let dir = tempfile::tempdir().unwrap();
