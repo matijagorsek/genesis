@@ -9,7 +9,7 @@
 # vanishes on reboot, which is exactly what a dev loop wants.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-bins=("$@"); [ ${#bins[@]} -gt 0 ] || bins=(genesis-permd genesis-probe genesis-firstrun genesis-agentd genesis-txd genesis-krunner)
+bins=("$@"); [ ${#bins[@]} -gt 0 ] || bins=(genesis-permd genesis-probe genesis-firstrun genesis-agentd genesis-txd genesis-krunner genesis-ask)
 ssh_opts=(-p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR)
 command -v sshpass >/dev/null || echo "tip: brew install sshpass for password-less pushes"
 # disks built before v0.1.34 have sshd off: once, in the VM window, run: sudo systemctl enable --now sshd

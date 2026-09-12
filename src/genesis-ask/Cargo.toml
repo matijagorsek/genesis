@@ -1,0 +1,18 @@
+[package]
+name = "genesis-ask"
+description = "Genesis in the terminal: say what you want, get the command, run it only when you confirm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "genesis-ask"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+serde_json.workspace = true
+clap.workspace = true
+ureq.workspace = true
+genesis-permd = { path = "../genesis-permd" }

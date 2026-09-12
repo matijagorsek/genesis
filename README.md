@@ -53,6 +53,9 @@ Design brief: [docs/genesis-brief.html](docs/genesis-brief.html) · Design plan:
   to the maker.
 - **Browser control**: the agent drives a headless Chromium with a throw-away profile (open, read,
   click, type, screenshot). Page content is treated as untrusted and taints the session.
+- **Terminal**: `ask list the ten biggest files here` prints the command, says what it would touch
+  (reads only, changes files here, changes the system), and runs it when you confirm. In bash, type a
+  sentence and press `Ctrl+G` to replace it with the command.
 - **Voice**: hold-to-talk (whisper.cpp) with a chime and glow the instant you press, and spoken replies
   (Piper), all local.
 

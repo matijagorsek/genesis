@@ -593,6 +593,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "genesis-ask"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "genesis-permd",
+ "serde_json",
+ "ureq 2.12.1",
+]
+
+[[package]]
 name = "genesis-firstrun"
 version = "0.1.0"
 dependencies = [

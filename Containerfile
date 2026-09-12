@@ -13,8 +13,8 @@ RUN rustup target add x86_64-unknown-linux-gnu
 ENV CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=x86_64-linux-gnu-gcc
 WORKDIR /src
 COPY src/ /src/
-RUN cargo build --release --target x86_64-unknown-linux-gnu -p genesis-permd -p genesis-probe -p genesis-firstrun -p genesis-agentd -p genesis-txd -p genesis-krunner \
- && for b in genesis-permd genesis-probe genesis-firstrun genesis-agentd genesis-txd genesis-krunner; do install -D -m 0755 target/x86_64-unknown-linux-gnu/release/$b /out/usr/bin/$b; done
+RUN cargo build --release --target x86_64-unknown-linux-gnu -p genesis-permd -p genesis-probe -p genesis-firstrun -p genesis-agentd -p genesis-txd -p genesis-krunner -p genesis-ask \
+ && for b in genesis-permd genesis-probe genesis-firstrun genesis-agentd genesis-txd genesis-krunner genesis-ask; do install -D -m 0755 target/x86_64-unknown-linux-gnu/release/$b /out/usr/bin/$b; done
 
 # ---- stage 1b: genesis-window (Qt WebEngine), built on Fedora so it links against the image's Qt ------
 FROM quay.io/fedora/fedora:44 AS qtbuild
