@@ -28,7 +28,7 @@ maker.writeConfig("url", "file:///usr/share/applications/org.genesis.workspace.d
 
 var tasks = panel.addWidget("org.kde.plasma.icontasks");
 tasks.currentConfigGroup = ["General"];
-tasks.writeConfig("launchers", ["applications:firefox.desktop", "applications:org.kde.dolphin.desktop", "applications:org.kde.konsole.desktop", "applications:org.kde.discover.desktop", "applications:systemsettings.desktop"]);
+tasks.writeConfig("launchers", ["applications:org.mozilla.firefox.desktop", "applications:org.kde.dolphin.desktop", "applications:org.kde.konsole.desktop", "applications:org.kde.discover.desktop", "applications:systemsettings.desktop"]);
 tasks.writeConfig("showOnlyCurrentScreen", false);
 
 panel.addWidget("org.kde.plasma.marginsseparator");
