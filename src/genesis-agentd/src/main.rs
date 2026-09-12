@@ -79,7 +79,7 @@ struct Daemon {
 }
 
 fn new_shared(id: &str, mode: Mode, project: &str, model: &str) -> Arc<Shared> {
-    Arc::new(Shared { info: Mutex::new(SessionInfo { id: id.into(), mode, project: project.into(), model: model.into(), state: "idle".into(), events: vec![], pending: vec![], transaction: None, preview_url: None, active_project: None }), answers: Mutex::new(VecDeque::new()), cv: Condvar::new() })
+    Arc::new(Shared { info: Mutex::new(SessionInfo { id: id.into(), mode, project: project.into(), model: model.into(), state: "idle".into(), events: vec![], pending: vec![], transaction: None, preview_url: None, active_project: None, network_uses: vec![] }), answers: Mutex::new(VecDeque::new()), cv: Condvar::new() })
 }
 
 fn parse_mode(s: &str) -> Result<Mode> {
@@ -210,6 +210,7 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
         (Method::Get, [""]) | (Method::Get, ["index.html"]) | (Method::Get, ["workspace"]) => Response::from_string(WORKSPACE_HTML).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
         (Method::Get, ["api", "health"]) => json_response(&serde_json::json!({"ok": true, "endpoint": d.endpoint, "model": d.model, "sandbox": sandbox::bwrap_available(), "voice": voice::available(), "speech": voice::speech_available(), "default_project": default_project()}), 200),
         (Method::Get, ["api", "templates"]) => json_response(&maker::list_templates(), 200),
+        (Method::Get, ["api", "made"]) => json_response(&maker::made_here(std::path::Path::new(&default_project())), 200),
         (Method::Get, ["api", "sessions"]) => {
             let list: Vec<serde_json::Value> = d.sessions.lock().unwrap().values().map(|(s, _)| { let i = s.info.lock().unwrap(); serde_json::json!({"id": i.id, "mode": i.mode, "project": i.project, "state": i.state, "transaction": i.transaction}) }).collect();
             json_response(&list, 200)

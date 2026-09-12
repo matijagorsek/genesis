@@ -200,6 +200,66 @@ pub fn install_app(project: &Path, display_name: &str) -> Result<PathBuf> {
     Ok(entry)
 }
 
+/// One thing made with Genesis: a project folder with a genesis.json, plus whether it is in the app menu.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Made {
+    pub name: String,
+    pub path: String,
+    pub template: String,
+    pub installed: bool,
+    pub made_at: String,
+    #[serde(default)]
+    pub prompts: Vec<String>,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct Recipe {
+    #[serde(default)]
+    pub template: String,
+    #[serde(default)]
+    pub prompts: Vec<String>,
+    #[serde(default)]
+    pub made_at: String,
+}
+
+/// Append a prompt to the project's recipe (the shareable "how this was made" record).
+pub fn record_recipe(project: &Path, template: Option<&str>, prompt: &str) {
+    let f = project.join(".genesis-recipe.json");
+    let mut r: Recipe = std::fs::read_to_string(&f).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default();
+    if let Some(t) = template { if r.template.is_empty() { r.template = t.to_string(); } }
+    if r.made_at.is_empty() { r.made_at = time::OffsetDateTime::now_utc().format(&time::format_description::well_known::Rfc3339).unwrap_or_default(); }
+    if !prompt.trim().is_empty() && r.prompts.last().map(|l| l != prompt).unwrap_or(true) { r.prompts.push(prompt.trim().to_string()); }
+    let _ = std::fs::write(&f, serde_json::to_string_pretty(&r).unwrap_or_default());
+}
+
+/// Everything made under `projects_dir`, newest first.
+pub fn made_here(projects_dir: &Path) -> Vec<Made> {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
+    let apps = Path::new(&home).join(".local/share/applications");
+    let mut out = Vec::new();
+    if let Ok(rd) = std::fs::read_dir(projects_dir) {
+        for e in rd.flatten() {
+            let p = e.path();
+            let manifest = p.join("genesis.json");
+            if !manifest.is_file() { continue; }
+            let name = p.file_name().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+            let t: Option<Template> = std::fs::read_to_string(&manifest).ok().and_then(|x| serde_json::from_str(&x).ok());
+            let recipe: Recipe = std::fs::read_to_string(p.join(".genesis-recipe.json")).ok().and_then(|x| serde_json::from_str(&x).ok()).unwrap_or_default();
+            let mtime = std::fs::metadata(&manifest).and_then(|m| m.modified()).ok().map(|m| time::OffsetDateTime::from(m).format(&time::format_description::well_known::Rfc3339).unwrap_or_default()).unwrap_or_default();
+            out.push(Made {
+                name: name.clone(),
+                path: p.display().to_string(),
+                template: if recipe.template.is_empty() { t.map(|t| t.id).unwrap_or_default() } else { recipe.template },
+                installed: apps.join(format!("genesis-{}.desktop", name)).is_file(),
+                made_at: if recipe.made_at.is_empty() { mtime } else { recipe.made_at },
+                prompts: recipe.prompts,
+            });
+        }
+    }
+    out.sort_by(|a, b| b.made_at.cmp(&a.made_at));
+    out
+}
+
 fn shell_quote(s: &str) -> String {
     format!("'{}'", s.replace('\'', "'\\''"))
 }
@@ -224,6 +284,27 @@ mod tests {
         assert!(!text.contains("{{name}}"));
         assert!(scaffold("python-cli", "bad name", &dir.path().join("x")).is_err());
         assert!(scaffold("nope", "ok", &dir.path().join("y")).is_err());
+    }
+
+    #[test]
+    fn gallery_lists_projects_with_recipes() {
+        let repo_templates = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../templates");
+        std::env::set_var("GENESIS_TEMPLATES", repo_templates.display().to_string());
+        let projects = tempfile::tempdir().unwrap();
+        let home = tempfile::tempdir().unwrap();
+        std::env::set_var("HOME", home.path().display().to_string());
+        let a = projects.path().join("timer");
+        scaffold("web-static", "timer", &a).unwrap();
+        record_recipe(&a, Some("web-static"), "a pomodoro timer with a bell");
+        record_recipe(&a, None, "make the bell louder");
+        install_app(&a, "Timer").unwrap();
+        std::fs::create_dir_all(projects.path().join("not-genesis")).unwrap();
+        let made = made_here(projects.path());
+        assert_eq!(made.len(), 1);
+        assert_eq!(made[0].name, "timer");
+        assert!(made[0].installed);
+        assert_eq!(made[0].template, "web-static");
+        assert_eq!(made[0].prompts, vec!["a pomodoro timer with a bell", "make the bell louder"]);
     }
 
     #[test]

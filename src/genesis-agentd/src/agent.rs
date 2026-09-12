@@ -73,6 +73,9 @@ pub struct SessionInfo {
     pub preview_url: Option<String>,
     /// The project the maker tools currently target.
     pub active_project: Option<String>,
+    /// Every network use this session was allowed: domains (or "*" for a shell command with network).
+    #[serde(default)]
+    pub network_uses: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -137,6 +140,8 @@ pub struct Agent {
     pub previews: maker::Previews,
     /// Headless Chromium, started on first use.
     pub browser: Option<browser::Browser>,
+    /// The most recent user prompt (recorded into the project recipe on scaffold).
+    pub last_prompt: String,
     /// Project directory the maker tools currently target (set by scaffold).
     pub active_project: Option<PathBuf>,
 }
@@ -148,13 +153,14 @@ fn resolve_path(project: &Path, p: &str) -> PathBuf {
 
 impl Agent {
     pub fn new(client: Client, broker: Arc<Mutex<Broker>>, session_id: String, project: PathBuf, shared: Arc<Shared>) -> Self {
-        Agent { client, broker, session_id, project, shared, max_turns: 40, prompt_timeout: Duration::from_secs(600), messages: vec![Message::system(SYSTEM_PROMPT)], tx_store: None, tx: None, previews: maker::Previews::default(), active_project: None, browser: None }
+        Agent { client, broker, session_id, project, shared, max_turns: 40, prompt_timeout: Duration::from_secs(600), messages: vec![Message::system(SYSTEM_PROMPT)], tx_store: None, tx: None, previews: maker::Previews::default(), active_project: None, browser: None, last_prompt: String::new() }
     }
 
     /// Run one user prompt to completion (or until a tool call is denied and the model gives up).
     pub fn run(&mut self, text: &str) -> Result<String> {
         self.shared.push(Event::UserPrompt { text: text.into() });
         self.shared.set_state("running");
+        self.last_prompt = text.to_string();
         self.messages.push(Message::user(format!("Project directory: {}\n\nTask: {}", self.project.display(), text)));
         let tools = tool_schemas();
         let mut final_text = String::new();
@@ -177,6 +183,7 @@ impl Agent {
             let calls = msg.tool_calls.clone().unwrap_or_default();
             if calls.is_empty() {
                 let _ = self.commit();
+                if let Some(p) = self.active_project.clone() { maker::record_recipe(&p, None, text); }
                 self.shared.push(Event::Done { turns: turn + 1 });
                 self.shared.set_state("done");
                 return Ok(final_text);
@@ -260,6 +267,10 @@ impl Agent {
             return Err(anyhow!("the user did not allow this action ({}): {}", decision.tier.code(), decision.reason));
         }
         // User- or system-scope change: make it undoable before it happens.
+        if !intent.network.domains.is_empty() {
+            let mut info = self.shared.info.lock().unwrap();
+            for d in &intent.network.domains { if !info.network_uses.contains(d) { info.network_uses.push(d.clone()); } }
+        }
         if decision.tier >= Tier::WriteUser && decision.tier <= Tier::System {
             self.snapshot_before(&intent, decision.tier)?;
         }
@@ -331,6 +342,7 @@ impl Agent {
             "scaffold" => {
                 let dest = self.scaffold_dest(&s("name"));
                 let t = maker::scaffold(&s("template"), &s("name"), &dest)?;
+                maker::record_recipe(&dest, Some(&t.id), &self.last_prompt);
                 self.active_project = Some(dest.clone());
                 self.shared.info.lock().unwrap().active_project = Some(dest.display().to_string());
                 let mut files: Vec<String> = std::fs::read_dir(&dest)?.filter_map(|e| e.ok()).map(|e| e.file_name().to_string_lossy().to_string()).collect();
