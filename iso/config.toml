@@ -15,3 +15,7 @@ append = "console=ttyS0,115200 console=tty0 genesis.devssh=1"
 
 # Note: bootc-image-builder refuses [[customizations.user]] together with custom kickstart content,
 # so no kickstart block here. Anaconda asks for disk, locale and user; the test user above is also created.
+
+# Test/dev disks: room for a model pack. qcow2 grows lazily, so this costs nothing until used.
+[customizations.disk]
+minsize = "40 GiB"

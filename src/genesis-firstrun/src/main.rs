@@ -117,6 +117,20 @@ fn handle(app: &Arc<App>, mut req: Request) -> Result<bool> {
         }
         (Method::Post, "/api/choose") => {
             let body = read_body(&mut req);
+            // a pack that does not fit this machine is refused unless the caller insists ({force: true})
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&body) {
+                let force = v.get("force").and_then(|f| f.as_bool()).unwrap_or(false);
+                if let Some(pack) = v.get("pack").and_then(|p| p.as_str()) {
+                    let prof: serde_json::Value = std::fs::read_to_string(&app.cli.profile).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(serde_json::Value::Null);
+                    let unfit = prof.get("packs").and_then(|a| a.as_array()).and_then(|a| a.iter().find(|f| f.get("id").and_then(|i| i.as_str()) == Some(pack))).and_then(|f| f.get("fits").and_then(|b| b.as_bool())).map(|fits| !fits).unwrap_or(false);
+                    if unfit && !force {
+                        let reason = prof.get("packs").and_then(|a| a.as_array()).and_then(|a| a.iter().find(|f| f.get("id").and_then(|i| i.as_str()) == Some(pack))).and_then(|f| f.get("reason").and_then(|r| r.as_str())).unwrap_or("").to_string();
+                        let resp = json_response(&serde_json::json!({ "error": format!("pack {} does not fit this machine: {}", pack, reason) }), 409);
+                        let _ = req.respond(resp);
+                        return Ok(false);
+                    }
+                }
+            }
             let busy = app.progress.lock().unwrap().state == "downloading";
             match (busy, serde_json::from_str::<PackReq>(&body).ok().and_then(|r| packs::load_pack(&app.cli.packs, &r.pack).ok())) {
                 (true, _) => json_response(&serde_json::json!({ "error": "a download is already running" }), 409),
@@ -172,6 +186,15 @@ fn handle(app: &Arc<App>, mut req: Request) -> Result<bool> {
         (Method::Post, "/api/finish") => {
             // an optional first thing to make: genesis-window opens the maker with it after this wizard closes
             let body = read_body(&mut req);
+            {
+                let state = app.progress.lock().unwrap().state.clone();
+                let force = serde_json::from_str::<serde_json::Value>(&body).ok().and_then(|v| v.get("force").and_then(|f| f.as_bool())).unwrap_or(false);
+                if (state == "downloading" || state == "error") && !force {
+                    let resp = json_response(&serde_json::json!({ "error": format!("a download is {}; finish it, retry it, or pass force", state) }), 409);
+                    let _ = req.respond(resp);
+                    return Ok(false);
+                }
+            }
             let starter = serde_json::from_str::<serde_json::Value>(&body).ok().and_then(|v| v.get("starter").and_then(|s| s.as_str()).map(|s| s.trim().to_string())).unwrap_or_default();
             if !starter.is_empty() {
                 if let Some(d) = app.cli.done_marker.parent() { let _ = std::fs::write(d.join("first-run-starter"), format!("{}\n", starter.chars().take(300).collect::<String>())); }
