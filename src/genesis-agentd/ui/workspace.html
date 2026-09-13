@@ -95,6 +95,7 @@ body.listening header{box-shadow:inset 0 -2px 0 var(--accent)}body.listening tex
 <section id="start">
   <h1>What do you want to make?</h1>
   <p class="sub">Describe an app, a tool or a script. Genesis builds it here with local models, shows it running, and can put it in your app menu.</p>
+  <p class="sub" id="smallNote" hidden style="color:var(--warn)">This machine runs the small model only. It can scaffold and make simple changes; for real app building, install a bigger pack in Genesis Settings when the hardware allows.</p>
   <div class="ask"><textarea id="ask" placeholder="e.g. a pomodoro timer web app with a big countdown and a bell"></textarea><button id="micAsk" class="mic" title="Hold to talk" hidden>🎤</button><button class="primary" id="go">Make it</button></div>
   <div class="where">
     <label>Mode <select id="mode"><option value="auto_edit" selected>Trusted: works inside the project on its own, asks before installing, going online or touching anything else</option><option value="assist">Ask: asks before every change</option><option value="autonomous">Hands-off: also allowed outside the project, everything snapshotted; system changes still ask</option></select></label>
@@ -162,7 +163,7 @@ body.listening header{box-shadow:inset 0 -2px 0 var(--accent)}body.listening tex
   let current=null, seen=0, poll=null, lastUrl=null;
   async function api(path,body){const r=await fetch(path,body?{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}:{});return r.json();}
   function showStart(on){$('#start').style.display=on?'flex':'none';$('#maker').classList.toggle('on',!on);}
-  async function health(){try{const h=await api('/api/health');$('#badgeModel').textContent='model: '+h.model;$('#badgeSandbox').textContent=h.sandbox?'sandbox: bubblewrap':'sandbox: dev mode';if(!$('#project').value)$('#project').value=h.default_project||'';}catch(e){$('#badgeModel').textContent='model: unreachable'}}
+  async function health(){try{const h=await api('/api/health');document.getElementById('smallNote').hidden=!(h.model==='fast'||h.model==='auto');$('#badgeModel').textContent='model: '+h.model;$('#badgeSandbox').textContent=h.sandbox?'sandbox: bubblewrap':'sandbox: dev mode';if(!$('#project').value)$('#project').value=h.default_project||'';}catch(e){$('#badgeModel').textContent='model: unreachable'}}
   async function templates(){const t=await api('/api/templates');const box=$('#tpls');box.innerHTML='';(t||[]).forEach(x=>{const d=document.createElement('button');d.className='tpl';d.innerHTML=`<b>${x.name}</b><span>${x.description}</span>`;d.addEventListener('click',()=>{const a=$('#ask');a.value=(a.value.trim()?a.value.trim()+' ':'')+`(use the ${x.id} template)`;a.focus()});box.appendChild(d)})}
   async function recent(){const list=await api('/api/sessions');const r=$('#recent');r.innerHTML='';if(!Array.isArray(list)||!list.length)return;r.appendChild(document.createTextNode('Recent: '));list.slice(-6).reverse().forEach(s=>{const a=document.createElement('a');a.textContent=(s.active_project||s.project).split('/').pop()+' · '+s.state;a.addEventListener('click',()=>open(s.id));r.appendChild(a)})}
   function stepEl(e){const d=document.createElement('div');let cls='',icon='',text='';

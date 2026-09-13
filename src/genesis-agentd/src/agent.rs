@@ -145,6 +145,10 @@ pub struct Agent {
     pub browser: Option<browser::Browser>,
     /// The most recent user prompt (recorded into the project recipe on scaffold).
     pub last_prompt: String,
+    /// Bookkeeping for the "you scaffolded but changed nothing" nudge (small models stop early).
+    pub scaffolded: bool,
+    pub edited_after_scaffold: bool,
+    pub nudged: bool,
     /// Project directory the maker tools currently target (set by scaffold).
     pub active_project: Option<PathBuf>,
 }
@@ -156,7 +160,7 @@ fn resolve_path(project: &Path, p: &str) -> PathBuf {
 
 impl Agent {
     pub fn new(client: Client, broker: Arc<Mutex<Broker>>, session_id: String, project: PathBuf, shared: Arc<Shared>) -> Self {
-        Agent { client, broker, session_id, project, shared, max_turns: 40, prompt_timeout: Duration::from_secs(600), messages: vec![Message::system(SYSTEM_PROMPT)], tx_store: None, tx: None, previews: maker::Previews::default(), active_project: None, browser: None, last_prompt: String::new() }
+        Agent { client, broker, session_id, project, shared, max_turns: 40, prompt_timeout: Duration::from_secs(600), messages: vec![Message::system(SYSTEM_PROMPT)], tx_store: None, tx: None, previews: maker::Previews::default(), active_project: None, browser: None, last_prompt: String::new(), scaffolded: false, edited_after_scaffold: false, nudged: false }
     }
 
     /// Run one user prompt to completion (or until a tool call is denied and the model gives up).
@@ -164,6 +168,7 @@ impl Agent {
         self.shared.push(Event::UserPrompt { text: text.into() });
         self.shared.set_state("running");
         self.last_prompt = text.to_string();
+        self.scaffolded = false; self.edited_after_scaffold = false; self.nudged = false;
         self.messages.push(Message::user(format!("Project directory: {}\n\nTask: {}", self.project.display(), text)));
         let tools = tool_schemas();
         let mut final_text = String::new();
@@ -191,6 +196,12 @@ impl Agent {
                 final_text = t.into();
             }
             let calls = msg.tool_calls.clone().unwrap_or_default();
+            if calls.is_empty() && self.scaffolded && !self.edited_after_scaffold && !self.nudged {
+                // The template alone is never the answer. Small models tend to declare victory here; ask once.
+                self.nudged = true;
+                self.messages.push(Message::user("You scaffolded the template but did not change any file. The template is only a starting point: now implement what was asked (edit the generated files so the program actually does it), run it once to check, and only then finish.".into()));
+                continue;
+            }
             if calls.is_empty() {
                 let _ = self.commit();
                 if let Some(p) = self.active_project.clone() { maker::record_recipe(&p, None, text); }
@@ -357,6 +368,7 @@ impl Agent {
                 let dest = self.scaffold_dest(&s("name"));
                 let t = maker::scaffold(&s("template"), &s("name"), &dest)?;
                 maker::record_recipe(&dest, Some(&t.id), &self.last_prompt);
+                self.scaffolded = true; self.edited_after_scaffold = false;
                 self.active_project = Some(dest.clone());
                 self.shared.info.lock().unwrap().active_project = Some(dest.display().to_string());
                 let mut files: Vec<String> = std::fs::read_dir(&dest)?.filter_map(|e| e.ok()).map(|e| e.file_name().to_string_lossy().to_string()).collect();
@@ -416,6 +428,7 @@ impl Agent {
                 Ok(if text.len() > 60_000 { format!("{}\n…[truncated, {} bytes total]", &text[..60_000], text.len()) } else { text })
             }
             "write_file" => {
+                self.edited_after_scaffold = true;
                 let p = resolve_path(&self.project, &s("path"));
                 if let Some(d) = p.parent() { std::fs::create_dir_all(d)?; }
                 let content = s("content");
@@ -423,6 +436,7 @@ impl Agent {
                 Ok(format!("wrote {} ({} bytes)", p.display(), content.len()))
             }
             "edit_file" => {
+                self.edited_after_scaffold = true;
                 let p = resolve_path(&self.project, &s("path"));
                 let text = std::fs::read_to_string(&p).map_err(|e| anyhow!("{}: {}", p.display(), e))?;
                 let old = s("old_text");
