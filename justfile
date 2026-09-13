@@ -178,3 +178,7 @@ qcow2-arm64:
 # Native-speed VM on this Mac (Apple hypervisor), window + SSH on 2223
 vm-dev-arm disk="":
     prototype/vm-dev-arm.sh {{disk}}
+
+# Dev bridge: the VM uses the Mac's Metal model service (needs `just up` on the Mac)
+vm-bridge port="2223":
+    prototype/vm-bridge.sh {{port}}

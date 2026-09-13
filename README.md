@@ -89,7 +89,8 @@ just vm-push           # cross-compiles the daemons in Docker and copies them in
 prototype/serial-cmd.py iso/output/dev/serial.sock 'cmd'   # run commands over the serial console
 just firstrun          # the wizard, natively on this Mac, at http://127.0.0.1:11510
 just workspace         # the maker, natively, at http://127.0.0.1:11520 (needs `just up`)
-cd src && cargo test   # Rust workspace: permd, probe, firstrun, agentd, txd, krunner
+just vm-bridge         # dev only: the VM uses the Mac's Metal model service for the maker and `ask`
+cd src && cargo test   # Rust workspace: permd, probe, firstrun, agentd, txd, krunner, ask
 ```
 
 Full image, locally (emulated on Apple Silicon, slow) or in CI (every push to `main`):
