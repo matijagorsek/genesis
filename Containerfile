@@ -46,7 +46,7 @@ RUN set -eux; mkdir -p /out; if [ "$TARGETARCH" = arm64 ]; then \
       git clone --depth 1 --branch ${LLAMA_CPP_BUILD} https://github.com/ggml-org/llama.cpp /src; \
       cmake -S /src -B /build -G Ninja -DCMAKE_BUILD_TYPE=Release -DGGML_NATIVE=OFF -DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON -DGGML_VULKAN=ON \
         -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_TOOLS=ON -DLLAMA_CURL=ON; \
-      cmake --build /build --target llama-server llama-cli llama-bench llama-quantize llama-mtmd-cli; \
+      cmake --build /build -j 3 --target llama-server llama-cli llama-bench llama-quantize llama-mtmd-cli; \
       mkdir -p /out/usr/lib/genesis/llama.cpp; cp /build/bin/llama-* /build/bin/*.so* /out/usr/lib/genesis/llama.cpp/; \
       ls /out/usr/lib/genesis/llama.cpp; \
     fi
