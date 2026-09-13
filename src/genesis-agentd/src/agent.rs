@@ -329,9 +329,13 @@ impl Agent {
     }
 
     /// Where `scaffold` puts a project: the session project itself if empty, else a subdirectory.
+    /// Where a scaffold goes: a subfolder named after the project, unless the session folder itself is
+    /// that project (an empty folder already named like it). A fresh, empty ~/Projects must not become
+    /// the first project.
     fn scaffold_dest(&self, name: &str) -> PathBuf {
         let empty = std::fs::read_dir(&self.project).map(|mut d| d.next().is_none()).unwrap_or(true);
-        if empty { self.project.clone() } else { self.project.join(name) }
+        let same_name = self.project.file_name().map(|f| f.to_string_lossy() == name).unwrap_or(false);
+        if empty && same_name { self.project.clone() } else { self.project.join(name) }
     }
 
     fn target_project(&self, args: &Value) -> PathBuf {
