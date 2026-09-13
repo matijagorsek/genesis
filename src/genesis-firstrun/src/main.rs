@@ -128,8 +128,9 @@ fn handle(app: &Arc<App>, mut req: Request) -> Result<bool> {
                             app.settings.lock().unwrap().pack = Some(pack.id.clone());
                             let models_dir = app.cli.models_dir.clone();
                             let router_out = app.cli.router_out.clone();
+                            let profile_path = app.cli.profile.clone();
                             let on_done: Box<dyn FnOnce() -> Result<()> + Send> = Box::new(move || {
-                                let prof: serde_json::Value = std::fs::read_to_string(&app.cli.profile).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(serde_json::Value::Null);
+                                let prof: serde_json::Value = std::fs::read_to_string(&profile_path).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(serde_json::Value::Null);
                                 let cores = prof.pointer("/cpu/cores").and_then(|c| c.as_u64()).unwrap_or(4) as u32;
                                 let gpus: Vec<String> = prof.get("gpus").and_then(|g| g.as_array()).map(|a| a.iter().filter_map(|g| g.get("name").and_then(|n| n.as_str()).map(|s| s.to_string())).collect()).unwrap_or_default();
                                 let compute = prof.get("gpus").and_then(|g| g.as_array()).map(|a| a.iter().any(|g| g.get("compute_ready").and_then(|c| c.as_bool()).unwrap_or(false))).unwrap_or(false);
