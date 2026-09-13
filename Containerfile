@@ -126,7 +126,7 @@ RUN set -eux; \
     dnf5 install -y --setopt=install_weak_deps=False \
       rsms-inter-fonts ibm-plex-mono-fonts papirus-icon-theme papirus-icon-theme-dark papirus-icon-theme-light ocean-sound-theme \
       chromium firefox okular gwenview kcalc plasma-discover plasma-discover-flatpak haruna elisa kcharselect kfind \
-      kdeconnect-kde kwalletmanager5 partitionmanager; \
+      kdeconnect-kde kwalletmanager5 partitionmanager rsync; \
     dnf5 clean all
 
 # Piper: local text-to-speech (static upstream build with its espeak-ng data and onnxruntime)
