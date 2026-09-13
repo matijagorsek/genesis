@@ -164,12 +164,16 @@ vm-push *bins:
 image-arm64 tag="genesis:0.1-arm64":
     docker buildx build -f Containerfile --platform linux/arm64 --build-arg BASE=quay.io/fedora/fedora-bootc:44 --build-arg FLAVOUR=fedora --build-arg GENESIS_VERSION=0.1-arm64 -t {{tag}} --load .
 
-# Push it so bootc-image-builder can pull it, then build the arm64 qcow2 into iso/output/arm64/
-qcow2-arm64 tag="ghcr.io/matijagorsek/genesis:0.1-arm64":
-    docker tag genesis:0.1-arm64 {{tag}} && docker push {{tag}}
+# Serve the image from a local registry (Docker Desktop has no containers-storage for bootc-image-builder
+# to read), then build the arm64 qcow2 into iso/output/arm64/disk.qcow2
+qcow2-arm64:
+    docker rm -f genesis-registry >/dev/null 2>&1 || true
+    docker run -d --name genesis-registry -p 5050:5000 registry:2 >/dev/null
+    docker tag genesis:0.1-arm64 localhost:5050/genesis:0.1-arm64 && docker push -q localhost:5050/genesis:0.1-arm64
     mkdir -p iso/output/arm64
-    docker run --rm --privileged --platform linux/arm64 -v "$PWD/iso/output/arm64:/output" -v "$PWD/iso/config.toml:/config.toml:ro" -v "$PWD/iso/defs/genesis-44.yaml:/usr/share/bootc-image-builder/defs/genesis-44.yaml:ro" quay.io/centos-bootc/bootc-image-builder:latest --type qcow2 --rootfs btrfs --config /config.toml {{tag}}
+    docker run --rm --privileged --platform linux/arm64 -v genesis-bib-storage:/var/lib/containers/storage -v "$PWD/iso/output/arm64:/output" -v "$PWD/iso/config.toml:/config.toml:ro" -v "$PWD/iso/defs/genesis-44.yaml:/usr/share/bootc-image-builder/defs/genesis-44.yaml:ro" quay.io/centos-bootc/bootc-image-builder:latest --type qcow2 --rootfs btrfs --tls-verify=false --config /config.toml host.docker.internal:5050/genesis:0.1-arm64
     mv -f iso/output/arm64/qcow2/disk.qcow2 iso/output/arm64/disk.qcow2
+    docker rm -f genesis-registry >/dev/null
 
 # Native-speed VM on this Mac (Apple hypervisor), window + SSH on 2223
 vm-dev-arm disk="":
