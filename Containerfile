@@ -35,6 +35,22 @@ RUN git clone --depth 1 --branch ${WHISPER_CPP_VERSION} https://github.com/ggml-
  && cmake --build /build --target whisper-cli >/dev/null \
  && mkdir -p /out/usr/lib/genesis/whisper/bin && cp /build/bin/whisper-cli /out/usr/lib/genesis/whisper/bin/
 
+# llama.cpp for arm64: built from source with every CPU variant (chosen at run time: dotprod, i8mm, SVE)
+# and the Vulkan backend. The upstream arm64 tarball is a generic build and about 2-3x slower on Apple
+# Silicon and modern ARM. amd64 keeps the upstream Vulkan tarball (it already ships all CPU variants).
+FROM quay.io/fedora/fedora:44 AS llamabuild
+ARG TARGETARCH
+ARG LLAMA_CPP_BUILD=b10901
+RUN mkdir -p /out; if [ "$TARGETARCH" = arm64 ]; then \
+      dnf install -y --setopt=install_weak_deps=False cmake gcc-c++ ninja-build git curl libcurl-devel vulkan-headers vulkan-loader-devel glslc >/dev/null && dnf clean all \
+   && git clone --depth 1 --branch ${LLAMA_CPP_BUILD} https://github.com/ggml-org/llama.cpp /src >/dev/null 2>&1 \
+   && cmake -S /src -B /build -G Ninja -DCMAKE_BUILD_TYPE=Release -DGGML_NATIVE=OFF -DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON -DGGML_VULKAN=ON \
+        -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_TOOLS=ON -DLLAMA_CURL=ON >/dev/null \
+   && cmake --build /build --target llama-server llama-cli llama-bench llama-embedding llama-quantize llama-mtmd-cli >/dev/null \
+   && mkdir -p /out/usr/lib/genesis/llama.cpp && cp /build/bin/llama-* /build/bin/*.so /out/usr/lib/genesis/llama.cpp/ 2>/dev/null; \
+      ls /out/usr/lib/genesis/llama.cpp | head -30; \
+    fi
+
 # ---- stage 2: the OS image ------------------------------------------------------------------------
 FROM ${BASE}
 
@@ -100,14 +116,16 @@ COPY --from=whisperbuild /out/ /
 # Fedora's llama-cpp package is not used: it is months behind upstream, has no Vulkan backend, and pulls
 # the entire ROCm stack (+2.5 GB) into the image. CUDA/ROCm builds come via ramalama containers instead.
 ARG LLAMA_CPP_BUILD=b10901
+COPY --from=llamabuild /out/ /
 RUN set -eux; \
     mkdir -p /usr/lib/genesis/llama.cpp; \
-    case "${TARGETARCH:-amd64}" in arm64) LA=arm64;; *) LA=x64;; esac; \
-    curl -fsSL "https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_CPP_BUILD}/llama-${LLAMA_CPP_BUILD}-bin-ubuntu-vulkan-${LA}.tar.gz" \
-      | tar -xz -C /usr/lib/genesis/llama.cpp --strip-components=1; \
+    if [ "${TARGETARCH:-amd64}" != arm64 ]; then \
+      curl -fsSL "https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_CPP_BUILD}/llama-${LLAMA_CPP_BUILD}-bin-ubuntu-vulkan-x64.tar.gz" \
+        | tar -xz -C /usr/lib/genesis/llama.cpp --strip-components=1; \
+    fi; \
     for b in llama-server llama-cli llama-bench llama-embedding llama-quantize llama-mtmd-cli; do \
       [ -x "/usr/lib/genesis/llama.cpp/$b" ] || continue; \
-      printf '#!/bin/sh\nexport LD_LIBRARY_PATH=/usr/lib/genesis/llama.cpp${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}\nexec /usr/lib/genesis/llama.cpp/%s "$@"\n' "$b" > "/usr/bin/$b"; \
+      printf '#!/bin/sh\nexport LD_LIBRARY_PATH=/usr/lib/genesis/llama.cpp${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}\nexport GGML_BACKEND_PATH=/usr/lib/genesis/llama.cpp\nexec /usr/lib/genesis/llama.cpp/%s "$@"\n' "$b" > "/usr/bin/$b"; \
       chmod 0755 "/usr/bin/$b"; \
     done; \
     echo "${LLAMA_CPP_BUILD}" > /usr/lib/genesis/llama.cpp/BUILD; \
