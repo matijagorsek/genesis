@@ -70,6 +70,11 @@ just boot iso/output/disk.qcow2        # QEMU, EFI; test user genesis / genesis
 
 Or install from the ISO in a VM (UTM, virt-manager, VirtualBox) or on a spare machine.
 
+**On an Apple Silicon Mac**, use the arm64 flavour, which runs natively under Apple's hypervisor at
+full speed, models included: download the `genesis-<version>-arm64.qcow2.zst.*.part` files, join them
+the same way, and run `just vm-dev-arm`. The arm64 flavour is Genesis on plain Fedora bootc with the
+Plasma desktop installed by the image (Aurora, the x86_64 base, publishes no arm64 image).
+
 ## Develop
 
 Fast loop, no image build:
