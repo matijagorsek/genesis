@@ -218,6 +218,83 @@ jobs:
             release/*
 
   # ---------------------------------------------------------------------------------------
+  # Job 3: arm64 flavour (plain Fedora bootc + Plasma installed by us) -> push -> qcow2 -> release
+  #        Runs natively on Apple Silicon Macs under Apple's hypervisor (prototype/vm-dev-arm.sh).
+  # ---------------------------------------------------------------------------------------
+  image-arm64:
+    needs: image
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/.ghcup || true
+          df -h / | tail -1
+
+      - name: Pull base images
+        run: |
+          for img in quay.io/fedora/fedora-bootc:44 docker.io/library/rust:1-bookworm quay.io/fedora/fedora:44; do
+            for i in 1 2 3 4 5 6; do sudo podman pull --platform linux/arm64 $img && break; echo "pull attempt $i failed, waiting"; sleep 30; done
+          done
+
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | sudo podman login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build arm64 image
+        run: |
+          sudo podman build -f Containerfile --pull=never --platform linux/arm64 --layers \
+            --cache-from $IMAGE-cache-arm64 --cache-to $IMAGE-cache-arm64 --cache-ttl 168h \
+            --build-arg BASE=quay.io/fedora/fedora-bootc:44 --build-arg FLAVOUR=fedora \
+            --build-arg BOOTC_LINT=strict --build-arg GENESIS_VERSION=${{ needs.image.outputs.tag }}-arm64 \
+            -t $IMAGE:0.1-arm64 -t $IMAGE:${{ needs.image.outputs.tag }}-arm64 . \
+          || sudo podman build -f Containerfile --pull=never --platform linux/arm64 --layers \
+            --cache-from $IMAGE-cache-arm64 \
+            --build-arg BASE=quay.io/fedora/fedora-bootc:44 --build-arg FLAVOUR=fedora \
+            --build-arg BOOTC_LINT=strict --build-arg GENESIS_VERSION=${{ needs.image.outputs.tag }}-arm64 \
+            -t $IMAGE:0.1-arm64 -t $IMAGE:${{ needs.image.outputs.tag }}-arm64 .
+
+      - name: Image self-check
+        run: sudo podman run --rm $IMAGE:0.1-arm64 genesis-image-check
+
+      - name: Push
+        run: |
+          sudo podman push $IMAGE:0.1-arm64
+          sudo podman push $IMAGE:${{ needs.image.outputs.tag }}-arm64
+
+      - name: Build qcow2 (aarch64)
+        run: |
+          mkdir -p out
+          sudo podman run --rm --privileged --security-opt label=type:unconfined_t \
+            -v "$PWD/out:/output" -v "$PWD/iso/config.toml:/config.toml:ro" \
+            -v "$PWD/iso/defs/genesis-44.yaml:/usr/share/bootc-image-builder/defs/genesis-44.yaml:ro" \
+            -v /var/lib/containers/storage:/var/lib/containers/storage \
+            $BIB --type qcow2 --rootfs btrfs --config /config.toml $IMAGE:0.1-arm64
+          sudo chown -R "$USER" out; ls -la out/qcow2
+
+      - name: Package qcow2 for release
+        run: |
+          sudo apt-get install -y -q zstd
+          mkdir -p release
+          zstd -T0 -6 --rm -q -o release/genesis-${{ needs.image.outputs.tag }}-arm64.qcow2.zst out/qcow2/disk.qcow2
+          cd release
+          split -b 1900M -d --additional-suffix=.part genesis-${{ needs.image.outputs.tag }}-arm64.qcow2.zst genesis-${{ needs.image.outputs.tag }}-arm64.qcow2.zst.
+          rm genesis-${{ needs.image.outputs.tag }}-arm64.qcow2.zst
+          sha256sum *.part > SHA256SUMS.qcow2-arm64
+          ls -la
+
+      - name: Attach to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.image.outputs.tag }}
+          prerelease: true
+          files: |
+            release/*.part
+            release/SHA256SUMS.qcow2-arm64
+
+  # ---------------------------------------------------------------------------------------
   # Job 2: installer ISO from the pushed image; attaches to the same release. Does not block job 1.
   # ---------------------------------------------------------------------------------------
   iso:
