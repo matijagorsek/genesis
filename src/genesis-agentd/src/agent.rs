@@ -199,7 +199,7 @@ impl Agent {
             if calls.is_empty() && self.scaffolded && !self.edited_after_scaffold && !self.nudged {
                 // The template alone is never the answer. Small models tend to declare victory here; ask once.
                 self.nudged = true;
-                self.messages.push(Message::user("You scaffolded the template but did not change any file. The template is only a starting point: now implement what was asked (edit the generated files so the program actually does it), run it once to check, and only then finish.".into()));
+                self.messages.push(Message::user("You scaffolded the template but did not change any file. The template is only a starting point: now implement what was asked (edit the generated files so the program actually does it), run it once to check, and only then finish.".to_string()));
                 continue;
             }
             if calls.is_empty() {
