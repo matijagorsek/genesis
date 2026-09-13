@@ -17,7 +17,7 @@ fw=/opt/homebrew/share/qemu/edk2-aarch64-code.fd
 vars=iso/output/dev/edk2-arm-vars.fd
 [ -f "$vars" ] || dd if=/dev/zero of="$vars" bs=1m count=64 2>/dev/null
 echo "arm64 dev VM (HVF): ssh -p 2223 genesis@127.0.0.1 (password genesis); wizard http://127.0.0.1:11513 ; maker http://127.0.0.1:11523"
-exec qemu-system-aarch64 -M virt,highmem=on -accel hvf -cpu host -smp 6 -m 8192 \
+exec qemu-system-aarch64 -M virt,highmem=on -accel hvf -cpu host -smp "${GENESIS_VM_CPUS:-6}" -m "${GENESIS_VM_MEM:-8192}" \
   -drive if=pflash,format=raw,readonly=on,file="$fw" -drive if=pflash,format=raw,file="$vars" \
   -drive file="$ovl",format=qcow2,if=virtio \
   -device virtio-gpu-pci -display cocoa -device qemu-xhci -device usb-kbd -device usb-tablet \
