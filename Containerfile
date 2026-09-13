@@ -41,14 +41,14 @@ RUN git clone --depth 1 --branch ${WHISPER_CPP_VERSION} https://github.com/ggml-
 FROM quay.io/fedora/fedora:44 AS llamabuild
 ARG TARGETARCH
 ARG LLAMA_CPP_BUILD=b10901
-RUN mkdir -p /out; if [ "$TARGETARCH" = arm64 ]; then \
-      dnf install -y --setopt=install_weak_deps=False cmake gcc-c++ ninja-build git curl libcurl-devel vulkan-headers vulkan-loader-devel glslc >/dev/null && dnf clean all \
-   && git clone --depth 1 --branch ${LLAMA_CPP_BUILD} https://github.com/ggml-org/llama.cpp /src >/dev/null 2>&1 \
-   && cmake -S /src -B /build -G Ninja -DCMAKE_BUILD_TYPE=Release -DGGML_NATIVE=OFF -DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON -DGGML_VULKAN=ON \
-        -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_TOOLS=ON -DLLAMA_CURL=ON >/dev/null \
-   && cmake --build /build --target llama-server llama-cli llama-bench llama-embedding llama-quantize llama-mtmd-cli >/dev/null \
-   && mkdir -p /out/usr/lib/genesis/llama.cpp && cp /build/bin/llama-* /build/bin/*.so /out/usr/lib/genesis/llama.cpp/ 2>/dev/null; \
-      ls /out/usr/lib/genesis/llama.cpp | head -30; \
+RUN set -eux; mkdir -p /out; if [ "$TARGETARCH" = arm64 ]; then \
+      dnf install -y --setopt=install_weak_deps=False cmake gcc-c++ ninja-build git curl libcurl-devel vulkan-headers vulkan-loader-devel glslc; dnf clean all; \
+      git clone --depth 1 --branch ${LLAMA_CPP_BUILD} https://github.com/ggml-org/llama.cpp /src; \
+      cmake -S /src -B /build -G Ninja -DCMAKE_BUILD_TYPE=Release -DGGML_NATIVE=OFF -DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON -DGGML_VULKAN=ON \
+        -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_TOOLS=ON -DLLAMA_CURL=ON; \
+      cmake --build /build --target llama-server llama-cli llama-bench llama-embedding llama-quantize llama-mtmd-cli; \
+      mkdir -p /out/usr/lib/genesis/llama.cpp; cp /build/bin/llama-* /build/bin/*.so* /out/usr/lib/genesis/llama.cpp/; \
+      ls /out/usr/lib/genesis/llama.cpp; \
     fi
 
 # ---- stage 2: the OS image ------------------------------------------------------------------------
