@@ -162,7 +162,7 @@ vm-push *bins:
 # ---- arm64 flavour: plain Fedora bootc base, runs natively on Apple Silicon (HVF) ---------------
 # Build the arm64 image natively (Docker Desktop on Apple Silicon)
 image-arm64 tag="genesis:0.1-arm64":
-    docker buildx build --platform linux/arm64 --build-arg BASE=quay.io/fedora/fedora-bootc:44 --build-arg FLAVOUR=fedora --build-arg GENESIS_VERSION=0.1-arm64 -t {{tag}} --load .
+    docker buildx build -f Containerfile --platform linux/arm64 --build-arg BASE=quay.io/fedora/fedora-bootc:44 --build-arg FLAVOUR=fedora --build-arg GENESIS_VERSION=0.1-arm64 -t {{tag}} --load .
 
 # Push it so bootc-image-builder can pull it, then build the arm64 qcow2 into iso/output/arm64/
 qcow2-arm64 tag="ghcr.io/matijagorsek/genesis:0.1-arm64":
