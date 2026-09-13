@@ -85,7 +85,7 @@ impl Client {
         let url = format!("{}/chat/completions", self.endpoint.trim_end_matches('/'));
         let resp = ureq::post(&url)
             .set("Authorization", &format!("Bearer {}", self.api_key))
-            .timeout(std::time::Duration::from_secs(600))
+            .timeout(std::time::Duration::from_secs(1800))
             .send_json(body);
         let resp = match resp {
             Ok(r) => r,
