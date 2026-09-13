@@ -73,7 +73,9 @@ Or install from the ISO in a VM (UTM, virt-manager, VirtualBox) or on a spare ma
 **On an Apple Silicon Mac**, use the arm64 flavour, which runs natively under Apple's hypervisor at
 full speed, models included: download the `genesis-<version>-arm64.qcow2.zst.*.part` files, join them
 the same way, and run `just vm-dev-arm`. The arm64 flavour is Genesis on plain Fedora bootc with the
-Plasma desktop installed by the image (Aurora, the x86_64 base, publishes no arm64 image).
+Plasma desktop installed by the image (Aurora, the x86_64 base, publishes no arm64 image). Measured on
+an M4 Max: boot to login under a minute, first model reply in under 30 seconds, about 6 tokens/s on the
+tiny pack (CPU only, generic build; a tuned build is next).
 
 ## Develop
 
