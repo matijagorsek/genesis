@@ -59,6 +59,11 @@ Design brief: [docs/genesis-brief.html](docs/genesis-brief.html) · Design plan:
 - **Voice**: hold-to-talk (whisper.cpp) with a chime and glow the instant you press, and spoken replies
   (Piper), all local.
 
+## A real run
+
+[examples/checklist-in-vm](examples/checklist-in-vm) is the maker working inside Genesis itself: "a checklist app
+that saves to a file" became a tested CLI in 17 turns, bugs found and fixed by the model along the way.
+
 ## Try it
 
 Download the latest `genesis-<version>.qcow2.zst.*.part` files from a release, join and boot:

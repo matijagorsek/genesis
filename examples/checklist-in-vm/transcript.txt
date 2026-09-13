@@ -1,0 +1,35 @@
+# The maker inside Genesis (native arm64 VM on a Mac), 2026-09-13
+# Request: a checklist app that saves to a file. Mode: Trusted. Model: the 27B code model via the dev bridge.
+
+TOOL write_file {"content": "import json\nimport subprocess\nimport sys\nimport tempfile\nimport unittest\nfrom pathlib import
+  -> ok wrote /var/home/genesis/Projects/checklist/test_checklist.py (2668 bytes)
+TOOL edit_file {"new_text": "\"dev\": { \"cmd\": \"python3 -m unittest -q\", \"port\": 0 },", "old_text": "\"dev\": { \"cmd\"
+  -> ok edited /var/home/genesis/Projects/checklist/genesis.json
+TOOL edit_file {"new_text": "```\npython3 -m unittest -q\n```", "old_text": "```\npython3 -m pytest -q\n```", "path": "/var/h
+  -> ok edited /var/home/genesis/Projects/checklist/README.md
+TOOL preview_start {"path": "/var/home/genesis/Projects/checklist"}
+  -> ok running `python3 -m unittest -q` in the background
+SAY Tests are running in the background. Let me verify they pass and do a quick end-to-end demo of the app:  
+TOOL shell {"command": "cd /var/home/genesis/Projects/checklist && python3 -m unittest -q 2>&1; echo \"--- demo ---\"; py
+  -> ok exit=0 stdout: Traceback (most recent call last):   File "<frozen runpy>", line 203, in _run_module_as_main   File "<frozen runpy>
+SAY I found two bugs: a typo in `checklist.py` where `sp.add_parser` should be `sub.add_parser`, and in the test file where my helper method `run` is shadowing `unittest.TestCase.run`. I'll fix both now.  
+TOOL edit_file {"new_text": "    sp = sub.add_parser(\"remove\", help=\"remove an item\")", "old_text": "    sp.add_parser(\"
+  -> ok edited /var/home/genesis/Projects/checklist/checklist.py
+TOOL edit_file {"new_text": "    def cli(self, *args):", "old_text": "    def run(self, *args):", "path": "/var/home/genesis/
+  -> ok edited /var/home/genesis/Projects/checklist/test_checklist.py
+SAY Now replace all `self.run(` calls in the test with `self.cli(`:  
+TOOL shell {"command": "cd /var/home/genesis/Projects/checklist && sed -i 's/self\\.run(/self.cli(/g' test_checklist.py &
+  -> ok exit=0 stdout: 24 ====================================================================== FAIL: test_ids_keep_counting_after_remove
+SAY I found the issue: my `load()` function is recalculating `next_id` as `max(stored, ids) + 1` on every read, which causes it to increment each time the file is loaded. I need to fix this by only recalculating when `next_id` is missing or invalid, and otherwise 
+TOOL edit_file {"new_text": "    if not isinstance(data, dict) or not isinstance(data.get(\"items\"), list):\n        sys.exi
+  -> ok edited /var/home/genesis/Projects/checklist/checklist.py
+TOOL shell {"command": "cd /var/home/genesis/Projects/checklist && python3 -m unittest -q 2>&1; echo \"exit=$?\""}
+  -> ok exit=0 stdout: ---------------------------------------------------------------------- Ran 7 tests in 3.271s  OK exit=0  
+SAY All 7 tests pass. Now a quick end-to-end demo to show the file persistence:  
+TOOL shell {"command": "cd /var/home/genesis/Projects/checklist && python3 checklist.py --file /tmp/demo.json add Buy mil
+  -> ok exit=0 stdout: Added 1: Buy milk Added 2: Walk dog Done 1: Buy milk [x] 1: Buy milk [ ] 2: Walk dog  1/2 done --- file on disk ---
+SAY Everything works. Let me stop the background test run to leave things clean:  
+TOOL preview_stop {"path": "/var/home/genesis/Projects/checklist"}
+  -> ok preview stopped
+SAY Done. I built a checklist app in `/var/home/genesis/Projects/checklist` that saves to a JSON file.  **What it does** - `python3 checklist.py list` — show the checklist (default when no command given) - `python3 checklist.py add Buy milk` — add an item - `pytho
+DONE {"turns": 17}
