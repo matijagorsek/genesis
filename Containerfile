@@ -6,15 +6,18 @@
 
 ARG BASE=ghcr.io/ublue-os/aurora:stable
 
-# ---- stage 1: Genesis daemons (Rust), cross-compiled for x86_64 on whatever the build host is -------
+# ---- stage 1: Genesis daemons (Rust), cross-compiled for the target architecture on whatever the build host is
 FROM --platform=$BUILDPLATFORM docker.io/library/rust:1-bookworm AS daemons
-RUN apt-get update -q && apt-get install -y -q --no-install-recommends gcc-x86-64-linux-gnu libc6-dev-amd64-cross >/dev/null && rm -rf /var/lib/apt/lists/*
-RUN rustup target add x86_64-unknown-linux-gnu
-ENV CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=x86_64-linux-gnu-gcc
+ARG TARGETARCH
+RUN apt-get update -q && apt-get install -y -q --no-install-recommends gcc-x86-64-linux-gnu libc6-dev-amd64-cross gcc-aarch64-linux-gnu libc6-dev-arm64-cross >/dev/null && rm -rf /var/lib/apt/lists/*
+RUN rustup target add x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu
+ENV CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=x86_64-linux-gnu-gcc \
+    CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
 WORKDIR /src
 COPY src/ /src/
-RUN cargo build --release --target x86_64-unknown-linux-gnu -p genesis-permd -p genesis-probe -p genesis-firstrun -p genesis-agentd -p genesis-txd -p genesis-krunner -p genesis-ask \
- && for b in genesis-permd genesis-probe genesis-firstrun genesis-agentd genesis-txd genesis-krunner genesis-ask; do install -D -m 0755 target/x86_64-unknown-linux-gnu/release/$b /out/usr/bin/$b; done
+RUN case "${TARGETARCH:-amd64}" in arm64) T=aarch64-unknown-linux-gnu;; *) T=x86_64-unknown-linux-gnu;; esac; \
+    cargo build --release --target $T -p genesis-permd -p genesis-probe -p genesis-firstrun -p genesis-agentd -p genesis-txd -p genesis-krunner -p genesis-ask \
+ && for b in genesis-permd genesis-probe genesis-firstrun genesis-agentd genesis-txd genesis-krunner genesis-ask; do install -D -m 0755 target/$T/release/$b /out/usr/bin/$b; done
 
 # ---- stage 1b: genesis-window (Qt WebEngine), built on Fedora so it links against the image's Qt ------
 FROM quay.io/fedora/fedora:44 AS qtbuild
@@ -35,6 +38,10 @@ RUN git clone --depth 1 --branch ${WHISPER_CPP_VERSION} https://github.com/ggml-
 # ---- stage 2: the OS image ------------------------------------------------------------------------
 FROM ${BASE}
 
+# FLAVOUR=aurora: Universal Blue Aurora already brings the Plasma desktop (x86_64 only).
+# FLAVOUR=fedora: plain Fedora bootc (multi-arch, used for arm64); we install the Plasma desktop ourselves.
+ARG FLAVOUR=aurora
+ARG TARGETARCH
 ARG GENESIS_VERSION=0.1
 ARG LLAMA_SWAP_VERSION=255
 ARG PIPER_VERSION=2023.11.14-2
@@ -61,6 +68,23 @@ RUN set -eux; \
     grep -q '^DEFAULT_HOSTNAME=' /usr/lib/os-release || echo 'DEFAULT_HOSTNAME=genesis' >> /usr/lib/os-release; \
     grep -q '^IMAGE_ID=' /usr/lib/os-release || printf 'IMAGE_ID=genesis\nIMAGE_VERSION=%s\n' "${GENESIS_VERSION}" >> /usr/lib/os-release
 
+# ---- desktop for the plain Fedora bootc flavour (Aurora already has it) -----------------------
+RUN set -eux; if [ "$FLAVOUR" = fedora ]; then \
+      dnf5 install -y --setopt=install_weak_deps=False \
+        plasma-desktop plasma-workspace plasma-workspace-wayland kwin plasma-login-manager kde-settings kde-settings-plasma \
+        plasma-nm plasma-pa plasma-systemmonitor plasma-disks kscreen powerdevil bluedevil kdeplasma-addons plasma-browser-integration \
+        xdg-desktop-portal-kde polkit-kde kwallet-pam breeze-gtk-gtk3 breeze-gtk-gtk4 kde-gtk-config \
+        dolphin konsole kate ark spectacle kinfocenter \
+        pipewire pipewire-pulse pipewire-alsa wireplumber NetworkManager-wifi firewalld flatpak distrobox bubblewrap \
+        openssh-server plymouth-system-theme mesa-vulkan-drivers mesa-dri-drivers \
+        google-noto-sans-fonts google-noto-emoji-color-fonts google-noto-sans-mono-fonts jq wl-clipboard libnotify \
+        udisks2 upower fwupd bluez avahi cups system-config-printer sddm-kcm 2>&1 | tail -3; \
+      dnf5 clean all; \
+      systemctl set-default graphical.target; \
+      systemctl enable --force plasmalogin.service; \
+      systemctl enable NetworkManager firewalld; \
+    fi
+
 # ---- Genesis files: units, sysusers, tmpfiles, policy, /etc/genesis defaults ---------------
 COPY system_files/ /
 COPY packs/ /usr/share/genesis/packs/
@@ -78,7 +102,8 @@ COPY --from=whisperbuild /out/ /
 ARG LLAMA_CPP_BUILD=b10901
 RUN set -eux; \
     mkdir -p /usr/lib/genesis/llama.cpp; \
-    curl -fsSL "https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_CPP_BUILD}/llama-${LLAMA_CPP_BUILD}-bin-ubuntu-vulkan-x64.tar.gz" \
+    case "${TARGETARCH:-amd64}" in arm64) LA=arm64;; *) LA=x64;; esac; \
+    curl -fsSL "https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_CPP_BUILD}/llama-${LLAMA_CPP_BUILD}-bin-ubuntu-vulkan-${LA}.tar.gz" \
       | tar -xz -C /usr/lib/genesis/llama.cpp --strip-components=1; \
     for b in llama-server llama-cli llama-bench llama-embedding llama-quantize llama-mtmd-cli; do \
       [ -x "/usr/lib/genesis/llama.cpp/$b" ] || continue; \
@@ -107,12 +132,13 @@ RUN set -eux; \
 # Piper: local text-to-speech (static upstream build with its espeak-ng data and onnxruntime)
 RUN set -eux; \
     mkdir -p /usr/lib/genesis; \
-    curl -fsSL "https://github.com/rhasspy/piper/releases/download/${PIPER_VERSION}/piper_linux_x86_64.tar.gz" | tar -xz -C /usr/lib/genesis; \
+    case "${TARGETARCH:-amd64}" in arm64) PA=aarch64;; *) PA=x86_64;; esac; \
+    curl -fsSL "https://github.com/rhasspy/piper/releases/download/${PIPER_VERSION}/piper_linux_${PA}.tar.gz" | tar -xz -C /usr/lib/genesis; \
     test -x /usr/lib/genesis/piper/piper
 
 # llama-swap: model router (Go, static upstream binary)
 RUN set -eux; \
-    curl -fsSL "https://github.com/mostlygeek/llama-swap/releases/download/v${LLAMA_SWAP_VERSION}/llama-swap_${LLAMA_SWAP_VERSION}_linux_amd64.tar.gz" \
+    curl -fsSL "https://github.com/mostlygeek/llama-swap/releases/download/v${LLAMA_SWAP_VERSION}/llama-swap_${LLAMA_SWAP_VERSION}_linux_${TARGETARCH:-amd64}.tar.gz" \
       | tar -xz -C /usr/bin llama-swap; \
     chmod 0755 /usr/bin/llama-swap; \
     /usr/bin/llama-swap --version
@@ -121,7 +147,7 @@ RUN set -eux; \
 
 # ---- enable services -------------------------------------------------------------------------
 RUN systemctl enable genesis-router.service genesis-probe.service genesis-firstrun.service genesis-devssh.service && systemctl --global enable genesis-permd.service genesis-agentd.service \
- && systemctl mask plasma-setup.service
+ && (systemctl mask plasma-setup.service || true)
 
 # ---- bootc validation ------------------------------------------------------------------------
 RUN if [ "$BOOTC_LINT" = strict ]; then bootc container lint; else echo "bootc lint skipped (BOOTC_LINT=$BOOTC_LINT)"; fi
