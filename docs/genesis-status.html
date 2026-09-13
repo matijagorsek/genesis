@@ -61,21 +61,21 @@ ol.next{padding-left:22px;max-width:70ch}ol.next li{margin-bottom:7px}
 
 <div class="wrap">
 <p class="eyebrow">Genesis · project status</p>
-<h1>Genesis, from idea to a booting OS in two days</h1>
+<h1>Genesis, from idea to a desktop that builds things in three days</h1>
 <p class="lede">One page with everything: what was investigated, what was decided, what runs today, the proof that Genesis boots, and what comes next. Links to the full brief, the interactive walkthrough, the repository and the published image.</p>
-<div class="meta"><span>updated 2026-09-11</span><span>78 commits on main</span><span>github.com/matijagorsek/genesis</span></div>
+<div class="meta"><span>updated 2026-09-13</span><span>130+ commits on main</span><span>github.com/matijagorsek/genesis</span></div>
 
 <div class="tiles">
   <div class="tile"><div class="k">Phase 0 tasks</div><div class="v">3 / 3 <span class="pill ok">pass</span></div><div class="s">shell, repo edit, kanban app, all with a local 27B</div></div>
   <div class="tile"><div class="k">Image</div><div class="v">3.80 GB</div><div class="s">ghcr.io/matijagorsek/genesis:0.1 · strict lint · +70 MB over base</div></div>
-  <div class="tile"><div class="k">Boot test</div><div class="v">pass <span class="pill ok">CI + Mac</span></div><div class="s">KVM on the runner; 90 s to login on the Mac under emulation</div></div>
-  <div class="tile"><div class="k">Release</div><div class="v">v0.1.22 <span class="pill ok">green</span></div><div class="s">broker, probe and first-run wizard inside, all verified in the booted VM</div></div>
+  <div class="tile"><div class="k">Boot test</div><div class="v">pass <span class="pill ok">CI + Mac</span></div><div class="s">KVM on the runner; native arm64 VM on the Mac boots to login in under a minute</div></div>
+  <div class="tile"><div class="k">Release</div><div class="v">v0.1.59 <span class="pill ok">green</span></div><div class="s">x86_64 and arm64 flavours; desktop, maker, voice, browser, terminal, all verified in booted VMs</div></div>
 </div>
 
 <h2>Everything, in one place</h2>
 <div class="links">
-  <a class="link" href="genesis-brief.html"><b>Feasibility brief</b><span>Four expert angles, model packs per hardware tier, licensing tiers, architecture, UX, roadmap and risks.</span><span class="url">claude.ai/code/artifact/c687b424…</span></a>
-  <a class="link" href="genesis-walkthrough.html"><b>Interactive walkthrough</b><span>Ten screens from power-on to a built app: boot, first run, launcher, agent workspace, permissions, model manager, undo.</span><span class="url">claude.ai/code/artifact/624e633d…</span></a>
+  <a class="link" href="genesis-brief.html"><b>Feasibility brief</b><span>Four expert angles, model packs per hardware tier, licensing tiers, architecture, UX, roadmap and risks.</span><span class="url">docs/genesis-brief.html</span></a>
+  <a class="link" href="genesis-walkthrough.html"><b>Interactive walkthrough</b><span>Ten screens from power-on to a built app: boot, first run, launcher, agent workspace, permissions, model manager, undo.</span><span class="url">docs/genesis-walkthrough.html</span></a>
   <a class="link" href="https://github.com/matijagorsek/genesis"><b>Repository</b><span>Containerfile, packs, prototype, system files, CI, docs with the decision log and the base-distro due diligence.</span><span class="url">github.com/matijagorsek/genesis</span></a>
   <a class="link" href="https://github.com/matijagorsek/genesis/releases"><b>Releases and image</b><span>Prereleases with the qcow2 in split parts, the boot serial log, and the installer ISO when its job succeeds. Image on GHCR.</span><span class="url">github.com/matijagorsek/genesis/releases</span></a>
   <a class="link" href="https://github.com/matijagorsek/genesis/actions"><b>Pipeline</b><span>Native x86_64 build, strict lint, self-check, push, qcow2, QEMU boot test, release, ISO. Nightly, so Fedora updates flow in.</span><span class="url">github.com/matijagorsek/genesis/actions</span></a>
