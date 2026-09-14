@@ -16,11 +16,12 @@ PlasmoidItem {
     property bool voice: false
     property var netDomains: []
     property int jobs: 0
+    property string staged: ""
 
     Plasmoid.icon: "genesis"
     Plasmoid.status: PlasmaCore.Types.ActiveStatus
     toolTipMainText: alive ? "Genesis · on this machine" : "Genesis · starting"
-    toolTipSubText: alive ? ("Model " + model + (netDomains.length ? " · network used: " + netDomains.join(", ") : " · no network used")) : "The local agent service is not running yet"
+    toolTipSubText: alive ? ("Model " + model + (netDomains.length ? " · network used: " + netDomains.join(", ") : " · no network used") + (staged ? " · update ready, restart to apply" : "")) : "The local agent service is not running yet"
 
     function get(path, cb) {
         var x = new XMLHttpRequest()
@@ -32,6 +33,7 @@ PlasmoidItem {
             alive = !!(h && h.ok); if (!h) return
             model = h.model || ""; sandbox = !!h.sandbox; voice = !!h.voice
         })
+        get("/api/system", function(sy) { staged = (sy && sy.os && sy.os.staged) ? (sy.os.staged_built || "").substring(0, 10) : "" })
         get("/api/sessions", function(list) {
             if (!list) return
             var d = {}; var n = 0
@@ -49,7 +51,7 @@ PlasmoidItem {
         Layout.minimumHeight: Kirigami.Units.iconSizes.small
         onClicked: root.expanded = !root.expanded
         Kirigami.Icon { anchors.fill: parent; source: "genesis"; opacity: root.alive ? 1 : 0.5 }
-        Rectangle { visible: root.netDomains.length > 0; width: 7; height: 7; radius: 3.5; color: Kirigami.Theme.neutralTextColor; anchors.right: parent.right; anchors.bottom: parent.bottom }
+        Rectangle { visible: root.netDomains.length > 0 || root.staged !== ""; width: 7; height: 7; radius: 3.5; color: root.staged !== "" ? Kirigami.Theme.positiveTextColor : Kirigami.Theme.neutralTextColor; anchors.right: parent.right; anchors.bottom: parent.bottom }
     }
 
     fullRepresentation: ColumnLayout {
@@ -60,6 +62,7 @@ PlasmoidItem {
         PC.Label { text: root.alive ? "Model: " + root.model : "The local agent service is not up yet."; Layout.fillWidth: true; wrapMode: Text.Wrap }
         PC.Label { visible: root.alive; text: root.netDomains.length ? "Network used by a job: " + root.netDomains.join(", ") : "No job used the network."; color: root.netDomains.length ? Kirigami.Theme.neutralTextColor : Kirigami.Theme.positiveTextColor; Layout.fillWidth: true; wrapMode: Text.Wrap }
         PC.Label { visible: root.alive; text: (root.sandbox ? "Commands run in a sandbox. " : "") + (root.voice ? "Voice input ready." : ""); Layout.fillWidth: true; wrapMode: Text.Wrap; opacity: 0.8 }
+        PC.Label { visible: root.staged !== ""; text: "A Genesis update built " + root.staged + " is ready. It applies when you restart."; color: Kirigami.Theme.positiveTextColor; Layout.fillWidth: true; wrapMode: Text.Wrap }
         PC.Label { text: "Nothing you type or say leaves this computer."; opacity: 0.7; Layout.fillWidth: true; wrapMode: Text.Wrap }
         PC.Button { text: "Open Genesis"; icon.name: "genesis"; onClicked: { root.openMaker(); root.expanded = false } }
     }

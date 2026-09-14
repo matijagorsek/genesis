@@ -104,6 +104,7 @@ RUN set -eux; if [ "$FLAVOUR" = fedora ]; then \
       systemctl set-default graphical.target; \
       systemctl enable --force plasmalogin.service; \
       systemctl enable NetworkManager firewalld; \
+      firewall-offline-cmd --zone=public --add-service=kdeconnect >/dev/null 2>&1 || true; \
     fi
 
 # ---- Genesis files: units, sysusers, tmpfiles, policy, /etc/genesis defaults ---------------
