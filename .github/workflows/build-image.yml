@@ -115,9 +115,8 @@ jobs:
         uses: sigstore/cosign-installer@v3
       - if: github.event_name != 'pull_request'
         run: |
-          digest=$(sudo podman inspect --format '{{.Digest}}' $IMAGE:${{ steps.meta.outputs.tag }})
-          echo "signing $IMAGE@$digest"
-          cosign sign --yes "$IMAGE@$digest"
+          echo "${{ secrets.GITHUB_TOKEN }}" | cosign login ghcr.io -u ${{ github.actor }} --password-stdin
+          cosign sign --yes "$IMAGE:${{ steps.meta.outputs.tag }}"
 
       - name: Build qcow2
         run: |
@@ -277,8 +276,8 @@ jobs:
       - name: Sign the image (sigstore, keyless)
         uses: sigstore/cosign-installer@v3
       - run: |
-          digest=$(sudo podman inspect --format '{{.Digest}}' $IMAGE:${{ needs.image.outputs.tag }}-arm64)
-          cosign sign --yes "$IMAGE@$digest"
+          echo "${{ secrets.GITHUB_TOKEN }}" | cosign login ghcr.io -u ${{ github.actor }} --password-stdin
+          cosign sign --yes "$IMAGE:${{ needs.image.outputs.tag }}-arm64"
 
       - name: Build qcow2 (aarch64)
         run: |
@@ -351,8 +350,8 @@ jobs:
       - name: Sign the image (sigstore, keyless)
         uses: sigstore/cosign-installer@v3
       - run: |
-          digest=$(sudo podman inspect --format '{{.Digest}}' $IMAGE:${{ needs.image.outputs.tag }}-nvidia)
-          cosign sign --yes "$IMAGE@$digest"
+          echo "${{ secrets.GITHUB_TOKEN }}" | cosign login ghcr.io -u ${{ github.actor }} --password-stdin
+          cosign sign --yes "$IMAGE:${{ needs.image.outputs.tag }}-nvidia"
 
   # ---------------------------------------------------------------------------------------
   # Job 2: installer ISO from the pushed image; attaches to the same release. Does not block job 1.
