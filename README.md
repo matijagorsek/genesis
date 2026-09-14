@@ -17,6 +17,8 @@ permission-gated and undoable.
 | The maker, opened after first run | The application menu (v0.1.34 session) |
 
 Automatic screenshots from the latest release: [docs/screens/latest](docs/screens/latest). Preview renderings: [docs/screens/preview](docs/screens/preview).
+
+<p align="center"><img src="docs/screens/latest/04-desktop.png" width="49%" alt="Genesis desktop, captured from the latest release"> <img src="docs/screens/latest/03-first-run.png" width="49%" alt="Genesis first run, captured from the latest release"></p>
 What changed in each release: [Releases](../../releases) (notes are generated from the commits).
 Design brief: [docs/genesis-brief.html](docs/genesis-brief.html) · Design plan: [docs/genesis-design-plan.html](docs/genesis-design-plan.html)
 · Decision log: [docs/decisions.md](docs/decisions.md) · Walkthrough: [docs/genesis-walkthrough.html](docs/genesis-walkthrough.html).
