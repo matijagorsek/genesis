@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Genesis</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='26' fill='none' stroke='%235fb5bd' stroke-width='6'/%3E%3Ccircle cx='32' cy='32' r='9' fill='%235fb5bd'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=IBM+Plex+Mono&display=swap">
+<style>
+:root{--bg:#0b0f14;--bg2:#10161e;--panel:#161d27;--line:#232c37;--ink:#eef3f8;--ink2:#a9b4c1;--mute:#6f7a89;--acc:#5fb5bd}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Manrope,system-ui,sans-serif;font-size:17px;line-height:1.6}
+.hero{max-width:1100px;margin:0 auto;padding:12vh 6vw 6vh}.k{color:var(--acc);letter-spacing:.2em;text-transform:uppercase;font-weight:800;font-size:13px;margin:0 0 14px}
+h1{font-size:clamp(38px,6vw,76px);line-height:1;letter-spacing:-.03em;margin:0 0 20px;font-weight:800;max-width:14ch}
+.lead{font-size:clamp(18px,1.8vw,22px);color:var(--ink2);max-width:56ch;margin:0 0 28px}
+.dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;max-width:1100px;margin:0 auto;padding:0 6vw 6vh}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 22px}.card h2{margin:0 0 6px;font-size:20px}.card p{margin:0 0 12px;color:var(--ink2);font-size:15px}
+.card.rec{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset}.tag{display:inline-block;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--acc);font-weight:800;margin-bottom:8px}
+a.btn{display:inline-block;background:var(--acc);color:#08181a;font-weight:800;padding:10px 16px;border-radius:10px;text-decoration:none;margin:4px 6px 4px 0}a.btn.sec{background:var(--bg2);color:var(--ink);border:1px solid var(--line)}
+.files{font-family:"IBM Plex Mono",monospace;font-size:12.5px;color:var(--mute);margin-top:10px;word-break:break-all}.files a{color:var(--ink2)}
+.how{max-width:1100px;margin:0 auto;padding:2vh 6vw 10vh}.how h2{font-size:26px;margin:36px 0 8px}.how p,.how li{max-width:70ch;color:var(--ink2)}
+pre{background:#0d1218;border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow-x:auto;font-family:"IBM Plex Mono",monospace;font-size:13px;color:var(--ink)}
+.shots{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;max-width:1100px;margin:0 auto;padding:0 6vw 6vh}.shots img{width:100%;border-radius:12px;border:1px solid var(--line)}
+.foot{color:var(--mute);font-size:13px;max-width:1100px;margin:0 auto;padding:0 6vw 8vh}
+</style></head><body>
+<div class="hero">
+  <p class="k">Genesis · a Linux desktop with the AI inside</p>
+  <h1>A computer that can make things for you.</h1>
+  <p class="lead">A complete desktop with a maker built in. Describe what you want, and Genesis builds it on your machine, with no cloud and no account. Every change asks first and can be undone.</p>
+  <p class="lead" id="rel">Loading the latest release…</p>
+</div>
+<div class="dl" id="dl"></div>
+<div class="shots">
+  <img src="screens/real/desktop-v0.1.47.png" alt="The Genesis desktop">
+  <img src="screens/real/maker-v0.1.47.png" alt="The maker">
+  <img src="screens/real/login-v0.1.47.png" alt="The login screen">
+</div>
+<div class="how">
+  <h2>Which file do I need?</h2>
+  <ul>
+    <li><b>PC or laptop (x86_64):</b> the installer ISO writes Genesis to a machine or a VM. The qcow2 disk boots directly in QEMU, virt-manager or UTM.</li>
+    <li><b>Apple Silicon Mac:</b> the arm64 disk runs natively in a VM (UTM, or QEMU with Apple's hypervisor) at full speed, models included.</li>
+  </ul>
+  <p>Downloads are split into parts because of GitHub's 2 GB limit. Join them:</p>
+  <pre>cat genesis-VERSION.qcow2.zst.*.part | zstd -d -o disk.qcow2
+cat genesis-VERSION.iso.*.part &gt; genesis.iso</pre>
+  <h2>First start</h2>
+  <p>Log in, and the wizard shows what your machine can run and picks a model pack that fits. Download it, or set models up later and use Genesis as a normal desktop. Then press <b>Meta+Space</b> and say what you want made.</p>
+  <h2>Updates</h2>
+  <p>Genesis updates itself in the background from the same image it was installed from and applies the update at the next restart. It never restarts on its own.</p>
+  <h2>Everything is open</h2>
+  <p>Source, images and the decision log: <a href="https://github.com/matijagorsek/genesis" style="color:var(--acc)">github.com/matijagorsek/genesis</a>. Genesis is a Fedora Remix and is not endorsed by the Fedora Project.</p>
+</div>
+<p class="foot">Alpha. Test user on prebuilt disks: <span style="font-family:'IBM Plex Mono',monospace">genesis / genesis</span>.</p>
+<script>
+(async function(){
+  const isMac=/Mac/.test(navigator.platform)&&(navigator.userAgent.includes('Mac')); const arm=/arm|aarch64/i.test(navigator.userAgent)||isMac;
+  try{
+    const r=await fetch('https://api.github.com/repos/matijagorsek/genesis/releases?per_page=5');const rels=await r.json();
+    const rel=rels.find(x=>x.assets&&x.assets.some(a=>a.name.includes('qcow2')))||rels[0];
+    const tag=rel.tag_name;document.getElementById('rel').textContent='Latest release: '+tag+' · '+new Date(rel.published_at).toLocaleDateString();
+    const by=p=>rel.assets.filter(a=>p(a.name));
+    const x86=by(n=>n.includes('.qcow2.zst.')&&!n.includes('arm64'));const iso=by(n=>n.includes('.iso.'));const a64=by(n=>n.includes('arm64.qcow2.zst.'));
+    const card=(title,tag,desc,assets,rec)=>{const d=document.createElement('div');d.className='card'+(rec?' rec':'');d.innerHTML=`<div class="tag">${tag}</div><h2>${title}</h2><p>${desc}</p>`;
+      if(!assets.length){d.innerHTML+='<p class="files">not in this release</p>';return d}
+      d.innerHTML+=assets.map((a,i)=>`<a class="btn${i?' sec':''}" href="${a.browser_download_url}">Part ${i+1} · ${(a.size/1e9).toFixed(2)} GB</a>`).join('')+`<div class="files">${assets.map(a=>a.name).join('<br>')}</div>`;return d};
+    const dl=document.getElementById('dl');
+    dl.appendChild(card('Apple Silicon Mac','arm64 disk · native speed','Runs in UTM or QEMU with Apple\'s hypervisor. Boots to the login screen in under a minute.',a64,arm));
+    dl.appendChild(card('PC installer','x86_64 ISO','Install Genesis on a machine or in a VM.',iso,!arm));
+    dl.appendChild(card('PC disk image','x86_64 qcow2','Boot directly in QEMU, virt-manager or UTM.',x86,false));
+  }catch(e){document.getElementById('rel').innerHTML='Releases: <a style="color:var(--acc)" href="https://github.com/matijagorsek/genesis/releases">github.com/matijagorsek/genesis/releases</a>'}
+})();
+</script>
+</body></html>
