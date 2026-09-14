@@ -17,7 +17,7 @@ ol.rules li{margin:8px 0}code{font-family:"IBM Plex Mono",monospace;font-size:14
 .src{color:var(--mute);font-size:13px}.src a{color:var(--mute)}
 </style>
 <div class="wrap">
-<p class="k">Genesis · design plan · 12 September 2026</p>
+<p class="k">Genesis · design plan · updated 14 September 2026</p>
 <h1>What has to be true for Genesis to be mind-blowing</h1>
 <p class="lead">Three research passes (Plasma visual identity, what wows people in 2025–26 products, and agent interaction design) boiled down into one identity stack, twelve moments, ten rules, and an order of work.</p>
 
@@ -32,22 +32,22 @@ ol.rules li{margin:8px 0}code{font-family:"IBM Plex Mono",monospace;font-size:14
 <div class="card"><b>Panel: a floating dock</b><p>Centered, fit-to-content, floating at the bottom. Genesis mark as the launcher, the maker next to it, five pinned apps, tray, clock. KRunner free-floating in the middle of the screen.</p></div>
 <div class="card"><b>Boot to login, one composition</b><p>Plymouth spinner carries the Genesis watermark, the Plasma splash shows the mark on the wallpaper with a thin progress line, the login manager uses the same wallpaper and colours.</p></div>
 </div>
-<p><span class="pill now">built today</span> colour scheme, wallpaper, fonts, icons, sound, dock layout, splash, boot watermark, system defaults under <code>/usr/share/kde-settings</code>. Lands in the next image.</p>
+<p><span class="pill ok">built</span> colour scheme, wallpaper, fonts, icons, sound, dock layout, splash, boot watermark, system defaults under <code>/usr/share/kde-settings</code>. Verified in the VM and in the CI captures of every release.</p>
 
 <h2>2 · Twelve moments that make people say “wait, what?”</h2>
 <table><tr><th>#</th><th>Moment</th><th>Why it lands</th><th>Effort</th><th>Status</th></tr>
-<tr><td>1</td><td>First boot is already beautiful and configured; the wizard ends with something made</td><td>Screenshots at minute one sell distros; the first session must leave something the user keeps</td><td>L</td><td><span class="pill now">look built · “make something” step next</span></td></tr>
-<tr><td>2</td><td>A launcher that acts: Meta+Space, “resize these photos to 1080p and zip them”, done, with the command shown</td><td>Tahoe’s Spotlight actions were the one thing reviewers loved</td><td>M</td><td><span class="pill ok">maker path built</span> · select-to-act next</td></tr>
-<tr><td>3</td><td>Pull the cable: everything still works, and a tray badge proves “on this machine”</td><td>The exact inverse of Recall; what r/linux rewards</td><td>S</td><td><span class="pill next">next</span></td></tr>
-<tr><td>4</td><td>“Ask about this” on any selection or screen region, local only</td><td>Copilot Vision usefulness without the capture stigma</td><td>M</td><td><span class="pill next">next</span></td></tr>
-<tr><td>5</td><td>One-key theme swap that re-skins desktop, terminal, editor and the maker together</td><td>Omarchy’s most-shared moment</td><td>S</td><td><span class="pill later">later</span></td></tr>
-<tr><td>6</td><td>Proactive cards: a repo with failing tests, a calendar file in Downloads, a stuck update</td><td>Proactive beats a chat window (Pixel’s Magic Cue)</td><td>L</td><td><span class="pill later">later</span></td></tr>
-<tr><td>7</td><td>Agent with files and shell, sandboxed, visible diff and Keep / Undo before it sticks</td><td>The “different beast” feeling of terminal coding agents, plus the trust Comet lacks</td><td>L</td><td><span class="pill ok">built</span> · Keep/Undo toast next</td></tr>
-<tr><td>8</td><td>Silent updates with rollback, never an “installing, don’t turn off” screen</td><td>Aurora’s polish marker; bootc gives it for free</td><td>M</td><td><span class="pill ok">inherited</span></td></tr>
-<tr><td>9</td><td>“Fits your machine” model picker with a memory bar and live tokens/s</td><td>LM Studio’s most loved screen, at OS level</td><td>S</td><td><span class="pill ok">built</span> · tokens/s next</td></tr>
-<tr><td>10</td><td>Hold to talk anywhere; “dark mode at sunset” just happens</td><td>Demo-able and private</td><td>M</td><td><span class="pill ok">voice built</span> · system intents next</td></tr>
-<tr><td>11</td><td>Phone continuity on day one (notifications, clipboard, files)</td><td>Absent on Linux, so it reads as magic; KDE Connect ships in the image</td><td>M</td><td><span class="pill later">polish later</span></td></tr>
-<tr><td>12</td><td>Terminal with natural language to command, block output</td><td>Developers are the launch audience; Warp is their benchmark</td><td>M</td><td><span class="pill later">later</span></td></tr>
+<tr><td>1</td><td>First boot is already beautiful and configured; the wizard ends with something made</td><td>Screenshots at minute one sell distros; the first session must leave something the user keeps</td><td>L</td><td><span class="pill ok">built</span> · wizard ends with three makes, gallery keeps the result</td></tr>
+<tr><td>2</td><td>A launcher that acts: Meta+Space, “resize these photos to 1080p and zip them”, done, with the command shown</td><td>Tahoe’s Spotlight actions were the one thing reviewers loved</td><td>M</td><td><span class="pill ok">built</span> · typed, spoken and selection input</td></tr>
+<tr><td>3</td><td>Pull the cable: everything still works, and a tray badge proves “on this machine”</td><td>The exact inverse of Recall; what r/linux rewards</td><td>S</td><td><span class="pill ok">built</span> · network badge per job, no cloud fallback</td></tr>
+<tr><td>4</td><td>“Ask about this” on any selection or screen region, local only</td><td>Copilot Vision usefulness without the capture stigma</td><td>M</td><td><span class="pill ok">built</span> · Ask about the selection, text only</td></tr>
+<tr><td>5</td><td>One-key theme swap that re-skins desktop, terminal, editor and the maker together</td><td>Omarchy’s most-shared moment</td><td>S</td><td><span class="pill ok">built</span> · day/night in Settings and by voice</td></tr>
+<tr><td>6</td><td>Proactive cards: a repo with failing tests, a calendar file in Downloads, a stuck update</td><td>Proactive beats a chat window (Pixel’s Magic Cue)</td><td>L</td><td><span class="pill ok">built</span> · failing runs, calendar files, staged updates, uncommitted repos, phone pairing</td></tr>
+<tr><td>7</td><td>Agent with files and shell, sandboxed, visible diff and Keep / Undo before it sticks</td><td>The “different beast” feeling of terminal coding agents, plus the trust Comet lacks</td><td>L</td><td><span class="pill ok">built</span> · Keep / Undo toast, snapshots, undo history in Settings</td></tr>
+<tr><td>8</td><td>Silent updates with rollback, never an “installing, don’t turn off” screen</td><td>Aurora’s polish marker; bootc gives it for free</td><td>M</td><td><span class="pill ok">built</span> · signed images, staged updates, one-click apply, rollback</td></tr>
+<tr><td>9</td><td>“Fits your machine” model picker with a memory bar and live tokens/s</td><td>LM Studio’s most loved screen, at OS level</td><td>S</td><td><span class="pill ok">built</span> · live tokens/s, packs refused when they do not fit</td></tr>
+<tr><td>10</td><td>Hold to talk anywhere; “dark mode at sunset” just happens</td><td>Demo-able and private</td><td>M</td><td><span class="pill ok">built</span> · hold to talk, spoken replies, day/night by voice</td></tr>
+<tr><td>11</td><td>Phone continuity on day one (notifications, clipboard, files)</td><td>Absent on Linux, so it reads as magic; KDE Connect ships in the image</td><td>M</td><td><span class="pill now">partly</span> · KDE Connect ships, pairing card in the maker; pairing flow in first run still open</td></tr>
+<tr><td>12</td><td>Terminal with natural language to command, block output</td><td>Developers are the launch audience; Warp is their benchmark</td><td>M</td><td><span class="pill ok">built</span> · <code>ask</code> and Ctrl+G in every shell</td></tr>
 </table>
 
 <h2>3 · Ten rules for how it behaves</h2>
@@ -66,13 +66,14 @@ ol.rules li{margin:8px 0}code{font-family:"IBM Plex Mono",monospace;font-size:14
 
 <h2>4 · Order of work</h2>
 <table><tr><th>Phase</th><th>Deliverable</th><th>Status</th></tr>
-<tr><td>A · Identity</td><td>Colour scheme, wallpaper, fonts, icons, dock, splash, boot watermark, login, lock screen</td><td><span class="pill now">in the next image</span></td></tr>
+<tr><td>A · Identity</td><td>Colour scheme, wallpaper, fonts, icons, dock, splash, boot watermark, login, lock screen</td><td><span class="pill ok">built, captured from every release by CI</span></td></tr>
 <tr><td>B · Trust surface</td><td>Tray indicator (“on this machine”, model, network use), plain-verb permission dialogs, Keep / Undo toast, mode switch on the bar</td><td><span class="pill ok">built, verified live in the VM</span></td></tr>
 <tr><td>C · One door</td><td>Meta+Space palette with typed, spoken and selection input; starter prompts; “ask about this” on a selection</td><td><span class="pill ok">built, verified live in the VM</span></td></tr>
-<tr><td>D · First run that makes something</td><td>Last wizard step offers three makes; “Made here” gallery; share recipe</td><td><span class="pill now">three makes built · gallery next</span></td></tr>
+<tr><td>D · First run that makes something</td><td>Last wizard step offers three makes; “Made here” gallery; share recipe</td><td><span class="pill ok">built</span> · three makes, Made-here gallery, export as recipe</td></tr>
 <tr><td>E · Settings section</td><td>Genesis in System Settings: models, permissions, undo history, voice</td><td><span class="pill ok">native module built, verified live</span></td></tr>
-<tr><td>F · Proactive and continuity</td><td>Context cards, theme swap, terminal, KDE Connect polish</td><td><span class="pill now">theme swap and terminal built · cards and KDE Connect later</span></td></tr>
+<tr><td>F · Proactive and continuity</td><td>Context cards, theme swap, terminal, KDE Connect polish</td><td><span class="pill ok">built</span> · cards, theme swap, terminal; KDE Connect pairing flow is the one open item</td></tr>
 </table>
+<p>Since the plan: signed update channel with a public key in the image, arm64 and NVIDIA flavours, toolboxes for developers, Claude Code with the user's own account as an alternative to local models, accessibility pass, adversarial review of the permission policy, German and Slovenian, project hygiene, automatic screenshots. The one open phase item is the KDE Connect pairing flow in first run; after that, real hardware.</p>
 
 <h2>5 · What we deliberately do not do</h2>
 <p>No screen recording or always-on capture (Recall). No AI button on every surface (Copilot). No cloud fallback by default (Siri). No replaced window decorations or Kvantum (Garuda’s breakage). No features announced before they run (Siri again). Basics first: a timer must still be a timer.</p>
