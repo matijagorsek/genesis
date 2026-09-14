@@ -33,6 +33,7 @@ for u in genesis-router.service; do [ -f "/usr/lib/systemd/system/$u" ] && ok "u
 [ -f /usr/share/kde-settings/kde-profile/default/xdg/kwinrc ] && ok "kwinrc defaults (blur, no borders)" || fail "kwinrc defaults"
 [ -f /usr/lib/systemd/system/bootc-fetch-apply-updates.service.d/genesis.conf ] && [ -L /etc/systemd/system/timers.target.wants/bootc-fetch-apply-updates.timer ] && ok "background updates: stage, apply on reboot" || fail "update policy"
 [ -f /usr/share/polkit-1/rules.d/50-genesis-updates.rules ] && [ -f /usr/lib/systemd/system/genesis-bootc-status.service ] && ok "update check from Settings" || fail "update check"
+[ -n "$(find /usr/lib64/qt6/plugins/plasma/kcms -name kcm_genesis.so 2>/dev/null)" ] && ok "Genesis module in System Settings" || fail "kcm_genesis"
 [ -x /usr/lib/genesis/piper/piper ] && ok "piper (voice output)" || fail "piper"
 [ -x /usr/lib/genesis/whisper/bin/whisper-cli ] && ok "whisper-cli (voice input)" || fail "whisper-cli"
 [ -d /usr/share/plasma/look-and-feel/org.genesis.desktop ] && grep -q org.genesis.desktop /usr/share/kde-settings/kde-profile/default/xdg/kdeglobals && ok "Genesis look-and-feel default" || fail "look-and-feel"

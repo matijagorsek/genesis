@@ -21,10 +21,15 @@ RUN case "${TARGETARCH:-amd64}" in arm64) T=aarch64-unknown-linux-gnu;; *) T=x86
 
 # ---- stage 1b: genesis-window (Qt WebEngine), built on Fedora so it links against the image's Qt ------
 FROM quay.io/fedora/fedora:44 AS qtbuild
-RUN dnf install -y --setopt=install_weak_deps=False cmake gcc-c++ ninja-build qt6-qtbase-devel qt6-qtwebengine-devel >/dev/null && dnf clean all
+RUN dnf install -y --setopt=install_weak_deps=False cmake gcc-c++ ninja-build qt6-qtbase-devel qt6-qtwebengine-devel qt6-qtdeclarative-devel extra-cmake-modules kf6-kcmutils-devel kf6-ki18n-devel >/dev/null && dnf clean all
 COPY src/genesis-window/ /src/genesis-window/
+COPY src/genesis-kcm/ /src/genesis-kcm/
 RUN cmake -S /src/genesis-window -B /build -G Ninja -DCMAKE_BUILD_TYPE=Release >/dev/null && cmake --build /build >/dev/null \
  && install -D -m 0755 /build/genesis-window /out/usr/bin/genesis-window
+# the System Settings module: installs its plugin and QML package under /out (KDE install dirs => /usr)
+RUN cmake -S /src/genesis-kcm -B /build-kcm -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DKDE_INSTALL_USE_QT_SYS_PATHS=ON >/dev/null \
+ && cmake --build /build-kcm >/dev/null && DESTDIR=/out cmake --install /build-kcm >/dev/null \
+ && find /out -name "kcm_genesis*" | head -5
 
 # whisper.cpp: local speech-to-text for voice input (Fedora ships only the library, no CLI)
 FROM quay.io/fedora/fedora:44 AS whisperbuild

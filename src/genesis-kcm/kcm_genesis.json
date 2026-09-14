@@ -1,0 +1,14 @@
+{
+  "KPlugin": {
+    "Id": "kcm_genesis",
+    "Name": "Genesis",
+    "Description": "Models, how much Genesis may do on its own, voice, updates and undo, all on this machine",
+    "Icon": "genesis",
+    "Category": "System",
+    "License": "Apache-2.0",
+    "Version": "0.1"
+  },
+  "X-KDE-System-Settings-Parent-Category": "system-administration",
+  "X-KDE-Keywords": "Genesis,AI,models,maker,permissions,voice,undo,update",
+  "X-KDE-Weight": 10
+}
