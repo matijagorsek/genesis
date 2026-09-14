@@ -50,7 +50,6 @@ fn provider(cli: &Cli) -> (String, String, String, bool) {
 
 fn ask_model(cli: &Cli, question: &str) -> Result<String> {
     let (endpoint, model, api_key, _cloud) = provider(cli);
-    let _cloud = _cloud;
     let cwd = std::env::current_dir().map(|p| p.display().to_string()).unwrap_or_default();
     let body = serde_json::json!({
         "model": model, "temperature": 0.1, "max_tokens": 200,
@@ -61,7 +60,7 @@ fn ask_model(cli: &Cli, question: &str) -> Result<String> {
     });
     let resp: serde_json::Value = ureq::post(&format!("{}/chat/completions", endpoint.trim_end_matches('/')))
         .set("Authorization", &format!("Bearer {}", api_key)).timeout(std::time::Duration::from_secs(600)).send_json(body)
-        .map_err(|e| if _cloud { match e { ureq::Error::Status(401, _) | ureq::Error::Status(403, _) => anyhow!("Claude rejected the API key. Check it in Genesis Settings."), other => anyhow!("Claude did not answer ({}). Check the connection, or switch back to local models in Genesis Settings.", other) } } else { anyhow!("the local model service did not answer ({}). Is Genesis set up? Open Genesis Settings.", e) })?
+        .map_err(|e| anyhow!("the local model service did not answer ({}). Is Genesis set up? Open Genesis Settings.", e))?
         .into_json().context("bad reply from the model service")?;
     let text = resp["choices"][0]["message"]["content"].as_str().unwrap_or("").trim().to_string();
     Ok(clean(&text))
