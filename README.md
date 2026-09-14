@@ -37,7 +37,8 @@ Design brief: [docs/genesis-brief.html](docs/genesis-brief.html) · Design plan:
 - **Maker** (`genesis-agentd` + `genesis-window`): "what do you want to make?" → template → files →
   live preview → steer → install as app. Starter prompts, plain-language permission prompts, a
   Keep / Undo toast, a "Made here" gallery with shareable recipes and one-click export bundles, and
-  proactive cards for projects that failed their last run or were never installed. Templates: static web app,
+  proactive cards for projects that failed their last run or were never installed. Small models get a compact
+  mode with a short strict script; the wizard says what each pack can do on this hardware. Templates: static web app,
   Python CLI, Python script.
 - **Permission broker** (`genesis-permd`): every tool call classified into tiers (read, write in
   project, write elsewhere, system, secrets, never) and answered per session mode
