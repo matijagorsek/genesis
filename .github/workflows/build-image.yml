@@ -119,6 +119,14 @@ jobs:
       - name: Sign the image (sigstore, keyless with the GitHub identity)
         if: github.event_name != 'pull_request'
         uses: sigstore/cosign-installer@v3
+        continue-on-error: true
+      - name: Install cosign by hand if the installer could not download it
+        if: github.event_name != 'pull_request'
+        run: |
+          command -v cosign >/dev/null && exit 0
+          ARCH=$(uname -m); case "$ARCH" in aarch64) A=arm64;; *) A=amd64;; esac
+          curl -fsSL --retry 6 --retry-all-errors --retry-delay 15 -o /tmp/cosign "https://github.com/sigstore/cosign/releases/download/v2.5.2/cosign-linux-$A"
+          sudo install -m 0755 /tmp/cosign /usr/local/bin/cosign && cosign version
       - if: github.event_name != 'pull_request'
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | cosign login ghcr.io -u ${{ github.actor }} --password-stdin
@@ -304,6 +312,13 @@ jobs:
 
       - name: Sign the image (sigstore, keyless)
         uses: sigstore/cosign-installer@v3
+        continue-on-error: true
+      - name: Install cosign by hand if the installer could not download it
+        run: |
+          command -v cosign >/dev/null && exit 0
+          ARCH=$(uname -m); case "$ARCH" in aarch64) A=arm64;; *) A=amd64;; esac
+          curl -fsSL --retry 6 --retry-all-errors --retry-delay 15 -o /tmp/cosign "https://github.com/sigstore/cosign/releases/download/v2.5.2/cosign-linux-$A"
+          sudo install -m 0755 /tmp/cosign /usr/local/bin/cosign && cosign version
       - run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | cosign login ghcr.io -u ${{ github.actor }} --password-stdin
           cosign sign --yes "$IMAGE:${{ needs.image.outputs.tag }}-arm64"
@@ -380,6 +395,13 @@ jobs:
           sudo podman push $IMAGE:${{ needs.image.outputs.tag }}-nvidia
       - name: Sign the image (sigstore, keyless)
         uses: sigstore/cosign-installer@v3
+        continue-on-error: true
+      - name: Install cosign by hand if the installer could not download it
+        run: |
+          command -v cosign >/dev/null && exit 0
+          ARCH=$(uname -m); case "$ARCH" in aarch64) A=arm64;; *) A=amd64;; esac
+          curl -fsSL --retry 6 --retry-all-errors --retry-delay 15 -o /tmp/cosign "https://github.com/sigstore/cosign/releases/download/v2.5.2/cosign-linux-$A"
+          sudo install -m 0755 /tmp/cosign /usr/local/bin/cosign && cosign version
       - run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | cosign login ghcr.io -u ${{ github.actor }} --password-stdin
           cosign sign --yes "$IMAGE:${{ needs.image.outputs.tag }}-nvidia"
