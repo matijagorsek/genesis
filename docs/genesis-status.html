@@ -63,17 +63,18 @@ ol.next{padding-left:22px;max-width:70ch}ol.next li{margin-bottom:7px}
 <p class="eyebrow">Genesis · project status</p>
 <h1>Genesis, from idea to a desktop that builds things in three days</h1>
 <p class="lede">One page with everything: what was investigated, what was decided, what runs today, the proof that Genesis boots, and what comes next. Links to the full brief, the interactive walkthrough, the repository and the published image.</p>
-<div class="meta"><span>updated 2026-09-13</span><span>130+ commits on main</span><span>github.com/matijagorsek/genesis</span></div>
+<div class="meta"><span>updated 2026-09-14</span><span>200+ commits on main</span><span>github.com/matijagorsek/genesis</span></div>
 
 <div class="tiles">
   <div class="tile"><div class="k">Phase 0 tasks</div><div class="v">3 / 3 <span class="pill ok">pass</span></div><div class="s">shell, repo edit, kanban app, all with a local 27B</div></div>
   <div class="tile"><div class="k">Image</div><div class="v">3.80 GB</div><div class="s">ghcr.io/matijagorsek/genesis:0.1 · strict lint · +70 MB over base</div></div>
   <div class="tile"><div class="k">Boot test</div><div class="v">pass <span class="pill ok">CI + Mac</span></div><div class="s">KVM on the runner; native arm64 VM on the Mac boots to login in under a minute</div></div>
-  <div class="tile"><div class="k">Release</div><div class="v">v0.1.59 <span class="pill ok">green</span></div><div class="s">x86_64 and arm64 flavours; desktop, maker, voice, browser, terminal, all verified in booted VMs</div></div>
+  <div class="tile"><div class="k">Release</div><div class="v">v0.1.98 <span class="pill ok">green</span></div><div class="s">x86_64, arm64 and NVIDIA flavours, signed; desktop, maker, voice, browser, terminal, updates, all verified in booted VMs</div></div>
 </div>
 
 <h2>Everything, in one place</h2>
 <div class="links">
+  <a class="link" href="https://github.com/matijagorsek/genesis/tree/main/docs/screens/latest"><b>Screenshots, captured by CI</b><span>Every x86_64 release boots under KVM and photographs boot, login, first run, desktop, app menu and palette.</span><span class="url">docs/screens/latest</span></a>
   <a class="link" href="genesis-brief.html"><b>Feasibility brief</b><span>Four expert angles, model packs per hardware tier, licensing tiers, architecture, UX, roadmap and risks.</span><span class="url">docs/genesis-brief.html</span></a>
   <a class="link" href="genesis-walkthrough.html"><b>Interactive walkthrough</b><span>Ten screens from power-on to a built app: boot, first run, launcher, agent workspace, permissions, model manager, undo.</span><span class="url">docs/genesis-walkthrough.html</span></a>
   <a class="link" href="https://github.com/matijagorsek/genesis"><b>Repository</b><span>Containerfile, packs, prototype, system files, CI, docs with the decision log and the base-distro due diligence.</span><span class="url">github.com/matijagorsek/genesis</span></a>
@@ -154,22 +155,26 @@ Password:
 <span class="g">BOOTTEST-DONE</span></pre>
 <p class="small">Local boot of v0.1.9 on the Mac: login prompt after 90 s, and <code>genesis-router.socket</code> listening at boot. The hostname reads "genesis" from v0.1.17, set by a kernel argument shipped in the image; the earlier os-release and /etc/hostname attempts never reached the booted deployment.</p>
 
-<h2>What is real and what is designed</h2>
+<h2>What is real, by phase</h2>
 <div class="tablewrap"><table>
-<thead><tr><th>Real today</th><th>Designed, built in Phase 1 and 2</th></tr></thead>
+<thead><tr><th>Phase</th><th>Built and verified</th><th>Open</th></tr></thead>
 <tbody>
-<tr><td>The Genesis image, published and bootable, with the inference stack, permission broker, hardware probe and first-run wizard inside</td><td>Bootstrap model answering during the download; real account creation in the wizard</td></tr>
-<tr><td>Three local models behind one endpoint, hot-and-swap router</td><td>Launcher, agent workspace, model manager, undo UI</td></tr>
-<tr><td>An agent that built a working app from a one-line request</td><td>Permission broker, sandbox tiers, snapshots and undo</td></tr>
-<tr><td>Model packs for six hardware tiers, licenses verified</td><td>NVIDIA image flavour with signed modules, ISO installer polish</td></tr>
+<tr><td>0 · Core loop</td><td>Three local models behind one endpoint; an agent that builds working apps; packs for six hardware tiers, licences verified; packs refused when they do not fit</td><td>Packs as OCI artifacts</td></tr>
+<tr><td>A · Identity</td><td>Colour schemes, First Light wallpaper, fonts, icons, dock, splash, boot watermark, login; captured from every release by CI</td><td>·</td></tr>
+<tr><td>B · Trust</td><td>Status widget with model and network use, plain-verb permission cards, Keep / Undo with snapshots, three modes on the bar, adversarially reviewed policy</td><td>·</td></tr>
+<tr><td>C · One door</td><td>Meta+Space palette with typed, spoken and selection input, starter prompts, German and Slovenian</td><td>More languages</td></tr>
+<tr><td>D · First run</td><td>Hardware page, packs, privacy, three makes at the end, Made-here gallery, export as recipe</td><td>·</td></tr>
+<tr><td>E · Settings</td><td>Native System Settings module: updates, this machine, models, autonomy, day/night, Claude Code with your account, voice, activity, undo</td><td>·</td></tr>
+<tr><td>F · Proactive, continuity</td><td>Cards for failing runs, calendar files, staged updates, uncommitted repos, phone pairing; day/night by voice; <code>ask</code> in every terminal; toolboxes for Node and Rust</td><td>KDE Connect pairing flow in first run</td></tr>
+<tr><td>Ship</td><td>Signed images (keyless and release key), public key in the image, update policy verified end to end, download page, ISO, arm64 and NVIDIA flavours, licence and contribution files</td><td>Install on real hardware; keyless identity enforcement</td></tr>
 </tbody></table></div>
 
 <h2>Next, in order</h2>
 <ol class="next">
-    <li><strong>Watch it on screen.</strong> <code>just boot</code> opens the QEMU window with v0.1.9 already downloaded; login genesis / genesis.</li>
-      <li><strong>Packs as OCI artifacts</strong> on GHCR, pulled with ramalama.</li>
-  <li><strong>Agent Client Protocol bridge to Goose</strong> as an alternative engine behind the same gating, and MCP tools (browser, packages, system config).</li>
-    <li><strong>More ways to make:</strong> Node and Rust toolchains via distrobox, more templates (desktop app, API server), browsing and desktop-control tools, package and system-config tools.</li>
+  <li><strong>Real hardware.</strong> Install from the ISO on a laptop with a GPU, file the first hardware report.</li>
+  <li><strong>KDE Connect pairing</strong> as a step in first run, so the phone works on day one.</li>
+  <li><strong>Packs as OCI artifacts</strong> on GHCR, so models update like the OS.</li>
   <li><strong>genesis-indexd</strong>: file index and local search, so "make me X from my notes" works.</li>
+  <li><strong>More languages</strong>: a dictionary each; contributors welcome.</li>
 </ol>
 </div>
