@@ -1,0 +1,20 @@
+Genesis
+Copyright 2026 Matija Gorsek
+
+Genesis is a Fedora Remix and is not endorsed by the Fedora Project. Fedora is a trademark of Red Hat, Inc.
+Base images: Fedora bootc (Fedora Project) and Universal Blue Aurora (Universal Blue contributors).
+
+Third-party software shipped in the Genesis image, with their licenses:
+  llama.cpp                  MIT            https://github.com/ggml-org/llama.cpp
+  whisper.cpp                MIT            https://github.com/ggml-org/whisper.cpp
+  llama-swap                 MIT            https://github.com/mostlygeek/llama-swap
+  Piper (with espeak-ng data, GPL-3.0, and onnxruntime, MIT)   MIT   https://github.com/rhasspy/piper
+  Papirus icon theme         GPL-3.0        https://github.com/PapirusDevelopmentTeam/papirus-icon-theme
+  Inter                      OFL-1.1        https://github.com/rsms/inter
+  IBM Plex Mono              OFL-1.1        https://github.com/IBM/plex
+  KDE Plasma and applications                GPL-2.0-or-later / LGPL      https://kde.org
+  ramalama, distrobox, bubblewrap and other Fedora packages under their respective licenses.
+
+Models are not shipped; they are downloaded at first run from their publishers under their own licenses
+(Qwen: Apache-2.0; whisper ggml models: MIT; Piper voices: MIT). Claude Code is installed by the person,
+with their own account, from Anthropic and is not part of Genesis.
