@@ -78,6 +78,7 @@ aside{background:var(--panel);border-right:1px solid var(--line);display:grid;gr
 .mcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:grid;gap:6px}.mcard b{font-size:15px}.mcard .meta{color:var(--ink-3);font-size:12px}.mcard .prompt{color:var(--ink-2);font-size:13px;min-height:2.6em}.mcard .row{display:flex;gap:6px}.mcard button{font:inherit;font-size:12px;padding:5px 10px;border-radius:7px;border:1px solid var(--line);background:var(--panel-2);color:var(--ink);cursor:pointer}
 .badge.net{border-color:var(--warn);color:var(--warn)}
 body.listening header{box-shadow:inset 0 -2px 0 var(--accent)}body.listening textarea{border-color:var(--accent)!important;box-shadow:0 0 24px rgba(95,181,189,.25)}
+.notices{display:grid;gap:8px;width:min(760px,100%);margin:0 0 6px}.notice{display:grid;grid-template-columns:1fr auto;gap:2px 12px;align-items:center;background:var(--panel);border:1px solid var(--accent);border-radius:10px;padding:10px 14px;font-size:13.5px}.notice b{grid-column:1}.notice span{grid-column:1;color:var(--ink-2)}.notice button{grid-column:2;grid-row:1/3;font:inherit;font-size:12.5px;padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel-2);color:var(--ink);cursor:pointer}
 </style>
 </head>
 <body>
@@ -101,6 +102,7 @@ body.listening header{box-shadow:inset 0 -2px 0 var(--accent)}body.listening tex
     <label>Mode <select id="mode"><option value="auto_edit" selected>Trusted: works inside the project on its own, asks before installing, going online or touching anything else</option><option value="assist">Ask: asks before every change</option><option value="autonomous">Hands-off: also allowed outside the project, everything snapshotted; system changes still ask</option></select></label>
     <label>Folder <input type="text" id="project" size="30"></label>
   </div>
+  <div class="notices" id="notices" hidden></div>
   <div class="starters" id="starters"></div>
   <div class="tpls" id="tpls"></div>
   <div class="recent" id="recent"></div>
@@ -223,10 +225,13 @@ body.listening header{box-shadow:inset 0 -2px 0 var(--accent)}body.listening tex
   $('#undo').addEventListener('click',async()=>{if(!confirm('Undo every change this session made outside the project?'))return;const r=await api('/api/sessions/'+current+'/undo');const d=stepEl({kind:'snapshot',tx:'undo',detail:(r.log||[r.error]).join(' · ')});$('#steps').appendChild(d);$('#undo').style.display='none'});
   $('#reload').addEventListener('click',()=>{if(lastUrl)$('#frame').src=lastUrl});
   $('#openTab').addEventListener('click',()=>{if(lastUrl)window.open(lastUrl,'_blank')});
-  $('#home').addEventListener('click',()=>{showStart(true);recent();made()});
+  $('#home').addEventListener('click',()=>{showStart(true);recent();made();noticesLoad()});
   $('#settingsBtn').addEventListener('click',()=>{location.href='/settings'});
   api('/api/system').then(sy=>{const m=sy.user&&sy.user.default_mode;if(m&&$('#mode').querySelector('option[value="'+m+'"]'))$('#mode').value=m}).catch(()=>{});
   const q=new URLSearchParams(location.search);
+  async function noticesLoad(){const list=await api('/api/notices');const box=$('#notices');box.innerHTML='';if(!Array.isArray(list)||!list.length){box.hidden=true;return}box.hidden=false;
+    list.forEach(n=>{const d=document.createElement('div');d.className='notice';d.innerHTML='<b></b><span></span>';d.querySelector('b').textContent=n.title;d.querySelector('span').textContent=n.text;
+      if(n.prompt){const b=document.createElement('button');b.textContent=n.kind==='failing'?'Fix it':'Install';b.addEventListener('click',()=>{$('#project').value=n.project;make(n.prompt)});d.appendChild(b)}box.appendChild(d)})}
   async function made(){const list=await api('/api/made');const sec=$('#made'),c=$('#madeCards');c.innerHTML='';if(!Array.isArray(list)||!list.length){sec.hidden=true;return}sec.hidden=false;
     list.slice(0,12).forEach(m=>{const d=document.createElement('div');d.className='mcard';const when=m.made_at?new Date(m.made_at).toLocaleDateString():'';
       d.innerHTML=`<b></b><div class="meta"></div><div class="prompt"></div><div class="row"></div>`;d.querySelector('b').textContent=m.name;d.querySelector('.meta').textContent=[m.template,when,m.installed?'in your app menu':''].filter(Boolean).join(' · ');d.querySelector('.prompt').textContent=m.prompts[0]||'';
@@ -236,7 +241,7 @@ body.listening header{box-shadow:inset 0 -2px 0 var(--accent)}body.listening tex
       c.appendChild(d)})}
   const STARTERS=['a checklist app that saves to a file','a pomodoro timer with a bell','a script that renames photos in a folder by date taken','a simple website for a club with three pages','a word-count tool for text files'];
   (function(){const el=document.getElementById('starters');STARTERS.forEach(t=>{const b=document.createElement('button');b.className='starter';b.textContent=t;b.addEventListener('click',()=>{$('#ask').value=t;make(t)});el.appendChild(b)})})();
-  health().then(async()=>{await templates();await recent();await made();if(q.get('project'))$('#project').value=q.get('project');if(q.get('prompt')){make(q.get('prompt'))}});
+  health().then(async()=>{await templates();await recent();await made();await noticesLoad();if(q.get('project'))$('#project').value=q.get('project');if(q.get('prompt')){make(q.get('prompt'))}});
 })();
 </script>
 </body>

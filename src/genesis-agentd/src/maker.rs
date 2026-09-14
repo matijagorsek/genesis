@@ -276,6 +276,38 @@ pub fn export_bundle(project: &Path) -> Result<PathBuf> {
     Ok(out)
 }
 
+/// A proactive card: something Genesis noticed that the person may want to act on. Local sources only.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Notice {
+    pub kind: String,
+    pub title: String,
+    pub text: String,
+    /// A request to hand to the maker, or empty when the card is informational.
+    pub prompt: String,
+    pub project: String,
+}
+
+/// What Genesis noticed: made projects whose last run failed, and made projects never installed to the menu.
+pub fn notices(projects_dir: &Path) -> Vec<Notice> {
+    let mut out = Vec::new();
+    for m in made_here(projects_dir) {
+        let log = Path::new(&m.path).join(".genesis-preview.log");
+        if let Ok(text) = std::fs::read_to_string(&log) {
+            let tail: String = text.chars().rev().take(1200).collect::<String>().chars().rev().collect();
+            let failed = ["Traceback", "FAILED", "Error:", "error:", "ModuleNotFoundError", "SyntaxError"].iter().any(|k| tail.contains(k));
+            if failed {
+                out.push(Notice { kind: "failing".into(), title: format!("{} did not run cleanly last time", m.name), text: "Its last preview or test run ended with an error.".into(), prompt: format!("The last run of this project failed. Read .genesis-preview.log, find the cause and fix it, then run it again."), project: m.path.clone() });
+                continue;
+            }
+        }
+        if !m.installed && !m.prompts.is_empty() {
+            out.push(Notice { kind: "not-installed".into(), title: format!("{} is not in your app menu yet", m.name), text: "Install it and it opens like any other program.".into(), prompt: format!("Install this project as an app named \"{}\" using the install_app tool.", m.name), project: m.path.clone() });
+        }
+    }
+    out.truncate(6);
+    out
+}
+
 fn shell_quote(s: &str) -> String {
     format!("'{}'", s.replace('\'', "'\\''"))
 }
@@ -329,6 +361,27 @@ mod tests {
         assert!(made[0].installed);
         assert_eq!(made[0].template, "web-static");
         assert_eq!(made[0].prompts, vec!["a pomodoro timer with a bell", "make the bell louder"]);
+    }
+
+    #[test]
+    fn notices_flag_failed_runs_and_uninstalled_projects() {
+        let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let repo_templates = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../templates");
+        std::env::set_var("GENESIS_TEMPLATES", repo_templates.display().to_string());
+        let projects = tempfile::tempdir().unwrap();
+        let home = tempfile::tempdir().unwrap();
+        std::env::set_var("HOME", home.path().display().to_string());
+        let a = projects.path().join("broken");
+        scaffold("python-cli", "broken", &a).unwrap();
+        record_recipe(&a, Some("python-cli"), "a thing");
+        std::fs::write(a.join(".genesis-preview.log"), "Traceback (most recent call last):\n  boom\n").unwrap();
+        let b = projects.path().join("fresh");
+        scaffold("web-static", "fresh", &b).unwrap();
+        record_recipe(&b, Some("web-static"), "a site");
+        let n = notices(projects.path());
+        let kinds: Vec<(String, String)> = n.iter().map(|x| (x.kind.clone(), x.project.clone())).collect();
+        assert!(kinds.iter().any(|(k, p)| k == "failing" && p.ends_with("broken")), "{:?}", kinds);
+        assert!(kinds.iter().any(|(k, p)| k == "not-installed" && p.ends_with("fresh")), "{:?}", kinds);
     }
 
     #[test]
