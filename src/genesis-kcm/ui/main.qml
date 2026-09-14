@@ -63,6 +63,10 @@ KCM.SimpleKCM {
             onActivated: root.api("POST", "/api/system/mode", { mode: currentValue }, function(st, j) { status = st === 200 ? "Saved." : "Could not save." })
         }
 
+        Kirigami.Separator { Kirigami.FormData.isSection: true; Kirigami.FormData.label: "Claude, with your account" }
+        QQC2.Label { text: "Genesis' maker runs on this machine. Claude Code, Anthropic's terminal agent, is also included: it signs in with your Claude account in the terminal on first start. No API key."; wrapMode: Text.Wrap; Layout.fillWidth: true; opacity: 0.8 }
+        QQC2.Button { text: "Open Claude"; icon.name: "utilities-terminal"; enabled: root.reachable; onClicked: root.api("POST", "/api/claude/open", {}, function(st, j) { status = (j && j.opened) ? "Opened in a terminal." : ((j && j.error) || "Could not open.") }) }
+
         Kirigami.Separator { Kirigami.FormData.isSection: true; Kirigami.FormData.label: "Look" }
         RowLayout {
             Kirigami.FormData.label: "Day / night:"

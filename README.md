@@ -132,6 +132,13 @@ docs/                brief, decisions, status board, previews, screenshots
 examples/            recorded real runs (Phase 0 tasks, gated install, pomodoro app)
 ```
 
+## Optional: Claude, with your own account
+
+Genesis includes **Claude Code**, Anthropic's terminal agent, as a separate optional app: "Claude" in the app
+menu, "Open Claude" in Genesis Settings, "Open in Claude" on every made project. The first start installs it
+into your home folder and asks you to sign in with your Claude account in the terminal. No API keys. Genesis'
+own maker, palette and `ask` stay local.
+
 ## Principles
 
 1. A complete desktop first; AI is one integrated capability, not the point of the desktop.

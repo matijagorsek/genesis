@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Claude
+Comment=Claude Code with your own Claude account (installed on first start)
+Exec=konsole --hold -e /usr/bin/genesis-claude %f
+Icon=utilities-terminal
+Terminal=false
+Categories=Development;Utility;
+Keywords=Claude;AI;agent;

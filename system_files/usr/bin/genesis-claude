@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Claude, with your own account: runs Claude Code (Anthropic's terminal agent), which signs in with a
+# Claude account on first start. Installs it into your home on first use with Anthropic's own installer.
+# Genesis' maker stays local; this is a separate, optional app.
+#   genesis-claude [project-dir] [claude args…]
+set -u
+dir="${1:-$PWD}"; [ -d "$dir" ] && shift || dir="$PWD"
+claude_bin="$(command -v claude 2>/dev/null || true)"
+[ -n "$claude_bin" ] || [ ! -x "$HOME/.local/bin/claude" ] || claude_bin="$HOME/.local/bin/claude"
+if [ -z "$claude_bin" ]; then
+  echo "Claude Code is not installed yet. It is Anthropic's terminal agent; it signs in with your Claude account."
+  echo "Install it now into your home folder with Anthropic's installer (needs the network)? [Y/n] "
+  read -r ans; case "${ans:-Y}" in [Yy]*) ;; *) exit 1;; esac
+  curl -fsSL https://claude.ai/install.sh | bash || { echo "install failed"; read -r -p "press Enter to close"; exit 1; }
+  export PATH="$HOME/.local/bin:$PATH"; claude_bin="$(command -v claude || echo "$HOME/.local/bin/claude")"
+fi
+cd "$dir" && exec "$claude_bin" "$@"

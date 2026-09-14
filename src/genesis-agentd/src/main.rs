@@ -241,6 +241,14 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
             None => json_response(&serde_json::json!({"error": "expected {path}"}), 400),
         },
         (Method::Get, ["api", "notices"]) => json_response(&maker::notices(std::path::Path::new(&default_project())), 200),
+        (Method::Get, ["api", "claude"]) => json_response(&claude_status(), 200),
+        (Method::Post, ["api", "claude", "open"]) => {
+            let project = serde_json::from_str::<serde_json::Value>(&body).ok().and_then(|v| v.get("project").and_then(|p| p.as_str()).map(|s| s.to_string())).unwrap_or_else(|| default_project());
+            match std::process::Command::new("konsole").args(["--hold", "--workdir", &project, "-e", "/usr/bin/genesis-claude", &project]).spawn() {
+                Ok(_) => json_response(&serde_json::json!({"opened": true, "project": project}), 200),
+                Err(e) => json_response(&serde_json::json!({"error": format!("could not open a terminal: {}", e)}), 503),
+            }
+        }
         (Method::Get, ["api", "made"]) => json_response(&maker::made_here(std::path::Path::new(&default_project())), 200),
         (Method::Get, ["api", "sessions"]) => {
             let list: Vec<serde_json::Value> = d.sessions.lock().unwrap().values().map(|(s, _)| { let i = s.info.lock().unwrap(); serde_json::json!({"id": i.id, "mode": i.mode, "project": i.project, "state": i.state, "transaction": i.transaction}) }).collect();
@@ -550,4 +558,13 @@ fn os_status() -> serde_json::Value {
     let staged = bootc.pointer("/status/staged/image/image/image").and_then(|v| v.as_str()).map(|s| s.to_string());
     let staged_ts = bootc.pointer("/status/staged/image/timestamp").and_then(|v| v.as_str()).map(|s| s.to_string());
     serde_json::json!({"name": get("NAME"), "version": get("IMAGE_VERSION"), "pretty": get("PRETTY_NAME"), "image": booted, "built": booted_ts, "staged": staged, "staged_built": staged_ts, "unit_active": std::process::Command::new("systemctl").args(["is-active", "bootc-fetch-apply-updates.service"]).output().map(|o| String::from_utf8_lossy(&o.stdout).trim() == "active").unwrap_or(false)})
+}
+
+/// Claude Code (Anthropic's terminal agent, signs in with a Claude account): installed for this user?
+fn claude_status() -> serde_json::Value {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
+    let local = std::path::Path::new(&home).join(".local/bin/claude");
+    let on_path = std::env::var("PATH").unwrap_or_default().split(':').map(|d| std::path::Path::new(d).join("claude")).find(|p| p.is_file());
+    let path = if local.is_file() { Some(local) } else { on_path };
+    serde_json::json!({"installed": path.is_some(), "path": path.map(|p| p.display().to_string()), "launcher": "/usr/bin/genesis-claude"})
 }
