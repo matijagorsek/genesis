@@ -60,8 +60,10 @@ Design brief: [docs/genesis-brief.html](docs/genesis-brief.html) · Design plan:
 - **Terminal**: `ask list the ten biggest files here` prints the command, says what it would touch
   (reads only, changes files here, changes the system), and runs it when you confirm. In bash, type a
   sentence and press `Ctrl+G` to replace it with the command.
-- **Voice**: hold-to-talk (whisper.cpp) with a chime and glow the instant you press, and spoken replies
-  (Piper), all local.
+- **Voice**: hold-to-talk (whisper.cpp; the more accurate "small" model on machines with 16 GB or a GPU) with a
+  chime and glow the instant you press, and spoken replies (Piper, English for now), all local.
+- **Languages**: the palette, the maker and the wizard follow the system language; English, German and
+  Slovenian today, and a language is one dictionary in the page.
 
 ## A real run
 
@@ -148,6 +150,8 @@ own maker, palette and `ask` stay local.
 - **Claude is optional and separate.** Claude Code signs in with your account in the terminal; its credentials
   live in your home folder under `~/.claude`, Genesis never reads them, and they never touch this repository
   or the image. There are no API keys anywhere in Genesis.
+- **Reviewed rules.** The permission policy is exercised by an adversarial test battery (keys read through a
+  shell, login files, code piped from the network, disk wipes); every rule change must keep it green.
 - **Nothing secret in git.** CI fails if a credential-like string is committed; disks, run logs and local
   state are ignored. Model weights are downloaded at first run, never shipped.
 - **Signed images, enforced.** Every pushed image is signed twice: keyless with the GitHub identity (verify
@@ -155,6 +159,12 @@ own maker, palette and `ask` stay local.
   and a container policy that refuses unsigned or tampered updates.
 - **Updates you control.** Updates stage in the background and apply at the next restart; Genesis never
   restarts on its own.
+
+## Contributing, licence, reporting
+
+[CONTRIBUTING.md](CONTRIBUTING.md) for the workflow, [SECURITY.md](SECURITY.md) for reporting vulnerabilities,
+[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Genesis is Apache-2.0 ([LICENSE](LICENSE)); redistributed components and
+their licences are listed in [NOTICE](NOTICE). Ran it on real hardware? Open a "Hardware report" issue.
 
 ## Principles
 
