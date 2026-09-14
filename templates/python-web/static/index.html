@@ -1,0 +1,12 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>{{name}}</title>
+<style>body{font-family:system-ui,sans-serif;max-width:640px;margin:40px auto;padding:0 16px;background:#0b0f14;color:#e6ebf1}h1{font-size:22px}form{display:flex;gap:8px}input{flex:1;padding:10px;border-radius:8px;border:1px solid #232c37;background:#161d27;color:#e6ebf1;font:inherit}button{padding:10px 14px;border-radius:8px;border:0;background:#5fb5bd;color:#08181a;font-weight:600;cursor:pointer}ul{list-style:none;padding:0}li{padding:10px;border-bottom:1px solid #232c37;display:flex;gap:10px;align-items:center;cursor:pointer}li.done{opacity:.5;text-decoration:line-through}</style></head>
+<body>
+<h1>{{name}}</h1>
+<form id="f"><input id="t" placeholder="Add an item…" autofocus><button>Add</button></form>
+<ul id="list"></ul>
+<script>
+async function load(){const r=await fetch('/api/items');const items=await r.json();const ul=document.getElementById('list');ul.innerHTML='';for(const it of items){const li=document.createElement('li');li.textContent=(it.done?'☑ ':'☐ ')+it.text;li.className=it.done?'done':'';li.onclick=async()=>{await fetch('/api/items/'+it.id+'/toggle',{method:'POST'});load()};ul.appendChild(li)}}
+document.getElementById('f').onsubmit=async e=>{e.preventDefault();const t=document.getElementById('t');if(!t.value.trim())return;await fetch('/api/items',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text:t.value})});t.value='';load()};
+load();
+</script></body></html>

@@ -1,0 +1,8 @@
+{
+  "id": "python-web",
+  "name": "Web app with a Python backend",
+  "description": "A small web app: HTML/JS front end served by a Python standard-library server with a JSON API and a data file. No dependencies beyond Python.",
+  "entry": "app.py",
+  "dev": { "cmd": "python3 app.py --port {port}", "port": 5400, "open": "http://127.0.0.1:{port}/" },
+  "run": { "cmd": "python3 app.py --port 5400", "port": 5400, "open": "http://127.0.0.1:5400/" }
+}
