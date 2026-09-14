@@ -66,6 +66,9 @@ that saves to a file" became a tested CLI in 17 turns, bugs found and fixed by t
 
 ## Try it
 
+Download page: https://matijagorsek.github.io/genesis/ (latest release, the right file per platform).
+Images are signed with sigstore; verify with `cosign verify --certificate-identity-regexp github.com/matijagorsek/genesis --certificate-oidc-issuer https://token.actions.githubusercontent.com ghcr.io/matijagorsek/genesis:<tag>`.
+
 Download the latest `genesis-<version>.qcow2.zst.*.part` files from a release, join and boot:
 
 ```bash
