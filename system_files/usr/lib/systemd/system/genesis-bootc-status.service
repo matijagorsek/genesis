@@ -1,0 +1,12 @@
+[Unit]
+Description=Genesis: publish the bootc status for the desktop (booted image, staged update)
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c '/usr/bin/bootc status --json > /run/genesis/bootc-status.json.tmp && mv /run/genesis/bootc-status.json.tmp /run/genesis/bootc-status.json && chmod 0644 /run/genesis/bootc-status.json'
+RuntimeDirectory=genesis
+RuntimeDirectoryPreserve=yes
+
+[Install]
+WantedBy=multi-user.target bootc-status-updated.target

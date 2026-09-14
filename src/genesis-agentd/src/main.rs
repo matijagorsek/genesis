@@ -224,6 +224,11 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
                 Err(e) => json_response(&serde_json::json!({"error": format!("genesis-theme: {}", e)}), 503),
             } }
         }
+        (Method::Post, ["api", "system", "update"]) => match std::process::Command::new("systemctl").args(["start", "--no-block", "bootc-fetch-apply-updates.service"]).output() {
+            Ok(o) if o.status.success() => json_response(&serde_json::json!({"started": true}), 202),
+            Ok(o) => json_response(&serde_json::json!({"error": String::from_utf8_lossy(&o.stderr).trim()}), 500),
+            Err(e) => json_response(&serde_json::json!({"error": e.to_string()}), 503),
+        },
         (Method::Post, ["api", "system", "mode"]) => match serde_json::from_str::<serde_json::Value>(&body).ok().and_then(|v| v.get("mode").and_then(|m| m.as_str()).map(|s| s.to_string())) {
             Some(mode) if parse_mode(&mode).is_ok() => { write_user_settings(&serde_json::json!({"default_mode": mode})); json_response(&serde_json::json!({"ok": true, "default_mode": mode}), 200) }
             _ => json_response(&serde_json::json!({"error": "expected {mode: assist|auto_edit|autonomous}"}), 400),
@@ -512,6 +517,7 @@ fn system_overview(d: &Arc<Daemon>) -> serde_json::Value {
     serde_json::json!({
         "profile": profile, "setup": setup, "models_on_disk": on_disk, "router": {"endpoint": d.endpoint, "running": running},
         "voice": {"input": voice::available(), "output": voice::speech_available()},
+        "os": os_status(),
         "last_generation": agent::LAST_GENERATION.lock().unwrap().clone().map(|(tok, secs, model)| serde_json::json!({"tokens": tok, "seconds": (secs * 10.0).round() / 10.0, "tokens_per_second": (tok as f64 / secs * 10.0).round() / 10.0, "model": model})),
         "sandbox": sandbox::bwrap_available(), "user": read_user_settings(), "history": history,
     })
@@ -531,4 +537,16 @@ fn served_model(endpoint: &str, wanted: &str) -> String {
         }
         _ => wanted.to_string(),
     }
+}
+
+/// Which Genesis is running and whether an update is staged, from os-release and the published bootc status.
+fn os_status() -> serde_json::Value {
+    let osr = std::fs::read_to_string("/usr/lib/os-release").unwrap_or_default();
+    let get = |k: &str| osr.lines().find(|l| l.starts_with(&format!("{}=", k))).map(|l| l[k.len() + 1..].trim_matches('"').to_string()).unwrap_or_default();
+    let bootc: serde_json::Value = std::fs::read_to_string("/run/genesis/bootc-status.json").ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(serde_json::Value::Null);
+    let booted = bootc.pointer("/status/booted/image/image/image").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let booted_ts = bootc.pointer("/status/booted/image/timestamp").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let staged = bootc.pointer("/status/staged/image/image/image").and_then(|v| v.as_str()).map(|s| s.to_string());
+    let staged_ts = bootc.pointer("/status/staged/image/timestamp").and_then(|v| v.as_str()).map(|s| s.to_string());
+    serde_json::json!({"name": get("NAME"), "version": get("IMAGE_VERSION"), "pretty": get("PRETTY_NAME"), "image": booted, "built": booted_ts, "staged": staged, "staged_built": staged_ts, "unit_active": std::process::Command::new("systemctl").args(["is-active", "bootc-fetch-apply-updates.service"]).output().map(|o| String::from_utf8_lossy(&o.stdout).trim() == "active").unwrap_or(false)})
 }
