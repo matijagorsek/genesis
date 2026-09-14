@@ -13,7 +13,7 @@
 body.listening .wrap{box-shadow:inset 0 0 0 2px var(--accent),inset 0 0 40px rgba(95,181,189,.25);transition:box-shadow .15s}@media (prefers-reduced-motion:reduce){body.listening .wrap{transition:none}}
 </style></head><body>
 <div class="wrap">
-  <div class="top"><b>Genesis</b><span class="local" id="palLocal">● on this machine</span><span id="hint">Tell it what you want made, or what to do with this.</span></div>
+  <div class="top"><b>Genesis</b><span class="local">● on this machine</span><span id="hint">Tell it what you want made, or what to do with this.</span></div>
   <div class="ask"><textarea id="q" placeholder="a timer, a tool that renames my photos, a website for the club…" autofocus></textarea><button id="mic" class="mic" title="Hold to talk" hidden>🎤</button></div>
   <div id="sel" hidden><span class="chip">Using your selection: <span id="selText"></span><button id="selDrop" title="Don't use the selection">✕</button></span></div>
   <div class="starters" id="starters"></div>
@@ -44,7 +44,7 @@ body.listening .wrap{box-shadow:inset 0 0 0 2px var(--accent),inset 0 0 40px rgb
   async function stop(e){if(!ctx)return;e&&e.preventDefault();proc.disconnect();src.disconnect();stream.getTracks().forEach(t=>t.stop());const rate=ctx.sampleRate;await ctx.close();ctx=null;listenOff(mic);q.placeholder='Transcribing…';
     try{const r=await fetch('/api/transcribe',{method:'POST',headers:{'content-type':'audio/wav'},body:wavEncode(chunks,rate)});const j=await r.json();if(j.error)throw new Error(j.error);q.value=(q.value?q.value+' ':'')+j.text;q.placeholder='';if(j.text)go(q.value)}catch(err){q.placeholder='Could not transcribe: '+err.message}}
   mic.addEventListener('pointerdown',start);mic.addEventListener('pointerup',stop);mic.addEventListener('pointerleave',stop);
-  fetch('/api/health').then(r=>r.json()).then(h=>{if(h.voice)mic.hidden=false;if(h.cloud){const l=document.getElementById('palLocal');l.textContent='● cloud: Claude';l.style.color='#e0a84a';document.querySelector('.foot span:last-child').textContent='Cloud provider on: requests go to Anthropic with your key.'}}).catch(()=>{});
+  fetch('/api/health').then(r=>r.json()).then(h=>{if(h.voice)mic.hidden=false}).catch(()=>{});
   q.focus();
 })();
 </script></body></html>

@@ -84,7 +84,7 @@ body.listening header{box-shadow:inset 0 -2px 0 var(--accent)}body.listening tex
 <body>
 <header>
   <b>Genesis</b>
-  <span class="badge local" id="badgeLocal">on this machine</span>
+  <span class="badge local">on this machine</span>
   <span class="badge" id="badgeModel">model: …</span>
   <span class="badge" id="badgeSandbox"></span>
   <span class="badge" id="badgeNet" title="Network use in this job">no network used</span>
@@ -165,7 +165,7 @@ body.listening header{box-shadow:inset 0 -2px 0 var(--accent)}body.listening tex
   let current=null, seen=0, poll=null, lastUrl=null;
   async function api(path,body){const r=await fetch(path,body?{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}:{});return r.json();}
   function showStart(on){$('#start').style.display=on?'flex':'none';$('#maker').classList.toggle('on',!on);}
-  async function health(){try{const h=await api('/api/health');const bl=document.getElementById('badgeLocal');if(h.cloud){bl.textContent='cloud: Claude ('+h.model+')';bl.className='badge net'}else{bl.textContent='on this machine';bl.className='badge local'}document.getElementById('smallNote').hidden=!(h.model==='fast'||h.model==='auto');$('#badgeModel').textContent='model: '+h.model;$('#badgeSandbox').textContent=h.sandbox?'sandbox: bubblewrap':'sandbox: dev mode';if(!$('#project').value)$('#project').value=h.default_project||'';}catch(e){$('#badgeModel').textContent='model: unreachable'}}
+  async function health(){try{const h=await api('/api/health');document.getElementById('smallNote').hidden=!(h.model==='fast'||h.model==='auto');$('#badgeModel').textContent='model: '+h.model;$('#badgeSandbox').textContent=h.sandbox?'sandbox: bubblewrap':'sandbox: dev mode';if(!$('#project').value)$('#project').value=h.default_project||'';}catch(e){$('#badgeModel').textContent='model: unreachable'}}
   async function templates(){const t=await api('/api/templates');const box=$('#tpls');box.innerHTML='';(t||[]).forEach(x=>{const d=document.createElement('button');d.className='tpl';d.innerHTML=`<b>${x.name}</b><span>${x.description}</span>`;d.addEventListener('click',()=>{const a=$('#ask');a.value=(a.value.trim()?a.value.trim()+' ':'')+`(use the ${x.id} template)`;a.focus()});box.appendChild(d)})}
   async function recent(){const list=await api('/api/sessions');const r=$('#recent');r.innerHTML='';if(!Array.isArray(list)||!list.length)return;r.appendChild(document.createTextNode('Recent: '));list.slice(-6).reverse().forEach(s=>{const a=document.createElement('a');a.textContent=(s.active_project||s.project).split('/').pop()+' · '+s.state;a.addEventListener('click',()=>open(s.id));r.appendChild(a)})}
   function stepEl(e){const d=document.createElement('div');let cls='',icon='',text='';

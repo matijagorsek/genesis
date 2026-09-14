@@ -63,15 +63,6 @@ KCM.SimpleKCM {
             onActivated: root.api("POST", "/api/system/mode", { mode: currentValue }, function(st, j) { status = st === 200 ? "Saved." : "Could not save." })
         }
 
-        Kirigami.Separator { Kirigami.FormData.isSection: true; Kirigami.FormData.label: "Where requests go" }
-        QQC2.Label { Kirigami.FormData.label: "Now:"; text: sys && sys.provider ? (sys.provider.cloud ? "Claude (cloud, " + sys.provider.model + ")" : "on this machine (local models)") : "…" }
-        QQC2.RadioButton { id: provLocal; text: "On this machine (local models)"; checked: !(sys && sys.provider && sys.provider.cloud); onClicked: root.api("POST", "/api/system/provider", { provider: "local" }, function() { root.refresh() }) }
-        QQC2.RadioButton { id: provClaude; text: "Claude (cloud, with your Anthropic API key)"; checked: sys && sys.provider && sys.provider.cloud; onClicked: { if (sys && sys.provider && sys.provider.key_set) root.api("POST", "/api/system/provider", { provider: "claude" }, function() { root.refresh() }); else status = "Enter an API key below, then Save." } }
-        RowLayout { Kirigami.FormData.label: "API key:"; QQC2.TextField { id: keyField; echoMode: TextInput.Password; placeholderText: sys && sys.provider && sys.provider.key_set ? "a key is stored" : "sk-ant-…"; Layout.preferredWidth: 320 }
-            QQC2.Button { text: "Save"; enabled: keyField.text.trim() !== ""; onClicked: root.api("POST", "/api/system/provider", { provider: "claude", claude_api_key: keyField.text.trim() }, function(st, j) { keyField.text = ""; status = (j && j.ok) ? "Saved. Requests now go to Claude." : "Could not save."; root.refresh() }) }
-            QQC2.Button { text: "Forget"; visible: sys && sys.provider && sys.provider.key_set; onClicked: root.api("POST", "/api/system/provider", { provider: "local", clear_key: true }, function() { status = "Key removed. Requests stay local."; root.refresh() }) } }
-        QQC2.Label { text: "With Claude on, every request from the maker, the palette and ask goes to Anthropic. Genesis shows it everywhere."; opacity: 0.7; wrapMode: Text.Wrap; Layout.fillWidth: true }
-
         Kirigami.Separator { Kirigami.FormData.isSection: true; Kirigami.FormData.label: "Look" }
         RowLayout {
             Kirigami.FormData.label: "Day / night:"

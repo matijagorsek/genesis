@@ -34,32 +34,17 @@ const SYSTEM: &str = "You turn a request into exactly one shell command line for
 Reply with the command only: no explanation, no code fences, no leading $. Prefer safe, common tools. \
 If the request cannot be done with a command, reply with a comment starting with # explaining why in one line.";
 
-/// The person's provider choice from ~/.config/genesis/settings.json: (endpoint, model, api key, cloud?).
-/// GENESIS_ENDPOINT / GENESIS_ASK_MODEL in the environment win (dev loop).
-fn provider(cli: &Cli) -> (String, String, String, bool) {
-    if std::env::var("GENESIS_ENDPOINT").is_ok() { return (cli.endpoint.clone(), cli.model.clone(), "local".into(), false); }
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
-    let s: serde_json::Value = std::fs::read_to_string(format!("{}/.config/genesis/settings.json", home)).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or(serde_json::Value::Null);
-    let key = s.get("claude_api_key").and_then(|k| k.as_str()).unwrap_or("").trim().to_string();
-    if s.get("provider").and_then(|p| p.as_str()) == Some("claude") && !key.is_empty() {
-        let model = s.get("claude_model").and_then(|m| m.as_str()).filter(|m| !m.is_empty()).unwrap_or("claude-sonnet-5").to_string();
-        return ("https://api.anthropic.com/v1".into(), model, key, true);
-    }
-    (cli.endpoint.clone(), cli.model.clone(), "local".into(), false)
-}
-
 fn ask_model(cli: &Cli, question: &str) -> Result<String> {
-    let (endpoint, model, api_key, _cloud) = provider(cli);
     let cwd = std::env::current_dir().map(|p| p.display().to_string()).unwrap_or_default();
     let body = serde_json::json!({
-        "model": model, "temperature": 0.1, "max_tokens": 200,
+        "model": cli.model, "temperature": 0.1, "max_tokens": 200,
         "messages": [
             {"role": "system", "content": SYSTEM},
             {"role": "user", "content": format!("Current directory: {}\nRequest: {}", cwd, question)}
         ]
     });
-    let resp: serde_json::Value = ureq::post(&format!("{}/chat/completions", endpoint.trim_end_matches('/')))
-        .set("Authorization", &format!("Bearer {}", api_key)).timeout(std::time::Duration::from_secs(600)).send_json(body)
+    let resp: serde_json::Value = ureq::post(&format!("{}/chat/completions", cli.endpoint.trim_end_matches('/')))
+        .set("Authorization", "Bearer local").timeout(std::time::Duration::from_secs(600)).send_json(body)
         .map_err(|e| anyhow!("the local model service did not answer ({}). Is Genesis set up? Open Genesis Settings.", e))?
         .into_json().context("bad reply from the model service")?;
     let text = resp["choices"][0]["message"]["content"].as_str().unwrap_or("").trim().to_string();
@@ -108,7 +93,7 @@ fn main() -> Result<()> {
         eprintln!("usage: genesis-ask <what you want, in plain words>   (or: ask ...; or type it and press Ctrl+G)");
         std::process::exit(2);
     }
-    if !cli.print { eprint!("\x1b[2m{}\x1b[0m\r", if provider(&cli).3 { "asking Claude (cloud)…" } else { "thinking on this machine…" }); }
+    if !cli.print { eprint!("\x1b[2mthinking on this machine…\x1b[0m\r"); }
     let cmd = ask_model(&cli, &question)?;
     if !cli.print { eprint!("\x1b[2K"); }
     if cmd.is_empty() { return Err(anyhow!("the model gave no command")); }
