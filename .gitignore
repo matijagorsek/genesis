@@ -23,3 +23,15 @@ iso/output/
 
 # rust
 src/target/
+
+# credentials and local state never go in git
+.claude/*
+!.claude/launch.json
+**/.credentials*
+**/credentials.json
+**/settings.local.json
+.config/
+iso/output/
+*.qcow2
+*.iso
+*.part

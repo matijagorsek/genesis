@@ -139,6 +139,19 @@ menu, "Open Claude" in Genesis Settings, "Open in Claude" on every made project.
 into your home folder and asks you to sign in with your Claude account in the terminal. No API keys. Genesis'
 own maker, palette and `ask` stay local.
 
+## Security and privacy, in one place
+
+- **Local by default.** The maker, the palette, voice and `ask` use models on this machine. The only network
+  use is what a job asks for and you allow (a package install, a web page), and every job lists it.
+- **Claude is optional and separate.** Claude Code signs in with your account in the terminal; its credentials
+  live in your home folder under `~/.claude`, Genesis never reads them, and they never touch this repository
+  or the image. There are no API keys anywhere in Genesis.
+- **Nothing secret in git.** CI fails if a credential-like string is committed; disks, run logs and local
+  state are ignored. Model weights are downloaded at first run, never shipped.
+- **Signed images.** Every pushed image is signed with sigstore; verify with the `cosign` command above.
+- **Updates you control.** Updates stage in the background and apply at the next restart; Genesis never
+  restarts on its own.
+
 ## Principles
 
 1. A complete desktop first; AI is one integrated capability, not the point of the desktop.

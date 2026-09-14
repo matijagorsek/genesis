@@ -29,6 +29,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: No credentials in the tree
+        run: |
+          if grep -r -n -E 'sk-ant-[A-Za-z0-9_-]{8,}|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN (RSA|OPENSSH|EC) PRIVATE KEY-----' --exclude-dir=.git . ; then
+            echo "a credential-like string is committed"; exit 1; fi
       - name: Test
         run: cd src && cargo test --release
       - name: Policy file is in sync with the binary
