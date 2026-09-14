@@ -25,6 +25,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}td,th{text-align:left;p
   <div class="kv"><div>Claude Code</div><div id="claudeState">…</div></div>
   <div style="margin-top:10px"><button class="primary" id="openClaude">Open Claude</button> <span id="claudeInfo" class="muted">Opens a terminal in your projects folder; the first start installs it and asks you to sign in.</span></div></section>
 <section><h2>Voice</h2><div class="kv" id="voice"></div></section>
+<section><h2>Activity</h2><p class="d">Every action Genesis was asked to take, and what the permission rules decided. Kept on this machine in a tamper-evident log.</p><div id="activity"></div></section>
 <section><h2>Undo history</h2><p class="d">Every job that changed something outside its project was snapshotted first. Undo from the maker, or with <span class="mono">genesis-txd undo &lt;id&gt;</span> in a terminal.</p><div id="history"></div></section>
 </main>
 <script>
@@ -48,6 +49,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}td,th{text-align:left;p
   fetch('/api/claude').then(r=>r.json()).then(c=>{$('#claudeState').innerHTML=c.installed?'<span class="pill on">installed</span> <span class="mono">'+esc(c.path)+'</span>':'<span class="pill off">not installed</span> <span class="muted">installed on first start, into your home folder</span>'}).catch(()=>{});
   $('#openClaude').addEventListener('click',async()=>{const x=await fetch('/api/claude/open',{method:'POST',headers:{'content-type':'application/json'},body:'{}'});const j=await x.json();$('#claudeInfo').textContent=j.opened?'Opened in a terminal.':(j.error||'Could not open.')});
   $('#voice').innerHTML=`<div>Listening (hold to talk)</div><div>${s.voice.input?'<span class="pill on">ready</span> whisper.cpp on this machine':'<span class="pill off">no speech model yet</span> <span class="muted">optional in every pack</span>'}</div><div>Speaking replies</div><div>${s.voice.output?'<span class="pill on">ready</span> Piper on this machine':'<span class="pill off">no voice yet</span> <span class="muted">optional in every pack</span>'}</div>`;
+  fetch('/api/activity').then(r=>r.json()).then(a=>{const rows=a.entries||[];$('#activity').innerHTML=rows.length?`<table><tr><th>When</th><th>Action</th><th>Decision</th></tr>${rows.map(e=>`<tr><td>${esc((e.ts||'').replace('T',' ').slice(0,16))}</td><td class="mono">${esc(e.tool||'')}${e.command?' · '+esc(String(e.command).slice(0,60)):''}</td><td>${esc(e.verdict||'')}${e.reason?' <span class="muted">'+esc(String(e.reason).slice(0,70))+'</span>':''}</td></tr>`).join('')}</table>`:'<p class="muted">No actions recorded yet.</p>'}).catch(()=>{});
   const h=s.history||[];$('#history').innerHTML=h.length?`<table><tr><th>When</th><th>Job</th><th>Changes</th><th>Status</th></tr>${h.map(t=>`<tr><td>${esc((t.started_at||'').replace('T',' ').slice(0,16))}</td><td class="mono">${esc(t.id)}</td><td>${t.changes}</td><td>${esc(t.status)}</td></tr>`).join('')}</table>`:'<p class="muted">No job has changed anything outside its project yet.</p>';
 })();
 </script></body></html>

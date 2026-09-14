@@ -182,3 +182,14 @@ vm-dev-arm disk="":
 # Dev bridge: the VM uses the Mac's Metal model service (needs `just up` on the Mac)
 vm-bridge port="2223":
     prototype/vm-bridge.sh {{port}}
+
+# Screenshots of the newest arm64 release, natively (about 6 minutes), into iso/output/capture-arm64/
+capture-arm64:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    tag=$(gh release list --repo matijagorsek/genesis --limit 1 --json tagName --jq '.[0].tagName')
+    d=iso/output/$tag-arm64; mkdir -p "$d"; cd "$d"
+    [ -f disk.qcow2 ] || { gh release download "$tag" --repo matijagorsek/genesis --pattern "*arm64.qcow2.zst.*.part" --clobber; cat *arm64.qcow2.zst.*.part | zstd -d -f -q -o disk.qcow2; rm -f *.part; }
+    cd ../../..
+    python3 prototype/vm-shots-arm.py "$d/disk.qcow2" iso/output/capture-arm64
+    ls iso/output/capture-arm64/*.png

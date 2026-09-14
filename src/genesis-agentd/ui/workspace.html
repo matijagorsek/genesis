@@ -79,6 +79,9 @@ aside{background:var(--panel);border-right:1px solid var(--line);display:grid;gr
 .badge.net{border-color:var(--warn);color:var(--warn)}
 body.listening header{box-shadow:inset 0 -2px 0 var(--accent)}body.listening textarea{border-color:var(--accent)!important;box-shadow:0 0 24px rgba(95,181,189,.25)}
 .notices{display:grid;gap:8px;width:min(760px,100%);margin:0 0 6px}.notice{display:grid;grid-template-columns:1fr auto;gap:2px 12px;align-items:center;background:var(--panel);border:1px solid var(--accent);border-radius:10px;padding:10px 14px;font-size:13.5px}.notice b{grid-column:1}.notice span{grid-column:1;color:var(--ink-2)}.notice button{grid-column:2;grid-row:1/3;font:inherit;font-size:12.5px;padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel-2);color:var(--ink);cursor:pointer}
+.sr{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body>
@@ -97,7 +100,7 @@ body.listening header{box-shadow:inset 0 -2px 0 var(--accent)}body.listening tex
   <h1>What do you want to make?</h1>
   <p class="sub">Describe an app, a tool or a script. Genesis builds it here with local models, shows it running, and can put it in your app menu.</p>
   <p class="sub" id="smallNote" hidden style="color:var(--warn)">This machine runs the small model only. It can scaffold and make simple changes; for real app building, install a bigger pack in Genesis Settings when the hardware allows.</p>
-  <div class="ask"><textarea id="ask" placeholder="e.g. a pomodoro timer web app with a big countdown and a bell"></textarea><button id="micAsk" class="mic" title="Hold to talk" hidden>🎤</button><button class="primary" id="go">Make it</button></div>
+  <div class="ask"><textarea id="ask" aria-label="What do you want to make" placeholder="e.g. a pomodoro timer web app with a big countdown and a bell"></textarea><button id="micAsk" class="mic" title="Hold to talk" hidden>🎤</button><button class="primary" id="go">Make it</button></div>
   <div class="where">
     <label>Mode <select id="mode"><option value="auto_edit" selected>Trusted: works inside the project on its own, asks before installing, going online or touching anything else</option><option value="assist">Ask: asks before every change</option><option value="autonomous">Hands-off: also allowed outside the project, everything snapshotted; system changes still ask</option></select></label>
     <label>Folder <input type="text" id="project" size="30"></label>
@@ -115,9 +118,10 @@ body.listening header{box-shadow:inset 0 -2px 0 var(--accent)}body.listening tex
 <main id="maker">
   <aside>
     <div class="title"><b id="ttl">…</b><div class="p" id="tproj"></div><div class="st" id="tstate"></div></div>
-    <div class="steps" id="steps"></div>
+    <div class="steps" id="steps" role="log" aria-label="Steps"></div>
+    <div id="a11yStatus" class="sr" role="status" aria-live="polite"></div>
     <div class="steer">
-      <textarea id="steerText" placeholder="Change something, add a feature, fix a bug… (Enter to send)"></textarea>
+      <textarea id="steerText" aria-label="Change something" placeholder="Change something, add a feature, fix a bug… (Enter to send)"></textarea>
       <div class="row"><button id="steerSend" class="primary">Send</button><button id="micSteer" class="mic" title="Hold to talk" hidden>🎤</button><button id="installBtn">Install as app</button><button id="undo" class="danger" style="display:none">Undo changes</button></div>
       <div class="changes" id="txInfo"></div>
     </div>
@@ -125,7 +129,7 @@ body.listening header{box-shadow:inset 0 -2px 0 var(--accent)}body.listening tex
   <section class="stage">
     <div class="stagebar"><span id="previewLabel">Preview</span><code id="previewUrl"></code><span class="sp"></span><button id="speakBtn" title="Read replies aloud" hidden>🔇</button><button id="reload">Reload</button><button id="openTab">Open in browser</button></div>
     <div class="view"><iframe id="frame" title="preview" sandbox="allow-scripts allow-forms allow-same-origin allow-modals" hidden></iframe><div class="empty" id="viewEmpty">The preview appears here as soon as the app runs.</div></div>
-    <div class="perms" id="perms"></div>
+    <div class="perms" id="perms" aria-label="Permission requests"></div>
   </section>
 </main>
 
@@ -194,9 +198,11 @@ body.listening header{box-shadow:inset 0 -2px 0 var(--accent)}body.listening tex
     if(t==='install_app')return['add an app to your menu',a.display_name||''];
     if(t==='scaffold')return['create a project',a.name||''];
     return [t.replace(/_/g,' '),JSON.stringify(a)]}
-  function permEl(p){const d=document.createElement('div');d.className='perm';d.dataset.rid=p.request_id;const [v,detail]=verb(p);d.innerHTML=`<div><div class="h">Genesis wants to <b>${v}</b></div><div class="d mono"></div><div class="d"></div></div><div class="b"><button data-a="0">Not now</button><button class="primary" data-a="1">Allow once</button></div>`;d.querySelector('.mono').textContent=detail;d.querySelectorAll('.d')[1].textContent=plainReason(p.reason);
-    d.querySelectorAll('button').forEach(b=>b.addEventListener('click',async()=>{b.disabled=true;await api('/api/prompts/'+p.request_id,{allow:b.dataset.a==='1'});d.remove()}));return d}
+  function permEl(p){const d=document.createElement('div');d.className='perm';d.setAttribute('role','alertdialog');d.setAttribute('aria-label','Genesis asks for permission');d.dataset.rid=p.request_id;const [v,detail]=verb(p);d.innerHTML=`<div><div class="h">Genesis wants to <b>${v}</b></div><div class="d mono"></div><div class="d"></div></div><div class="b"><button data-a="0">Not now</button><button class="primary" data-a="1">Allow once</button></div>`;d.querySelector('.mono').textContent=detail;d.querySelectorAll('.d')[1].textContent=plainReason(p.reason);
+    d.querySelectorAll('button').forEach(b=>b.addEventListener('click',async()=>{b.disabled=true;await api('/api/prompts/'+p.request_id,{allow:b.dataset.a==='1'});d.remove()}));
+    setTimeout(()=>{const safe=d.querySelector('button[data-a="0"]');if(safe)safe.focus()},50);return d}
   async function refresh(){if(!current)return;const s=await api('/api/sessions/'+current);if(s.error)return;
+    const st0=document.getElementById('a11yStatus');const stateText={running:'Genesis is working',waiting:'Genesis needs your permission',done:'Done',error:'Something went wrong',idle:'Ready'}[s.state]||s.state;if(st0&&st0.textContent!==stateText)st0.textContent=stateText;
     $('#ttl').textContent=(s.active_project||s.project).split('/').filter(Boolean).pop()||'project';$('#tproj').textContent=s.active_project||s.project;$('#tstate').innerHTML=`<span class="st-${s.state}">${s.state}</span> · ${s.mode}`;
     const st=$('#steps');
     for(let i=seen;i<s.events.length;i++){st.appendChild(stepEl(s.events[i]))}

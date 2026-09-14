@@ -215,6 +215,7 @@ jobs:
           tag_name: v${{ steps.meta.outputs.tag }}
           name: Genesis ${{ steps.meta.outputs.tag }}
           prerelease: true
+          generate_release_notes: true
           body: |
             Image: `ghcr.io/${{ github.repository_owner }}/genesis:${{ steps.meta.outputs.tag }}`
 

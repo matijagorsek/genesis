@@ -247,6 +247,7 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
             },
             _ => json_response(&serde_json::json!({"error": "expected an existing {path}"}), 400),
         },
+        (Method::Get, ["api", "activity"]) => json_response(&recent_activity(40), 200),
         (Method::Get, ["api", "notices"]) => json_response(&maker::notices(std::path::Path::new(&default_project())), 200),
         (Method::Get, ["api", "claude"]) => json_response(&claude_status(), 200),
         (Method::Post, ["api", "claude", "open"]) => {
@@ -574,4 +575,23 @@ fn claude_status() -> serde_json::Value {
     let on_path = std::env::var("PATH").unwrap_or_default().split(':').map(|d| std::path::Path::new(d).join("claude")).find(|p| p.is_file());
     let path = if local.is_file() { Some(local) } else { on_path };
     serde_json::json!({"installed": path.is_some(), "path": path.map(|p| p.display().to_string()), "launcher": "/usr/bin/genesis-claude"})
+}
+
+/// The permission broker's audit, newest first: what Genesis was asked to do and what was decided.
+fn recent_activity(n: usize) -> serde_json::Value {
+    let path = default_audit_path();
+    let text = std::fs::read_to_string(&path).unwrap_or_default();
+    let mut rows: Vec<serde_json::Value> = text.lines().rev().filter_map(|l| serde_json::from_str::<serde_json::Value>(l).ok())
+        .filter(|e| e.get("kind").and_then(|k| k.as_str()) == Some("decision") || e.get("kind").and_then(|k| k.as_str()) == Some("resolve"))
+        .take(n).map(|e| serde_json::json!({
+            "ts": e.get("ts").cloned().unwrap_or(serde_json::Value::Null),
+            "kind": e.get("kind").cloned().unwrap_or(serde_json::Value::Null),
+            "tool": e.get("tool").cloned().unwrap_or(serde_json::Value::Null),
+            "tier": e.get("tier").cloned().unwrap_or(serde_json::Value::Null),
+            "verdict": e.get("verdict").cloned().unwrap_or(serde_json::Value::Null),
+            "reason": e.get("reason").cloned().unwrap_or(serde_json::Value::Null),
+            "command": e.pointer("/detail/command").cloned().unwrap_or(serde_json::Value::Null),
+        })).collect();
+    rows.reverse(); rows.reverse();
+    serde_json::json!({"path": path.display().to_string(), "entries": rows})
 }

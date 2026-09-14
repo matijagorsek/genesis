@@ -11,13 +11,15 @@
 .starters{display:flex;flex-wrap:wrap;gap:8px}.starter{background:var(--panel);border:1px solid var(--line);color:var(--ink-2);border-radius:999px;padding:6px 12px;font:inherit;font-size:13px;cursor:pointer}.starter:hover{border-color:var(--accent);color:var(--ink)}
 .foot{margin-top:auto;display:flex;gap:16px;color:var(--ink-3);font-size:12px}.foot kbd{background:var(--panel-2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-family:inherit}
 body.listening .wrap{box-shadow:inset 0 0 0 2px var(--accent),inset 0 0 40px rgba(95,181,189,.25);transition:box-shadow .15s}@media (prefers-reduced-motion:reduce){body.listening .wrap{transition:none}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 </style></head><body>
-<div class="wrap">
+<div class="wrap" role="dialog" aria-label="Ask Genesis">
   <div class="top"><b>Genesis</b><span class="local">● on this machine</span><span id="hint">Tell it what you want made, or what to do with this.</span></div>
-  <div class="ask"><textarea id="q" placeholder="a timer, a tool that renames my photos, a website for the club…" autofocus></textarea><button id="mic" class="mic" title="Hold to talk" hidden>🎤</button></div>
-  <div id="sel" hidden><span class="chip">Using your selection: <span id="selText"></span><button id="selDrop" title="Don't use the selection">✕</button></span></div>
-  <div class="starters" id="starters"></div>
-  <div class="foot"><span><kbd>Enter</kbd> make it</span><span><kbd>Esc</kbd> close</span><span><kbd>hold 🎤</kbd> talk</span><span>Everything runs here. Nothing is sent anywhere.</span></div>
+  <div class="ask"><textarea id="q" aria-label="What do you want made or done" placeholder="a timer, a tool that renames my photos, a website for the club…" autofocus></textarea><button id="mic" class="mic" title="Hold to talk" aria-label="Hold to talk" hidden>🎤</button></div>
+  <div id="sel" hidden><span class="chip">Using your selection: <span id="selText"></span><button id="selDrop" title="Don't use the selection" aria-label="Don't use the selection">✕</button></span></div>
+  <div class="starters" id="starters" role="list" aria-label="Starter ideas"></div>
+  <div class="foot" aria-hidden="true"><span><kbd>Enter</kbd> make it</span><span><kbd>Esc</kbd> close</span><span><kbd>hold 🎤</kbd> talk</span><span>Everything runs here. Nothing is sent anywhere.</span></div>
 </div>
 <script>
 (function(){
@@ -26,7 +28,7 @@ body.listening .wrap{box-shadow:inset 0 0 0 2px var(--accent),inset 0 0 40px rgb
   if(selection){$('#sel').hidden=false;$('#selText').textContent=selection.slice(0,140);q.placeholder='What should Genesis do with it? e.g. summarize, turn into a checklist, fix the grammar…';$('#hint').textContent='You selected some text.'}
   $('#selDrop').addEventListener('click',()=>{selection='';$('#sel').hidden=true;q.placeholder='a timer, a tool that renames my photos, a website for the club…';q.focus()});
   const STARTERS=['a checklist app that saves to a file','a pomodoro timer with a bell','rename the photos in a folder by date taken','a simple website for a club','a word-count tool for text files'];
-  STARTERS.forEach(t=>{const b=document.createElement('button');b.className='starter';b.textContent=t;b.addEventListener('click',()=>go(t));$('#starters').appendChild(b)});
+  STARTERS.forEach(t=>{const b=document.createElement('button');b.className='starter';b.setAttribute('role','listitem');b.textContent=t;b.addEventListener('click',()=>go(t));$('#starters').appendChild(b)});
   function go(text){text=(text||'').trim();if(!text&&!selection)return;const prompt=selection?(text||'Help me with this')+'\n\nSelected text:\n'+selection:text;location.href='/?prompt='+encodeURIComponent(prompt)}
   q.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();go(q.value)}if(e.key==='Escape'){location.hash='close'}});
   document.addEventListener('keydown',e=>{if(e.key==='Escape')location.hash='close'});

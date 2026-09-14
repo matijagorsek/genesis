@@ -9,6 +9,7 @@ KCM.SimpleKCM {
     property var sys: null
     property string status: ""
     property bool reachable: false
+    property string activityText: "…"
 
     function api(method, path, body, cb) {
         var x = new XMLHttpRequest()
@@ -16,7 +17,10 @@ KCM.SimpleKCM {
         x.open(method, "http://127.0.0.1:11520" + path)
         if (body) { x.setRequestHeader("Content-Type", "application/json"); x.send(JSON.stringify(body)) } else { x.send() }
     }
-    function refresh() { api("GET", "/api/system", null, function(st, j) { reachable = (st === 200 && j); if (reachable) sys = j }) }
+    function refresh() {
+        api("GET", "/api/system", null, function(st, j) { reachable = (st === 200 && j); if (reachable) sys = j })
+        api("GET", "/api/activity", null, function(st, j) { if (st !== 200 || !j) return; var rows = (j.entries || []).slice(0, 12); activityText = rows.length ? rows.map(function(e) { return (e.ts || "").replace("T", " ").substring(0, 16) + "  " + (e.tool || "") + "  " + (e.verdict || "") }).join("\n") : "No actions recorded yet." })
+    }
     Component.onCompleted: refresh()
     Timer { interval: 5000; running: true; repeat: true; onTriggered: root.refresh() }
 
@@ -78,6 +82,9 @@ KCM.SimpleKCM {
         Kirigami.Separator { Kirigami.FormData.isSection: true; Kirigami.FormData.label: "Voice" }
         QQC2.Label { Kirigami.FormData.label: "Listening:"; text: sys && sys.voice && sys.voice.input ? "ready (whisper.cpp on this machine)" : "no speech model yet (optional in every pack)" }
         QQC2.Label { Kirigami.FormData.label: "Speaking:"; text: sys && sys.voice && sys.voice.output ? "ready (Piper on this machine)" : "no voice yet (optional in every pack)" }
+
+        Kirigami.Separator { Kirigami.FormData.isSection: true; Kirigami.FormData.label: "Activity" }
+        QQC2.Label { text: root.activityText; wrapMode: Text.Wrap; Layout.fillWidth: true; font.family: "monospace"; font.pointSize: 9 }
 
         Kirigami.Separator { Kirigami.FormData.isSection: true; Kirigami.FormData.label: "Undo history" }
         QQC2.Label { text: sys && sys.history && sys.history.length ? sys.history.length + " job(s) changed something outside their project; each was snapshotted first. Undo from the maker, or with genesis-txd undo <id>." : "No job has changed anything outside its project yet."; wrapMode: Text.Wrap; Layout.fillWidth: true }

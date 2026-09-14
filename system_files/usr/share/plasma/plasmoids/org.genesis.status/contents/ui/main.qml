@@ -47,6 +47,8 @@ PlasmoidItem {
     function openMaker() { exec.connectSource("genesis-window http://127.0.0.1:11520/") }
 
     compactRepresentation: MouseArea {
+        Accessible.name: root.toolTipMainText + ". " + root.toolTipSubText
+        Accessible.role: Accessible.Button
         Layout.minimumWidth: Kirigami.Units.iconSizes.small
         Layout.minimumHeight: Kirigami.Units.iconSizes.small
         onClicked: root.expanded = !root.expanded
