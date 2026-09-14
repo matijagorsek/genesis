@@ -137,7 +137,14 @@ section{display:none}section.active{display:block}
 
 </main>
 </div>
-<script>
+ <script>
+
+  const I18N={
+    de:{"Here is what this machine can run":"Das kann dieser Computer","Genesis picks language models that fit your hardware. They run here, on this computer, not in a cloud.":"Genesis wählt Sprachmodelle, die zu deiner Hardware passen. Sie laufen hier, auf diesem Computer, nicht in einer Cloud.","Choose a model pack.":"Wähle ein Modellpaket.","The recommended one is the most capable that fits.":"Das empfohlene ist das leistungsfähigste, das passt.","Check download size":"Downloadgröße prüfen","Download and continue":"Herunterladen und weiter","Set up models later":"Modelle später einrichten","Genesis is ready":"Genesis ist bereit","Start using Genesis":"Genesis verwenden","Hardware":"Hardware","Models":"Modelle","Privacy":"Datenschutz","Ready":"Fertig","Everything on this page runs on this computer.":"Alles auf dieser Seite läuft auf diesem Computer.","recommended":"empfohlen","Continue local only":"Nur lokal weiter","Continue":"Weiter"},
+    sl:{"Here is what this machine can run":"To zmore ta računalnik","Genesis picks language models that fit your hardware. They run here, on this computer, not in a cloud.":"Genesis izbere jezikovne modele, ki ustrezajo tvoji strojni opremi. Tečejo tukaj, na tem računalniku, ne v oblaku.","Choose a model pack.":"Izberi paket modelov.","The recommended one is the most capable that fits.":"Priporočeni je najzmogljivejši, ki še ustreza.","Check download size":"Preveri velikost prenosa","Download and continue":"Prenesi in nadaljuj","Set up models later":"Nastavi modele pozneje","Genesis is ready":"Genesis je pripravljen","Start using Genesis":"Začni uporabljati Genesis","Hardware":"Strojna oprema","Models":"Modeli","Privacy":"Zasebnost","Ready":"Pripravljeno","Everything on this page runs on this computer.":"Vse na tej strani teče na tem računalniku.","recommended":"priporočeno","Continue local only":"Nadaljuj samo lokalno","Continue":"Nadaljuj"}
+  };
+  const LANG=(navigator.language||'en').slice(0,2); const T=I18N[LANG]||{};
+  function localise(root){if(!I18N[LANG])return;const walk=document.createTreeWalker(root||document.body,NodeFilter.SHOW_TEXT);let n;while((n=walk.nextNode())){const s=n.nodeValue.trim();if(s&&T[s])n.nodeValue=n.nodeValue.replace(s,T[s])}}
 (function(){
   const $=s=>document.querySelector(s);
   let state=null, chosen=null, plan=null, poll=null;
@@ -176,7 +183,7 @@ section{display:none}section.active{display:block}
       d.querySelector('input').addEventListener('change',()=>{chosen=p.id;plan=null;$('#btnDownload').disabled=true;$('#planInfo').textContent='';renderPacks(st);renderModels(p)});
       box.appendChild(d);
     });
-    $('#btnPlan').disabled=!chosen;
+    $('#btnPlan').disabled=!chosen;localise();
   }
   function renderModels(p){const ul=$('#models');ul.innerHTML='';(p.models||[]).forEach(m=>{const li=document.createElement('li');li.innerHTML=`<span>${m.name||m.repo} <span class="n">${m.role}${m.optional?' · optional':''}${m.offload?' · partly on CPU':''}</span> <span class="tag local">${m.license||''}</span></span><span class="n">${m.size_gb} GB</span>`;ul.appendChild(li)})}
   async function load(){
@@ -210,6 +217,7 @@ section{display:none}section.active{display:block}
   document.getElementById('skip').addEventListener('click',e=>{e.preventDefault();skipSetup(true)});
   // Ctrl+Shift+S skips without the confirmation (used by automated captures and by people who know)
   document.addEventListener('keydown',e=>{if(e.ctrlKey&&e.shiftKey&&e.key.toLowerCase()==='s'){e.preventDefault();skipSetup(false)}});
+  localise();
 </script>
 </body>
 </html>
