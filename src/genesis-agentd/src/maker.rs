@@ -293,8 +293,11 @@ pub fn notices(projects_dir: &Path) -> Vec<Notice> {
     for m in made_here(projects_dir) {
         let log = Path::new(&m.path).join(".genesis-preview.log");
         if let Ok(text) = std::fs::read_to_string(&log) {
-            let tail: String = text.chars().rev().take(1200).collect::<String>().chars().rev().collect();
-            let failed = ["Traceback", "FAILED", "Error:", "error:", "ModuleNotFoundError", "SyntaxError"].iter().any(|k| tail.contains(k));
+            // judge the end of the last run only: an error near the end, and no success marker after it
+            let tail: String = text.chars().rev().take(600).collect::<String>().chars().rev().collect();
+            let err_pos = ["Traceback", "FAILED", "Error:", "error:", "ModuleNotFoundError", "SyntaxError"].iter().filter_map(|k| tail.rfind(k)).max();
+            let ok_pos = ["\nOK", "passed", "exit=0", "Serving", "on http"].iter().filter_map(|k| tail.rfind(k)).max();
+            let failed = match (err_pos, ok_pos) { (Some(e), Some(o)) => e > o, (Some(_), None) => true, _ => false };
             if failed {
                 out.push(Notice { kind: "failing".into(), title: format!("{} did not run cleanly last time", m.name), text: "Its last preview or test run ended with an error.".into(), prompt: format!("The last run of this project failed. Read .genesis-preview.log, find the cause and fix it, then run it again."), project: m.path.clone() });
                 continue;
