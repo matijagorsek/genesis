@@ -304,7 +304,38 @@ pub fn notices(projects_dir: &Path) -> Vec<Notice> {
             out.push(Notice { kind: "not-installed".into(), title: format!("{} is not in your app menu yet", m.name), text: "Install it and it opens like any other program.".into(), prompt: format!("Install this project as an app named \"{}\" using the install_app tool.", m.name), project: m.path.clone() });
         }
     }
-    out.truncate(6);
+    // things in Downloads: calendar invitations, and a large download that just finished
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
+    let downloads = Path::new(&home).join("Downloads");
+    if let Ok(rd) = std::fs::read_dir(&downloads) {
+        let now = std::time::SystemTime::now();
+        let mut entries: Vec<_> = rd.flatten().collect();
+        entries.sort_by_key(|e| std::cmp::Reverse(e.metadata().and_then(|m| m.modified()).unwrap_or(std::time::UNIX_EPOCH)));
+        for e in entries.into_iter().take(40) {
+            let p = e.path(); let name = e.file_name().to_string_lossy().to_string();
+            let Ok(md) = e.metadata() else { continue };
+            let age = md.modified().ok().and_then(|m| now.duration_since(m).ok()).map(|d| d.as_secs()).unwrap_or(u64::MAX);
+            if name.to_lowercase().ends_with(".ics") && age < 7 * 86400 {
+                out.push(Notice { kind: "calendar".into(), title: format!("{} is a calendar invitation", name), text: "Open it to add the event to your calendar.".into(), prompt: String::new(), project: p.display().to_string() });
+            } else if md.len() > 200_000_000 && age < 86400 && !name.ends_with(".part") {
+                out.push(Notice { kind: "download".into(), title: format!("{} finished downloading", name), text: format!("{:.1} GB, in Downloads.", md.len() as f64 / 1e9), prompt: String::new(), project: p.display().to_string() });
+            }
+        }
+    }
+    // git repositories under the projects folder with changes left uncommitted for more than a day
+    if let Ok(rd) = std::fs::read_dir(projects_dir) {
+        for e in rd.flatten().filter(|e| e.path().join(".git").is_dir()) {
+            let p = e.path();
+            let dirty = std::process::Command::new("git").args(["-C", &p.display().to_string(), "status", "--porcelain"]).output().map(|o| !o.stdout.is_empty()).unwrap_or(false);
+            if !dirty { continue; }
+            let idx_age = std::fs::metadata(p.join(".git/index")).and_then(|m| m.modified()).ok().and_then(|m| std::time::SystemTime::now().duration_since(m).ok()).map(|d| d.as_secs()).unwrap_or(0);
+            if idx_age > 86400 {
+                let name = p.file_name().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+                out.push(Notice { kind: "uncommitted".into(), title: format!("{} has uncommitted changes since yesterday", name), text: "Genesis can review them and write a commit.".into(), prompt: "Look at the uncommitted changes in this repository (git status, git diff), summarise them, and if they look complete commit them with a clear message.".into(), project: p.display().to_string() });
+            }
+        }
+    }
+    out.truncate(8);
     out
 }
 

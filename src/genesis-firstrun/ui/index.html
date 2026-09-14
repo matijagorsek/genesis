@@ -64,6 +64,7 @@ section{display:none}section.active{display:block}
 .skip{position:fixed;left:24px;bottom:22px;font-size:13px;color:var(--ink-3);text-decoration:underline dotted}.skip:hover{color:var(--ink)}
 .starters{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 18px}.starter{background:var(--panel);border:1px solid var(--line);color:var(--ink-2);border-radius:999px;padding:7px 14px;font:inherit;font-size:13px;cursor:pointer}.starter.on,.starter:hover{border-color:var(--accent);color:var(--ink)}
 .fits{display:grid;gap:4px;margin:8px 0 4px;max-width:420px}.fit{display:grid;grid-template-columns:52px 1fr 100px;gap:8px;align-items:center;font-size:11px;color:var(--ink-3)}.fit .bar{height:5px;border-radius:3px;background:var(--line);overflow:hidden}.fit .fill{height:100%;background:var(--accent);border-radius:3px}.fit .fill.over{background:var(--bad,#e16060)}.fit .n{text-align:right;font-family:ui-monospace,Menlo,monospace;font-size:10.5px}
+.expect{font-size:11.5px;color:var(--accent);margin:2px 0 0}
 </style>
 </head>
 <body>
@@ -167,7 +168,11 @@ section{display:none}section.active{display:block}
       const biggest=Math.max(0,...((p.models||[]).filter(m=>!m.optional).map(m=>m.size_gb||0)));
       const bar=(label,val,max,unit)=>{const pct=max>0?Math.min(100,Math.round(val/max*100)):0;const over=max>0&&val>max;return `<div class="fit"><span>${label}</span><div class="bar"><div class="fill${over?' over':''}" style="width:${pct}%"></div></div><span class="n">${val.toFixed(1)} of ${max.toFixed(0)} ${unit}</span></div>`};
       const bars=(budgetGb||freeGb)?`<div class="fits">${budgetGb?bar('memory',biggest,budgetGb,'GB'):''}${freeGb?bar('disk',p.disk_gb||0,freeGb,'GB'):''}</div>`:'';
-      d.innerHTML=`<input type="radio" name="pack" value="${p.id}" ${f.fits?'':'disabled'} ${p.id===chosen?'checked':''}><div><b>${p.id}${p.id===rec?'<span class="tag rec">recommended</span>':''}</b><div class="d">${p.description||''}</div>${bars}<div class="r">${f.fits?'':f.reason}</div></div><div class="sz">${p.disk_gb} GB</div>`;
+      // what to expect, from what we measured: CPU-only generation of a 9B model is under 1 token/s; 2-4B models answer in seconds
+      const gpu=(prof.gpus||[]).some(g=>!/virtio|llvmpipe|qxl|vmware|bochs/i.test(g.name||''));
+      const hasCode=(p.models||[]).some(m=>m.role==='code'&&!m.optional);
+      const expect=gpu?(hasCode?'maker: good · replies in seconds':'maker: simple tasks · replies in seconds'):(hasCode?'CPU only: replies in seconds, the maker is slow (minutes per step)':'CPU only: replies in seconds · the maker needs a bigger pack');
+      d.innerHTML=`<input type="radio" name="pack" value="${p.id}" ${f.fits?'':'disabled'} ${p.id===chosen?'checked':''}><div><b>${p.id}${p.id===rec?'<span class="tag rec">recommended</span>':''}</b><div class="d">${p.description||''}</div><div class="expect">${expect}</div>${bars}<div class="r">${f.fits?'':f.reason}</div></div><div class="sz">${p.disk_gb} GB</div>`;
       d.querySelector('input').addEventListener('change',()=>{chosen=p.id;plan=null;$('#btnDownload').disabled=true;$('#planInfo').textContent='';renderPacks(st);renderModels(p)});
       box.appendChild(d);
     });

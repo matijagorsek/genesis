@@ -240,6 +240,13 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
             },
             None => json_response(&serde_json::json!({"error": "expected {path}"}), 400),
         },
+        (Method::Post, ["api", "open"]) => match serde_json::from_str::<serde_json::Value>(&body).ok().and_then(|v| v.get("path").and_then(|p| p.as_str()).map(|s| s.to_string())) {
+            Some(p) if std::path::Path::new(&p).exists() => match std::process::Command::new("xdg-open").arg(&p).spawn() {
+                Ok(_) => json_response(&serde_json::json!({"opened": true}), 200),
+                Err(e) => json_response(&serde_json::json!({"error": e.to_string()}), 503),
+            },
+            _ => json_response(&serde_json::json!({"error": "expected an existing {path}"}), 400),
+        },
         (Method::Get, ["api", "notices"]) => json_response(&maker::notices(std::path::Path::new(&default_project())), 200),
         (Method::Get, ["api", "claude"]) => json_response(&claude_status(), 200),
         (Method::Post, ["api", "claude", "open"]) => {
