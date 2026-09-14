@@ -76,6 +76,7 @@ Download the latest `genesis-<version>.qcow2.zst.*.part` files from a release, j
 ```bash
 cat genesis-*.qcow2.zst.*.part | zstd -d -o disk.qcow2
 just boot iso/output/disk.qcow2        # QEMU, EFI; test user genesis / genesis
+qemu-img resize disk.qcow2 40G         # optional: room for a bigger model pack; the root grows on boot
 ```
 
 Or install from the ISO in a VM (UTM, virt-manager, VirtualBox) or on a spare machine. On an NVIDIA machine,
