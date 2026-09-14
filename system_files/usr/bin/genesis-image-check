@@ -34,6 +34,7 @@ for u in genesis-router.service; do [ -f "/usr/lib/systemd/system/$u" ] && ok "u
 [ -f /usr/lib/systemd/system/bootc-fetch-apply-updates.service.d/genesis.conf ] && [ -L /etc/systemd/system/timers.target.wants/bootc-fetch-apply-updates.timer ] && ok "background updates: stage, apply on reboot" || fail "update policy"
 [ -f /usr/share/polkit-1/rules.d/50-genesis-updates.rules ] && [ -f /usr/lib/systemd/system/genesis-bootc-status.service ] && ok "update check from Settings" || fail "update check"
 [ -n "$(find /usr/lib64/qt6/plugins/plasma/kcms -name kcm_genesis.so 2>/dev/null)" ] && ok "Genesis module in System Settings" || fail "kcm_genesis"
+[ -f /etc/pki/genesis/cosign.pub ] && grep -q sigstoreSigned /etc/containers/policy.json && ok "updates require the Genesis signature" || fail "signature policy"
 [ -x /usr/bin/genesis-toolbox ] && [ -d /usr/share/genesis/templates/node-web ] && [ -d /usr/share/genesis/templates/rust-cli ] && ok "toolboxes and Node/Rust templates" || fail "toolbox templates"
 [ -x /usr/bin/genesis-claude ] && [ -f /usr/share/applications/org.genesis.claude.desktop ] && ok "Claude (sign in with your account)" || fail "claude launcher"
 [ -x /usr/lib/genesis/piper/piper ] && ok "piper (voice output)" || fail "piper"

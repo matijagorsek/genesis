@@ -1,0 +1,4 @@
+# Genesis images carry sigstore signatures as OCI attachments next to the image.
+docker:
+  ghcr.io/matijagorsek/genesis:
+    use-sigstore-attachments: true

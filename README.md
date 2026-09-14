@@ -148,7 +148,9 @@ own maker, palette and `ask` stay local.
   or the image. There are no API keys anywhere in Genesis.
 - **Nothing secret in git.** CI fails if a credential-like string is committed; disks, run logs and local
   state are ignored. Model weights are downloaded at first run, never shipped.
-- **Signed images.** Every pushed image is signed with sigstore; verify with the `cosign` command above.
+- **Signed images, enforced.** Every pushed image is signed twice: keyless with the GitHub identity (verify
+  with the `cosign` command above) and with the Genesis release key. Installed systems ship the public key
+  and a container policy that refuses unsigned or tampered updates.
 - **Updates you control.** Updates stage in the background and apply at the next restart; Genesis never
   restarts on its own.
 
