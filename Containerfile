@@ -126,7 +126,7 @@ COPY --from=llamabuild /out/ /
 RUN set -eux; \
     mkdir -p /usr/lib/genesis/llama.cpp; \
     if [ "${TARGETARCH:-amd64}" != arm64 ]; then \
-      curl -fsSL "https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_CPP_BUILD}/llama-${LLAMA_CPP_BUILD}-bin-ubuntu-vulkan-x64.tar.gz" \
+      curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 "https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_CPP_BUILD}/llama-${LLAMA_CPP_BUILD}-bin-ubuntu-vulkan-x64.tar.gz" \
         | tar -xz -C /usr/lib/genesis/llama.cpp --strip-components=1; \
     fi; \
     for b in llama-server llama-cli llama-bench llama-embedding llama-quantize llama-mtmd-cli; do \
@@ -157,12 +157,12 @@ RUN set -eux; \
 RUN set -eux; \
     mkdir -p /usr/lib/genesis; \
     case "${TARGETARCH:-amd64}" in arm64) PA=aarch64;; *) PA=x86_64;; esac; \
-    curl -fsSL "https://github.com/rhasspy/piper/releases/download/${PIPER_VERSION}/piper_linux_${PA}.tar.gz" | tar -xz -C /usr/lib/genesis; \
+    curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 "https://github.com/rhasspy/piper/releases/download/${PIPER_VERSION}/piper_linux_${PA}.tar.gz" | tar -xz -C /usr/lib/genesis; \
     test -x /usr/lib/genesis/piper/piper
 
 # llama-swap: model router (Go, static upstream binary)
 RUN set -eux; \
-    curl -fsSL "https://github.com/mostlygeek/llama-swap/releases/download/v${LLAMA_SWAP_VERSION}/llama-swap_${LLAMA_SWAP_VERSION}_linux_${TARGETARCH:-amd64}.tar.gz" \
+    curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 "https://github.com/mostlygeek/llama-swap/releases/download/v${LLAMA_SWAP_VERSION}/llama-swap_${LLAMA_SWAP_VERSION}_linux_${TARGETARCH:-amd64}.tar.gz" \
       | tar -xz -C /usr/bin llama-swap; \
     chmod 0755 /usr/bin/llama-swap; \
     /usr/bin/llama-swap --version
