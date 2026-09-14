@@ -132,6 +132,12 @@ docs/                brief, decisions, status board, previews, screenshots
 examples/            recorded real runs (Phase 0 tasks, gated install, pomodoro app)
 ```
 
+## Optional: Claude instead of local models
+
+In Genesis Settings (or System Settings > Genesis), switch the provider to Claude and paste an Anthropic
+API key from console.anthropic.com. The maker, the palette and `ask` then use Claude, and every surface
+shows "cloud: Claude" while it is on. Local is the default; "Forget the key" switches back.
+
 ## Principles
 
 1. A complete desktop first; AI is one integrated capability, not the point of the desktop.

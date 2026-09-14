@@ -210,7 +210,7 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
     }
     let resp = match (method, path.as_slice()) {
         (Method::Get, [""]) | (Method::Get, ["index.html"]) | (Method::Get, ["workspace"]) => Response::from_string(WORKSPACE_HTML).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
-        (Method::Get, ["api", "health"]) => json_response(&serde_json::json!({"ok": true, "endpoint": d.endpoint, "model": served_model(&d.endpoint, &d.model), "sandbox": sandbox::bwrap_available(), "voice": voice::available(), "speech": voice::speech_available(), "default_project": default_project()}), 200),
+        (Method::Get, ["api", "health"]) => { let pv = current_provider(d); json_response(&serde_json::json!({"ok": true, "endpoint": pv.endpoint, "model": pv.model, "provider": pv.name, "cloud": pv.cloud, "sandbox": sandbox::bwrap_available(), "voice": voice::available(), "speech": voice::speech_available(), "default_project": default_project()}), 200) },
         (Method::Get, ["api", "templates"]) => json_response(&maker::list_templates(), 200),
         (Method::Get, ["palette"]) => Response::from_string(PALETTE_HTML).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
         (Method::Get, ["settings"]) => Response::from_string(SETTINGS_HTML).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
@@ -228,6 +228,22 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
             Ok(o) if o.status.success() => json_response(&serde_json::json!({"started": true}), 202),
             Ok(o) => json_response(&serde_json::json!({"error": String::from_utf8_lossy(&o.stderr).trim()}), 500),
             Err(e) => json_response(&serde_json::json!({"error": e.to_string()}), 503),
+        },
+        (Method::Post, ["api", "system", "provider"]) => match serde_json::from_str::<serde_json::Value>(&body) {
+            Ok(v) => {
+                let name = v.get("provider").and_then(|p| p.as_str()).unwrap_or("local");
+                if name != "local" && name != "claude" { json_response(&serde_json::json!({"error": "provider must be local or claude"}), 400) }
+                else {
+                    let mut patch = serde_json::json!({"provider": name});
+                    if let Some(k) = v.get("claude_api_key").and_then(|k| k.as_str()) { if !k.trim().is_empty() { patch["claude_api_key"] = serde_json::Value::String(k.trim().to_string()); } }
+                    if v.get("clear_key").and_then(|c| c.as_bool()).unwrap_or(false) { patch["claude_api_key"] = serde_json::Value::String(String::new()); }
+                    if let Some(mname) = v.get("claude_model").and_then(|m| m.as_str()) { patch["claude_model"] = serde_json::Value::String(mname.to_string()); }
+                    write_user_settings(&patch);
+                    let pv = current_provider(d);
+                    json_response(&serde_json::json!({"ok": true, "provider": pv.name, "model": pv.model, "cloud": pv.cloud}), 200)
+                }
+            }
+            Err(_) => json_response(&serde_json::json!({"error": "expected {provider, claude_api_key?, claude_model?}"}), 400),
         },
         (Method::Post, ["api", "system", "mode"]) => match serde_json::from_str::<serde_json::Value>(&body).ok().and_then(|v| v.get("mode").and_then(|m| m.as_str()).map(|s| s.to_string())) {
             Some(mode) if parse_mode(&mode).is_ok() => { write_user_settings(&serde_json::json!({"default_mode": mode})); json_response(&serde_json::json!({"ok": true, "default_mode": mode}), 200) }
@@ -251,9 +267,10 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
                 (Ok(mode), Ok(project)) => {
                     let id = uuid::Uuid::new_v4().to_string();
                     d.broker.lock().unwrap().open_session(&id, mode, vec![project.display().to_string()], "api")?;
-                    let model = served_model(&d.endpoint, &d.model);
-                    let shared = new_shared(&id, mode, &project.display().to_string(), &model);
-                    let mut agent = Agent::new(Client { endpoint: d.endpoint.clone(), model, api_key: "local".into() }, d.broker.clone(), id.clone(), project, shared.clone());
+                    let pv = current_provider(d);
+                    let shared = new_shared(&id, mode, &project.display().to_string(), &pv.model);
+                    if pv.cloud { shared.info.lock().unwrap().network_uses.push("api.anthropic.com (cloud provider)".into()); }
+                    let mut agent = Agent::new(Client { endpoint: pv.endpoint.clone(), model: pv.model.clone(), api_key: pv.api_key.clone() }, d.broker.clone(), id.clone(), project, shared.clone());
                     agent.tx_store = Store::open(default_store()).ok();
                     d.sessions.lock().unwrap().insert(id.clone(), (shared, Arc::new(Mutex::new(Some(agent)))));
                     json_response(&serde_json::json!({"id": id}), 201)
@@ -493,7 +510,29 @@ fn write_user_settings(patch: &serde_json::Value) {
     let p = user_settings_path();
     if let Some(d) = p.parent() { let _ = std::fs::create_dir_all(d); }
     let _ = std::fs::write(&p, serde_json::to_string_pretty(&cur).unwrap_or_default());
+    // the file may hold an API key: owner-only
+    #[cfg(unix)]
+    { use std::os::unix::fs::PermissionsExt; let _ = std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o600)); }
 }
+
+/// Where requests go. Local by default. "claude" is an opt-in cloud provider using the person's own
+/// Anthropic API key through Anthropic's OpenAI-compatible endpoint; every surface shows it as cloud.
+pub struct Provider { pub name: String, pub endpoint: String, pub model: String, pub api_key: String, pub cloud: bool }
+
+pub const CLAUDE_ENDPOINT: &str = "https://api.anthropic.com/v1";
+pub const CLAUDE_DEFAULT_MODEL: &str = "claude-sonnet-5";
+
+pub fn provider_from(settings: &serde_json::Value, local_endpoint: &str, local_model: &str) -> Provider {
+    let name = settings.get("provider").and_then(|p| p.as_str()).unwrap_or("local");
+    let key = settings.get("claude_api_key").and_then(|k| k.as_str()).unwrap_or("").trim().to_string();
+    if name == "claude" && !key.is_empty() {
+        let model = settings.get("claude_model").and_then(|m| m.as_str()).filter(|m| !m.is_empty()).unwrap_or(CLAUDE_DEFAULT_MODEL).to_string();
+        return Provider { name: "claude".into(), endpoint: CLAUDE_ENDPOINT.into(), model, api_key: key, cloud: true };
+    }
+    Provider { name: "local".into(), endpoint: local_endpoint.to_string(), model: served_model(local_endpoint, local_model), api_key: "local".into(), cloud: false }
+}
+
+fn current_provider(d: &Arc<Daemon>) -> Provider { provider_from(&read_user_settings(), &d.endpoint, &d.model) }
 
 fn system_overview(d: &Arc<Daemon>) -> serde_json::Value {
     let read_json = |p: &str| std::fs::read_to_string(p).ok().and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok());
@@ -520,7 +559,9 @@ fn system_overview(d: &Arc<Daemon>) -> serde_json::Value {
         "voice": {"input": voice::available(), "output": voice::speech_available()},
         "os": os_status(),
         "last_generation": agent::LAST_GENERATION.lock().unwrap().clone().map(|(tok, secs, model)| serde_json::json!({"tokens": tok, "seconds": (secs * 10.0).round() / 10.0, "tokens_per_second": (tok as f64 / secs * 10.0).round() / 10.0, "model": model})),
-        "sandbox": sandbox::bwrap_available(), "user": read_user_settings(), "history": history,
+        "sandbox": sandbox::bwrap_available(), "user": { "default_mode": read_user_settings().get("default_mode").cloned().unwrap_or(serde_json::Value::Null) },
+        "provider": { "name": current_provider(d).name, "cloud": current_provider(d).cloud, "model": current_provider(d).model, "key_set": !read_user_settings().get("claude_api_key").and_then(|k| k.as_str()).unwrap_or("").trim().is_empty(), "claude_model": read_user_settings().get("claude_model").and_then(|m| m.as_str()).unwrap_or(CLAUDE_DEFAULT_MODEL) },
+        "history": history,
     })
 }
 
@@ -550,4 +591,18 @@ fn os_status() -> serde_json::Value {
     let staged = bootc.pointer("/status/staged/image/image/image").and_then(|v| v.as_str()).map(|s| s.to_string());
     let staged_ts = bootc.pointer("/status/staged/image/timestamp").and_then(|v| v.as_str()).map(|s| s.to_string());
     serde_json::json!({"name": get("NAME"), "version": get("IMAGE_VERSION"), "pretty": get("PRETTY_NAME"), "image": booted, "built": booted_ts, "staged": staged, "staged_built": staged_ts, "unit_active": std::process::Command::new("systemctl").args(["is-active", "bootc-fetch-apply-updates.service"]).output().map(|o| String::from_utf8_lossy(&o.stdout).trim() == "active").unwrap_or(false)})
+}
+
+#[cfg(test)]
+mod provider_tests {
+    use super::*;
+    #[test]
+    fn local_unless_claude_with_a_key() {
+        let p = provider_from(&serde_json::json!({}), "http://127.0.0.1:1/v1", "code");
+        assert_eq!((p.name.as_str(), p.cloud), ("local", false));
+        let p = provider_from(&serde_json::json!({"provider": "claude"}), "http://127.0.0.1:1/v1", "code");
+        assert_eq!(p.name, "local", "no key means local");
+        let p = provider_from(&serde_json::json!({"provider": "claude", "claude_api_key": "sk-ant-x", "claude_model": "claude-opus-5"}), "http://127.0.0.1:1/v1", "code");
+        assert_eq!((p.name.as_str(), p.cloud, p.model.as_str(), p.endpoint.as_str()), ("claude", true, "claude-opus-5", CLAUDE_ENDPOINT));
+    }
 }
