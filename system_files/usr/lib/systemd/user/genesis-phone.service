@@ -1,0 +1,15 @@
+[Unit]
+Description=Genesis phone bridge (answers text shared from a paired phone, via KDE Connect)
+Documentation=https://github.com/matijagorsek/genesis
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/genesis-phone watch
+Restart=on-failure
+RestartSec=5
+Environment=GENESIS_ENDPOINT=http://127.0.0.1:8080/v1
+
+[Install]
+WantedBy=graphical-session.target

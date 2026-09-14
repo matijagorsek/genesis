@@ -10,11 +10,12 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 bins=("$@"); [ ${#bins[@]} -gt 0 ] || bins=(genesis-permd genesis-probe genesis-firstrun genesis-agentd genesis-txd genesis-krunner genesis-ask)
-ssh_opts=(-p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR)
+ssh_opts=(-p "${GENESIS_VM_PORT:-2222}" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR)
 command -v sshpass >/dev/null || echo "tip: brew install sshpass for password-less pushes"
 # disks built before v0.1.34 have sshd off: once, in the VM window, run: sudo systemctl enable --now sshd
 run_ssh() { if command -v sshpass >/dev/null; then sshpass -p genesis ssh "${ssh_opts[@]}" genesis@127.0.0.1 "$@"; else ssh "${ssh_opts[@]}" genesis@127.0.0.1 "$@"; fi; }
-run_scp() { if command -v sshpass >/dev/null; then sshpass -p genesis scp "${ssh_opts[@]}" "$@"; else scp "${ssh_opts[@]}" "$@"; fi; }
+scp_opts=(-P "${GENESIS_VM_PORT:-2222}" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR)
+run_scp() { if command -v sshpass >/dev/null; then sshpass -p genesis scp "${scp_opts[@]}" "$@"; else scp "${scp_opts[@]}" "$@"; fi; }
 
 echo "== cross-compiling (docker, cached)"
 docker build -q -f Containerfile --target daemons -t genesis-daemons . >/dev/null

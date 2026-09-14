@@ -16,7 +16,7 @@ permission-gated and undoable.
 | ![Maker](docs/screens/real/maker-v0.1.47.png) | ![App menu](docs/screens/real/menu-v0.1.34.png) |
 | The maker, opened after first run | The application menu (v0.1.34 session) |
 
-Automatic screenshots from the latest release: [docs/screens/latest](docs/screens/latest). Preview renderings: [docs/screens/preview](docs/screens/preview).
+Automatic screenshots from the latest release: [docs/screens/latest](docs/screens/latest). Phone pairing and replies, captured in the VM with an Android emulator: [docs/screens/phone](docs/screens/phone). Preview renderings: [docs/screens/preview](docs/screens/preview).
 
 <p align="center"><img src="docs/screens/latest/04-desktop.png" width="49%" alt="Genesis desktop, captured from the latest release"> <img src="docs/screens/latest/03-first-run.png" width="49%" alt="Genesis first run, captured from the latest release"></p>
 What changed in each release: [Releases](../../releases) (notes are generated from the commits).
@@ -64,6 +64,10 @@ Design brief: [docs/genesis-brief.html](docs/genesis-brief.html) · Design plan:
   sentence and press `Ctrl+G` to replace it with the command.
 - **Voice**: hold-to-talk (whisper.cpp; the more accurate "small" model on machines with 16 GB or a GPU) with a
   chime and glow the instant you press, and spoken replies (Piper, English for now), all local.
+- **Phone**: pair once with KDE Connect (first run has a step for it, with the same code on both screens).
+  Notifications, clipboard and files both ways. Share text to Genesis starting with "ask" and the local
+  model answers as a phone notification; "make …" starts the maker on the desktop. The phone also gets
+  commands: day / night, lock, apply the staged update. Same network only, no relay, no cloud.
 - **Languages**: the palette, the maker and the wizard follow the system language; English, German and
   Slovenian today, and a language is one dictionary in the page.
 

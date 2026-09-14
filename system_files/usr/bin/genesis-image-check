@@ -36,6 +36,7 @@ for u in genesis-router.service; do [ -f "/usr/lib/systemd/system/$u" ] && ok "u
 [ -n "$(find /usr/lib64/qt6/plugins/plasma/kcms -name kcm_genesis.so 2>/dev/null)" ] && ok "Genesis module in System Settings" || fail "kcm_genesis"
 [ -f /etc/pki/genesis/cosign.pub ] && grep -q sigstoreSigned /etc/containers/policy.json && ok "updates require the Genesis signature" || fail "signature policy"
 [ -x /usr/bin/genesis-toolbox ] && [ -d /usr/share/genesis/templates/node-web ] && [ -d /usr/share/genesis/templates/rust-cli ] && ok "toolboxes and Node/Rust templates" || fail "toolbox templates"
+[ -x /usr/bin/genesis-phone ] && [ -f /usr/lib/systemd/user/genesis-phone.service ] && [ -x /usr/bin/kdeconnectd ] && ok "phone bridge (KDE Connect, genesis-phone)" || fail "phone bridge missing"
 [ -x /usr/bin/genesis-claude ] && [ -f /usr/share/applications/org.genesis.claude.desktop ] && ok "Claude (sign in with your account)" || fail "claude launcher"
 [ -x /usr/lib/genesis/piper/piper ] && ok "piper (voice output)" || fail "piper"
 [ -x /usr/lib/genesis/whisper/bin/whisper-cli ] && ok "whisper-cli (voice input)" || fail "whisper-cli"

@@ -1,0 +1,254 @@
+#!/usr/bin/python3
+"""genesis-phone: the phone side of Genesis, on top of KDE Connect.
+
+  status                 JSON: this computer's name, visible phones, pairing state, verification codes
+  refresh                look for phones again
+  pair|accept|cancel|unpair <device-id>
+  add <address>          add a phone by address (for networks that block discovery)
+  commands [device-id]   register the Genesis commands the phone can run (all paired phones by default)
+  ask [text]             answer a question from the phone: text, or what the phone shared (clipboard);
+                         a "make …" request starts the maker on the desktop; the reply is sent to the phone
+  watch                  run in the session: when text starting with "ask" or "genesis" arrives in the
+                         clipboard (shared from the phone), answer it (user unit genesis-phone.service)
+
+Everything stays on the local network; KDE Connect encrypts device to device.
+"""
+import json, os, re, subprocess, sys, time, urllib.request, uuid
+
+BUS = ["busctl", "--user", "--json=short"]
+DAEMON = ["org.kde.kdeconnect", "/modules/kdeconnect", "org.kde.kdeconnect.daemon"]
+ENDPOINT = os.environ.get("GENESIS_ENDPOINT", "http://127.0.0.1:8080/v1")
+AGENTD = os.environ.get("GENESIS_AGENTD", "http://127.0.0.1:11520")
+COMMANDS = [
+    ("Ask Genesis what I just shared", "/usr/bin/genesis-phone ask"),
+    ("Day / night", "/usr/bin/genesis-theme toggle"),
+    ("Lock the screen", "loginctl lock-session"),
+    ("Apply the staged update", "systemctl start --no-block bootc-fetch-apply-updates.service"),
+]
+
+
+def bus(*args, timeout=8):
+    try:
+        out = subprocess.run(BUS + list(args), capture_output=True, text=True, timeout=timeout)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if out.returncode != 0:
+        return None
+    try:
+        return json.loads(out.stdout)["data"]
+    except (ValueError, KeyError):
+        return None
+
+
+def call(method, sig="", *args):
+    return bus("call", *DAEMON, method, sig, *args)
+
+
+def dev_prop(dev, name):
+    v = bus("get-property", "org.kde.kdeconnect", f"/modules/kdeconnect/devices/{dev}", "org.kde.kdeconnect.device", name)
+    return v
+
+
+def dev_call(dev, method):
+    return subprocess.run(["busctl", "--user", "call", "org.kde.kdeconnect", f"/modules/kdeconnect/devices/{dev}", "org.kde.kdeconnect.device", method],
+                          capture_output=True, text=True, timeout=8).returncode == 0
+
+
+def status():
+    name = call("announcedName")
+    if name is None:
+        return {"available": False, "reason": "KDE Connect is not running in this session", "devices": []}
+    ids = call("devices", "bb", "false", "false") or [[]]
+    devices = []
+    for d in ids[0]:
+        reachable = bool(dev_prop(d, "isReachable"))
+        paired = bool(dev_prop(d, "isPaired"))
+        if not reachable and not paired:
+            continue
+        devices.append({
+            "id": d,
+            "name": dev_prop(d, "name") or d,
+            "type": dev_prop(d, "type") or "phone",
+            "reachable": reachable,
+            "paired": paired,
+            "pair_requested": bool(dev_prop(d, "isPairRequested")),
+            "pair_requested_by_peer": bool(dev_prop(d, "isPairRequestedByPeer")),
+            "verification_key": dev_prop(d, "verificationKey") or "",
+        })
+    custom = bus("get-property", *DAEMON, "customDevices") or []
+    return {"available": True, "self_name": name[0] if isinstance(name, list) else name, "devices": devices, "custom": custom}
+
+
+def add_custom(address):
+    custom = bus("get-property", *DAEMON, "customDevices") or []
+    address = address.strip()
+    if address and address not in custom:
+        custom.append(address)
+        subprocess.run(["busctl", "--user", "set-property", *DAEMON, "customDevices", "as", str(len(custom)), *custom], capture_output=True, timeout=8)
+    subprocess.run(["busctl", "--user", "call", *DAEMON, "forceOnNetworkChange"], capture_output=True, timeout=8)
+    return {"custom": custom}
+
+
+def register_commands(devs):
+    """The run-command plugin keeps its list in an ini file per device; a D-Bus signal makes the daemon reload it."""
+    done = []
+    for d in devs:
+        cfg_dir = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), "kdeconnect", d, "kdeconnect_runcommand")
+        os.makedirs(cfg_dir, exist_ok=True)
+        path = os.path.join(cfg_dir, "config")
+        existing = {}
+        try:
+            for line in open(path):
+                if line.startswith("commands="):
+                    raw = line[len("commands="):].strip()
+                    if raw.startswith('"') and raw.endswith('"'):
+                        raw = raw[1:-1].replace('\\"', '"').replace("\\\\", "\\")
+                    existing = json.loads(raw)
+        except (OSError, ValueError):
+            existing = {}
+        have = {v.get("command") for v in existing.values() if isinstance(v, dict)}
+        for name, cmd in COMMANDS:
+            if cmd not in have:
+                existing[str(uuid.uuid4())] = {"name": name, "command": cmd}
+        payload = json.dumps(existing, separators=(",", ":"))
+        # QSettings ini form: a quoted string with backslash escapes
+        with open(path, "w") as f:
+            f.write('[General]\ncommands="' + payload.replace("\\", "\\\\").replace('"', '\\"') + '"\n')
+        subprocess.run(["dbus-send", "--session", "--type=signal", f"/kdeconnect/{d}/kdeconnect_runcommand", "org.kde.kdeconnect.config.configChanged"],
+                       capture_output=True, timeout=8)
+        subprocess.run(["busctl", "--user", "call", "org.kde.kdeconnect", f"/modules/kdeconnect/devices/{d}", "org.kde.kdeconnect.device", "reloadPlugins"],
+                       capture_output=True, timeout=8)
+        done.append(d)
+    return {"commands": [n for n, _ in COMMANDS], "devices": done}
+
+
+def paired_reachable():
+    return [d["id"] for d in status().get("devices", []) if d["paired"] and d["reachable"]]
+
+
+def ping(text, devs=None):
+    for d in devs or paired_reachable():
+        subprocess.run(["kdeconnect-cli", "-d", d, "--ping-msg", text[:900]], capture_output=True, timeout=10)
+
+
+def clipboard_text():
+    try:
+        return subprocess.run(["wl-paste", "-n", "-t", "text"], capture_output=True, text=True, timeout=5).stdout.strip()
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+
+
+def pick_model():
+    try:
+        with urllib.request.urlopen(ENDPOINT.rstrip("/") + "/models", timeout=8) as r:
+            ids = [m.get("id") for m in json.load(r).get("data", [])]
+    except Exception:
+        return "auto"
+    for pref in ["chat", "fast", "code", "auto"]:
+        if pref in ids:
+            return pref
+    return ids[0] if ids else "auto"
+
+
+def ask_model(text):
+    body = json.dumps({"model": pick_model(), "temperature": 0.3, "max_tokens": 220, "messages": [
+        {"role": "system", "content": "You are Genesis, a local assistant on the user's computer, answering a short question sent from their phone. Reply in at most three sentences, plain text, no markdown."},
+        {"role": "user", "content": text}]}).encode()
+    req = urllib.request.Request(ENDPOINT.rstrip("/") + "/chat/completions", data=body, headers={"content-type": "application/json"})
+    with urllib.request.urlopen(req, timeout=180) as r:
+        return json.load(r)["choices"][0]["message"]["content"].strip()
+
+
+def start_make(text):
+    req = urllib.request.Request(AGENTD + "/api/sessions", data=json.dumps({"mode": "ask", "project": ""}).encode(), headers={"content-type": "application/json"})
+    with urllib.request.urlopen(req, timeout=15) as r:
+        sid = json.load(r).get("id")
+    req = urllib.request.Request(f"{AGENTD}/api/sessions/{sid}/prompt", data=json.dumps({"text": text}).encode(), headers={"content-type": "application/json"})
+    urllib.request.urlopen(req, timeout=15).read()
+    subprocess.Popen(["genesis-window", "http://127.0.0.1:11520/"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return sid
+
+
+def ask(text=None):
+    text = (text or clipboard_text()).strip()
+    text = re.sub(r"^(ask|genesis)[\s:,]+", "", text, flags=re.I).strip()
+    if not text:
+        ping("Share some text to Genesis first, then run this again.")
+        return {"error": "nothing to ask"}
+    subprocess.run(["notify-send", "-a", "Genesis", "From your phone", text[:200]], capture_output=True)
+    if re.match(r"^(make|build|create|write)\b", text, re.I):
+        try:
+            start_make(text)
+            reply = "Started making it on the desktop. Steps that change things wait for you there."
+        except Exception as e:
+            reply = f"Could not start the maker: {e}"
+    else:
+        try:
+            reply = ask_model(text)
+        except Exception as e:
+            reply = f"No local model answered ({e.__class__.__name__}). Open Genesis on the desktop to set one up."
+    ping(reply)
+    subprocess.run(["notify-send", "-a", "Genesis", "Sent to your phone", reply[:300]], capture_output=True)
+    return {"asked": text, "reply": reply}
+
+
+def watch():
+    """Text shared from the phone lands in the clipboard; wl-paste --watch hands every change to `on-clip`."""
+    import hashlib
+    mark = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "genesis-phone.last")
+    with open(mark, "w") as f:  # whatever is in the clipboard at login was not sent now
+        f.write(hashlib.sha256(clipboard_text().encode()).hexdigest())
+    while True:
+        proc = subprocess.Popen(["wl-paste", "-n", "-t", "text", "-w", "/usr/bin/genesis-phone", "on-clip"])
+        proc.wait()
+        time.sleep(3)
+
+
+def on_clip():
+    clip = sys.stdin.read().strip()
+    # wl-paste --watch also fires at start with whatever is already there: never answer the same text twice
+    import hashlib
+    mark = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "genesis-phone.last")
+    digest = hashlib.sha256(clip.encode()).hexdigest()
+    try:
+        if open(mark).read().strip() == digest:
+            return
+    except OSError:
+        pass
+    with open(mark, "w") as f:
+        f.write(digest)
+    if re.match(r"^(ask|genesis)[\s:,]", clip, re.I):
+        print("phone/clipboard: answering", clip[:80], flush=True)
+        ask(clip)
+
+
+def main(argv):
+    cmd = argv[1] if len(argv) > 1 else "status"
+    if cmd == "status":
+        out = status()
+    elif cmd == "refresh":
+        subprocess.run(["busctl", "--user", "call", *DAEMON, "forceOnNetworkChange"], capture_output=True, timeout=8); out = status()
+    elif cmd in ("pair", "accept", "cancel", "unpair") and len(argv) > 2:
+        m = {"pair": "requestPairing", "accept": "acceptPairing", "cancel": "cancelPairing", "unpair": "unpair"}[cmd]
+        ok = dev_call(argv[2], m)
+        if cmd == "accept" and ok:
+            register_commands([argv[2]])
+        out = {"ok": ok, "action": cmd, "device": argv[2]}
+    elif cmd == "add" and len(argv) > 2:
+        out = add_custom(argv[2])
+    elif cmd == "commands":
+        out = register_commands(argv[2:] or [d["id"] for d in status().get("devices", []) if d["paired"]])
+    elif cmd == "ask":
+        out = ask(" ".join(argv[2:]) if len(argv) > 2 else None)
+    elif cmd == "watch":
+        watch(); return 0
+    elif cmd == "on-clip":
+        on_clip(); return 0
+    else:
+        print(__doc__); return 2
+    print(json.dumps(out))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

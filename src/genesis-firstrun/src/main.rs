@@ -105,6 +105,21 @@ fn handle(app: &Arc<App>, mut req: Request) -> Result<bool> {
     let resp = match (method, path.as_str()) {
         (Method::Get, "/") | (Method::Get, "/index.html") => Response::from_string(UI_HTML).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
         (Method::Get, "/api/state") => json_response(&state(app), 200),
+        (Method::Get, "/api/phone") => json_response(&phone(&["status"]), 200),
+        (Method::Post, "/api/phone/action") => {
+            let body = read_body(&mut req);
+            let v: serde_json::Value = serde_json::from_str(&body).unwrap_or(serde_json::Value::Null);
+            let action = v.get("action").and_then(|a| a.as_str()).unwrap_or("").to_string();
+            let arg = v.get("id").or(v.get("address")).and_then(|a| a.as_str()).unwrap_or("").to_string();
+            match action.as_str() {
+                "refresh" | "pair" | "accept" | "cancel" | "unpair" | "add" | "commands" => {
+                    let mut args = vec![action.as_str()];
+                    if !arg.is_empty() { args.push(arg.as_str()); }
+                    json_response(&phone(&args), 200)
+                }
+                _ => json_response(&serde_json::json!({ "error": "unknown phone action" }), 400),
+            }
+        }
         (Method::Post, "/api/plan") => {
             let body = read_body(&mut req);
             match serde_json::from_str::<PackReq>(&body).ok().and_then(|r| packs::load_pack(&app.cli.packs, &r.pack).ok()) {
@@ -242,4 +257,13 @@ fn main() -> Result<()> {
         }
     }
     Ok(())
+}
+
+/// The phone side lives in `genesis-phone` (KDE Connect over D-Bus); the wizard only shows and clicks.
+fn phone(args: &[&str]) -> serde_json::Value {
+    match std::process::Command::new("/usr/bin/genesis-phone").args(args).output() {
+        Ok(o) if o.status.success() => serde_json::from_slice(&o.stdout).unwrap_or(serde_json::json!({ "available": false, "reason": "unexpected output", "devices": [] })),
+        Ok(o) => serde_json::json!({ "available": false, "reason": String::from_utf8_lossy(&o.stderr).trim(), "devices": [] }),
+        Err(e) => serde_json::json!({ "available": false, "reason": e.to_string(), "devices": [] }),
+    }
 }

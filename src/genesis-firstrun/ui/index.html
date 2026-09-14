@@ -65,6 +65,8 @@ section{display:none}section.active{display:block}
 .starters{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 18px}.starter{background:var(--panel);border:1px solid var(--line);color:var(--ink-2);border-radius:999px;padding:7px 14px;font:inherit;font-size:13px;cursor:pointer}.starter.on,.starter:hover{border-color:var(--accent);color:var(--ink)}
 .fits{display:grid;gap:4px;margin:8px 0 4px;max-width:420px}.fit{display:grid;grid-template-columns:52px 1fr 100px;gap:8px;align-items:center;font-size:11px;color:var(--ink-3)}.fit .bar{height:5px;border-radius:3px;background:var(--line);overflow:hidden}.fit .fill{height:100%;background:var(--accent);border-radius:3px}.fit .fill.over{background:var(--bad,#e16060)}.fit .n{text-align:right;font-family:ui-monospace,Menlo,monospace;font-size:10.5px}
 .expect{font-size:11.5px;color:var(--accent);margin:2px 0 0}
+.phones{display:flex;flex-direction:column;gap:8px;margin:14px 0}.phone{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}.phone b{flex:1;font-size:15px}.phone .st{font-size:12.5px;color:var(--ink-2)}.code{font-family:ui-monospace,Menlo,monospace;font-size:20px;letter-spacing:.18em;color:var(--accent)}.phone.paired{border-color:var(--good)}
+.addr{display:flex;gap:8px;align-items:center;margin-top:8px}.addr input{background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:7px;padding:8px 10px;font:inherit;font-size:14px;width:200px}
 </style>
 </head>
 <body>
@@ -75,7 +77,8 @@ section{display:none}section.active{display:block}
     <li class="now" data-s="0">Hardware</li>
     <li data-s="1">Models</li>
     <li data-s="2">Privacy</li>
-    <li data-s="3">Ready</li>
+    <li data-s="3">Phone</li>
+    <li data-s="4">Ready</li>
   </ol>
   <p class="small" style="margin-top:28px"><span class="dot"></span>Everything on this page runs on this computer.</p>
   <a id="skip" href="#" class="skip">Set up models later</a>
@@ -121,6 +124,15 @@ section{display:none}section.active{display:block}
 </section>
 
 <section id="s3">
+  <h1>Pair your phone</h1>
+  <p>Install <b>KDE Connect</b> on the phone (Play Store, F-Droid or the App Store) and open it on the same Wi-Fi. It appears below; pairing shows the same code on both screens. Nothing goes through a cloud.</p>
+  <div class="phones" id="phones"><div class="small">Looking for phones…</div></div>
+  <div class="addr"><span class="small">Phone not showing up? Type its address from the KDE Connect app:</span><input id="phoneAddr" placeholder="192.168.1.20" aria-label="Phone address"><button id="btnPhoneAdd">Add</button></div>
+  <p class="small" style="margin-top:14px">Once paired: notifications, clipboard and files both ways. Share text to Genesis starting with <b>ask</b> and the answer comes back as a notification. The phone also gets commands: day / night, lock, apply the staged update.</p>
+  <div class="btns"><button class="primary" id="btnPhoneNext">Continue</button><span class="small" id="phoneInfo"></span></div>
+</section>
+
+<section id="s4">
   <h1>Genesis is ready</h1>
   <p id="doneText">Your models are installed and the local AI service is configured.</p>
   <ul class="models" id="doneList"></ul>
@@ -130,7 +142,7 @@ section{display:none}section.active{display:block}
     <button class="starter" data-p="a pomodoro timer with a bell">A pomodoro timer</button>
     <button class="starter" data-p="a script that renames photos in a folder by the date they were taken">Rename my photos by date</button>
   </div>
-  <p class="small">Your phone can connect too: notifications, clipboard and files, over your own network. Open <b>KDE Connect</b> from the app menu after this, and install it on the phone.</p>
+  <p class="small" id="phoneDone">Your phone can be paired any time from Settings, Genesis.</p>
   <div class="btns"><button class="primary" id="btnFinish">Start using Genesis</button></div>
   <p class="small" id="finishInfo"></p>
 </section>
@@ -140,8 +152,8 @@ section{display:none}section.active{display:block}
  <script>
 
   const I18N={
-    de:{"Here is what this machine can run":"Das kann dieser Computer","Genesis picks language models that fit your hardware. They run here, on this computer, not in a cloud.":"Genesis wählt Sprachmodelle, die zu deiner Hardware passen. Sie laufen hier, auf diesem Computer, nicht in einer Cloud.","Choose a model pack.":"Wähle ein Modellpaket.","The recommended one is the most capable that fits.":"Das empfohlene ist das leistungsfähigste, das passt.","Check download size":"Downloadgröße prüfen","Download and continue":"Herunterladen und weiter","Set up models later":"Modelle später einrichten","Genesis is ready":"Genesis ist bereit","Start using Genesis":"Genesis verwenden","Hardware":"Hardware","Models":"Modelle","Privacy":"Datenschutz","Ready":"Fertig","Everything on this page runs on this computer.":"Alles auf dieser Seite läuft auf diesem Computer.","recommended":"empfohlen","Continue local only":"Nur lokal weiter","Continue":"Weiter"},
-    sl:{"Here is what this machine can run":"To zmore ta računalnik","Genesis picks language models that fit your hardware. They run here, on this computer, not in a cloud.":"Genesis izbere jezikovne modele, ki ustrezajo tvoji strojni opremi. Tečejo tukaj, na tem računalniku, ne v oblaku.","Choose a model pack.":"Izberi paket modelov.","The recommended one is the most capable that fits.":"Priporočeni je najzmogljivejši, ki še ustreza.","Check download size":"Preveri velikost prenosa","Download and continue":"Prenesi in nadaljuj","Set up models later":"Nastavi modele pozneje","Genesis is ready":"Genesis je pripravljen","Start using Genesis":"Začni uporabljati Genesis","Hardware":"Strojna oprema","Models":"Modeli","Privacy":"Zasebnost","Ready":"Pripravljeno","Everything on this page runs on this computer.":"Vse na tej strani teče na tem računalniku.","recommended":"priporočeno","Continue local only":"Nadaljuj samo lokalno","Continue":"Nadaljuj"}
+    de:{"Pair your phone":"Verbinde dein Handy","Phone":"Handy","Paired":"Verbunden","Visible on the network":"Im Netzwerk sichtbar","Wants to pair with this computer":"Möchte sich mit diesem Computer koppeln","Waiting for the phone":"Wartet auf das Handy","Pair":"Koppeln","Accept":"Annehmen","Cancel":"Abbrechen","Add":"Hinzufügen","Continue":"Weiter","Looking for phones…":"Suche nach Handys…","Here is what this machine can run":"Das kann dieser Computer","Genesis picks language models that fit your hardware. They run here, on this computer, not in a cloud.":"Genesis wählt Sprachmodelle, die zu deiner Hardware passen. Sie laufen hier, auf diesem Computer, nicht in einer Cloud.","Choose a model pack.":"Wähle ein Modellpaket.","The recommended one is the most capable that fits.":"Das empfohlene ist das leistungsfähigste, das passt.","Check download size":"Downloadgröße prüfen","Download and continue":"Herunterladen und weiter","Set up models later":"Modelle später einrichten","Genesis is ready":"Genesis ist bereit","Start using Genesis":"Genesis verwenden","Hardware":"Hardware","Models":"Modelle","Privacy":"Datenschutz","Ready":"Fertig","Everything on this page runs on this computer.":"Alles auf dieser Seite läuft auf diesem Computer.","recommended":"empfohlen","Continue local only":"Nur lokal weiter","Continue":"Weiter"},
+    sl:{"Pair your phone":"Poveži telefon","Phone":"Telefon","Paired":"Povezan","Visible on the network":"Viden v omrežju","Wants to pair with this computer":"Želi se povezati s tem računalnikom","Waiting for the phone":"Čaka na telefon","Pair":"Poveži","Accept":"Sprejmi","Cancel":"Prekliči","Add":"Dodaj","Continue":"Naprej","Looking for phones…":"Iščem telefone…","Here is what this machine can run":"To zmore ta računalnik","Genesis picks language models that fit your hardware. They run here, on this computer, not in a cloud.":"Genesis izbere jezikovne modele, ki ustrezajo tvoji strojni opremi. Tečejo tukaj, na tem računalniku, ne v oblaku.","Choose a model pack.":"Izberi paket modelov.","The recommended one is the most capable that fits.":"Priporočeni je najzmogljivejši, ki še ustreza.","Check download size":"Preveri velikost prenosa","Download and continue":"Prenesi in nadaljuj","Set up models later":"Nastavi modele pozneje","Genesis is ready":"Genesis je pripravljen","Start using Genesis":"Začni uporabljati Genesis","Hardware":"Strojna oprema","Models":"Modeli","Privacy":"Zasebnost","Ready":"Pripravljeno","Everything on this page runs on this computer.":"Vse na tej strani teče na tem računalniku.","recommended":"priporočeno","Continue local only":"Nadaljuj samo lokalno","Continue":"Nadaljuj"}
   };
   const LANG=(navigator.language||'en').slice(0,2); const T=I18N[LANG]||{};
   function localise(root){if(!I18N[LANG])return;const walk=document.createTreeWalker(root||document.body,NodeFilter.SHOW_TEXT);let n;while((n=walk.nextNode())){const s=n.nodeValue.trim();if(s&&T[s])n.nodeValue=n.nodeValue.replace(s,T[s])}}
@@ -206,11 +218,30 @@ section{display:none}section.active{display:block}
   function startPoll(){if(poll)return;poll=setInterval(async()=>{const st=await api('/api/state');showProgress(st.progress);if(st.progress.state==='done'||st.progress.state==='error'){clearInterval(poll);poll=null}},1000)}
   $('#btnRetry').addEventListener('click',async()=>{$('#btnRetry').style.display='none';$('#dlErr').innerHTML='';await api('/api/choose',{pack:chosen});startPoll()});
   $('#btnNextPrivacy').addEventListener('click',()=>step(2));
-  $('#btnPrivacy').addEventListener('click',async()=>{await api('/api/privacy',{cloud:$('#cloud').checked});const st=await api('/api/state');const p=st.packs.find(x=>x.id===chosen);const ul=$('#doneList');ul.innerHTML='';(p?p.models:[]).filter(m=>!m.optional).forEach(m=>{const li=document.createElement('li');li.innerHTML=`<span>${m.name||m.repo} <span class="n">${m.role}</span></span><span class="n">${m.size_gb} GB</span>`;ul.appendChild(li)});step(3)});
+  $('#btnPrivacy').addEventListener('click',async()=>{await api('/api/privacy',{cloud:$('#cloud').checked});const st=await api('/api/state');const p=st.packs.find(x=>x.id===chosen);const ul=$('#doneList');ul.innerHTML='';(p?p.models:[]).filter(m=>!m.optional).forEach(m=>{const li=document.createElement('li');li.innerHTML=`<span>${m.name||m.repo} <span class="n">${m.role}</span></span><span class="n">${m.size_gb} GB</span>`;ul.appendChild(li)});step(3);phoneStart()});
+  let phonePoll=null;
+  function renderPhones(st){const box=$('#phones');box.innerHTML='';
+    if(!st.available){box.innerHTML='<div class="note">'+(st.reason||'KDE Connect is not running.')+'</div>';return}
+    if(!st.devices.length){box.innerHTML='<div class="small">No phone yet. On the phone, open KDE Connect and look for <b>'+(st.self_name||'this computer')+'</b>.</div>';localise(box);return}
+    st.devices.forEach(d=>{const el=document.createElement('div');el.className='phone'+(d.paired?' paired':'');
+      let st2=d.paired?'Paired':(d.pair_requested_by_peer?'Wants to pair with this computer':(d.pair_requested?'Waiting for the phone':'Visible on the network'));
+      let html=`<b>${d.name}</b><span class="st">${st2}</span>`;
+      if(!d.paired&&(d.pair_requested||d.pair_requested_by_peer)&&d.verification_key)html+=`<span class="code" title="Same code on the phone">${d.verification_key}</span>`;
+      if(d.paired)html+=`<span class="tag local">connected</span>`;
+      else if(d.pair_requested_by_peer)html+=`<button class="primary" data-a="accept" data-id="${d.id}">Accept</button>`;
+      else if(d.pair_requested)html+=`<button data-a="cancel" data-id="${d.id}">Cancel</button>`;
+      else html+=`<button class="primary" data-a="pair" data-id="${d.id}">Pair</button>`;
+      el.innerHTML=html;box.appendChild(el)});
+    box.querySelectorAll('button').forEach(b=>b.addEventListener('click',async()=>{b.disabled=true;await api('/api/phone/action',{action:b.dataset.a,id:b.dataset.id});phoneTick()}));localise(box)}
+  async function phoneTick(){try{renderPhones(await api('/api/phone'))}catch(e){}}
+  function phoneStart(){phoneTick();api('/api/phone/action',{action:'refresh'});if(!phonePoll)phonePoll=setInterval(phoneTick,3000)}
+  function phoneStop(){if(phonePoll){clearInterval(phonePoll);phonePoll=null}}
+  $('#btnPhoneAdd').addEventListener('click',async()=>{const a=$('#phoneAddr').value.trim();if(!a)return;$('#phoneInfo').textContent='Looking for '+a+'…';await api('/api/phone/action',{action:'add',address:a});setTimeout(()=>{$('#phoneInfo').textContent=''},4000);phoneTick()});
+  $('#btnPhoneNext').addEventListener('click',()=>{phoneStop();step(4)});
   $('#cloud').addEventListener('change',e=>{$('#btnPrivacy').textContent=e.target.checked?'Continue':'Continue local only'});
   let starter='';document.querySelectorAll('.starter').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.starter').forEach(x=>x.classList.toggle('on',x===b));starter=b.dataset.p;$('#btnFinish').textContent='Start using Genesis and make it'}));
   $('#btnFinish').addEventListener('click',async()=>{$('#btnFinish').disabled=true;const r=await api('/api/finish',{starter});$('#finishInfo').textContent=r.done?'Setup complete. You can close this window.':(r.error||'');});
-  load();
+  load().then(()=>{if(location.hash==='#phone'){step(3);phoneStart()}});
 })();
   // Skip: Genesis works as a normal desktop without models; the wizard can be reopened from the Genesis menu entry.
   async function skipSetup(ask){if(ask&&!confirm('Skip model setup for now? Genesis works as a normal desktop; you can download models later from the Genesis app.'))return;await fetch('/api/finish',{method:'POST',headers:{'content-type':'application/json'},body:'{}'});document.body.innerHTML='<div style="display:grid;place-items:center;height:100vh;font-size:20px">Done. Genesis is ready to use.</div>'}
