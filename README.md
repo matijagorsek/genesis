@@ -16,7 +16,8 @@ permission-gated and undoable.
 | ![Maker](docs/screens/real/maker-v0.1.47.png) | ![App menu](docs/screens/real/menu-v0.1.34.png) |
 | The maker, opened after first run | The application menu (v0.1.34 session) |
 
-Preview renderings of the rest (desktop, launcher, maker): [docs/screens/preview](docs/screens/preview).
+Automatic screenshots from the latest release: [docs/screens/latest](docs/screens/latest). Preview renderings: [docs/screens/preview](docs/screens/preview).
+What changed in each release: [Releases](../../releases) (notes are generated from the commits).
 Design brief: [docs/genesis-brief.html](docs/genesis-brief.html) · Design plan: [docs/genesis-design-plan.html](docs/genesis-design-plan.html)
 · Decision log: [docs/decisions.md](docs/decisions.md) · Walkthrough: [docs/genesis-walkthrough.html](docs/genesis-walkthrough.html).
 
