@@ -25,6 +25,24 @@ You have your own browser (browser_open and friends) for looking things up, chec
 Some actions need the user's permission; if a tool result says the action was denied or is waiting, do not retry it, explain instead. \
 When the task is complete, reply with a short summary of what you did and how to run or verify it.";
 
+/// Small models (the "fast"/tiny class) do better with fewer tools and a stricter, shorter script.
+pub const SYSTEM_PROMPT_COMPACT: &str = "You are Genesis, the maker built into this computer. Build exactly what the user asks, step by step, using tools. \
+Follow this script: 1) call scaffold with the closest template (web-static for anything with a page, python-cli for a command, python-script for a one-off, python-web for a page with saved data). \
+2) read_file the entry file. 3) write_file the entry file with the complete program that does what was asked (replace the template code, do not describe it). \
+4) call preview_start (or shell to run it once). 5) if the result shows an error, fix the file and run again. 6) then reply with one short paragraph: what you made and how to use it. \
+Rules: never finish before step 3 changed a file; do not install packages; keep everything in the project folder; do not explain the tools to the user.";
+
+pub fn compact_model(model: &str) -> bool {
+    let m = model.to_lowercase();
+    m == "fast" || m == "auto" || m.contains("tiny") || m.contains("-2b") || m.contains("-4b")
+}
+
+pub fn tool_schemas_compact() -> Value {
+    let all = tool_schemas();
+    let keep = ["list_templates", "scaffold", "read_file", "write_file", "edit_file", "list_dir", "preview_start", "preview_stop", "shell"];
+    Value::Array(all.as_array().unwrap().iter().filter(|t| keep.contains(&t["function"]["name"].as_str().unwrap_or(""))).cloned().collect())
+}
+
 pub fn tool_schemas() -> Value {
     json!([
         {"type":"function","function":{"name":"browser_open","description":"Open a web page in Genesis's own browser (a private, throw-away profile; never the user's logged-in browser). Returns the page title, visible text and a numbered list of links, buttons and fields.","parameters":{"type":"object","properties":{"url":{"type":"string"}},"required":["url"]}}},
@@ -169,8 +187,10 @@ impl Agent {
         self.shared.set_state("running");
         self.last_prompt = text.to_string();
         self.scaffolded = false; self.edited_after_scaffold = false; self.nudged = false;
+        let compact = compact_model(&self.client.model);
+        if compact && self.messages.len() == 1 { self.messages[0] = Message::system(SYSTEM_PROMPT_COMPACT); }
         self.messages.push(Message::user(format!("Project directory: {}\n\nTask: {}", self.project.display(), text)));
-        let tools = tool_schemas();
+        let tools = if compact { tool_schemas_compact() } else { tool_schemas() };
         let mut final_text = String::new();
         for turn in 0..self.max_turns {
             let started = Instant::now();
@@ -458,5 +478,16 @@ impl Agent {
             }
             other => Err(anyhow!("unknown tool {}", other)),
         }
+    }
+}
+
+#[cfg(test)]
+mod compact_tests {
+    use super::*;
+    #[test]
+    fn compact_mode_picks_small_models() {
+        assert!(compact_model("fast") && compact_model("Qwen3.5-4B") && !compact_model("code") && !compact_model("claude-sonnet-5"));
+        let n = tool_schemas_compact().as_array().unwrap().len();
+        assert!(n >= 8 && n < tool_schemas().as_array().unwrap().len());
     }
 }
