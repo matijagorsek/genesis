@@ -78,6 +78,8 @@ impl Default for PathRules {
                 "~/.ssh/**".into(),
                 "~/.gnupg/**".into(),
                 "~/.config/genesis/keys/**".into(),
+                "~/.config/genesis/settings.json".into(),
+                "~/.claude/**".into(),
                 "~/.aws/**".into(),
                 "~/.kube/**".into(),
                 "~/.netrc".into(),
@@ -234,10 +236,16 @@ impl Policy {
                 reason: "installs into the user's environment outside the project".into(),
             },
             CommandRule {
-                id: "write_user.home".into(),
-                patterns: vec!["*> ~/.*".into(), "*>> ~/.*".into(), "*~/.config/*".into(), "*~/.bashrc*".into(), "*~/.zshrc*".into(), "*gsettings set*".into(), "*kwriteconfig*".into()],
-                tier: WriteUser,
-                reason: "changes user configuration".into(),
+                id: "system_user.home".into(),
+                patterns: vec!["*> ~/.*".into(), "*>> ~/.*".into(), "*~/.config/*".into(), "*~/.bashrc*".into(), "*~/.zshrc*".into(), "*gsettings set*".into(), "*kwriteconfig*".into(), "*~/.profile*".into(), "*~/.bash_profile*".into(), "*~/.config/autostart/*".into(), "*~/.config/systemd/user/*".into(), "*crontab *".into(), "*~/.local/share/applications/*".into()],
+                tier: SystemUser,
+                reason: "changes user configuration or what runs at login".into(),
+            },
+            CommandRule {
+                id: "system.remote-exec".into(),
+                patterns: vec!["*curl *| sh*".into(), "*curl *| bash*".into(), "*curl *|sh*".into(), "*curl *|bash*".into(), "*wget *| sh*".into(), "*wget *| bash*".into(), "*wget *|sh*".into(), "*wget *|bash*".into(), "*| sudo sh*".into(), "*| sudo bash*".into(), "*bash <(curl*".into(), "*sh <(curl*".into(), "*bash <(wget*".into(), "*sh <(wget*".into()],
+                tier: Tier::System,
+                reason: "runs code straight from the network".into(),
             },
             CommandRule {
                 id: "never.messaging".into(),
@@ -489,6 +497,17 @@ impl CompiledPolicy {
         // 5. shell commands: rules, then heuristics
         if let Some(cmd) = &intent.command {
             let cmd = cmd.trim();
+            // any path-like word that names a secret (keys, tokens, wallets) makes this a secrets action,
+            // whether it is read, copied or encoded
+            for tok in cmd.split(|c: char| c.is_whitespace() || c == '\'' || c == '"' || c == '=' || c == ',') {
+                let t = tok.trim_matches(|c| c == '(' || c == ')' || c == ';' || c == '|' || c == '&');
+                if t.starts_with('/') || t.starts_with("~/") || t.starts_with("$HOME/") {
+                    let path = expand_home(&t.replace("$HOME", "~"));
+                    if self.secrets.is_match(&path) {
+                        raise(Tier::Secrets, Some("shell.secrets".into()), format!("{} is a secret", t));
+                    }
+                }
+            }
             let mut matched = false;
             for (rule, set) in &self.commands {
                 if set.is_match(cmd) {

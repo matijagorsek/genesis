@@ -164,7 +164,7 @@ tier = "system_user"
 reason = "installs into the user's environment outside the project"
 
 [[commands]]
-id = "write_user.home"
+id = "system_user.home"
 patterns = [
     "*> ~/.*",
     "*>> ~/.*",
@@ -173,9 +173,36 @@ patterns = [
     "*~/.zshrc*",
     "*gsettings set*",
     "*kwriteconfig*",
+    "*~/.profile*",
+    "*~/.bash_profile*",
+    "*~/.config/autostart/*",
+    "*~/.config/systemd/user/*",
+    "*crontab *",
+    "*~/.local/share/applications/*",
 ]
-tier = "write_user"
-reason = "changes user configuration"
+tier = "system_user"
+reason = "changes user configuration or what runs at login"
+
+[[commands]]
+id = "system.remote-exec"
+patterns = [
+    "*curl *| sh*",
+    "*curl *| bash*",
+    "*curl *|sh*",
+    "*curl *|bash*",
+    "*wget *| sh*",
+    "*wget *| bash*",
+    "*wget *|sh*",
+    "*wget *|bash*",
+    "*| sudo sh*",
+    "*| sudo bash*",
+    "*bash <(curl*",
+    "*sh <(curl*",
+    "*bash <(wget*",
+    "*sh <(wget*",
+]
+tier = "system"
+reason = "runs code straight from the network"
 
 [[commands]]
 id = "never.messaging"
@@ -196,6 +223,8 @@ secrets = [
     "~/.ssh/**",
     "~/.gnupg/**",
     "~/.config/genesis/keys/**",
+    "~/.config/genesis/settings.json",
+    "~/.claude/**",
     "~/.aws/**",
     "~/.kube/**",
     "~/.netrc",
