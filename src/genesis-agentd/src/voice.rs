@@ -17,7 +17,8 @@ pub fn whisper_model() -> Option<PathBuf> {
     if let Ok(p) = std::env::var("GENESIS_WHISPER_MODEL") { return Some(PathBuf::from(p)); }
     let dir = std::env::var("GENESIS_MODELS_DIR").map(PathBuf::from).unwrap_or_else(|_| PathBuf::from("/var/lib/genesis/models")).join("stt");
     let mut c: Vec<PathBuf> = std::fs::read_dir(dir).ok()?.filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.extension().map(|x| x == "bin").unwrap_or(false)).collect();
-    c.sort();
+    // prefer the most capable model on disk (largest file): small over base over tiny
+    c.sort_by_key(|p| std::cmp::Reverse(std::fs::metadata(p).map(|m| m.len()).unwrap_or(0)));
     c.into_iter().next()
 }
 

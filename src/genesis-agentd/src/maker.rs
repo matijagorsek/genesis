@@ -338,6 +338,12 @@ pub fn notices(projects_dir: &Path) -> Vec<Notice> {
             }
         }
     }
+    // phone not paired yet: one card, once KDE Connect exists on this system
+    let kdc_cfg = Path::new(&home).join(".config/kdeconnect");
+    let paired = std::fs::read_dir(&kdc_cfg).map(|rd| rd.flatten().any(|d| d.path().join("config").is_file() && std::fs::read_to_string(d.path().join("config")).map(|c| c.contains("[General]")).unwrap_or(false))).unwrap_or(false);
+    if !paired && Path::new("/usr/share/applications/org.kde.kdeconnect.app.desktop").is_file() {
+        out.push(Notice { kind: "phone".into(), title: "Your phone can connect".into(), text: "Notifications, clipboard and files between this computer and your phone, over your own network.".into(), prompt: String::new(), project: "/usr/share/applications/org.kde.kdeconnect.app.desktop".into() });
+    }
     out.truncate(8);
     out
 }

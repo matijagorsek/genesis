@@ -239,7 +239,7 @@ body.listening header{box-shadow:inset 0 -2px 0 var(--accent)}body.listening tex
     list.forEach(n=>{const d=document.createElement('div');d.className='notice';d.innerHTML='<b></b><span></span>';d.querySelector('b').textContent=n.title;d.querySelector('span').textContent=n.text;
       const b=document.createElement('button');
       if(n.prompt){b.textContent={failing:'Fix it','not-installed':'Install',uncommitted:'Review and commit'}[n.kind]||'Do it';b.addEventListener('click',()=>{$('#project').value=n.project;make(n.prompt)})}
-      else{b.textContent=n.kind==='calendar'?'Open':'Show';b.addEventListener('click',async()=>{await api('/api/open',{path:n.project})})}
+      else{b.textContent=n.kind==='calendar'?'Open':(n.kind==='phone'?'Pair':'Show');b.addEventListener('click',async()=>{await api('/api/open',{path:n.project})})}
       d.appendChild(b);box.appendChild(d)})}
   async function made(){const list=await api('/api/made');const sec=$('#made'),c=$('#madeCards');c.innerHTML='';if(!Array.isArray(list)||!list.length){sec.hidden=true;return}sec.hidden=false;
     list.slice(0,12).forEach(m=>{const d=document.createElement('div');d.className='mcard';const when=m.made_at?new Date(m.made_at).toLocaleDateString():'';

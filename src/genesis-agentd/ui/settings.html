@@ -24,7 +24,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}td,th{text-align:left;p
 <section><h2>Claude, with your account</h2><p class="d">Genesis' own maker runs on this machine. If you also want Claude, Genesis includes <b>Claude Code</b>, Anthropic's terminal agent: it signs in with your Claude account in the terminal on first start, no API key. It is a separate app; nothing from the maker goes to it unless you open a project there.</p>
   <div class="kv"><div>Claude Code</div><div id="claudeState">…</div></div>
   <div style="margin-top:10px"><button class="primary" id="openClaude">Open Claude</button> <span id="claudeInfo" class="muted">Opens a terminal in your projects folder; the first start installs it and asks you to sign in.</span></div></section>
-<section><h2>Voice</h2><div class="kv" id="voice"></div></section>
+<section><h2>Voice</h2><div class="kv" id="voice"></div><p class="d" style="margin-top:8px">Speech recognition understands many languages (whisper); the spoken replies are English only for now. Machines with 16 GB or a GPU get the more accurate "small" speech model.</p></section>
 <section><h2>Activity</h2><p class="d">Every action Genesis was asked to take, and what the permission rules decided. Kept on this machine in a tamper-evident log.</p><div id="activity"></div></section>
 <section><h2>Undo history</h2><p class="d">Every job that changed something outside its project was snapshotted first. Undo from the maker, or with <span class="mono">genesis-txd undo &lt;id&gt;</span> in a terminal.</p><div id="history"></div></section>
 </main>

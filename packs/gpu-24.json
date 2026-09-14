@@ -77,14 +77,14 @@
     },
     {
       "role": "stt",
-      "name": "whisper-base",
+      "name": "whisper-small",
       "repo": "ggerganov/whisper.cpp",
       "include": [
-        "ggml-base-q5_1.bin"
+        "ggml-small-q5_1.bin"
       ],
       "license": "MIT",
       "tier": "main",
-      "size_gb": 0.06,
+      "size_gb": 0.19,
       "optional": true
     },
     {
