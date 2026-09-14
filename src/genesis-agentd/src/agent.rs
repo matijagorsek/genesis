@@ -448,10 +448,14 @@ impl Agent {
                 Ok(if text.len() > 60_000 { format!("{}\n…[truncated, {} bytes total]", &text[..60_000], text.len()) } else { text })
             }
             "write_file" => {
-                self.edited_after_scaffold = true;
                 let p = resolve_path(&self.project, &s("path"));
                 if let Some(d) = p.parent() { std::fs::create_dir_all(d)?; }
                 let content = s("content");
+                // writing back exactly what was there is not progress (small models do this with templates)
+                if std::fs::read_to_string(&p).map(|old| old == content).unwrap_or(false) {
+                    return Ok(format!("unchanged: {} already had exactly this content. Implement the request: change the file so it does what the user asked.", p.display()));
+                }
+                self.edited_after_scaffold = true;
                 std::fs::write(&p, &content).map_err(|e| anyhow!("{}: {}", p.display(), e))?;
                 Ok(format!("wrote {} ({} bytes)", p.display(), content.len()))
             }
