@@ -1,0 +1,8 @@
+{
+  "id": "rust-cli",
+  "name": "Command-line tool (Rust)",
+  "description": "A small Rust CLI with argument parsing and a test, built in the Rust toolbox (created on first use). No crates beyond the standard library.",
+  "entry": "src/main.rs",
+  "dev": { "cmd": "genesis-toolbox rust -- cargo test -q", "port": 0 },
+  "run": { "cmd": "genesis-toolbox rust -- cargo run --release --", "port": 0 }
+}

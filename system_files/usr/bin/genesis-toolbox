@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Toolchains without touching the OS: a distrobox per language, created on first use.
+#   genesis-toolbox node -- node server.js      genesis-toolbox rust -- cargo run
+# Boxes: node (nodejs, npm), rust (cargo, rustc, gcc). Your home is shared with the box, so projects
+# just work; nothing is installed into the Genesis image itself.
+set -euo pipefail
+kind="${1:-}"; shift || true
+[ "${1:-}" = "--" ] && shift
+case "$kind" in
+  node) name=genesis-node; pkgs="nodejs npm" ;;
+  rust) name=genesis-rust; pkgs="cargo rust gcc" ;;
+  *) echo "usage: genesis-toolbox node|rust -- command…"; exit 2 ;;
+esac
+if ! distrobox list 2>/dev/null | grep -q " $name "; then
+  echo "[genesis] first use: creating the $kind toolbox (downloads Fedora + $pkgs, a few minutes)…" >&2
+  distrobox create --yes --name "$name" --image quay.io/fedora/fedora:44 --additional-packages "$pkgs" >&2
+fi
+exec distrobox enter "$name" -- "$@"
