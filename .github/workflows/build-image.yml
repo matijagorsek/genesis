@@ -191,6 +191,26 @@ jobs:
           grep -q 'WIZARD-API recommended_pack' boot-serial.log && echo "ok  first-run wizard API answers"
           grep -o 'recommended_pack[^,]*' boot-serial.log | head -1
 
+      - name: Screenshots under KVM, headless (login, first run, desktop, menu, palette)
+        continue-on-error: true
+        run: |
+          mkdir -p shots
+          FW=/usr/share/ovmf/OVMF.fd; [ -f "$FW" ] || FW=/usr/share/OVMF/OVMF.fd
+          LOGIN_AT=150 timeout 900 python3 prototype/ci-shots.py out/qcow2/disk.qcow2 "$FW" shots || true
+          rm -f shots/work.qcow2 shots/mon.sock
+          ls -la shots
+
+      - name: Publish screenshots to docs/screens/latest (docs are outside the CI path filter)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        run: |
+          ls shots/*.png >/dev/null 2>&1 || { echo "no screenshots"; exit 0; }
+          git config user.name "genesis-ci"; git config user.email "ci@users.noreply.github.com"
+          git fetch -q origin main && git checkout -q -B main origin/main
+          mkdir -p docs/screens/latest && cp shots/*.png docs/screens/latest/
+          printf '# Latest screenshots\n\nTaken automatically by CI from release %s under KVM. Login, first run, desktop, app menu, palette.\n' "${{ steps.meta.outputs.tag }}" > docs/screens/latest/README.md
+          git add docs/screens/latest && git commit -qm "screens: automatic capture from release ${{ steps.meta.outputs.tag }} [skip ci]" && git push -q origin main || echo "nothing to publish"
+
       - name: Package qcow2 for release (2 GB per-asset limit -> zstd + split)
         run: |
           sudo apt-get install -y -q zstd
@@ -418,3 +438,4 @@ jobs:
           prerelease: true
           files: |
             release/*
+            shots/*.png
