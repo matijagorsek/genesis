@@ -282,6 +282,18 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
             let _ = std::process::Command::new("systemctl").args(["--user", "restart", "genesis-companiond.service"]).status();
             json_response(&companion_pairing(), 200)
         }
+        (Method::Post, ["api", "babel", "open"]) => {
+            let v: serde_json::Value = serde_json::from_str(&body).unwrap_or(serde_json::Value::Null);
+            let p = v.get("path").and_then(|p| p.as_str()).unwrap_or("").to_string();
+            match openable(&p) {
+                Ok(canon) if canon.is_dir() => match std::process::Command::new("/usr/bin/babel").arg(&canon).spawn() {
+                    Ok(_) => json_response(&serde_json::json!({"opened": true}), 200),
+                    Err(e) => json_response(&serde_json::json!({"error": format!("Babel could not start: {}", e)}), 503),
+                },
+                Ok(_) => json_response(&serde_json::json!({"error": "not a project folder"}), 400),
+                Err(e) => json_response(&serde_json::json!({"error": e.to_string()}), 400),
+            }
+        }
         (Method::Get, ["api", "phone"]) => json_response(&phone(&["status"]), 200),
         (Method::Post, ["api", "phone", "action"]) => {
             let v: serde_json::Value = serde_json::from_str(&body).unwrap_or(serde_json::Value::Null);

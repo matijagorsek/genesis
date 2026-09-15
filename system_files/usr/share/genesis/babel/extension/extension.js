@@ -56,7 +56,7 @@ class MakerView {
       if (m.type === "answer") { this.answered.add(m.id); await api("POST", `/api/prompts/${m.id}`, { allow: !!m.allow }); }
       if (m.type === "undo") await api("POST", `/api/sessions/${this.session}/undo`, {});
       if (m.type === "open") vscode.commands.executeCommand("genesis.openMaker");
-      if (m.type === "openFolder" && m.path) vscode.commands.executeCommand("vscode.openFolder", vscode.Uri.file(m.path), { forceNewWindow: false });
+      if (m.type === "openFolder" && m.path) vscode.commands.executeCommand("vscode.openFolder", vscode.Uri.file(m.path), { forceNewWindow: m.path !== workspaceFolder() });
       if (m.type === "ready") { this.health(); if (this.session) { this.seen = 0; this.post({ type: "started", id: this.session, text: this.pendingText || "" }); this.start(); } }
       if (m.type === "attach" && m.id) this.attach(m.id);
     });
@@ -68,6 +68,8 @@ class MakerView {
     this.post({ type: "health", ok: h.status === 200, router: !!(h.body && h.body.router_ok), model: h.body && h.body.model, error: h.body && h.body.error, folder: workspaceFolder() });
     const s = await api("GET", "/api/sessions");
     if (Array.isArray(s.body)) this.post({ type: "sessions", list: s.body.slice(-6).reverse() });
+    const m = await api("GET", "/api/made");
+    if (Array.isArray(m.body)) this.post({ type: "made", list: m.body.slice(0, 8) });
   }
   async make(text) {
     text = (text || "").trim(); if (!text) return;
@@ -126,6 +128,7 @@ class MakerView {
       <textarea id="q" placeholder="What should Genesis make or change here? e.g. add a --json flag to the CLI, write tests for parser.py, make a README"></textarea>
       <button id="go">Make it</button> <button class="sec" id="open">Open the maker window</button>
       <div class="recent" id="recent"></div>
+      <div class="recent" id="made"></div>
     </div>
     <div id="job" class="hidden">
       <div><span id="state" class="chip"></span> <button class="sec" id="back">‹ New</button> <button class="sec" id="undo" title="Undo every change this job made outside the project">Undo</button> <a id="preview" class="hidden" href="#">preview</a></div>
@@ -144,6 +147,7 @@ class MakerView {
     $('#steer').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();const t=$('#steer').value.trim();if(t){vscode.postMessage({type:'steer',text:t});$('#steer').value='';}}});
     window.addEventListener('message',ev=>{const m=ev.data;
       if(m.type==='health'){const c=$('#chip');c.textContent=m.ok?(m.router?'on this machine':'no models yet'):'maker not running';c.className='chip '+(m.ok&&m.router?'on':'off');$('#model').textContent=m.model?('model: '+m.model):'';$('#folder').textContent=m.folder?('Working in '+m.folder):'Open a folder to make things in it.';if(m.error)$('#folder').textContent=m.error}
+      if(m.type==='made'){const r=$('#made');r.innerHTML=m.list.length?'<p class="muted">Made here</p>':'';m.list.forEach(x=>{const b=document.createElement('button');b.innerHTML='<b>'+esc(x.name)+'</b> <span class="muted">'+esc((x.prompts&&x.prompts[0])||x.template||'')+'</span>';b.title='Open in Babel';b.onclick=()=>vscode.postMessage({type:'openFolder',path:x.path});r.appendChild(b)})}
       if(m.type==='sessions'){const r=$('#recent');r.innerHTML=m.list.length?'<p class="muted">Recent</p>':'';m.list.forEach(s=>{const b=document.createElement('button');b.textContent=(s.state||'')+' · '+(s.project||'').split('/').pop();b.onclick=()=>vscode.postMessage({type:'attach',id:s.id});r.appendChild(b)})}
       if(m.type==='started'){$('#start').classList.add('hidden');$('#job').classList.remove('hidden');$('#steps').innerHTML=m.text?'<div class="st u">'+esc(m.text)+'</div>':'';$('#cards').innerHTML='';}
       if(m.type==='error'){alert(m.text)}
@@ -197,6 +201,21 @@ function activate(ctx) {
   }));
   ctx.subscriptions.push(vscode.commands.registerCommand("genesis.openMaker", () => { const { spawn } = require("child_process"); spawn("genesis-window", ["http://127.0.0.1:11520/"], { detached: true, stdio: "ignore" }).unref(); }));
   ctx.subscriptions.push(vscode.commands.registerCommand("genesis.settings", () => { const { spawn } = require("child_process"); spawn("genesis-window", ["http://127.0.0.1:11520/settings"], { detached: true, stdio: "ignore" }).unref(); }));
+  ctx.subscriptions.push(vscode.commands.registerCommand("genesis.welcome", () => {
+    const uri = vscode.Uri.file(path.join(ctx.extensionPath, "media", "welcome.md"));
+    vscode.commands.executeCommand("markdown.showPreview", uri);
+  }));
+  ctx.subscriptions.push(vscode.commands.registerCommand("genesis.openInBabel", async () => {
+    const m = await api("GET", "/api/made");
+    const items = (Array.isArray(m.body) ? m.body : []).map((x) => ({ label: x.name, description: (x.prompts && x.prompts[0]) || x.template || "", path: x.path }));
+    if (!items.length) { vscode.window.showInformationMessage("Nothing made yet. Ask Genesis for something first."); return; }
+    const pick = await vscode.window.showQuickPick(items, { placeHolder: "Open a project Genesis made" });
+    if (pick) vscode.commands.executeCommand("vscode.openFolder", vscode.Uri.file(pick.path), { forceNewWindow: true });
+  }));
+  if (!ctx.globalState.get("welcomed")) {
+    ctx.globalState.update("welcomed", true);
+    setTimeout(() => { vscode.commands.executeCommand("genesis.welcome"); vscode.commands.executeCommand("genesis.maker.focus"); }, 1500);
+  }
   const sb = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
   sb.text = "$(sparkle) Genesis"; sb.tooltip = "Make something with Genesis (Ctrl+Alt+Space)"; sb.command = "genesis.make"; sb.show(); ctx.subscriptions.push(sb);
 }

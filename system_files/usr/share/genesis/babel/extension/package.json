@@ -55,6 +55,14 @@
       {
         "command": "genesis.settings",
         "title": "Genesis: Settings"
+      },
+      {
+        "command": "genesis.openInBabel",
+        "title": "Genesis: Open a made project in Babel\u2026"
+      },
+      {
+        "command": "genesis.welcome",
+        "title": "Babel: Welcome"
       }
     ],
     "menus": {
