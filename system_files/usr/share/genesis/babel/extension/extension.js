@@ -71,16 +71,20 @@ class MakerView {
   }
   async make(text) {
     text = (text || "").trim(); if (!text) return;
+    console.log("genesis: make", text.slice(0, 60));
     const project = workspaceFolder();
     let mode = "auto_edit";
     try { mode = JSON.parse(fs.readFileSync(path.join(process.env.XDG_CONFIG_HOME || path.join(process.env.HOME || "", ".config"), "genesis", "settings.json"), "utf8")).default_mode || mode; } catch {}
     const r = await api("POST", "/api/sessions", { mode, project });
-    if (r.status !== 200 || !r.body.id) { this.post({ type: "error", text: (r.body && r.body.error) || "could not start" }); return; }
+    console.log("genesis: session", r.status, JSON.stringify(r.body).slice(0, 100));
+    if (r.status < 200 || r.status >= 300 || !r.body.id) { this.post({ type: "error", text: (r.body && r.body.error) || "could not start" }); return; }
     this.session = r.body.id; this.seen = 0; this.answered = new Set(); this.pendingText = text;
     // the sidebar may still be opening (Ctrl+Alt+Space from anywhere): wait for it briefly
     for (let i = 0; i < 20 && !this.view; i++) await new Promise((res) => setTimeout(res, 150));
     this.post({ type: "started", id: this.session, text });
-    await api("POST", `/api/sessions/${this.session}/prompt`, { text });
+    const pr = await api("POST", `/api/sessions/${this.session}/prompt`, { text });
+    console.log("genesis: prompt posted", pr.status, JSON.stringify(pr.body).slice(0, 120));
+    if (pr.status >= 300 || pr.status === 0) this.post({ type: "error", text: (pr.body && pr.body.error) || ("could not send the request (" + pr.status + ")") });
     this.start();
   }
   attach(id) { this.session = id; this.seen = 0; this.answered = new Set(); this.post({ type: "started", id, text: "" }); this.start(); }
@@ -89,7 +93,7 @@ class MakerView {
   async poll() {
     if (!this.session) return;
     const r = await api("GET", `/api/sessions/${this.session}`);
-    if (r.status !== 200) return;
+    if (r.status < 200 || r.status >= 300) return;
     const s = r.body;
     const events = (s.events || []).slice(this.seen); this.seen = (s.events || []).length;
     const pending = (s.pending || []).filter((p) => !this.answered.has(p.request_id)).map((p) => { const [v, d] = verb(p.tool, p.args); return { id: p.request_id, verb: v, detail: d, reason: (p.reason || "").replace(/^tier [A-Z0-9]+: /, "") }; });
@@ -180,7 +184,7 @@ function activate(ctx) {
     if (sys.status !== 200) { out.appendLine("The maker is not running."); return; }
     const project = workspaceFolder();
     const r = await api("POST", "/api/sessions", { mode: "assist", project });
-    if (r.status !== 200) { out.appendLine((r.body && r.body.error) || "could not start"); return; }
+    if (r.status < 200 || r.status >= 300) { out.appendLine((r.body && r.body.error) || "could not start"); return; }
     await api("POST", `/api/sessions/${r.body.id}/prompt`, { text: `Answer briefly, in plain text, without changing any file. ${q}\n\nSelection from ${vscode.workspace.asRelativePath(ed.document.uri)}:\n\n${sel.slice(0, 6000)}` });
     let seen = 0;
     const t = setInterval(async () => {
