@@ -102,11 +102,13 @@ After pairing with KDE Connect:
 If the phone does not find the computer, type the phone's address into Settings > Phone; the computer
 starts the connection instead.
 
-<p align="center"><img src="docs/screens/phone-app/01-pair.png" width="30%" alt="The Genesis app: pairing"> <img src="docs/screens/phone-app/02-job-from-the-phone.png" width="30%" alt="The Genesis app: a job started from the phone"></p>
+<p align="center"><img src="docs/screens/phone-app/01-pair.png" width="30%" alt="The Genesis app: pairing"> <img src="docs/screens/phone-app/02-job-from-the-phone.png" width="30%" alt="The Genesis app: a job started from the phone"> <img src="docs/screens/phone-app/03-permission-notification.png" width="30%" alt="A permission card as a phone notification"></p>
 
 **The Genesis app (Android).** Settings > Phone app shows a code; scan it with the app (or copy and
-paste it). From then on the phone shows your jobs, lets you answer permission cards, start a make and
-fetch one screenshot of the computer. Same network, encrypted to this machine only; "Regenerate the
+paste it). From then on the phone shows your jobs, lets you answer permission cards, start a make, see what was
+made and fetch one screenshot of the computer. When a job waits for your answer, the phone gets a
+notification with **Allow once** and **Not now** right on it; a quiet "Connected to genesis"
+notification stays while the app watches. Same network, encrypted to this machine only; "Regenerate the
 code" unpairs every phone.
 
 ## Updates
