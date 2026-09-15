@@ -64,10 +64,19 @@ Design brief: [docs/genesis-brief.html](docs/genesis-brief.html) · Design plan:
   sentence and press `Ctrl+G` to replace it with the command.
 - **Voice**: hold-to-talk (whisper.cpp; the more accurate "small" model on machines with 16 GB or a GPU) with a
   chime and glow the instant you press, and spoken replies (Piper, English for now), all local.
+- **Ask about the screen**: Meta+Shift+Space, select a region, ask; the local vision model answers (every pack
+  ships a vision projector from 0.1.103). Notification and clipboard, nothing leaves the machine.
+- **Your files, on request**: opt folders in under Settings and the maker can search your notes, documents,
+  PDFs and code ("what did I write about the trip?"). A local SQLite index, refreshed every 20 minutes.
+- **Signed model packs**: pack definitions are OCI artifacts on GHCR, signed with the Genesis key and
+  verified by the same containers policy as the OS; every model download is checked against the sha256
+  in the signed definition. Built-in definitions remain the offline fallback.
 - **Phone**: pair once with KDE Connect (first run has a step for it, with the same code on both screens).
   Notifications, clipboard and files both ways. Share text to Genesis starting with "ask" and the local
-  model answers as a phone notification; "make …" starts the maker on the desktop. The phone also gets
-  commands: day / night, lock, apply the staged update. Same network only, no relay, no cloud.
+  model answers as a phone notification; "make …" starts the maker on the desktop. Voice notes sent to Genesis are
+  transcribed and answered the same way. The phone also gets commands: day / night, lock, apply the
+  staged update; the palette shows the phone's notifications and can reply to those that allow it.
+  Same network only, no relay, no cloud.
 - **Languages**: the palette, the maker and the wizard follow the system language; English, German and
   Slovenian today, and a language is one dictionary in the page.
 

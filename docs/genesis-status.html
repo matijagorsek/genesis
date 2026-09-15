@@ -159,10 +159,10 @@ Password:
 <div class="tablewrap"><table>
 <thead><tr><th>Phase</th><th>Built and verified</th><th>Open</th></tr></thead>
 <tbody>
-<tr><td>0 · Core loop</td><td>Three local models behind one endpoint; an agent that builds working apps; packs for six hardware tiers, licences verified; packs refused when they do not fit</td><td>Packs as OCI artifacts</td></tr>
+<tr><td>0 · Core loop</td><td>Three local models behind one endpoint; an agent that builds working apps; packs for six hardware tiers, licences verified, signed on GHCR and verified on download; packs refused when they do not fit</td><td>·</td></tr>
 <tr><td>A · Identity</td><td>Colour schemes, First Light wallpaper, fonts, icons, dock, splash, boot watermark, login; captured from every release by CI</td><td>·</td></tr>
 <tr><td>B · Trust</td><td>Status widget with model and network use, plain-verb permission cards, Keep / Undo with snapshots, three modes on the bar, adversarially reviewed policy</td><td>·</td></tr>
-<tr><td>C · One door</td><td>Meta+Space palette with typed, spoken and selection input, starter prompts, German and Slovenian</td><td>More languages</td></tr>
+<tr><td>C · One door</td><td>Meta+Space palette with typed, spoken and selection input, starter prompts, German and Slovenian; ask about a screen region with the local vision model; the maker searches your own files on request</td><td>More languages</td></tr>
 <tr><td>D · First run</td><td>Hardware page, packs, privacy, three makes at the end, Made-here gallery, export as recipe</td><td>·</td></tr>
 <tr><td>E · Settings</td><td>Native System Settings module: updates, this machine, models, autonomy, day/night, Claude Code with your account, voice, activity, undo</td><td>·</td></tr>
 <tr><td>F · Proactive, continuity</td><td>Cards for failing runs, calendar files, staged updates, uncommitted repos; phone pairing in first run and Settings, ask Genesis from the phone, phone commands; day/night by voice; <code>ask</code> in every terminal; toolboxes for Node and Rust</td><td>·</td></tr>
@@ -172,8 +172,7 @@ Password:
 <h2>Next, in order</h2>
 <ol class="next">
   <li><strong>Real hardware.</strong> Install from the ISO on a laptop with a GPU, file the first hardware report.</li>
-  <li><strong>Packs as OCI artifacts</strong> on GHCR, so models update like the OS.</li>
-  <li><strong>genesis-indexd</strong>: file index and local search, so "make me X from my notes" works.</li>
+  <li><strong>Model blobs on GHCR</strong> next to their signed definitions, so a pack update is one pull.</li>
   <li><strong>More languages</strong>: a dictionary each; contributors welcome.</li>
 </ol>
 </div>
