@@ -4,7 +4,7 @@
 #   check:  docker run --rm --platform linux/amd64 genesis:0.1 genesis-image-check
 #   iso:    see iso/ (bootc-image-builder), Phase 1
 
-ARG BASE=ghcr.io/ublue-os/aurora:stable
+ARG BASE=ghcr.io/ublue-os/aurora:stable@sha256:1faf35ec2a253c445e3802d946ee75d37fd9b61935398ba5084c7f488ba6db14
 
 # ---- stage 1: Genesis daemons (Rust), cross-compiled for the target architecture on whatever the build host is
 FROM --platform=$BUILDPLATFORM docker.io/library/rust:1-bookworm AS daemons
@@ -157,13 +157,16 @@ RUN set -eux; \
 RUN set -eux; \
     mkdir -p /usr/lib/genesis; \
     case "${TARGETARCH:-amd64}" in arm64) PA=aarch64;; *) PA=x86_64;; esac; \
-    curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 "https://github.com/rhasspy/piper/releases/download/${PIPER_VERSION}/piper_linux_${PA}.tar.gz" | tar -xz -C /usr/lib/genesis; \
+    case "$PA" in aarch64) SUM=fea0fd2d87c54dbc7078d0f878289f404bd4d6eea6e7444a77835d1537ab88eb;; *) SUM=a50cb45f355b7af1f6d758c1b360717877ba0a398cc8cbe6d2a7a3a26e225992;; esac; \
+    curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 -o /tmp/piper.tgz "https://github.com/rhasspy/piper/releases/download/${PIPER_VERSION}/piper_linux_${PA}.tar.gz"; \
+    echo "$SUM  /tmp/piper.tgz" | sha256sum -c -; tar -xzf /tmp/piper.tgz -C /usr/lib/genesis; rm -f /tmp/piper.tgz; \
     test -x /usr/lib/genesis/piper/piper
 
 # llama-swap: model router (Go, static upstream binary)
 RUN set -eux; \
-    curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 "https://github.com/mostlygeek/llama-swap/releases/download/v${LLAMA_SWAP_VERSION}/llama-swap_${LLAMA_SWAP_VERSION}_linux_${TARGETARCH:-amd64}.tar.gz" \
-      | tar -xz -C /usr/bin llama-swap; \
+    case "${TARGETARCH:-amd64}" in arm64) SUM=98686bc626e2d3df3b340b963fd4e4f4d3dd02dcd1bf31f0c777fb09e3053288;; *) SUM=84aa0df0cf3e302a8591e39de347f64c0c7dce1c3a948df68723a82e1fb4f1d4;; esac; \
+    curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 -o /tmp/llama-swap.tgz "https://github.com/mostlygeek/llama-swap/releases/download/v${LLAMA_SWAP_VERSION}/llama-swap_${LLAMA_SWAP_VERSION}_linux_${TARGETARCH:-amd64}.tar.gz"; \
+    echo "$SUM  /tmp/llama-swap.tgz" | sha256sum -c -; tar -xzf /tmp/llama-swap.tgz -C /usr/bin llama-swap; rm -f /tmp/llama-swap.tgz; \
     chmod 0755 /usr/bin/llama-swap; \
     /usr/bin/llama-swap --version
 

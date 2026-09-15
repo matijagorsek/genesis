@@ -408,6 +408,27 @@ pub struct CompiledPolicy {
     commands: Vec<(CommandRule, GlobSet)>,
 }
 
+/// Every spelling of home, then the real path when it exists (symlinks resolved).
+pub fn canonical_path(p: &str) -> String {
+    let mut s = expand_home(p);
+    if let Some(home) = home_dir() {
+        for v in ["${HOME}", "$HOME"] {
+            s = s.replace(v, &home);
+        }
+    }
+    match std::fs::canonicalize(&s) {
+        Ok(c) => c.display().to_string(),
+        Err(_) => {
+            // the file may not exist yet: canonicalise the deepest existing parent
+            let path = std::path::Path::new(&s);
+            if let (Some(parent), Some(name)) = (path.parent(), path.file_name()) {
+                if let Ok(c) = std::fs::canonicalize(parent) { return c.join(name).display().to_string(); }
+            }
+            s
+        }
+    }
+}
+
 pub fn expand_home(p: &str) -> String {
     if let Some(rest) = p.strip_prefix("~/") {
         if let Some(home) = home_dir() {
@@ -465,15 +486,17 @@ impl CompiledPolicy {
             raise(Tier::WriteProject, Some(format!("tool.{}", intent.tool)), "write tool".into());
         }
 
-        // 3. paths: secrets first, then system, then user scope, then project
+        // 3. paths: secrets first, then system, then user scope, then project. Matched on the canonical
+        // path (home expanded in every spelling, symlinks resolved), so a link inside the project that
+        // points at a key is still a key.
         for p in intent.reads.iter().chain(intent.writes.iter()) {
-            let path = expand_home(p);
-            if self.secrets.is_match(&path) {
+            let path = canonical_path(p);
+            if self.secrets.is_match(&path) || (path != expand_home(p) && self.secrets.is_match(expand_home(p))) {
                 raise(Tier::Secrets, Some("path.secrets".into()), format!("{} is a secret", p));
             }
         }
         for p in &intent.writes {
-            let path = expand_home(p);
+            let path = canonical_path(p);
             if self.system.is_match(&path) {
                 raise(Tier::System, Some("path.system".into()), format!("writes system path {}", p));
             } else if self.system_user.is_match(&path) {
@@ -491,6 +514,16 @@ impl CompiledPolicy {
                 raise(Tier::Never, Some("net.deny".into()), format!("domain {} is denied", d));
             } else {
                 raise(Tier::ReadNetwork, Some("net".into()), format!("network access to {}", d));
+            }
+        }
+        // a shell that asked for network ("*") cannot be filtered by domain, but a command that names a
+        // denied host (cloud metadata, loopback services) is refused outright
+        if intent.network.domains.iter().any(|d| d == "*") {
+            if let Some(cmd) = &intent.command {
+                let lower = cmd.to_lowercase();
+                if let Some(hit) = self.policy.network.deny.iter().find(|x| lower.contains(&x.to_lowercase())) {
+                    raise(Tier::Never, Some("net.deny".into()), format!("command reaches denied host {}", hit));
+                }
             }
         }
 

@@ -1,0 +1,55 @@
+name: bump-base
+
+# The base images are pinned by digest in the Containerfile and the build workflow, so a build is
+# reproducible and nobody can swap what "stable" points at underneath us. This job moves the pins
+# forward on purpose, once a week, as a commit that the normal build then verifies.
+
+on:
+  schedule:
+    - cron: '30 3 * * 2'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve current digests
+        id: dig
+        run: |
+          set -euo pipefail
+          d() { skopeo inspect --raw "docker://$1" | sha256sum | cut -d' ' -f1; }
+          echo "aurora=sha256:$(d ghcr.io/ublue-os/aurora:stable)" >> "$GITHUB_OUTPUT"
+          echo "nvidia=sha256:$(d ghcr.io/ublue-os/aurora-nvidia-open:stable)" >> "$GITHUB_OUTPUT"
+          echo "fedora=sha256:$(d quay.io/fedora/fedora-bootc:44)" >> "$GITHUB_OUTPUT"
+      - name: Rewrite the pins
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, re
+          pins = {
+            "ghcr.io/ublue-os/aurora:stable": os.environ["AURORA"],
+            "ghcr.io/ublue-os/aurora-nvidia-open:stable": os.environ["NVIDIA"],
+            "quay.io/fedora/fedora-bootc:44": os.environ["FEDORA"],
+          }
+          for path in ["Containerfile", ".github/workflows/build-image.yml"]:
+              s = open(path).read()
+              for ref, dig in pins.items():
+                  s = re.sub(re.escape(ref) + r"(@sha256:[0-9a-f]{64})?", f"{ref}@{dig}", s)
+              open(path, "w").write(s)
+          PY
+        env:
+          AURORA: ${{ steps.dig.outputs.aurora }}
+          NVIDIA: ${{ steps.dig.outputs.nvidia }}
+          FEDORA: ${{ steps.dig.outputs.fedora }}
+      - name: Commit if anything moved
+        run: |
+          git config user.name "genesis-bot"
+          git config user.email "genesis-bot@users.noreply.github.com"
+          git add Containerfile .github/workflows/build-image.yml
+          git diff --cached --quiet && { echo "pins unchanged"; exit 0; }
+          git commit -m "base: move the pinned digests forward"
+          git push

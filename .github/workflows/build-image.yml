@@ -299,12 +299,12 @@ jobs:
         run: |
           sudo podman build -f Containerfile --pull=never --platform linux/arm64 --layers \
             --cache-from $IMAGE-cache-arm64 --cache-to $IMAGE-cache-arm64 --cache-ttl 168h \
-            --build-arg BASE=quay.io/fedora/fedora-bootc:44 --build-arg FLAVOUR=fedora \
+            --build-arg BASE=quay.io/fedora/fedora-bootc:44@sha256:0c138bc7c1593f50fc074411089531ff19cd3bc4430252ad9e4fb5c7412d5f44 --build-arg FLAVOUR=fedora \
             --build-arg BOOTC_LINT=strict --build-arg GENESIS_VERSION=${{ needs.image.outputs.tag }}-arm64 \
             -t $IMAGE:stable-arm64 -t $IMAGE:0.1-arm64 -t $IMAGE:${{ needs.image.outputs.tag }}-arm64 . \
           || sudo podman build -f Containerfile --pull=never --platform linux/arm64 --layers \
             --cache-from $IMAGE-cache-arm64 \
-            --build-arg BASE=quay.io/fedora/fedora-bootc:44 --build-arg FLAVOUR=fedora \
+            --build-arg BASE=quay.io/fedora/fedora-bootc:44@sha256:0c138bc7c1593f50fc074411089531ff19cd3bc4430252ad9e4fb5c7412d5f44 --build-arg FLAVOUR=fedora \
             --build-arg BOOTC_LINT=strict --build-arg GENESIS_VERSION=${{ needs.image.outputs.tag }}-arm64 \
             -t $IMAGE:stable-arm64 -t $IMAGE:0.1-arm64 -t $IMAGE:${{ needs.image.outputs.tag }}-arm64 .
 
@@ -387,11 +387,11 @@ jobs:
         run: |
           sudo podman build -f Containerfile --pull=never --layers \
             --cache-from $IMAGE-cache --cache-to $IMAGE-cache-nvidia --cache-ttl 168h \
-            --build-arg BASE=ghcr.io/ublue-os/aurora-nvidia-open:stable \
+            --build-arg BASE=ghcr.io/ublue-os/aurora-nvidia-open:stable@sha256:70ac76354578bcda18280bd5904330ebb96c7c80c30855bbea689abf0ec12fee \
             --build-arg BOOTC_LINT=strict --build-arg GENESIS_VERSION=${{ needs.image.outputs.tag }}-nvidia \
             -t $IMAGE:stable-nvidia -t $IMAGE:0.1-nvidia -t $IMAGE:${{ needs.image.outputs.tag }}-nvidia . \
           || sudo podman build -f Containerfile --pull=never --layers \
-            --build-arg BASE=ghcr.io/ublue-os/aurora-nvidia-open:stable \
+            --build-arg BASE=ghcr.io/ublue-os/aurora-nvidia-open:stable@sha256:70ac76354578bcda18280bd5904330ebb96c7c80c30855bbea689abf0ec12fee \
             --build-arg BOOTC_LINT=strict --build-arg GENESIS_VERSION=${{ needs.image.outputs.tag }}-nvidia \
             -t $IMAGE:stable-nvidia -t $IMAGE:0.1-nvidia -t $IMAGE:${{ needs.image.outputs.tag }}-nvidia .
       - name: Image self-check
