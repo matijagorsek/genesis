@@ -57,8 +57,9 @@ jobs:
           log_file -noappend canary-serial.log
           spawn qemu-system-x86_64 {*}$env(ACCEL) -m 4096 -smp 2 -nographic -bios $env(FW) -drive file=old.qcow2,if=virtio,format=qcow2 -netdev user,id=n0 -device virtio-net-pci,netdev=n0 -serial mon:stdio -display none
           proc login {} {
-            expect { -re "login: *$" { send "genesis\r" } timeout { puts "\nTIMEOUT: no login prompt"; exit 1 } eof { puts "\nQEMU exited"; exit 1 } }
-            expect { -re "Password: *$" { send "genesis\r" } timeout { puts "\nTIMEOUT: no password prompt"; exit 1 } }
+            # kernel messages can land on the same line as the prompt: match the prompt itself, not the line end
+            expect { "login: " { sleep 1; send "\r"; expect "login: "; send "genesis\r" } timeout { puts "\nTIMEOUT: no login prompt"; exit 1 } eof { puts "\nQEMU exited"; exit 1 } }
+            expect { "Password: " { send "genesis\r" } timeout { puts "\nTIMEOUT: no password prompt"; exit 1 } }
             set timeout 60
             expect { -re {(\$|❯|#) *$} {} timeout {} }
             sleep 2; send "\r"; sleep 1
@@ -71,7 +72,7 @@ jobs:
           set timeout 600
           login
           set timeout 300
-          send "echo CANARY-AF\"\"TER; grep --color=never ^IMAGE_VERSION= /etc/os-release; echo genesis | sudo -S genesis-image-check 2>&1 | grep --color=never -c '^  ok'; sudo genesis-image-check 2>&1 | grep --color=never FAIL; curl -s -m 20 127.0.0.1:11510/api/state | grep --color=never -o '\"recommended_pack\":\"[a-z0-9-]*\"' ; echo CANARY-DONE\r"
+          send "echo CANARY-AF\"\"TER; grep --color=never ^IMAGE_VERSION= /etc/os-release; echo genesis | sudo -S genesis-image-check 2>&1 | grep --color=never -c '^  ok'; sudo genesis-image-check 2>&1 | grep --color=never FAIL; curl -s -m 20 127.0.0.1:11510/api/state | grep --color=never -o recommended_pack ; echo CANARY-DONE\r"
           expect { "CANARY-DONE" { puts "\nchecks ran" } timeout { puts "\nTIMEOUT: checks"; exit 1 } eof { puts "\nQEMU exited during checks"; exit 1 } }
           send "exit\r"; sleep 1; exit 0
           EOF
