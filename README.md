@@ -19,7 +19,7 @@ permission-gated and undoable.
 Automatic screenshots from the latest release: [docs/screens/latest](docs/screens/latest). Phone pairing and replies, captured in the VM with an Android emulator: [docs/screens/phone](docs/screens/phone). A fresh-disk run of a downloaded release as a new user: [docs/screens/fresh-run](docs/screens/fresh-run). Release notes: [docs/releases/0.2.md](docs/releases/0.2.md). Preview renderings: [docs/screens/preview](docs/screens/preview).
 
 <p align="center"><img src="docs/screens/latest/04-desktop.png" width="49%" alt="Genesis desktop, captured from the latest release"> <img src="docs/screens/latest/03-first-run.png" width="49%" alt="Genesis first run, captured from the latest release"></p>
-How to use it: [docs/how-to-use.md](docs/how-to-use.md). What changed: [docs/releases/0.2.md](docs/releases/0.2.md) for people, [Releases](../../releases) for every build (notes generated from the commits).
+**How to use it: [HOW-TO-USE.md](HOW-TO-USE.md)** (the user guide, with pictures). What changed: [docs/releases/0.2.md](docs/releases/0.2.md) for people, [Releases](../../releases) for every build (notes generated from the commits).
 Design brief: [docs/genesis-brief.html](docs/genesis-brief.html) · Design plan: [docs/genesis-design-plan.html](docs/genesis-design-plan.html)
 · Decision log: [docs/decisions.md](docs/decisions.md) · Walkthrough: [docs/genesis-walkthrough.html](docs/genesis-walkthrough.html).
 
