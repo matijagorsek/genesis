@@ -82,6 +82,7 @@ class Genesis(private val pairing: Pairing) {
     fun sessions(): JSONArray = exec("/v1/sessions").optJSONArray("list") ?: JSONArray()
     fun session(id: String) = exec("/v1/sessions/$id")
     fun notices() = exec("/v1/notices")
+    fun made(): JSONArray = exec("/v1/made").optJSONArray("list") ?: JSONArray()
     fun make(text: String) = exec("/v1/sessions", JSONObject().put("text", text).toString())
     fun steer(id: String, text: String) = exec("/v1/sessions/$id/prompt", JSONObject().put("text", text).toString())
     fun answer(promptId: String, allow: Boolean) = exec("/v1/prompts/$promptId", JSONObject().put("allow", allow).toString())

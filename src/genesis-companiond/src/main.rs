@@ -13,6 +13,7 @@
 //!   POST /v1/sessions/{id}/prompt {text}  steer a job
 //!   POST /v1/prompts/{id}    {allow}   answer a permission card from the phone
 //!   GET  /v1/notices                   the cards the maker shows on its start page
+//!   GET  /v1/made                      the "Made here" gallery: what Genesis built on this machine
 //!   GET  /v1/screenshot                the whole screen, PNG, on demand (never continuous)
 //!
 //! Same network only, no relay. The pairing secret and the certificate live in
@@ -154,6 +155,7 @@ fn handle(req: &mut Request, pairing: &Pairing, agentd: &str) -> Response<std::i
         (Method::Get, ["v1", "sessions"]) => { let (v, st) = proxy(agentd, "GET", "/api/sessions", None); json(&v, st) }
         (Method::Get, ["v1", "sessions", id]) => { let (v, st) = proxy(agentd, "GET", &format!("/api/sessions/{}", id), None); json(&v, st) }
         (Method::Get, ["v1", "notices"]) => { let (v, st) = proxy(agentd, "GET", "/api/notices", None); json(&v, st) }
+        (Method::Get, ["v1", "made"]) => { let (v, st) = proxy(agentd, "GET", "/api/made", None); json(&v, st) }
         (Method::Post, ["v1", "sessions"]) => {
             let v: serde_json::Value = serde_json::from_str(&body).unwrap_or(serde_json::Value::Null);
             let text = v.get("text").and_then(|t| t.as_str()).unwrap_or("").trim().to_string();

@@ -104,8 +104,9 @@ class MainActivity : ComponentActivity() {
         NavigationBar(containerColor = Panel) {
             NavigationBarItem(tab == 0, { tab = 0 }, { Text("Jobs") }, label = null)
             NavigationBarItem(tab == 1, { tab = 1 }, { Text("Make") }, label = null)
-            NavigationBarItem(tab == 2, { tab = 2 }, { Text("Screen") }, label = null)
-            NavigationBarItem(tab == 3, { tab = 3 }, { Text("About") }, label = null)
+            NavigationBarItem(tab == 2, { tab = 2 }, { Text("Made") }, label = null)
+            NavigationBarItem(tab == 3, { tab = 3 }, { Text("Screen") }, label = null)
+            NavigationBarItem(tab == 4, { tab = 4 }, { Text("About") }, label = null)
         }
     }) { pad ->
         Column(Modifier.padding(pad).padding(18.dp).fillMaxSize()) {
@@ -114,7 +115,8 @@ class MainActivity : ComponentActivity() {
             when (tab) {
                 0 -> Jobs(sessions) { open = it }
                 1 -> Make(g) { id -> open = id }
-                2 -> Screen(g)
+                2 -> MadeHere(g)
+                3 -> Screen(g)
                 else -> About(p, health, onForget)
             }
         }
@@ -172,6 +174,25 @@ class MainActivity : ComponentActivity() {
                 if (r.optInt("_status") == 200 && r.has("id")) onStarted(r.getString("id")) else error = r.optString("error", "could not start") }
         }) { Text(if (busy) "Starting…" else "Make it") }
         error?.let { Text(it, color = Bad) }
+    }
+}
+
+@Composable fun MadeHere(g: Genesis) {
+    var list by remember { mutableStateOf(JSONArray()) }
+    LaunchedEffect(Unit) { list = withContext(Dispatchers.IO) { g.made() } }
+    if (list.length() == 0) { Text("Nothing made yet. Everything Genesis builds on the computer shows up here, with the words that asked for it.", color = Ink2); return }
+    val items = (0 until list.length()).map { list.getJSONObject(it) }
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        items(items) { m ->
+            Column(Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(10.dp)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Text(m.optString("name"), color = Ink, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                    Chip(if (m.optBoolean("installed")) "in the app menu" else m.optString("template"), if (m.optBoolean("installed")) Good else Ink3)
+                }
+                val prompts = m.optJSONArray("prompts"); if (prompts != null && prompts.length() > 0) Text("\u201c" + prompts.getString(0) + "\u201d", color = Ink2, fontSize = 13.sp)
+                Text(m.optString("made_at").replace('T', ' ').take(16), color = Ink3, fontSize = 11.sp)
+            }
+        }
     }
 }
 

@@ -1,7 +1,15 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+}
+
+// a release keystore outside the repository: ~/.config/genesis-android/keystore.properties
+val ksProps = Properties().apply {
+    val f = File(System.getProperty("user.home"), ".config/genesis-android/keystore.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
 }
 
 android {
@@ -13,11 +21,6 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1"
-    }
-    // a release keystore outside the repository: ~/.config/genesis-android/keystore.properties
-    val ksProps = java.util.Properties().apply {
-        val f = java.io.File(System.getProperty("user.home"), ".config/genesis-android/keystore.properties")
-        if (f.exists()) f.inputStream().use { load(it) }
     }
     signingConfigs {
         if (ksProps.containsKey("storeFile")) create("release") {
