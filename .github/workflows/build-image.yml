@@ -184,7 +184,7 @@ jobs:
           sleep 2
           # markers are split so the echoed command line cannot match them
           set timeout 180
-          send "echo BOOTTEST-BE\"\"GIN; grep -E '^(ID|PRETTY_NAME|IMAGE_ID)=' /etc/os-release; hostname; echo HOSTDIAG; ls -la /etc/hostname /etc/os-release 2>&1; grep -H DEFAULT_HOSTNAME /etc/os-release /usr/lib/os-release 2>&1; sudo -n cat /etc/hostname 2>&1; hostnamectl status 2>&1 | head -5; echo HOSTDIAG-END; systemctl is-active genesis-probe.service; test -s /etc/genesis/profile.json && echo PROFILE-OK; grep -o 'recommended_pack\[^,\]*' /etc/genesis/profile.json; systemctl is-enabled genesis-router.service; systemctl is-active genesis-router.service; systemctl is-active genesis-firstrun.service; curl -s http://127.0.0.1:11510/api/state | grep -o 'recommended_pack\[^,\]*' | head -1 | sed 's/^/WIZARD-API /'; genesis-image-check | tail -4; echo BOOTTEST-DO\"\"NE\r"
+          send "echo BOOTTEST-BE\"\"GIN; grep --color=never -E '^(ID|PRETTY_NAME|IMAGE_ID)=' /etc/os-release; hostname; echo HOSTDIAG; ls -la /etc/hostname /etc/os-release 2>&1; grep --color=never -H DEFAULT_HOSTNAME /etc/os-release /usr/lib/os-release 2>&1; sudo -n cat /etc/hostname 2>&1; hostnamectl status 2>&1 | head -5; echo HOSTDIAG-END; systemctl is-active genesis-probe.service; test -s /etc/genesis/profile.json && echo PROFILE-OK; grep -o 'recommended_pack\[^,\]*' /etc/genesis/profile.json; systemctl is-enabled genesis-router.service; systemctl is-active genesis-router.service; systemctl is-active genesis-firstrun.service; curl -s http://127.0.0.1:11510/api/state | grep -o 'recommended_pack\[^,\]*' | head -1 | sed 's/^/WIZARD-API /'; genesis-image-check | tail -4; echo BOOTTEST-DO\"\"NE\r"
           expect {
             "BOOTTEST-DONE" { puts "\nboot test reached shell and ran checks" }
             timeout { puts "\nTIMEOUT: command did not complete"; exit 1 }
@@ -195,12 +195,14 @@ jobs:
           exit 0
           EOF
           timeout 900 expect -f boot.exp
+          # the console carries colour escapes (grep aliases, systemd): check a stripped copy
+          sed -E 's/\x1b\[[0-9;?]*[A-Za-z]//g; s/\x1b\]8;;[^\x07]*\x07//g' boot-serial.log > boot-serial.clean
           echo "=== checks"
-          grep -q 'ID=genesis' boot-serial.log && echo "ok  os-release ID=genesis" || { echo "missing: os-release ID=genesis"; exit 1; }
-          grep -qE '^enabled' boot-serial.log && echo "ok  genesis-router.service enabled" || { echo "missing: genesis-router.service enabled"; exit 1; }
-          grep -qE '^active|^inactive' boot-serial.log && echo "ok  socket state reported" || { echo "missing: socket state reported"; exit 1; }
-          grep -q 'PROFILE-OK' boot-serial.log && echo "ok  first-boot profile written" || { echo "missing: first-boot profile written"; exit 1; }
-          grep -q 'WIZARD-API recommended_pack' boot-serial.log && echo "ok  first-run wizard API answers" || { echo "missing: first-run wizard API answers"; exit 1; }
+          grep -q 'ID=genesis' boot-serial.clean && echo "ok  os-release ID=genesis" || { echo "missing: os-release ID=genesis"; exit 1; }
+          grep -qE '^enabled' boot-serial.clean && echo "ok  genesis-router.service enabled" || { echo "missing: genesis-router.service enabled"; exit 1; }
+          grep -qE '^active|^inactive' boot-serial.clean && echo "ok  socket state reported" || { echo "missing: socket state reported"; exit 1; }
+          grep -q 'PROFILE-OK' boot-serial.clean && echo "ok  first-boot profile written" || { echo "missing: first-boot profile written"; exit 1; }
+          grep -q 'WIZARD-API recommended_pack' boot-serial.clean && echo "ok  first-run wizard API answers" || { echo "missing: first-run wizard API answers"; exit 1; }
           grep -o 'recommended_pack[^,]*' boot-serial.log | head -1
 
       - name: Screenshots under KVM, headless (login, first run, desktop, menu, Genesis)
