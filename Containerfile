@@ -163,6 +163,18 @@ RUN set -eux; \
     echo "$SUM  /tmp/piper.tgz" | sha256sum -c -; tar -xzf /tmp/piper.tgz -C /usr/lib/genesis; rm -f /tmp/piper.tgz; \
     test -x /usr/lib/genesis/piper/piper
 
+# Babel: the Genesis IDE. Code-OSS through VSCodium (MIT, no telemetry), every language VS Code speaks,
+# with the Genesis extension built in: the maker in the sidebar, permission cards, ask about the selection.
+ARG VSCODIUM_VERSION=1.135.06055
+RUN set -eux; \
+    case "${TARGETARCH:-amd64}" in arm64) VA=arm64; SUM=9765cea4f707ff7dc83a40be408a7318a59abb6996b359631639d9aab2f48a90;; *) VA=x64; SUM=c09d8ac8dd7f52b09ee159ee24b440541dfd8f937a0f6f88cc428c78e48ee1f2;; esac; \
+    curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 -o /tmp/babel.tgz "https://github.com/VSCodium/vscodium/releases/download/${VSCODIUM_VERSION}/VSCodium-linux-${VA}-${VSCODIUM_VERSION}.tar.gz"; \
+    echo "$SUM  /tmp/babel.tgz" | sha256sum -c -; \
+    mkdir -p /usr/lib/babel; tar -xzf /tmp/babel.tgz -C /usr/lib/babel; rm -f /tmp/babel.tgz; \
+    /usr/bin/genesis-babel-brand; \
+    ln -sf /usr/lib/babel/bin/codium /usr/bin/babel; \
+    test -x /usr/bin/babel
+
 # llama-swap: model router (Go, static upstream binary)
 RUN set -eux; \
     case "${TARGETARCH:-amd64}" in arm64) SUM=98686bc626e2d3df3b340b963fd4e4f4d3dd02dcd1bf31f0c777fb09e3053288;; *) SUM=84aa0df0cf3e302a8591e39de347f64c0c7dce1c3a948df68723a82e1fb4f1d4;; esac; \

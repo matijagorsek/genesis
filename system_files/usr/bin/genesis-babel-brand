@@ -1,0 +1,13 @@
+#!/usr/bin/python3
+"""Brand the unpacked VSCodium under /usr/lib/babel as Babel and install the Genesis extension as built-in."""
+import json, os, shutil
+root = os.environ.get("BABEL_ROOT", "/usr/lib/babel")
+p = os.path.join(root, "resources/app/product.json")
+d = json.load(open(p))
+d.update({"nameShort": "Babel", "nameLong": "Genesis Babel", "applicationName": "babel", "dataFolderName": ".babel",
+          "urlProtocol": "babel", "reportIssueUrl": "https://github.com/matijagorsek/genesis/issues", "enableTelemetry": False, "updateUrl": None})
+json.dump(d, open(p, "w"), indent=2)
+src = os.environ.get("BABEL_EXT", "/usr/share/genesis/babel/extension")
+dst = os.path.join(root, "resources/app/extensions/genesis-babel")
+shutil.rmtree(dst, ignore_errors=True); shutil.copytree(src, dst)
+print("Babel branded, Genesis extension built in")

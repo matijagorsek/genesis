@@ -1,0 +1,66 @@
+{
+  "name": "genesis-babel",
+  "displayName": "Genesis",
+  "description": "The maker at your side: make and change things in this workspace with the local models, every step permission-gated; ask about the selection; Genesis Dark.",
+  "version": "0.1.0",
+  "publisher": "genesis",
+  "license": "Apache-2.0",
+  "engines": { "vscode": "^1.90.0" },
+  "categories": ["Other", "Themes"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        { "id": "genesis", "title": "Genesis", "icon": "media/genesis.svg" }
+      ]
+    },
+    "views": {
+      "genesis": [
+        { "type": "webview", "id": "genesis.maker", "name": "Maker" }
+      ]
+    },
+    "commands": [
+      { "command": "genesis.make", "title": "Genesis: Make something in this workspace…" },
+      { "command": "genesis.askSelection", "title": "Genesis: Ask about the selection" },
+      { "command": "genesis.changeFile", "title": "Genesis: Change this file…" },
+      { "command": "genesis.openMaker", "title": "Genesis: Open the maker window" },
+      { "command": "genesis.settings", "title": "Genesis: Settings" }
+    ],
+    "menus": {
+      "editor/context": [
+        { "command": "genesis.askSelection", "when": "editorHasSelection", "group": "genesis@1" },
+        { "command": "genesis.changeFile", "group": "genesis@2" }
+      ],
+      "explorer/context": [
+        { "command": "genesis.make", "group": "genesis@1" }
+      ]
+    },
+    "keybindings": [
+      { "command": "genesis.make", "key": "ctrl+alt+space", "mac": "cmd+alt+space" },
+      { "command": "genesis.askSelection", "key": "ctrl+alt+a", "when": "editorHasSelection" }
+    ],
+    "themes": [
+      { "label": "Genesis Dark", "uiTheme": "vs-dark", "path": "./themes/genesis-dark.json" }
+    ],
+    "configuration": {
+      "title": "Genesis",
+      "properties": {
+        "genesis.agentd": { "type": "string", "default": "http://127.0.0.1:11520", "description": "The Genesis maker daemon on this machine." }
+      }
+    },
+    "configurationDefaults": {
+      "workbench.colorTheme": "Genesis Dark",
+      "workbench.startupEditor": "none",
+      "telemetry.telemetryLevel": "off",
+      "update.mode": "none",
+      "extensions.autoCheckUpdates": false,
+      "editor.fontFamily": "'IBM Plex Mono', 'JetBrains Mono', monospace",
+      "editor.fontSize": 14,
+      "terminal.integrated.fontFamily": "'IBM Plex Mono', monospace",
+      "window.titleBarStyle": "custom",
+      "workbench.activityBar.location": "default",
+      "security.workspace.trust.enabled": false
+    }
+  }
+}
