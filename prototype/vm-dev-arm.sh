@@ -25,4 +25,4 @@ exec qemu-system-aarch64 -M virt,highmem=on -accel hvf -cpu host -smp "${GENESIS
   -device virtio-gpu-pci,xres="${GENESIS_VM_XRES:-1280}",yres="${GENESIS_VM_YRES:-800}" -display cocoa,zoom-to-fit=on -device qemu-xhci -device usb-kbd -device usb-tablet \
   -device virtio-rng-pci \
   -monitor unix:iso/output/dev/mon-arm.sock,server,nowait -serial file:iso/output/dev/serial-arm.log \
-  -netdev user,id=n0,hostfwd=tcp::2223-:22,hostfwd=tcp::11513-:11510,hostfwd=tcp::11523-:11520,hostfwd=udp::1716-:1716 -device virtio-net-pci,netdev=n0
+  -netdev user,id=n0,hostfwd=tcp::2223-:22,hostfwd=tcp::11513-:11510,hostfwd=tcp::11523-:11520,hostfwd=udp::1716-:1716,hostfwd=tcp::1716-:1716 -device virtio-net-pci,netdev=n0
