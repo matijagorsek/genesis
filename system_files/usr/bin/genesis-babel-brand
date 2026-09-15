@@ -10,4 +10,25 @@ json.dump(d, open(p, "w"), indent=2)
 src = os.environ.get("BABEL_EXT", "/usr/share/genesis/babel/extension")
 dst = os.path.join(root, "resources/app/extensions/genesis-babel")
 shutil.rmtree(dst, ignore_errors=True); shutil.copytree(src, dst)
-print("Babel branded, Genesis extension built in")
+# the face: Babel icon for the window and the title bar, a Babel mark behind empty editors, a small stylesheet
+brand = os.environ.get("BABEL_BRAND", "/usr/share/genesis/babel/brand")
+for name in ("code.png",):
+    t = os.path.join(root, "resources/app/resources/linux", name)
+    if os.path.exists(os.path.dirname(t)): shutil.copy(os.path.join(brand, "babel-512.png"), t)
+media = os.path.join(root, "resources/app/out/media")
+if os.path.isdir(media):
+    for n in os.listdir(media):
+        if n.startswith("letterpress"): shutil.copy(os.path.join(brand, "letterpress.svg"), os.path.join(media, n))
+    for n in ("code-icon.svg",):
+        pass
+wb = os.path.join(root, "resources/app/out/vs/workbench")
+css = None
+for cand in ("workbench.desktop.main.css",):
+    c = os.path.join(wb, cand)
+    if os.path.exists(c): css = c
+if css:
+    body = open(css).read()
+    extra = open(os.path.join(brand, "babel.css")).read()
+    if "Babel: the Genesis look" not in body:
+        open(css, "a").write("\n" + extra)
+print("Babel branded, Genesis extension built in, the Babel face applied")

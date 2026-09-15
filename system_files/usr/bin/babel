@@ -14,7 +14,15 @@ if [ ! -f "$U/settings.json" ]; then
   "security.workspace.trust.enabled": false,
   "window.titleBarStyle": "custom",
   "editor.fontFamily": "'IBM Plex Mono', 'JetBrains Mono', monospace",
-  "editor.fontSize": 14
+  "editor.fontSize": 14,
+  "editor.minimap.enabled": false,
+  "workbench.activityBar.location": "top",
+  "workbench.layoutControl.enabled": false,
+  "window.title": "${dirty}${activeEditorShort}${separator}${rootName}${separator}Babel",
+  "workbench.tips.enabled": false,
+  "editor.cursorSmoothCaretAnimation": "on",
+  "editor.smoothScrolling": true,
+  "workbench.tree.indent": 14
 }
 EOF
 fi
