@@ -31,7 +31,9 @@ if [ ! -f "$U/settings.json" ]; then
   "rust-analyzer.updates.askBeforeDownload": false,
   "clangd.path": "/usr/bin/clangd",
   "clangd.checkUpdates": false,
-  "go.alternateTools": { "gopls": "/usr/bin/gopls" },
+  "go.alternateTools": { "gopls": "/usr/bin/gopls", "dlv": "/usr/bin/dlv" },
+  "lldb-dap.executable-path": "/usr/bin/lldb-dap",
+  "rust-analyzer.debug.engine": "llvm-vs-code-extensions.lldb-dap",
   "go.toolsManagement.checkForUpdates": "off",
   "python.languageServer": "Jedi",
   "python.defaultInterpreterPath": "/usr/bin/python3"

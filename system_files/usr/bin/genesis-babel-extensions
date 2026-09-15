@@ -11,6 +11,7 @@ EXT = [
         {"x64": "c7744af4bf72978f5792624a71c80e2b622a1118574fada3a903d70ac03d5bca", "arm64": "4e7aa92b0459c1010ee010a79b35ecc16328b943a84589bd9e8ead3d4eb0010b"}[arch]),
     ("rust-lang.rust-analyzer", "https://open-vsx.org/api/rust-lang/rust-analyzer/0.4.3050/file/rust-lang.rust-analyzer-0.4.3050.vsix", "2cfd9c070512f80402485b0ff70aa5c1bdf631506f8d202b1e3f4d02b460d125"),
     ("golang.go", "https://open-vsx.org/api/golang/Go/0.56.1/file/golang.Go-0.56.1.vsix", "45365da5d1284f3518b2949f218481f1e9ef6221b3d999a2e3082ccbb61e874b"),
+    ("llvm-vs-code-extensions.lldb-dap", "https://open-vsx.org/api/llvm-vs-code-extensions/lldb-dap/0.7.20260914/file/llvm-vs-code-extensions.lldb-dap-0.7.20260914.vsix", "e57581fc13f7b97bd648bd758f6bf96f7c04400b09faea04d60c35cd40791952"),
     ("llvm-vs-code-extensions.vscode-clangd", "https://open-vsx.org/api/llvm-vs-code-extensions/vscode-clangd/0.6.0/file/llvm-vs-code-extensions.vscode-clangd-0.6.0.vsix", "32030694fa6c0ef438f4e4219f84677cd32f603c7faa4c71a283efc1f5b51751"),
 ]
 dest_root = os.path.join(root, "resources/app/extensions")
