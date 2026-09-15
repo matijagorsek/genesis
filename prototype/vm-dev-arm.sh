@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Native-speed Genesis VM on Apple Silicon: the arm64 flavour under Apple's hypervisor (HVF).
 #   prototype/vm-dev-arm.sh [base-arm64.qcow2]   default: newest iso/output/v*-arm64/disk.qcow2 or iso/output/arm64/disk.qcow2
+#   GENESIS_VM_XRES/YRES set the guest display (default 1280x800); the window zooms to fit, so drag it
+#   to any size. For a 4K monitor: vm-dev-arm-monitor.command (3456x1944 = 90% of 4K, 2x scale in Plasma).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 base="${1:-$(ls -d iso/output/*arm64*/disk.qcow2 2>/dev/null | sort | tail -1)}"
@@ -20,7 +22,7 @@ echo "arm64 dev VM (HVF): ssh -p 2223 genesis@127.0.0.1 (password genesis); wiza
 exec qemu-system-aarch64 -M virt,highmem=on -accel hvf -cpu host -smp "${GENESIS_VM_CPUS:-6}" -m "${GENESIS_VM_MEM:-8192}" \
   -drive if=pflash,format=raw,readonly=on,file="$fw" -drive if=pflash,format=raw,file="$vars" \
   -drive file="$ovl",format=qcow2,if=virtio \
-  -device virtio-gpu-pci -display cocoa -device qemu-xhci -device usb-kbd -device usb-tablet \
+  -device virtio-gpu-pci,xres="${GENESIS_VM_XRES:-1280}",yres="${GENESIS_VM_YRES:-800}" -display cocoa,zoom-to-fit=on -device qemu-xhci -device usb-kbd -device usb-tablet \
   -device virtio-rng-pci \
   -monitor unix:iso/output/dev/mon-arm.sock,server,nowait -serial file:iso/output/dev/serial-arm.log \
   -netdev user,id=n0,hostfwd=tcp::2223-:22,hostfwd=tcp::11513-:11510,hostfwd=tcp::11523-:11520,hostfwd=udp::1716-:1716 -device virtio-net-pci,netdev=n0
