@@ -160,8 +160,9 @@ fn handle(req: &mut Request, pairing: &Pairing, agentd: &str) -> Response<std::i
             let v: serde_json::Value = serde_json::from_str(&body).unwrap_or(serde_json::Value::Null);
             let text = v.get("text").and_then(|t| t.as_str()).unwrap_or("").trim().to_string();
             if text.is_empty() { return json(&serde_json::json!({"error": "text required"}), 400); }
-            let (sys, _) = proxy(agentd, "GET", "/api/system", None);
-            let mode = sys.pointer("/settings/mode").and_then(|m| m.as_str()).unwrap_or("auto_edit").to_string();
+            // the default mode the user chose in Settings (written by agentd to the user's settings file)
+            let settings: serde_json::Value = std::fs::read_to_string(config_path().with_file_name("settings.json")).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or(serde_json::Value::Null);
+            let mode = settings.get("default_mode").and_then(|m| m.as_str()).unwrap_or("auto_edit").to_string();
             let (created, st) = proxy(agentd, "POST", "/api/sessions", Some(&serde_json::json!({"mode": mode, "project": ""}).to_string()));
             if st >= 300 { return json(&created, st); }
             let id = created.get("id").and_then(|i| i.as_str()).unwrap_or("").to_string();

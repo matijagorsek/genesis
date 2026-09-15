@@ -29,6 +29,7 @@ class WatchService : Service() {
             while (isActive) {
                 try {
                     val list = g.sessions()
+                    android.util.Log.i("GenesisWatch", "poll: ${list.length()} sessions via ${g.host}")
                     for (i in 0 until list.length()) {
                         val s = list.getJSONObject(i)
                         val id = s.optString("id")
@@ -44,7 +45,7 @@ class WatchService : Service() {
                             if (notified.add("done:$id")) done(id, s.optString("project").substringAfterLast('/'))
                         }
                     }
-                } catch (_: Exception) {}
+                } catch (e: Exception) { android.util.Log.w("GenesisWatch", "poll failed", e) }
                 delay(8000)
             }
         }

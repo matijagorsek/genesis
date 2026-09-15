@@ -284,5 +284,6 @@ fun plainVerb(tool: String, a: JSONObject): Pair<String, String> = when (tool) {
     "browser_click", "browser_type" -> "act on the web page" to a.optString("text")
     "install_app" -> "add an app to your menu" to a.optString("display_name")
     "preview_start" -> "run the project" to a.optString("path")
+    "scaffold" -> "create the project ${a.optString("name")}" to "from the ${a.optString("template")} template"
     else -> tool.replace('_', ' ') to a.toString().take(120)
 }
