@@ -99,7 +99,7 @@ qemu-img resize disk.qcow2 40G         # optional: room for a bigger model pack;
 ```
 
 Or install from the ISO in a VM (UTM, virt-manager, VirtualBox) or on a spare machine. On an NVIDIA machine,
-switch to the NVIDIA flavour afterwards: `sudo bootc switch ghcr.io/matijagorsek/genesis:0.1-nvidia`.
+switch to the NVIDIA flavour afterwards: `sudo bootc switch ghcr.io/matijagorsek/genesis:stable-nvidia`.
 
 **On an Apple Silicon Mac**, use the arm64 flavour, which runs natively under Apple's hypervisor at
 full speed, models included: download the `genesis-<version>-arm64.qcow2.zst.*.part` files, join them

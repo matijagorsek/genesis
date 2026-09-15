@@ -55,7 +55,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - id: meta
-        run: echo "tag=0.1.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+        run: echo "tag=0.2.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
 
       - name: Free runner disk
         run: |
@@ -100,19 +100,20 @@ jobs:
             --cache-from $IMAGE-cache --cache-to $IMAGE-cache --cache-ttl 168h \
             --build-arg BOOTC_LINT=strict \
             --build-arg GENESIS_VERSION=${{ steps.meta.outputs.tag }} \
-            -t $IMAGE:0.1 -t $IMAGE:${{ steps.meta.outputs.tag }} . \
+            -t $IMAGE:stable -t $IMAGE:0.1 -t $IMAGE:${{ steps.meta.outputs.tag }} . \
           || sudo podman build -f Containerfile --pull=never --layers \
             --cache-from $IMAGE-cache \
             --build-arg BOOTC_LINT=strict \
             --build-arg GENESIS_VERSION=${{ steps.meta.outputs.tag }} \
-            -t $IMAGE:0.1 -t $IMAGE:${{ steps.meta.outputs.tag }} .
+            -t $IMAGE:stable -t $IMAGE:0.1 -t $IMAGE:${{ steps.meta.outputs.tag }} .
 
       - name: Image self-check
-        run: sudo podman run --rm $IMAGE:0.1 genesis-image-check
+        run: sudo podman run --rm $IMAGE:stable genesis-image-check
 
       - name: Push
         if: github.event_name != 'pull_request'
         run: |
+          sudo podman push $IMAGE:stable
           sudo podman push $IMAGE:0.1
           sudo podman push $IMAGE:${{ steps.meta.outputs.tag }}
 
@@ -141,7 +142,7 @@ jobs:
             -v "$PWD/out:/output" -v "$PWD/iso/config.toml:/config.toml:ro" \
             -v "$PWD/iso/defs/genesis-44.yaml:/usr/share/bootc-image-builder/defs/genesis-44.yaml:ro" \
             -v /var/lib/containers/storage:/var/lib/containers/storage \
-            $BIB --type qcow2 --rootfs btrfs --config /config.toml $IMAGE:0.1
+            $BIB --type qcow2 --rootfs btrfs --config /config.toml $IMAGE:stable
           sudo chown -R "$USER" out; ls -la out/qcow2; df -h / | tail -1
 
       - name: Boot test (qcow2, QEMU/KVM, serial console)
@@ -296,18 +297,19 @@ jobs:
             --cache-from $IMAGE-cache-arm64 --cache-to $IMAGE-cache-arm64 --cache-ttl 168h \
             --build-arg BASE=quay.io/fedora/fedora-bootc:44 --build-arg FLAVOUR=fedora \
             --build-arg BOOTC_LINT=strict --build-arg GENESIS_VERSION=${{ needs.image.outputs.tag }}-arm64 \
-            -t $IMAGE:0.1-arm64 -t $IMAGE:${{ needs.image.outputs.tag }}-arm64 . \
+            -t $IMAGE:stable-arm64 -t $IMAGE:0.1-arm64 -t $IMAGE:${{ needs.image.outputs.tag }}-arm64 . \
           || sudo podman build -f Containerfile --pull=never --platform linux/arm64 --layers \
             --cache-from $IMAGE-cache-arm64 \
             --build-arg BASE=quay.io/fedora/fedora-bootc:44 --build-arg FLAVOUR=fedora \
             --build-arg BOOTC_LINT=strict --build-arg GENESIS_VERSION=${{ needs.image.outputs.tag }}-arm64 \
-            -t $IMAGE:0.1-arm64 -t $IMAGE:${{ needs.image.outputs.tag }}-arm64 .
+            -t $IMAGE:stable-arm64 -t $IMAGE:0.1-arm64 -t $IMAGE:${{ needs.image.outputs.tag }}-arm64 .
 
       - name: Image self-check
-        run: sudo podman run --rm $IMAGE:0.1-arm64 genesis-image-check
+        run: sudo podman run --rm $IMAGE:stable-arm64 genesis-image-check
 
       - name: Push
         run: |
+          sudo podman push $IMAGE:stable-arm64
           sudo podman push $IMAGE:0.1-arm64
           sudo podman push $IMAGE:${{ needs.image.outputs.tag }}-arm64
 
@@ -333,7 +335,7 @@ jobs:
             -v "$PWD/out:/output" -v "$PWD/iso/config.toml:/config.toml:ro" \
             -v "$PWD/iso/defs/genesis-44.yaml:/usr/share/bootc-image-builder/defs/genesis-44.yaml:ro" \
             -v /var/lib/containers/storage:/var/lib/containers/storage \
-            $BIB --type qcow2 --rootfs btrfs --config /config.toml $IMAGE:0.1-arm64
+            $BIB --type qcow2 --rootfs btrfs --config /config.toml $IMAGE:stable-arm64
           sudo chown -R "$USER" out; ls -la out/qcow2
 
       - name: Package qcow2 for release
@@ -383,15 +385,16 @@ jobs:
             --cache-from $IMAGE-cache --cache-to $IMAGE-cache-nvidia --cache-ttl 168h \
             --build-arg BASE=ghcr.io/ublue-os/aurora-nvidia-open:stable \
             --build-arg BOOTC_LINT=strict --build-arg GENESIS_VERSION=${{ needs.image.outputs.tag }}-nvidia \
-            -t $IMAGE:0.1-nvidia -t $IMAGE:${{ needs.image.outputs.tag }}-nvidia . \
+            -t $IMAGE:stable-nvidia -t $IMAGE:0.1-nvidia -t $IMAGE:${{ needs.image.outputs.tag }}-nvidia . \
           || sudo podman build -f Containerfile --pull=never --layers \
             --build-arg BASE=ghcr.io/ublue-os/aurora-nvidia-open:stable \
             --build-arg BOOTC_LINT=strict --build-arg GENESIS_VERSION=${{ needs.image.outputs.tag }}-nvidia \
-            -t $IMAGE:0.1-nvidia -t $IMAGE:${{ needs.image.outputs.tag }}-nvidia .
+            -t $IMAGE:stable-nvidia -t $IMAGE:0.1-nvidia -t $IMAGE:${{ needs.image.outputs.tag }}-nvidia .
       - name: Image self-check
-        run: sudo podman run --rm $IMAGE:0.1-nvidia genesis-image-check
+        run: sudo podman run --rm $IMAGE:stable-nvidia genesis-image-check
       - name: Push
         run: |
+          sudo podman push $IMAGE:stable-nvidia
           sudo podman push $IMAGE:0.1-nvidia
           sudo podman push $IMAGE:${{ needs.image.outputs.tag }}-nvidia
       - name: Sign the image (sigstore, keyless)
@@ -435,6 +438,7 @@ jobs:
         run: |
           for i in 1 2 3 4 5 6; do sudo podman pull $IMAGE:${{ needs.image.outputs.tag }} && break; sleep 30; done
           sudo podman tag $IMAGE:${{ needs.image.outputs.tag }} $IMAGE:0.1
+          sudo podman tag $IMAGE:${{ needs.image.outputs.tag }} $IMAGE:stable
 
       - name: Build installer ISO
         run: |
@@ -443,7 +447,7 @@ jobs:
             -v "$PWD/out:/output" -v "$PWD/iso/config.toml:/config.toml:ro" \
             -v "$PWD/iso/defs/genesis-44.yaml:/usr/share/bootc-image-builder/defs/genesis-44.yaml:ro" \
             -v /var/lib/containers/storage:/var/lib/containers/storage \
-            $BIB --type anaconda-iso --rootfs btrfs --config /config.toml $IMAGE:0.1
+            $BIB --type anaconda-iso --rootfs btrfs --config /config.toml $IMAGE:stable
           sudo chown -R "$USER" out; ls -la out/bootiso
 
       - name: Package ISO for release (split)

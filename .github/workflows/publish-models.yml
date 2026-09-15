@@ -1,0 +1,77 @@
+name: publish-models
+
+# Model files as OCI artifacts on GHCR, next to the signed pack definitions, so a pack update is one
+# pull from one place and Hugging Face is no longer on the download path. One artifact per file:
+#
+#   ghcr.io/<owner>/genesis-models:<sha256 of the file>
+#
+# The tag is the file's own sha256, which the signed pack definition already carries, so the client
+# can address a blob without trusting a name. Files larger than the runner's disk allows (default 8 GB)
+# stay on Hugging Face and the definition says so. Runs after publish-packs, or by hand.
+
+on:
+  workflow_run:
+    workflows: [publish-packs]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      packs:
+        description: 'pack ids to mirror (space separated), default: tiny cpu'
+        default: 'tiny cpu'
+      max_gb:
+        description: 'largest single file to mirror, GB'
+        default: '8'
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  mirror:
+    runs-on: ubuntu-24.04
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    env:
+      REPO: ghcr.io/${{ github.repository_owner }}/genesis-models
+      PACKS: ${{ github.event.inputs.packs || 'tiny cpu' }}
+      MAX_GB: ${{ github.event.inputs.max_gb || '8' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oras-project/setup-oras@v1
+      - name: Free disk
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL 2>/dev/null || true; df -h / | tail -1
+
+      - name: Mirror one file at a time
+        run: |
+          set -euo pipefail
+          echo "${{ secrets.GITHUB_TOKEN }}" | oras login ghcr.io -u ${{ github.actor }} --password-stdin
+          python3 - <<'PY'
+          import json, os, subprocess, urllib.request, fnmatch, sys
+          repo = os.environ["REPO"]; max_bytes = float(os.environ["MAX_GB"]) * 1e9
+          def hf(r):
+              with urllib.request.urlopen(f"https://huggingface.co/api/models/{r}?blobs=true", timeout=60) as x:
+                  return json.load(x)["siblings"]
+          def exists(tag):
+              return subprocess.run(["oras", "manifest", "fetch", f"{repo}:{tag}"], capture_output=True).returncode == 0
+          mirrored = skipped = 0
+          for pid in os.environ["PACKS"].split():
+              pack = json.load(open(f"packs/{pid}.json"))
+              for m in pack["models"]:
+                  if m.get("optional"): continue
+                  for s in hf(m["repo"]):
+                      name = s["rfilename"]
+                      if not any(fnmatch.fnmatch(name, p) or fnmatch.fnmatch(os.path.basename(name), p) for p in m["include"]): continue
+                      sha = (s.get("lfs") or {}).get("sha256"); size = s.get("size") or 0
+                      if not sha: print("no sha256, skipping", name); skipped += 1; continue
+                      if size > max_bytes: print(f"too large for the runner ({size/1e9:.1f} GB), stays on Hugging Face:", name); skipped += 1; continue
+                      if exists(sha): print("already mirrored", name); continue
+                      base = os.path.basename(name)
+                      url = f"https://huggingface.co/{m['repo']}/resolve/main/{name}"
+                      subprocess.run(["curl", "-fsSL", "--retry", "5", "--retry-all-errors", "-o", base, url], check=True)
+                      got = subprocess.run(["sha256sum", base], capture_output=True, text=True, check=True).stdout.split()[0]
+                      if got != sha: sys.exit(f"checksum mismatch for {name}: {got} != {sha}")
+                      subprocess.run(["oras", "push", f"{repo}:{sha}", "--artifact-type", "application/vnd.genesis.model.v1",
+                                      "--annotation", f"org.genesis.model.name={base}", "--annotation", f"org.genesis.model.repo={m['repo']}",
+                                      f"{base}:application/octet-stream"], check=True)
+                      os.remove(base); mirrored += 1; print("mirrored", name, f"{size/1e9:.1f} GB")
+          print(f"done: {mirrored} mirrored, {skipped} left on Hugging Face")
+          PY
