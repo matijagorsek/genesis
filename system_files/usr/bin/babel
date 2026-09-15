@@ -22,7 +22,11 @@ if [ ! -f "$U/settings.json" ]; then
   "workbench.tips.enabled": false,
   "editor.cursorSmoothCaretAnimation": "on",
   "editor.smoothScrolling": true,
-  "workbench.tree.indent": 14
+  "workbench.tree.indent": 14,
+  "workbench.secondarySideBar.defaultVisibility": "hidden",
+  "chat.commandCenter.enabled": false,
+  "chat.agent.enabled": false,
+  "workbench.commandPalette.experimental.askChatLocation": "quickChat"
 }
 EOF
 fi

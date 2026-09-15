@@ -19,8 +19,8 @@ media = os.path.join(root, "resources/app/out/media")
 if os.path.isdir(media):
     for n in os.listdir(media):
         if n.startswith("letterpress"): shutil.copy(os.path.join(brand, "letterpress.svg"), os.path.join(media, n))
-    for n in ("code-icon.svg",):
-        pass
+    ci = os.path.join(media, "code-icon.svg")
+    if os.path.exists(ci): shutil.copy(os.path.join(brand, "code-icon.svg"), ci)
 wb = os.path.join(root, "resources/app/out/vs/workbench")
 css = None
 for cand in ("workbench.desktop.main.css",):
@@ -31,4 +31,15 @@ if css:
     extra = open(os.path.join(brand, "babel.css")).read()
     if "Babel: the Genesis look" not in body:
         open(css, "a").write("\n" + extra)
+    # Code-OSS verifies its core files against product.json "checksums" (sha256, base64, no padding):
+    # keep them true for what we changed, so it does not report itself as corrupt
+    import hashlib, base64
+    d = json.load(open(p))
+    sums = d.get("checksums") or {}
+    for rel in list(sums.keys()):
+        f = os.path.join(root, "resources/app/out", rel)
+        if os.path.exists(f):
+            sums[rel] = base64.b64encode(hashlib.sha256(open(f, "rb").read()).digest()).decode().rstrip("=")
+    d["checksums"] = sums
+    json.dump(d, open(p, "w"), indent=2)
 print("Babel branded, Genesis extension built in, the Babel face applied")
