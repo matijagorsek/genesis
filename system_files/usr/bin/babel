@@ -18,4 +18,6 @@ if [ ! -f "$U/settings.json" ]; then
 }
 EOF
 fi
-exec /usr/lib/babel/bin/codium --ozone-platform-hint=auto "$@"
+# Electron defaults to X11; on a Wayland session tell it so (sharper, and no X display needed)
+[ -n "${WAYLAND_DISPLAY:-}" ] && set -- --ozone-platform=wayland "$@"
+exec /usr/lib/babel/bin/codium "$@"
