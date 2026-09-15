@@ -1,0 +1,93 @@
+name: canary
+
+# Once a week: does a machine installed a while ago still update cleanly to today's image, and does
+# today's image still tell the first-run story? Takes a release from about a week back, boots it under
+# KVM, switches it to the stable channel, reboots, and checks what came up. Nothing is published; the
+# serial logs are attached as artifacts. A red canary means "look before the next release", not a
+# broken release.
+
+on:
+  schedule:
+    - cron: '45 5 * * 3'
+  workflow_dispatch:
+    inputs:
+      releases_back:
+        description: 'how many releases back to start from'
+        default: '5'
+
+permissions:
+  contents: read
+
+jobs:
+  upgrade-from-old:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      IMAGE: ghcr.io/${{ github.repository_owner }}/genesis
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pick a release from about a week back and fetch its disk
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BACK: ${{ github.event.inputs.releases_back || '5' }}
+        run: |
+          set -euo pipefail
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc || true
+          tag=$(gh release list --repo ${{ github.repository }} --limit 40 --json tagName,publishedAt --jq '[.[]|select(.tagName|test("^v0\\."))]|.['"$BACK"'].tagName')
+          echo "starting from $tag (today: $(gh release list --repo ${{ github.repository }} --limit 1 --json tagName --jq '.[0].tagName'))"
+          echo "OLD_TAG=$tag" >> "$GITHUB_ENV"
+          gh release download "$tag" --repo ${{ github.repository }} --pattern 'genesis-*.qcow2.zst.*.part' --pattern 'SHA256SUMS.qcow2' -D old
+          cd old; ls; sha256sum -c SHA256SUMS.qcow2 2>/dev/null | grep -v arm64 || true
+          cat $(ls genesis-*.qcow2.zst.*.part | grep -v arm64 | sort) | zstd -d -o ../old.qcow2
+          cd ..; rm -rf old; qemu-img info old.qcow2 | head -3 || true
+      - name: KVM and firmware
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q qemu-system-x86 qemu-utils ovmf expect
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm; sudo chmod 0666 /dev/kvm || true
+          qemu-img resize old.qcow2 +8G
+      - name: Boot the old release, switch to the stable channel, reboot, check
+        run: |
+          set -o pipefail
+          FW=/usr/share/ovmf/OVMF.fd; [ -f "$FW" ] || FW=/usr/share/OVMF/OVMF.fd
+          if [ -r /dev/kvm ] && [ -w /dev/kvm ]; then ACCEL="-enable-kvm -cpu host"; else ACCEL="-cpu max"; fi
+          export FW ACCEL
+          cat > canary.exp <<'EOF'
+          set timeout 600
+          log_file -noappend canary-serial.log
+          spawn qemu-system-x86_64 {*}$env(ACCEL) -m 4096 -smp 2 -nographic -bios $env(FW) -drive file=old.qcow2,if=virtio,format=qcow2 -netdev user,id=n0 -device virtio-net-pci,netdev=n0 -serial mon:stdio -display none
+          proc login {} {
+            expect { -re "login: *$" { send "genesis\r" } timeout { puts "\nTIMEOUT: no login prompt"; exit 1 } eof { puts "\nQEMU exited"; exit 1 } }
+            expect { -re "Password: *$" { send "genesis\r" } timeout { puts "\nTIMEOUT: no password prompt"; exit 1 } }
+            set timeout 60
+            expect { -re {(\$|❯|#) *$} {} timeout {} }
+            sleep 2; send "\r"; sleep 1
+          }
+          login
+          set timeout 1500
+          send "echo CANARY-BE\"\"FORE; grep --color=never ^IMAGE_VERSION= /etc/os-release; echo genesis | sudo -S bootc switch ghcr.io/matijagorsek/genesis:stable 2>&1 | tail -3; echo CANARY-SWITCHED\r"
+          expect { "CANARY-SWITCHED" { puts "\nswitched" } timeout { puts "\nTIMEOUT: switch"; exit 1 } eof { puts "\nQEMU exited during switch"; exit 1 } }
+          send "echo genesis | sudo -S systemctl reboot\r"
+          set timeout 600
+          login
+          set timeout 300
+          send "echo CANARY-AF\"\"TER; grep --color=never ^IMAGE_VERSION= /etc/os-release; echo genesis | sudo -S genesis-image-check 2>&1 | grep --color=never -c '^  ok'; sudo genesis-image-check 2>&1 | grep --color=never FAIL; curl -s -m 20 127.0.0.1:11510/api/state | grep --color=never -o '\"recommended_pack\":\"[a-z0-9-]*\"' ; echo CANARY-DONE\r"
+          expect { "CANARY-DONE" { puts "\nchecks ran" } timeout { puts "\nTIMEOUT: checks"; exit 1 } eof { puts "\nQEMU exited during checks"; exit 1 } }
+          send "exit\r"; sleep 1; exit 0
+          EOF
+          timeout 4800 expect -f canary.exp
+          sed -E 's/\x1b\[[0-9;?]*[A-Za-z]//g; s/\x1b\]8;;[^\x07]*\x07//g' canary-serial.log > canary.clean
+          echo "--- before:"; grep -A1 'CANARY-BEFORE' canary.clean | grep IMAGE_VERSION | head -1
+          echo "--- after:";  grep -A1 'CANARY-AFTER'  canary.clean | grep IMAGE_VERSION | head -1
+          before=$(grep -A1 'CANARY-BEFORE' canary.clean | grep -o 'IMAGE_VERSION=[^ ]*' | head -1)
+          after=$(grep -A1 'CANARY-AFTER' canary.clean | grep -o 'IMAGE_VERSION=[^ ]*' | head -1)
+          [ -n "$after" ] || { echo "no version after the upgrade"; exit 1; }
+          [ "$before" != "$after" ] || { echo "the version did not change: the upgrade did not take"; exit 1; }
+          grep -q 'recommended_pack' canary.clean || { echo "the wizard API did not answer after the upgrade"; exit 1; }
+          if grep -q 'FAIL' canary.clean; then echo "::warning::self-check reported a failure after the upgrade (see the log)"; fi
+          echo "canary: $before -> $after, wizard answers, self-check ran"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: canary-serial
+          path: canary-serial.log

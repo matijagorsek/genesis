@@ -1,0 +1,110 @@
+#!/usr/bin/python3
+"""genesis-backup: everything Genesis made and knows about you, in one file, and back.
+
+  export [dest]      write genesis-backup-<date>.tar.gz to dest (default: ~/Downloads). Contains every
+                     project Genesis made (with its recipe), your Genesis settings, the folders you opted
+                     in for search, phone pairing (KDE Connect certificates and the companion pairing),
+                     and the transaction history. Never models (they re-download) and never keys or
+                     passwords.
+  restore <file>     put it all back on this or another Genesis machine; existing projects are kept and
+                     the restored ones get a "-restored" suffix if the name is taken.
+  list <file>        what is inside
+
+Moving to a new machine: export here, copy the file, restore there, pair the phone again.
+"""
+import json, os, sys, tarfile, time, glob
+
+HOME = os.path.expanduser("~")
+CONF = os.environ.get("XDG_CONFIG_HOME", os.path.join(HOME, ".config"))
+STATE = os.environ.get("XDG_STATE_HOME", os.path.join(HOME, ".local", "state"))
+DATA = os.environ.get("XDG_DATA_HOME", os.path.join(HOME, ".local", "share"))
+
+
+def made_projects():
+    """Projects the maker made: any folder under home (two levels) with a Genesis recipe."""
+    out = []
+    for p in glob.glob(os.path.join(HOME, "*", ".genesis-recipe.json")) + glob.glob(os.path.join(HOME, "*", "*", ".genesis-recipe.json")):
+        out.append(os.path.dirname(p))
+    return sorted(set(out))
+
+
+def add(tar, path, arc):
+    if os.path.exists(path):
+        tar.add(path, arcname=arc, filter=lambda ti: None if any(x in ti.name for x in ("node_modules/", "/target/", "/.venv/", "__pycache__/", ".genesis-preview.log")) else ti)
+
+
+def export(dest):
+    os.makedirs(dest, exist_ok=True)
+    name = time.strftime("genesis-backup-%Y-%m-%d-%H%M.tar.gz")
+    out = os.path.join(dest, name)
+    projects = made_projects()
+    manifest = {"version": 1, "made_at": time.strftime("%Y-%m-%dT%H:%M:%S"), "host": os.uname().nodename, "projects": [os.path.relpath(p, HOME) for p in projects]}
+    with tarfile.open(out, "w:gz") as tar:
+        for p in projects:
+            add(tar, p, "projects/" + os.path.relpath(p, HOME))
+        add(tar, os.path.join(CONF, "genesis"), "config/genesis")
+        add(tar, os.path.join(CONF, "kdeconnect"), "config/kdeconnect")
+        add(tar, os.path.join(CONF, "Babel", "User", "settings.json"), "config/Babel/User/settings.json")
+        add(tar, os.path.join(STATE, "genesis", "tx"), "state/genesis/tx")
+        add(tar, os.path.join(DATA, "applications"), "data/applications")
+        info = tarfile.TarInfo("manifest.json"); body = json.dumps(manifest, indent=1).encode(); info.size = len(body); info.mtime = time.time()
+        import io; tar.addfile(info, io.BytesIO(body))
+    return {"file": out, "projects": len(projects), "bytes": os.path.getsize(out)}
+
+
+def listing(path):
+    with tarfile.open(path) as tar:
+        names = tar.getnames()
+        man = json.load(tar.extractfile("manifest.json")) if "manifest.json" in names else {}
+    return {"manifest": man, "entries": len(names)}
+
+
+def restore(path):
+    restored = {"projects": [], "config": [], "skipped": []}
+    with tarfile.open(path) as tar:
+        for m in tar.getmembers():
+            if m.name.startswith("projects/"):
+                rel = m.name.split("/", 1)[1]
+                top = rel.split("/", 1)[0]
+                target_top = os.path.join(HOME, top)
+                if os.path.exists(target_top) and not os.path.exists(os.path.join(target_top, ".genesis-restored")):
+                    top2 = top + "-restored"
+                    rel = rel.replace(top, top2, 1); target_top = os.path.join(HOME, top2)
+                dest = os.path.join(HOME, rel)
+                if not os.path.realpath(dest).startswith(HOME): restored["skipped"].append(m.name); continue
+                m.name = rel; tar.extract(m, HOME)
+                if top not in restored["projects"]: restored["projects"].append(top)
+                open(os.path.join(target_top, ".genesis-restored"), "a").close() if os.path.isdir(target_top) else None
+            elif m.name.startswith("config/"):
+                rel = m.name.split("/", 1)[1]; dest = os.path.join(CONF, rel)
+                if not os.path.realpath(dest).startswith(os.path.realpath(CONF)): restored["skipped"].append(m.name); continue
+                m.name = rel; tar.extract(m, CONF); restored["config"].append(rel)
+            elif m.name.startswith("state/"):
+                rel = m.name.split("/", 1)[1]; m.name = rel; tar.extract(m, STATE)
+            elif m.name.startswith("data/"):
+                rel = m.name.split("/", 1)[1]; m.name = rel; tar.extract(m, DATA)
+    for top in restored["projects"]:
+        for d in (os.path.join(HOME, top), os.path.join(HOME, top + "-restored")):
+            f = os.path.join(d, ".genesis-restored")
+            if os.path.exists(f): os.remove(f)
+    return restored
+
+
+def main(argv):
+    cmd = argv[1] if len(argv) > 1 else "export"
+    try:
+        if cmd == "export":
+            print(json.dumps(export(argv[2] if len(argv) > 2 else os.path.join(HOME, "Downloads"))))
+        elif cmd == "list" and len(argv) > 2:
+            print(json.dumps(listing(argv[2])))
+        elif cmd == "restore" and len(argv) > 2:
+            print(json.dumps(restore(argv[2])))
+        else:
+            print(__doc__); return 2
+    except Exception as e:
+        print(json.dumps({"error": str(e)})); return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

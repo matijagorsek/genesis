@@ -127,6 +127,22 @@ notification with **Allow once** and **Not now** right on it; a quiet "Connected
 notification stays while the app watches. Same network, encrypted to this machine only; "Regenerate the
 code" unpairs every phone.
 
+## Backup, and moving to a new machine
+
+Settings > Backup and moving > **Export to Downloads** writes one file with everything Genesis made
+and knows about you: the projects with their recipes, your Genesis settings, the folders you opted in
+for search, the phone pairings and the undo history. No models (they download again), no keys, no
+passwords. On a new Genesis, put the file anywhere in your home folder and use **Restore**; existing
+projects are kept, restored ones get a "-restored" suffix if a name is taken. Pair the phone again
+afterwards. In a terminal: `genesis-backup export`, `genesis-backup restore <file>`.
+
+## Recipes: sharing what you made
+
+Every made project carries its recipe, the list of requests that made it. In the maker's gallery,
+**Copy recipe** puts it on the clipboard; send it to someone. On their Genesis, "Make this from a
+recipe" on the maker's start page replays the steps, with the same permission cards. **Export** does
+the same with the files included, as one archive.
+
 ## Updates
 
 <p align="center"><img src="docs/screens/more/03-settings.png" width="88%" alt="Genesis Settings: updates, this machine, models, and the rest"></p>

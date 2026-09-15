@@ -294,6 +294,16 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
                 Err(e) => json_response(&serde_json::json!({"error": e.to_string()}), 400),
             }
         }
+        (Method::Post, ["api", "backup", "export"]) => json_response(&run_json("/usr/bin/genesis-backup", &["export"]), 200),
+        (Method::Post, ["api", "backup", "restore"]) => {
+            let v: serde_json::Value = serde_json::from_str(&body).unwrap_or(serde_json::Value::Null);
+            let f = v.get("file").and_then(|p| p.as_str()).unwrap_or("").to_string();
+            let home = std::env::var("HOME").unwrap_or_default();
+            match std::fs::canonicalize(&f) {
+                Ok(c) if c.starts_with(&home) && c.file_name().map(|n| n.to_string_lossy().starts_with("genesis-backup-")).unwrap_or(false) => json_response(&run_json("/usr/bin/genesis-backup", &["restore", &c.display().to_string()]), 200),
+                _ => json_response(&serde_json::json!({"error": "pick a genesis-backup-*.tar.gz under your home folder"}), 400),
+            }
+        }
         (Method::Get, ["api", "phone"]) => json_response(&phone(&["status"]), 200),
         (Method::Post, ["api", "phone", "action"]) => {
             let v: serde_json::Value = serde_json::from_str(&body).unwrap_or(serde_json::Value::Null);
