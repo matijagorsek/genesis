@@ -1,0 +1,95 @@
+name: publish-packs
+
+# Model packs as signed OCI artifacts on GHCR. The artifact is the pack definition resolved to exact
+# files with sizes and sha256 (from the Hugging Face API), so a machine can verify every model it
+# downloads against something Genesis signed. Model blobs still come from Hugging Face; moving them
+# to GHCR is a change of URL, not of format.
+#
+#   ghcr.io/<owner>/genesis-packs:<pack>            latest definition of a pack
+#   ghcr.io/<owner>/genesis-packs:<pack>-<yyyymmdd> the same, pinned
+#
+# Signed twice like the OS image: keyless with the GitHub identity, and with the release key whose
+# public half ships in the image (/etc/pki/genesis/cosign.pub), which the containers policy checks.
+
+on:
+  push:
+    branches: [main]
+    paths: ['packs/**', '.github/workflows/publish-packs.yml']
+  workflow_dispatch:
+  schedule:
+    - cron: '17 4 * * 1'
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+jobs:
+  packs:
+    runs-on: ubuntu-24.04
+    env:
+      REPO: ghcr.io/${{ github.repository_owner }}/genesis-packs
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve every pack to exact files with sha256
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          python3 - <<'PY'
+          import glob, json, fnmatch, os, urllib.request, datetime
+          stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+          def hf(repo):
+              with urllib.request.urlopen(f"https://huggingface.co/api/models/{repo}?blobs=true", timeout=60) as r:
+                  return json.load(r)["siblings"]
+          for path in sorted(glob.glob("packs/*.json")):
+              if path.endswith("schema.json"): continue
+              pack = json.load(open(path))
+              files = []
+              for m in pack["models"]:
+                  if m.get("optional"): continue
+                  sib = hf(m["repo"])
+                  for s in sib:
+                      name = s["rfilename"]
+                      if any(fnmatch.fnmatch(name, pat) or fnmatch.fnmatch(os.path.basename(name), pat) for pat in m["include"]):
+                          files.append({"role": m["role"], "repo": m["repo"], "name": name, "size": s.get("size"),
+                                        "sha256": (s.get("lfs") or {}).get("sha256")})
+              if not files: raise SystemExit(f"{path}: no files matched")
+              missing = [f["name"] for f in files if not f["sha256"]]
+              if missing: raise SystemExit(f"{path}: no sha256 for {missing}")
+              out = {"id": pack["id"], "resolved_at": stamp, "source": "huggingface", "files": files, "pack": pack}
+              json.dump(out, open(f"out/{pack['id']}.json", "w"), indent=1)
+              print(pack["id"], len(files), "files", sum(f["size"] for f in files) // 1_000_000, "MB")
+          PY
+
+      - uses: oras-project/setup-oras@v1
+      - uses: sigstore/cosign-installer@v3
+        continue-on-error: true
+      - name: Install cosign by hand if the installer could not download it
+        run: |
+          command -v cosign >/dev/null && exit 0
+          curl -fsSL --retry 6 --retry-all-errors --retry-delay 15 -o /tmp/cosign "https://github.com/sigstore/cosign/releases/download/v2.5.2/cosign-linux-amd64"
+          sudo install -m 0755 /tmp/cosign /usr/local/bin/cosign && cosign version
+
+      - name: Push and sign
+        if: github.event_name != 'pull_request'
+        env:
+          COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          echo "${{ secrets.GITHUB_TOKEN }}" | oras login ghcr.io -u ${{ github.actor }} --password-stdin
+          echo "${{ secrets.GITHUB_TOKEN }}" | cosign login ghcr.io -u ${{ github.actor }} --password-stdin
+          day=$(date -u +%Y%m%d)
+          cd out
+          for f in *.json; do
+            id=${f%.json}
+            oras push "$REPO:$id,$id-$day" --artifact-type application/vnd.genesis.pack.v1+json "$f:application/json"
+            cosign sign --yes "$REPO:$id"
+            cosign sign --yes --key env://COSIGN_PRIVATE_KEY "$REPO:$id"
+          done
+
+      - name: Verify one pack the way a machine will
+        if: github.event_name != 'pull_request'
+        run: |
+          cosign verify --key system_files/etc/pki/genesis/cosign.pub "$REPO:tiny" >/dev/null && echo "release-key signature verifies"

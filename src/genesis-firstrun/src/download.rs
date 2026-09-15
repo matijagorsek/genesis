@@ -60,6 +60,26 @@ pub fn start(shared: Shared, pack_id: String, files: Vec<PlannedFile>, on_done: 
                 p.error = Some(format!("{}: {}", f.filename, e));
                 return;
             }
+            // a signed pack definition names the checksum: a mismatch is a corrupt or substituted file
+            if let Some(want) = f.sha256.as_deref() {
+                shared.lock().unwrap().current = Some(format!("verifying {}", f.filename));
+                match sha256_of(dest) {
+                    Ok(got) if got.eq_ignore_ascii_case(want) => {}
+                    Ok(got) => {
+                        let _ = std::fs::remove_file(dest);
+                        let mut p = shared.lock().unwrap();
+                        p.state = "error".into();
+                        p.error = Some(format!("{}: checksum mismatch (expected {}, got {}); the file was removed, retry the download", f.filename, &want[..12], &got[..got.len().min(12)]));
+                        return;
+                    }
+                    Err(e) => {
+                        let mut p = shared.lock().unwrap();
+                        p.state = "error".into();
+                        p.error = Some(format!("{}: could not verify: {}", f.filename, e));
+                        return;
+                    }
+                }
+            }
             done_bytes += f.size;
             shared.lock().unwrap().bytes_done = done_bytes;
         }
@@ -110,4 +130,11 @@ fn fetch(url: &str, dest: &Path, shared: &Shared, base_done: u64) -> Result<()> 
     }
     std::fs::rename(&part, dest)?;
     Ok(())
+}
+
+/// sha256 of a file on disk, via coreutils (streams; models are gigabytes).
+pub fn sha256_of(path: &Path) -> Result<String> {
+    let out = Command::new("sha256sum").arg(path).output()?;
+    if !out.status.success() { return Err(anyhow!("sha256sum failed for {}", path.display())); }
+    Ok(String::from_utf8_lossy(&out.stdout).split_whitespace().next().unwrap_or("").to_string())
 }

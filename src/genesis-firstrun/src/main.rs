@@ -85,6 +85,8 @@ fn state(app: &App) -> serde_json::Value {
         "settings": settings,
         "done": app.cli.done_marker.exists(),
         "version": env!("CARGO_PKG_VERSION"),
+        // which packs have a signed definition on disk (genesis-packs refresh), and when it was resolved
+        "signed": packs.iter().filter_map(|p| packs::signed_pack(&p.id).map(|sp| (p.id.clone(), sp.resolved_at))).collect::<std::collections::BTreeMap<_, _>>(),
     })
 }
 
@@ -123,7 +125,7 @@ fn handle(app: &Arc<App>, mut req: Request) -> Result<bool> {
         (Method::Post, "/api/plan") => {
             let body = read_body(&mut req);
             match serde_json::from_str::<PackReq>(&body).ok().and_then(|r| packs::load_pack(&app.cli.packs, &r.pack).ok()) {
-                Some(pack) => match packs::plan(&pack, &app.cli.models_dir, &packs::hf_files) {
+                Some(pack) => match plan_for(&pack, &app.cli.models_dir) {
                     Ok(files) => json_response(&serde_json::json!({ "pack": pack.id, "files": files, "bytes_total": files.iter().map(|f| f.size).sum::<u64>() }), 200),
                     Err(e) => json_response(&serde_json::json!({ "error": e.to_string() }), 502),
                 },
@@ -152,7 +154,7 @@ fn handle(app: &Arc<App>, mut req: Request) -> Result<bool> {
                 (false, None) => json_response(&serde_json::json!({ "error": "unknown pack" }), 400),
                 (false, Some(pack)) => {
                     app.progress.lock().unwrap().state = "planning".into();
-                    match packs::plan(&pack, &app.cli.models_dir, &packs::hf_files) {
+                    match plan_for(&pack, &app.cli.models_dir) {
                         Ok(files) => {
                             app.settings.lock().unwrap().pack = Some(pack.id.clone());
                             let models_dir = app.cli.models_dir.clone();
@@ -266,4 +268,14 @@ fn phone(args: &[&str]) -> serde_json::Value {
         Ok(o) => serde_json::json!({ "available": false, "reason": String::from_utf8_lossy(&o.stderr).trim(), "devices": [] }),
         Err(e) => serde_json::json!({ "available": false, "reason": e.to_string(), "devices": [] }),
     }
+}
+
+/// Files to download for a pack: from the signed definition when `genesis-packs refresh` has pulled one
+/// (exact files, checksums, no registry call), else resolved live from the Hugging Face API.
+fn plan_for(pack: &packs::Pack, models_dir: &std::path::Path) -> Result<Vec<packs::PlannedFile>> {
+    if let Some(sp) = packs::signed_pack(&pack.id) {
+        tracing::info!(pack = %pack.id, resolved_at = %sp.resolved_at, "using the signed pack definition");
+        return Ok(packs::plan_signed(&sp, models_dir));
+    }
+    packs::plan(pack, models_dir, &packs::hf_files)
 }

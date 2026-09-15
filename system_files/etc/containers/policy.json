@@ -4,6 +4,9 @@
     "docker": {
       "ghcr.io/matijagorsek/genesis": [
         { "type": "sigstoreSigned", "keyPath": "/etc/pki/genesis/cosign.pub", "signedIdentity": { "type": "matchRepository" } }
+      ],
+      "ghcr.io/matijagorsek/genesis-packs": [
+        { "type": "sigstoreSigned", "keyPath": "/etc/pki/genesis/cosign.pub", "signedIdentity": { "type": "matchRepository" } }
       ]
     },
     "docker-daemon": { "": [ { "type": "insecureAcceptAnything" } ] }

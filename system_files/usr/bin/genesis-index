@@ -1,0 +1,179 @@
+#!/usr/bin/python3
+"""genesis-index: a local, opt-in index of the user's own files, so Genesis can answer from them.
+
+  folders                         JSON: the folders Genesis may search, with counts
+  add <folder> | remove <folder>  opt a folder in or out (the index for a removed folder is dropped)
+  update                          index new and changed files in every opted-in folder (the timer runs this)
+  search <query> [--json] [-n 8]  full-text search (SQLite FTS5, bm25); JSON for the maker
+  status                          JSON: files, chunks, last update
+
+Text is extracted from plain text, Markdown, code, PDF (pdftotext), OpenDocument and Office documents
+(their XML). Nothing is uploaded: the index is a SQLite file under ~/.local/share/genesis, and only
+folders the user added are read. Hidden directories, node_modules, build trees and files over 20 MB are skipped.
+"""
+import json, os, re, sqlite3, subprocess, sys, time, zipfile
+
+HOME = os.path.expanduser("~")
+CONF = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.join(HOME, ".config")), "genesis", "index.json")
+DB = os.path.join(os.environ.get("XDG_DATA_HOME", os.path.join(HOME, ".local", "share")), "genesis", "index.sqlite")
+TEXT_EXT = {".txt", ".md", ".markdown", ".rst", ".org", ".tex", ".csv", ".json", ".yaml", ".yml", ".toml", ".ini", ".cfg",
+            ".py", ".rs", ".js", ".ts", ".tsx", ".jsx", ".html", ".css", ".sh", ".c", ".h", ".cpp", ".go", ".java", ".kt", ".rb", ".sql", ".ics", ".eml"}
+SKIP_DIRS = {"node_modules", "target", "build", "dist", ".git", "__pycache__", ".venv", "venv", ".cache"}
+MAX_BYTES = 20 * 1024 * 1024
+CHUNK = 1200
+
+
+def load_conf():
+    try:
+        return json.load(open(CONF))
+    except (OSError, ValueError):
+        return {"folders": []}
+
+
+def save_conf(c):
+    os.makedirs(os.path.dirname(CONF), exist_ok=True)
+    tmp = CONF + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(c, f, indent=1)
+    os.replace(tmp, CONF)
+
+
+def db():
+    os.makedirs(os.path.dirname(DB), exist_ok=True)
+    c = sqlite3.connect(DB)
+    c.execute("create table if not exists files(path text primary key, folder text, mtime real, size integer, indexed_at real)")
+    c.execute("create virtual table if not exists chunks using fts5(path unindexed, ord unindexed, text, tokenize='unicode61 remove_diacritics 2')")
+    c.execute("create table if not exists meta(k text primary key, v text)")
+    return c
+
+
+def extract(path):
+    ext = os.path.splitext(path)[1].lower()
+    try:
+        if ext == ".pdf":
+            out = subprocess.run(["pdftotext", "-layout", "-q", path, "-"], capture_output=True, text=True, timeout=60)
+            return out.stdout if out.returncode == 0 else ""
+        if ext in (".odt", ".ods", ".odp", ".docx", ".xlsx", ".pptx"):
+            with zipfile.ZipFile(path) as z:
+                names = [n for n in z.namelist() if n.endswith(".xml") and ("content" in n or "document" in n or "sheet" in n or "slide" in n)]
+                xml = "".join(z.read(n).decode("utf-8", "ignore") for n in names[:40])
+                return re.sub(r"<[^>]+>", " ", xml)
+        if ext in TEXT_EXT or ext == "":
+            with open(path, "rb") as f:
+                raw = f.read(MAX_BYTES)
+            if b"\0" in raw[:4096]:
+                return ""
+            return raw.decode("utf-8", "ignore")
+    except (OSError, zipfile.BadZipFile, subprocess.TimeoutExpired):
+        return ""
+    return ""
+
+
+def chunks(text):
+    text = re.sub(r"[ \t]+", " ", text)
+    paras = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+    buf = ""
+    for p in paras:
+        if len(buf) + len(p) > CHUNK and buf:
+            yield buf
+            buf = ""
+        buf = (buf + "\n" + p) if buf else p
+        while len(buf) > CHUNK * 2:
+            yield buf[:CHUNK * 2]
+            buf = buf[CHUNK * 2:]
+    if buf:
+        yield buf
+
+
+def walk(folder):
+    for root, dirs, files in os.walk(folder):
+        dirs[:] = [d for d in dirs if not d.startswith(".") and d not in SKIP_DIRS]
+        for f in files:
+            if f.startswith("."):
+                continue
+            p = os.path.join(root, f)
+            try:
+                st = os.stat(p)
+            except OSError:
+                continue
+            if st.st_size > MAX_BYTES or not os.path.isfile(p):
+                continue
+            yield p, st
+
+
+def update():
+    conf = load_conf(); c = db(); seen = set(); added = changed = 0
+    for folder in conf.get("folders", []):
+        if not os.path.isdir(folder):
+            continue
+        for p, st in walk(folder):
+            seen.add(p)
+            row = c.execute("select mtime, size from files where path=?", (p,)).fetchone()
+            if row and abs(row[0] - st.st_mtime) < 1 and row[1] == st.st_size:
+                continue
+            text = extract(p)
+            c.execute("delete from chunks where path=?", (p,))
+            if text.strip():
+                c.executemany("insert into chunks(path, ord, text) values(?,?,?)", [(p, i, t) for i, t in enumerate(chunks(text))])
+            c.execute("insert or replace into files(path, folder, mtime, size, indexed_at) values(?,?,?,?,?)", (p, folder, st.st_mtime, st.st_size, time.time()))
+            if row: changed += 1
+            else: added += 1
+    gone = [r[0] for r in c.execute("select path from files").fetchall() if r[0] not in seen]
+    for p in gone:
+        c.execute("delete from chunks where path=?", (p,)); c.execute("delete from files where path=?", (p,))
+    c.execute("insert or replace into meta(k, v) values('updated_at', ?)", (time.strftime("%Y-%m-%dT%H:%M:%S"),))
+    c.commit()
+    return {"added": added, "changed": changed, "removed": len(gone), "files": c.execute("select count(*) from files").fetchone()[0]}
+
+
+def search(query, n=8):
+    c = db()
+    # any term may match; bm25 ranks passages with more of them higher
+    q = " OR ".join(f'"{t}"' for t in re.findall(r"\w+", query)) or '""'
+    rows = c.execute("select path, ord, snippet(chunks, 2, '[', ']', '…', 24), bm25(chunks) from chunks where chunks match ? order by bm25(chunks) limit ?", (q, n)).fetchall()
+    return [{"path": p, "chunk": o, "snippet": s.replace("\n", " "), "score": round(-sc, 2)} for p, o, s, sc in rows]
+
+
+def status():
+    c = db(); conf = load_conf()
+    counts = dict(c.execute("select folder, count(*) from files group by folder").fetchall())
+    upd = c.execute("select v from meta where k='updated_at'").fetchone()
+    return {"folders": [{"path": f, "files": counts.get(f, 0)} for f in conf.get("folders", [])],
+            "files": c.execute("select count(*) from files").fetchone()[0], "chunks": c.execute("select count(*) from chunks").fetchone()[0],
+            "updated_at": upd[0] if upd else None, "db": DB}
+
+
+def main(argv):
+    cmd = argv[1] if len(argv) > 1 else "status"
+    if cmd in ("status", "folders"):
+        print(json.dumps(status()))
+    elif cmd == "add" and len(argv) > 2:
+        conf = load_conf(); f = os.path.abspath(os.path.expanduser(argv[2]))
+        if os.path.isdir(f) and f not in conf["folders"]:
+            conf["folders"].append(f); save_conf(conf)
+        print(json.dumps(update()))
+    elif cmd == "remove" and len(argv) > 2:
+        conf = load_conf(); f = os.path.abspath(os.path.expanduser(argv[2]))
+        conf["folders"] = [x for x in conf["folders"] if x != f]; save_conf(conf)
+        c = db(); c.execute("delete from chunks where path in (select path from files where folder=?)", (f,)); c.execute("delete from files where folder=?", (f,)); c.commit()
+        print(json.dumps(status()))
+    elif cmd == "update":
+        print(json.dumps(update()))
+    elif cmd == "search" and len(argv) > 2:
+        args = [a for a in argv[2:] if not a.startswith("-")]
+        n = 8
+        if "-n" in argv:
+            n = int(argv[argv.index("-n") + 1]); args = [a for a in args if a != str(n)]
+        hits = search(" ".join(args), n)
+        if "--json" in argv:
+            print(json.dumps(hits))
+        else:
+            for h in hits:
+                print(f"{h['path']}\n    {h['snippet']}")
+    else:
+        print(__doc__); return 2
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

@@ -150,7 +150,7 @@ RUN set -eux; \
     dnf5 install -y --setopt=install_weak_deps=False \
       rsms-inter-fonts ibm-plex-mono-fonts papirus-icon-theme papirus-icon-theme-dark papirus-icon-theme-light ocean-sound-theme \
       chromium firefox okular gwenview kcalc plasma-discover plasma-discover-flatpak haruna elisa kcharselect kfind \
-      kdeconnect-kde kwalletmanager5 partitionmanager rsync python3-pytest; \
+      kdeconnect-kde kwalletmanager5 partitionmanager rsync python3-pytest ffmpeg-free; \
     dnf5 clean all
 
 # Piper: local text-to-speech (static upstream build with its espeak-ng data and onnxruntime)
@@ -170,7 +170,7 @@ RUN set -eux; \
 # (genesis-image-check ships from system_files/usr/bin; podman/buildah has no COPY heredoc)
 
 # ---- enable services -------------------------------------------------------------------------
-RUN systemctl enable genesis-router.service genesis-probe.service genesis-firstrun.service genesis-devssh.service genesis-bootc-status.service bootc-fetch-apply-updates.timer && systemctl --global enable genesis-phone.service genesis-permd.service genesis-agentd.service \
+RUN systemctl enable genesis-router.service genesis-probe.service genesis-firstrun.service genesis-devssh.service genesis-bootc-status.service bootc-fetch-apply-updates.timer && systemctl --global enable genesis-phone.service genesis-packs.timer genesis-index.timer genesis-permd.service genesis-agentd.service \
  && (systemctl mask plasma-setup.service || true)
 
 # ---- bootc validation ------------------------------------------------------------------------

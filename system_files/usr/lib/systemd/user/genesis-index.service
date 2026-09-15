@@ -1,0 +1,8 @@
+[Unit]
+Description=Genesis: index new and changed files in the folders the user opted in
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/genesis-index update
+Nice=15
+IOSchedulingClass=idle

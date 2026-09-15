@@ -62,6 +62,41 @@ pub struct PlannedFile {
     pub size: u64,
     pub url: String,
     pub dest: String,
+    /// From the signed pack definition when one is present; the download is checked against it.
+    #[serde(default)]
+    pub sha256: Option<String>,
+}
+
+/// A pack definition resolved to exact files and checksums, pulled as a signed OCI artifact by
+/// `genesis-packs refresh` (see the publish-packs workflow). None when no signed copy is on disk.
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct SignedPack {
+    pub id: String,
+    #[serde(default)]
+    pub resolved_at: String,
+    pub files: Vec<SignedFile>,
+}
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct SignedFile { pub role: String, pub repo: String, pub name: String, #[serde(default)] pub size: u64, pub sha256: String }
+
+pub fn signed_pack(id: &str) -> Option<SignedPack> {
+    let dir = std::env::var("GENESIS_PACKS_STATE").unwrap_or_else(|_| "/var/lib/genesis/packs/signed".into());
+    let text = std::fs::read_to_string(Path::new(&dir).join(format!("{}.json", id))).ok()?;
+    let sp: SignedPack = serde_json::from_str(&text).ok()?;
+    if sp.id == id && !sp.files.is_empty() { Some(sp) } else { None }
+}
+
+/// Plan from a signed definition: no registry call, exact files, checksums to verify against.
+pub fn plan_signed(sp: &SignedPack, models_dir: &Path) -> Vec<PlannedFile> {
+    sp.files.iter().map(|f| {
+        let base = Path::new(&f.name).file_name().map(|s| s.to_string_lossy().to_string()).unwrap_or(f.name.clone());
+        PlannedFile {
+            role: f.role.clone(), repo: f.repo.clone(), filename: base.clone(), size: f.size,
+            url: format!("https://huggingface.co/{}/resolve/main/{}", f.repo, f.name),
+            dest: models_dir.join(&f.role).join(&base).display().to_string(),
+            sha256: Some(f.sha256.clone()),
+        }
+    }).collect()
 }
 
 #[derive(Debug, Deserialize)]
@@ -117,6 +152,7 @@ pub fn plan(pack: &Pack, models_dir: &Path, lister: &dyn Fn(&str) -> Result<Vec<
                 size,
                 url: format!("https://huggingface.co/{}/resolve/main/{}", m.repo, f),
                 dest: models_dir.join(&m.role).join(&base).display().to_string(),
+                sha256: None,
             });
         }
     }

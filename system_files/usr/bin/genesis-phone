@@ -8,8 +8,11 @@
   commands [device-id]   register the Genesis commands the phone can run (all paired phones by default)
   ask [text]             answer a question from the phone: text, or what the phone shared (clipboard);
                          a "make …" request starts the maker on the desktop; the reply is sent to the phone
-  watch                  run in the session: when text starting with "ask" or "genesis" arrives in the
-                         clipboard (shared from the phone), answer it (user unit genesis-phone.service)
+  notifications          JSON: the phone's current notifications (needs "Notification sync" on the phone)
+  reply <dev> <id> <text>  reply to a phone notification that allows replies (messaging apps)
+  watch                  run in the session: answer text starting with "ask" or "genesis" that arrives in
+                         the clipboard (shared from the phone), and voice notes sent to Genesis (audio files
+                         arriving from the phone are transcribed with whisper) (user unit genesis-phone.service)
 
 Everything stays on the local network; KDE Connect encrypts device to device.
 """
@@ -122,6 +125,32 @@ def register_commands(devs):
     return {"commands": [n for n, _ in COMMANDS], "devices": done}
 
 
+def notifications():
+    out = []
+    for d in status().get("devices", []):
+        if not d["paired"] or not d["reachable"]:
+            continue
+        base = f"/modules/kdeconnect/devices/{d['id']}/notifications"
+        ids = bus("call", "org.kde.kdeconnect", base, "org.kde.kdeconnect.device.notifications", "activeNotifications") or [[]]
+        for nid in ids[0]:
+            path = f"{base}/{nid}"
+            def prop(name):
+                return bus("get-property", "org.kde.kdeconnect", path, "org.kde.kdeconnect.device.notifications.notification", name)
+            out.append({"device": d["id"], "phone": d["name"], "id": nid, "app": prop("appName") or "", "title": prop("title") or "",
+                        "text": prop("text") or "", "can_reply": bool(prop("replyId")), "reply_id": prop("replyId") or ""})
+    return {"notifications": out}
+
+
+def reply(dev, nid, text):
+    path = f"/modules/kdeconnect/devices/{dev}/notifications/{nid}"
+    rid = bus("get-property", "org.kde.kdeconnect", path, "org.kde.kdeconnect.device.notifications.notification", "replyId")
+    if not rid:
+        return {"ok": False, "error": "this notification does not accept replies"}
+    r = subprocess.run(["busctl", "--user", "call", "org.kde.kdeconnect", f"/modules/kdeconnect/devices/{dev}/notifications",
+                        "org.kde.kdeconnect.device.notifications", "sendReply", "ss", rid, text], capture_output=True, text=True, timeout=10)
+    return {"ok": r.returncode == 0, "error": r.stderr.strip()[:200]}
+
+
 def paired_reachable():
     return [d["id"] for d in status().get("devices", []) if d["paired"] and d["reachable"]]
 
@@ -192,8 +221,91 @@ def ask(text=None):
     return {"asked": text, "reply": reply}
 
 
+AUDIO_EXT = (".m4a", ".mp3", ".ogg", ".opus", ".wav", ".aac", ".3gp", ".amr", ".flac")
+
+
+def downloads_dir():
+    try:
+        d = subprocess.run(["xdg-user-dir", "DOWNLOAD"], capture_output=True, text=True, timeout=5).stdout.strip()
+    except (OSError, subprocess.TimeoutExpired):
+        d = ""
+    return d or os.path.expanduser("~/Downloads")
+
+
+def whisper_bin():
+    for c in ["/usr/lib/genesis/whisper/bin/whisper-cli", "/usr/local/bin/whisper-cli"]:
+        if os.path.exists(c):
+            return c
+    return None
+
+
+def whisper_model():
+    d = os.path.join(os.environ.get("GENESIS_MODELS_DIR", "/var/lib/genesis/models"), "stt")
+    try:
+        cands = [os.path.join(d, f) for f in os.listdir(d) if f.endswith(".bin")]
+    except OSError:
+        return None
+    return max(cands, key=lambda p: os.path.getsize(p)) if cands else None
+
+
+def transcribe(path):
+    """Voice note to text: ffmpeg to 16 kHz mono wav, then whisper-cli."""
+    cli, model = whisper_bin(), whisper_model()
+    if not cli or not model:
+        return None
+    wav = path + ".16k.wav"
+    try:
+        if subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", path, "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", wav], capture_output=True, timeout=120).returncode != 0:
+            return None
+        out = subprocess.run([cli, "-m", model, "-f", wav, "-nt", "-np"], capture_output=True, text=True, timeout=300)
+        return " ".join(out.stdout.split()).strip() or None
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    finally:
+        try: os.remove(wav)
+        except OSError: pass
+
+
+def watch_voice_notes():
+    """Audio files that arrive from the phone (KDE Connect saves them in the downloads folder) are voice notes for Genesis."""
+    import threading
+    d = downloads_dir(); seen = set()
+    try:
+        seen = {f for f in os.listdir(d)}
+    except OSError:
+        pass
+    def loop():
+        nonlocal seen
+        while True:
+            time.sleep(3)
+            try:
+                now = set(os.listdir(d))
+            except OSError:
+                continue
+            for f in sorted(now - seen):
+                p = os.path.join(d, f)
+                if not f.lower().endswith(AUDIO_EXT) or f.endswith(".part"):
+                    continue
+                try:
+                    a = os.path.getsize(p); time.sleep(2)
+                    if os.path.getsize(p) != a:
+                        continue  # still arriving
+                except OSError:
+                    continue
+                seen.add(f)
+                text = transcribe(p)
+                if text:
+                    print("phone/voice note:", text[:80], flush=True)
+                    ask(text)
+                else:
+                    ping("Got your voice note, but could not transcribe it here (no speech model, or ffmpeg missing).")
+            seen |= now
+    threading.Thread(target=loop, daemon=True).start()
+
+
 def watch():
     """Text shared from the phone lands in the clipboard; wl-paste --watch hands every change to `on-clip`."""
+    watch_voice_notes()
     import hashlib
     mark = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "genesis-phone.last")
     with open(mark, "w") as f:  # whatever is in the clipboard at login was not sent now
@@ -244,6 +356,10 @@ def main(argv):
         watch(); return 0
     elif cmd == "on-clip":
         on_clip(); return 0
+    elif cmd == "notifications":
+        out = notifications()
+    elif cmd == "reply" and len(argv) > 4:
+        out = reply(argv[2], argv[3], " ".join(argv[4:]))
     else:
         print(__doc__); return 2
     print(json.dumps(out))

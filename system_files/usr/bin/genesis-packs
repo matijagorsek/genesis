@@ -1,0 +1,81 @@
+#!/usr/bin/python3
+"""genesis-packs: signed model-pack definitions from GHCR.
+
+  refresh          pull every pack definition (ghcr.io/<owner>/genesis-packs:<id>) through podman, which
+                   enforces the containers signature policy (release key in /etc/pki/genesis/cosign.pub),
+                   and keep the verified JSON under the packs state directory
+  status           JSON: which packs have a signed definition, when it was resolved
+
+The first-run wizard and the Settings page prefer these definitions over the built-in list: they carry
+the exact file names, sizes and sha256 of every model, so each download is checked against something
+Genesis signed. Without network (or before the first refresh) the built-in list still works.
+"""
+import glob, json, os, subprocess, sys, tempfile
+
+REPO = os.environ.get("GENESIS_PACKS_REPO", "ghcr.io/matijagorsek/genesis-packs")
+BUILTIN = "/usr/share/genesis/packs"
+STATE = os.environ.get("GENESIS_PACKS_STATE", "/var/lib/genesis/packs/signed")
+
+
+def pack_ids():
+    return sorted(os.path.basename(p)[:-5] for p in glob.glob(os.path.join(BUILTIN, "*.json")) if not p.endswith("schema.json"))
+
+
+def refresh():
+    os.makedirs(STATE, exist_ok=True)
+    result = {"repo": REPO, "ok": [], "failed": {}}
+    for pid in pack_ids():
+        ref = f"{REPO}:{pid}"
+        try:
+            pull = subprocess.run(["podman", "artifact", "pull", ref], capture_output=True, text=True, timeout=300)
+            if pull.returncode != 0:
+                result["failed"][pid] = pull.stderr.strip().splitlines()[-1][:300] if pull.stderr.strip() else "pull failed"
+                continue
+            with tempfile.TemporaryDirectory() as td:
+                ext = subprocess.run(["podman", "artifact", "extract", ref, td], capture_output=True, text=True, timeout=120)
+                if ext.returncode != 0:
+                    result["failed"][pid] = ext.stderr.strip()[-300:] or "extract failed"
+                    continue
+                files = [os.path.join(td, f) for f in os.listdir(td)]
+                if not files:
+                    result["failed"][pid] = "empty artifact"
+                    continue
+                doc = json.load(open(files[0]))
+                if doc.get("id") != pid or not doc.get("files"):
+                    result["failed"][pid] = "unexpected content"
+                    continue
+                tmp = os.path.join(STATE, f".{pid}.json.tmp")
+                with open(tmp, "w") as f:
+                    json.dump(doc, f)
+                os.replace(tmp, os.path.join(STATE, f"{pid}.json"))
+                result["ok"].append(pid)
+        except (OSError, subprocess.TimeoutExpired, ValueError) as e:
+            result["failed"][pid] = str(e)[:300]
+    return result
+
+
+def status():
+    out = {"repo": REPO, "packs": {}}
+    for pid in pack_ids():
+        p = os.path.join(STATE, f"{pid}.json")
+        try:
+            doc = json.load(open(p))
+            out["packs"][pid] = {"signed": True, "resolved_at": doc.get("resolved_at"), "files": len(doc.get("files", []))}
+        except (OSError, ValueError):
+            out["packs"][pid] = {"signed": False}
+    return out
+
+
+def main(argv):
+    cmd = argv[1] if len(argv) > 1 else "status"
+    if cmd == "refresh":
+        print(json.dumps(refresh()))
+    elif cmd == "status":
+        print(json.dumps(status()))
+    else:
+        print(__doc__); return 2
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

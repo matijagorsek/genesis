@@ -91,6 +91,7 @@ section{display:none}section.active{display:block}
   <div class="hw" id="hw"></div>
   <div id="notes"></div>
   <p style="margin-top:18px"><b style="color:var(--ink)">Choose a model pack.</b> The recommended one is the most capable that fits.</p>
+  <p class="small" id="signedInfo"></p>
   <div class="packs" id="packs"></div>
   <ul class="models" id="models"></ul>
   <div class="btns">
@@ -203,6 +204,7 @@ section{display:none}section.active{display:block}
     renderHw(state.profile);
     if(!chosen){chosen=state.settings.pack||(state.profile&&state.profile.recommended_pack)||null}
     renderPacks(state); const p=state.packs.find(x=>x.id===chosen); if(p)renderModels(p);
+    const sg=state.signed||{};const ns=Object.keys(sg).length;$('#signedInfo').textContent=ns?`Signed pack list from GHCR, verified with the Genesis key (${Object.values(sg)[0].slice(0,10)}). Every download is checked against it.`:'Built-in pack list; the signed list from GHCR is fetched after the first connection.';
     if(state.progress.state==='downloading'||state.progress.state==='planning'){step(1);startPoll()}
     else if(state.progress.state==='done'){step(1);showProgress(state.progress);$('#btnNextPrivacy').disabled=false}
   }

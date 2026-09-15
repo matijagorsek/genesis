@@ -1,0 +1,31 @@
+#!/usr/bin/bash
+# Ask about a region of the screen, on this machine. Select a region (Spectacle), optionally type a
+# question, and the local vision model answers; the answer is shown as a notification and copied to
+# the clipboard. Bound to Meta+Shift+Space. Needs a pack whose fast model ships a vision projector
+# (every pack does from 0.1.103); otherwise the answer says so.
+set -u
+shot=$(mktemp --suffix=.png)
+trap 'rm -f "$shot"' EXIT
+spectacle -r -b -n -o "$shot" 2>/dev/null || { notify-send -a Genesis "Ask about the screen" "No region selected."; exit 0; }
+[ -s "$shot" ] || exit 0
+question="${1:-}"
+if [ -z "$question" ] && command -v kdialog >/dev/null; then
+  question=$(kdialog --title "Ask about the screen" --inputbox "What do you want to know about this region?" "What is this?" 2>/dev/null) || exit 0
+fi
+[ -n "$question" ] || question="What is this? Answer briefly."
+notify-send -a Genesis -t 4000 "Ask about the screen" "Looking…"
+resp=$(python3 - "$shot" "$question" <<'PY'
+import base64, json, sys, urllib.request
+img = base64.b64encode(open(sys.argv[1], "rb").read()).decode()
+body = json.dumps({"question": sys.argv[2], "image_png_b64": img}).encode()
+req = urllib.request.Request("http://127.0.0.1:11520/api/vision", data=body, headers={"content-type": "application/json"})
+try:
+    with urllib.request.urlopen(req, timeout=240) as r:
+        d = json.load(r)
+    print(d.get("answer") or d.get("error") or "no answer")
+except Exception as e:
+    print(f"Genesis could not answer: {e}")
+PY
+)
+printf '%s' "$resp" | wl-copy 2>/dev/null || true
+notify-send -a Genesis -t 0 "Ask about the screen" "$resp"

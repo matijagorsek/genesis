@@ -8,7 +8,8 @@
 .ask{display:flex;gap:8px;align-items:stretch}.ask textarea{flex:1;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:14px 16px;font:inherit;font-size:18px;resize:none;height:88px;outline:none;overflow:hidden}.ask textarea:focus{border-color:var(--accent)}
 .mic{font-size:20px;padding:0 14px;border-radius:12px;border:1px solid var(--line);background:var(--panel-2);cursor:pointer;user-select:none;touch-action:none;color:var(--ink)}.mic.rec{background:#a33;border-color:#e66}
 .chip{display:inline-flex;align-items:center;gap:8px;background:var(--panel-2);border:1px solid var(--accent);border-radius:999px;padding:6px 12px;font-size:13px;max-width:100%}.chip span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:520px}.chip button{background:none;border:0;color:var(--ink-3);cursor:pointer;font-size:14px}
-.starters{display:flex;flex-wrap:wrap;gap:8px}.starter{background:var(--panel);border:1px solid var(--line);color:var(--ink-2);border-radius:999px;padding:6px 12px;font:inherit;font-size:13px;cursor:pointer}.starter:hover{border-color:var(--accent);color:var(--ink)}
+.starters{display:flex;flex-wrap:wrap;gap:8px}
+.phone-notes{margin-top:12px;display:flex;flex-direction:column;gap:6px}.pn{display:flex;gap:10px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:12.5px}.pn b{color:var(--ink)}.pn .t{flex:1;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pn input{background:var(--bg);border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:4px 8px;font:inherit;font-size:12.5px;width:180px}.pn .app{font-size:11px;color:var(--ink-3)}.starter{background:var(--panel);border:1px solid var(--line);color:var(--ink-2);border-radius:999px;padding:6px 12px;font:inherit;font-size:13px;cursor:pointer}.starter:hover{border-color:var(--accent);color:var(--ink)}
 .foot{margin-top:auto;display:flex;gap:16px;color:var(--ink-3);font-size:12px}.foot kbd{background:var(--panel-2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-family:inherit}
 body.listening .wrap{box-shadow:inset 0 0 0 2px var(--accent),inset 0 0 40px rgba(95,181,189,.25);transition:box-shadow .15s}@media (prefers-reduced-motion:reduce){body.listening .wrap{transition:none}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
@@ -19,6 +20,7 @@ body.listening .wrap{box-shadow:inset 0 0 0 2px var(--accent),inset 0 0 40px rgb
   <div class="ask"><textarea id="q" aria-label="What do you want made or done" placeholder="a timer, a tool that renames my photos, a website for the club…" autofocus></textarea><button id="mic" class="mic" title="Hold to talk" aria-label="Hold to talk" hidden>🎤</button></div>
   <div id="sel" hidden><span class="chip">Using your selection: <span id="selText"></span><button id="selDrop" title="Don't use the selection" aria-label="Don't use the selection">✕</button></span></div>
   <div class="starters" id="starters" role="list" aria-label="Starter ideas"></div>
+  <div id="phoneNotes" class="phone-notes" hidden aria-live="polite"></div>
   <div class="foot" aria-hidden="true"><span><kbd>Enter</kbd> make it</span><span><kbd>Esc</kbd> close</span><span><kbd>hold 🎤</kbd> talk</span><span>Everything runs here. Nothing is sent anywhere.</span></div>
 </div>
 <script>
@@ -36,6 +38,12 @@ body.listening .wrap{box-shadow:inset 0 0 0 2px var(--accent),inset 0 0 40px rgb
   let selection=(params.get('selection')||'').trim();
   if(selection){$('#sel').hidden=false;$('#selText').textContent=selection.slice(0,140);q.placeholder='What should Genesis do with it? e.g. summarize, turn into a checklist, fix the grammar…';$('#hint').textContent='You selected some text.'}
   $('#selDrop').addEventListener('click',()=>{selection='';$('#sel').hidden=true;q.placeholder='a timer, a tool that renames my photos, a website for the club…';q.focus()});
+  // what is on the phone right now (KDE Connect notification sync); replies go back through the phone
+  async function phoneNotes(){try{const r=await (await fetch('/api/phone/notifications')).json();const box=document.getElementById('phoneNotes');const list=(r.notifications||[]).slice(0,4);
+    if(!list.length){box.hidden=true;box.innerHTML='';return}
+    box.innerHTML=list.map(n=>`<div class="pn"><span class="app">${n.app}</span><b>${(n.title||'').replace(/</g,'&lt;')}</b><span class="t">${(n.text||'').replace(/</g,'&lt;')}</span>${n.can_reply?`<input placeholder="Reply from here…" data-d="${n.device}" data-i="${n.id}" aria-label="Reply to ${n.title}">`:''}</div>`).join('');box.hidden=false;
+    box.querySelectorAll('input').forEach(i=>i.addEventListener('keydown',async e=>{if(e.key==='Enter'&&i.value.trim()){e.preventDefault();const t=i.value.trim();i.disabled=true;await fetch('/api/phone/reply',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({device:i.dataset.d,id:i.dataset.i,text:t})});i.value='';i.placeholder='Sent';setTimeout(phoneNotes,1500)}}))}catch(e){}}
+  phoneNotes();setInterval(phoneNotes,10000);
   const STARTERS=['a checklist app that saves to a file','a pomodoro timer with a bell','rename the photos in a folder by date taken','a simple website for a club','a word-count tool for text files'];
   STARTERS.forEach(t=>{const b=document.createElement('button');b.className='starter';b.setAttribute('role','listitem');b.textContent=tr(t);b.addEventListener('click',()=>go(t));$('#starters').appendChild(b)});
   function go(text){text=(text||'').trim();if(!text&&!selection)return;const prompt=selection?(text||'Help me with this')+'\n\nSelected text:\n'+selection:text;location.href='/?prompt='+encodeURIComponent(prompt)}

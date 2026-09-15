@@ -54,6 +54,7 @@ pub fn tool_schemas() -> Value {
         {"type":"function","function":{"name":"read_file","description":"Read a text file. Path relative to the project or absolute.","parameters":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}}},
         {"type":"function","function":{"name":"write_file","description":"Create or overwrite a text file with the given content.","parameters":{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"]}}},
         {"type":"function","function":{"name":"edit_file","description":"Replace one exact occurrence of old_text with new_text in a file. Fails if old_text is not found exactly once.","parameters":{"type":"object","properties":{"path":{"type":"string"},"old_text":{"type":"string"},"new_text":{"type":"string"}},"required":["path","old_text","new_text"]}}},
+        {"type":"function","function":{"name":"search_files","description":"Search the user's own files (notes, documents, PDFs, code) in the folders they opted in under Settings > Files Genesis may search. Returns matching passages with paths. Use it when the request refers to the user's notes, documents, or 'my files'.","parameters":{"type":"object","properties":{"query":{"type":"string","description":"words to look for"},"limit":{"type":"integer"}},"required":["query"]}}},
         {"type":"function","function":{"name":"list_dir","description":"List files and directories under a path (non-recursive).","parameters":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}}},
         {"type":"function","function":{"name":"list_templates","description":"List the project templates Genesis can scaffold (id, name, description).","parameters":{"type":"object","properties":{}}}},
         {"type":"function","function":{"name":"scaffold","description":"Create a new project from a template inside the current project directory (as a subdirectory named `name`), or in the project directory itself if it is empty. Returns the files created and how to preview.","parameters":{"type":"object","properties":{"template":{"type":"string","description":"template id from list_templates, e.g. web-static, python-cli, python-script"},"name":{"type":"string","description":"short name: letters, digits, - or _"}},"required":["template","name"]}}},
@@ -251,7 +252,7 @@ impl Agent {
         let path = |k: &str| resolve_path(&self.project, &s(k)).display().to_string();
         let mut i = Intent { session_id: self.session_id.clone(), origin: "agentd".into(), tool: match name {
             "shell" => "shell",
-            "read_file" | "list_dir" | "list_templates" => "fs.read",
+            "read_file" | "list_dir" | "list_templates" | "search_files" => "fs.read",
             "write_file" | "edit_file" | "scaffold" => "fs.write",
             "preview_start" | "preview_stop" => "shell",
             "install_app" => "fs.write",
@@ -441,6 +442,14 @@ impl Agent {
                 if !r.stdout.is_empty() { out.push_str("stdout:\n"); out.push_str(&r.stdout); out.push('\n'); }
                 if !r.stderr.is_empty() { out.push_str("stderr:\n"); out.push_str(&r.stderr); out.push('\n'); }
                 Ok(out)
+            }
+            "search_files" => {
+                let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(8).clamp(1, 20).to_string();
+                let out = std::process::Command::new("/usr/bin/genesis-index").args(["search", &s("query"), "--json", "-n", &limit]).output()
+                    .map_err(|e| anyhow!("genesis-index: {}", e))?;
+                let hits: Vec<serde_json::Value> = serde_json::from_slice(&out.stdout).unwrap_or_default();
+                if hits.is_empty() { return Ok("No matching passages in the folders the user opted in (Settings > Files Genesis may search). Say so; do not guess.".into()); }
+                Ok(hits.iter().map(|h| format!("{}\n    {}", h["path"].as_str().unwrap_or(""), h["snippet"].as_str().unwrap_or(""))).collect::<Vec<_>>().join("\n"))
             }
             "read_file" => {
                 let p = resolve_path(&self.project, &s("path"));

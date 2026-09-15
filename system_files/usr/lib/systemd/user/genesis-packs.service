@@ -1,0 +1,8 @@
+[Unit]
+Description=Genesis: refresh the signed model-pack definitions from GHCR
+Documentation=https://github.com/matijagorsek/genesis
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/genesis-packs refresh

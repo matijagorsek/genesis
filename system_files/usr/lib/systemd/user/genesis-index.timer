@@ -1,0 +1,9 @@
+[Unit]
+Description=Genesis: keep the local file index fresh
+
+[Timer]
+OnStartupSec=5min
+OnUnitActiveSec=20min
+
+[Install]
+WantedBy=timers.target

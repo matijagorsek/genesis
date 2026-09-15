@@ -224,6 +224,32 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
                 Err(e) => json_response(&serde_json::json!({"error": format!("genesis-theme: {}", e)}), 503),
             } }
         }
+        (Method::Post, ["api", "vision"]) => {
+            let v: serde_json::Value = serde_json::from_str(&body).unwrap_or(serde_json::Value::Null);
+            let q = v.get("question").and_then(|q| q.as_str()).unwrap_or("What is this? Answer briefly.").to_string();
+            let img = v.get("image_png_b64").and_then(|i| i.as_str()).unwrap_or("").to_string();
+            if img.is_empty() { json_response(&serde_json::json!({"error": "image_png_b64 required"}), 400) }
+            else { match vision_answer(&d.endpoint, &q, &img) { Ok(a) => json_response(&serde_json::json!({"answer": a}), 200), Err(e) => json_response(&serde_json::json!({"error": e.to_string()}), 502) } }
+        }
+        (Method::Get, ["api", "index"]) => json_response(&run_json("/usr/bin/genesis-index", &["status"]), 200),
+        (Method::Post, ["api", "index"]) => {
+            let v: serde_json::Value = serde_json::from_str(&body).unwrap_or(serde_json::Value::Null);
+            let action = v.get("action").and_then(|a| a.as_str()).unwrap_or("").to_string();
+            let folder = v.get("folder").and_then(|a| a.as_str()).unwrap_or("").to_string();
+            match action.as_str() {
+                "add" | "remove" if !folder.is_empty() => json_response(&run_json("/usr/bin/genesis-index", &[&action, &folder]), 200),
+                "update" => json_response(&run_json("/usr/bin/genesis-index", &["update"]), 200),
+                _ => json_response(&serde_json::json!({"error": "expected {action: add|remove|update, folder}"}), 400),
+            }
+        }
+        (Method::Get, ["api", "phone", "notifications"]) => json_response(&phone(&["notifications"]), 200),
+        (Method::Post, ["api", "phone", "reply"]) => {
+            let v: serde_json::Value = serde_json::from_str(&body).unwrap_or(serde_json::Value::Null);
+            let g = |k: &str| v.get(k).and_then(|a| a.as_str()).unwrap_or("").to_string();
+            let (dev, id, text) = (g("device"), g("id"), g("text"));
+            if dev.is_empty() || id.is_empty() || text.is_empty() { json_response(&serde_json::json!({"error": "device, id, text required"}), 400) }
+            else { json_response(&phone(&["reply", &dev, &id, &text]), 200) }
+        }
         (Method::Get, ["api", "phone"]) => json_response(&phone(&["status"]), 200),
         (Method::Post, ["api", "phone", "action"]) => {
             let v: serde_json::Value = serde_json::from_str(&body).unwrap_or(serde_json::Value::Null);
@@ -616,5 +642,44 @@ fn phone(args: &[&str]) -> serde_json::Value {
         Ok(o) if o.status.success() => serde_json::from_slice(&o.stdout).unwrap_or(serde_json::json!({ "available": false, "reason": "unexpected output", "devices": [] })),
         Ok(o) => serde_json::json!({ "available": false, "reason": String::from_utf8_lossy(&o.stderr).trim(), "devices": [] }),
         Err(e) => serde_json::json!({ "available": false, "reason": e.to_string(), "devices": [] }),
+    }
+}
+
+/// Run a Genesis helper that prints JSON and hand its output through.
+fn run_json(bin: &str, args: &[&str]) -> serde_json::Value {
+    match std::process::Command::new(bin).args(args).output() {
+        Ok(o) if o.status.success() => serde_json::from_slice(&o.stdout).unwrap_or(serde_json::json!({"error": "unexpected output"})),
+        Ok(o) => serde_json::json!({"error": String::from_utf8_lossy(&o.stderr).trim()}),
+        Err(e) => serde_json::json!({"error": e.to_string()}),
+    }
+}
+
+/// Ask the local vision-capable model about a PNG (base64). The router's "fast" model carries the
+/// projector in every pack from 0.1.103; older packs get a clear message instead of an answer.
+fn vision_answer(endpoint: &str, question: &str, png_b64: &str) -> anyhow::Result<String> {
+    let model = served_model(endpoint, "fast");
+    let body = serde_json::json!({
+        "model": model, "temperature": 0.2, "max_tokens": 400,
+        "messages": [
+            {"role": "system", "content": "You are Genesis, answering about a region of the user's screen, on their machine. Be concrete and brief: plain text, no markdown, at most five sentences. If text is visible, read it exactly."},
+            {"role": "user", "content": [
+                {"type": "text", "text": question},
+                {"type": "image_url", "image_url": {"url": format!("data:image/png;base64,{}", png_b64)}}
+            ]}
+        ]
+    });
+    let resp = ureq::post(&format!("{}/chat/completions", endpoint.trim_end_matches('/'))).timeout(std::time::Duration::from_secs(240)).send_json(body);
+    match resp {
+        Ok(r) => {
+            let v: serde_json::Value = r.into_json()?;
+            Ok(v.pointer("/choices/0/message/content").and_then(|c| c.as_str()).unwrap_or("").trim().to_string())
+        }
+        Err(ureq::Error::Status(code, r)) => {
+            let text = r.into_string().unwrap_or_default();
+            if text.contains("image input is not supported") || text.contains("mmproj") || text.contains("multimodal") {
+                Err(anyhow::anyhow!("this model pack has no vision model yet; packs from 0.1.103 include one (Settings > Models)"))
+            } else { Err(anyhow::anyhow!("model router {}: {}", code, text.chars().take(200).collect::<String>())) }
+        }
+        Err(e) => Err(anyhow::anyhow!("model router: {}", e)),
     }
 }
