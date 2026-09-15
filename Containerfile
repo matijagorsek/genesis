@@ -16,8 +16,8 @@ ENV CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=x86_64-linux-gnu-gcc \
 WORKDIR /src
 COPY src/ /src/
 RUN case "${TARGETARCH:-amd64}" in arm64) T=aarch64-unknown-linux-gnu;; *) T=x86_64-unknown-linux-gnu;; esac; \
-    cargo build --release --locked --target $T -p genesis-permd -p genesis-probe -p genesis-firstrun -p genesis-agentd -p genesis-txd -p genesis-krunner -p genesis-ask \
- && for b in genesis-permd genesis-probe genesis-firstrun genesis-agentd genesis-txd genesis-krunner genesis-ask; do install -D -m 0755 target/$T/release/$b /out/usr/bin/$b; done
+    cargo build --release --locked --target $T -p genesis-permd -p genesis-probe -p genesis-firstrun -p genesis-agentd -p genesis-txd -p genesis-krunner -p genesis-ask -p genesis-companiond \
+ && for b in genesis-permd genesis-probe genesis-firstrun genesis-agentd genesis-txd genesis-krunner genesis-ask genesis-companiond; do install -D -m 0755 target/$T/release/$b /out/usr/bin/$b; done
 
 # ---- stage 1b: genesis-window (Qt WebEngine), built on Fedora so it links against the image's Qt ------
 FROM quay.io/fedora/fedora:44 AS qtbuild
@@ -105,6 +105,7 @@ RUN set -eux; if [ "$FLAVOUR" = fedora ]; then \
       systemctl enable --force plasmalogin.service; \
       systemctl enable NetworkManager firewalld; \
       firewall-offline-cmd --zone=public --add-service=kdeconnect >/dev/null 2>&1 || true; \
+      firewall-offline-cmd --zone=public --add-port=11530/tcp >/dev/null 2>&1 || true; \
     fi
 
 # ---- Genesis files: units, sysusers, tmpfiles, policy, /etc/genesis defaults ---------------
@@ -150,7 +151,7 @@ RUN set -eux; \
     dnf5 install -y --setopt=install_weak_deps=False \
       rsms-inter-fonts ibm-plex-mono-fonts papirus-icon-theme papirus-icon-theme-dark papirus-icon-theme-light ocean-sound-theme \
       chromium firefox okular gwenview kcalc plasma-discover plasma-discover-flatpak haruna elisa kcharselect kfind \
-      kdeconnect-kde kwalletmanager5 partitionmanager rsync python3-pytest ffmpeg-free; \
+      kdeconnect-kde kwalletmanager5 partitionmanager rsync python3-pytest ffmpeg-free qrencode; \
     dnf5 clean all
 
 # Piper: local text-to-speech (static upstream build with its espeak-ng data and onnxruntime)
@@ -173,7 +174,7 @@ RUN set -eux; \
 # (genesis-image-check ships from system_files/usr/bin; podman/buildah has no COPY heredoc)
 
 # ---- enable services -------------------------------------------------------------------------
-RUN systemctl enable genesis-router.service genesis-probe.service genesis-firstrun.service genesis-packs-refresh.service genesis-devssh.service genesis-bootc-status.service bootc-fetch-apply-updates.timer && systemctl --global enable genesis-phone.service genesis-packs.timer genesis-index.timer genesis-permd.service genesis-agentd.service \
+RUN systemctl enable genesis-router.service genesis-probe.service genesis-firstrun.service genesis-packs-refresh.service genesis-devssh.service genesis-bootc-status.service bootc-fetch-apply-updates.timer && systemctl --global enable genesis-phone.service genesis-companiond.service genesis-packs.timer genesis-index.timer genesis-permd.service genesis-agentd.service \
  && (systemctl mask plasma-setup.service || true)
 
 # ---- bootc validation ------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["genesis-permd", "genesis-probe", "genesis-firstrun", "genesis-agentd", "genesis-txd", "genesis-krunner", "genesis-ask"]
+members = ["genesis-permd", "genesis-probe", "genesis-firstrun", "genesis-agentd", "genesis-companiond", "genesis-txd", "genesis-krunner", "genesis-ask"]
 
 [workspace.package]
 version = "0.1.0"

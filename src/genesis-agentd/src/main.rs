@@ -276,6 +276,12 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
                 Err(e) => json_response(&serde_json::json!({"error": e.to_string()}), 500),
             }
         }
+        (Method::Get, ["api", "companion"]) => json_response(&companion_pairing(), 200),
+        (Method::Post, ["api", "companion", "reset"]) => {
+            let _ = std::process::Command::new("/usr/bin/genesis-companiond").arg("--reset").output();
+            let _ = std::process::Command::new("systemctl").args(["--user", "restart", "genesis-companiond.service"]).status();
+            json_response(&companion_pairing(), 200)
+        }
         (Method::Get, ["api", "phone"]) => json_response(&phone(&["status"]), 200),
         (Method::Post, ["api", "phone", "action"]) => {
             let v: serde_json::Value = serde_json::from_str(&body).unwrap_or(serde_json::Value::Null);
@@ -756,4 +762,32 @@ fn openable(p: &str) -> anyhow::Result<std::path::PathBuf> {
 /// Is the model router answering at all (quick, 1.5 s)? The badge and the start page say so before a job is started.
 fn router_ok(endpoint: &str) -> bool {
     ureq::get(&format!("{}/models", endpoint.trim_end_matches('/'))).timeout(std::time::Duration::from_millis(1500)).call().is_ok()
+}
+
+/// The pairing code for the phone app: what genesis-companiond encodes, plus the QR as a PNG (qrencode).
+fn companion_pairing() -> serde_json::Value {
+    let out = match std::process::Command::new("/usr/bin/genesis-companiond").arg("--pairing").output() {
+        Ok(o) if o.status.success() => o.stdout,
+        _ => return serde_json::json!({"available": false, "reason": "the companion service is not installed"}),
+    };
+    let payload = String::from_utf8_lossy(&out).trim().to_string();
+    let v: serde_json::Value = serde_json::from_str(&payload).unwrap_or(serde_json::Value::Null);
+    let qr = std::process::Command::new("qrencode").args(["-o", "-", "-t", "PNG", "-s", "6", "-m", "2"]).arg(format!("genesis-pair:{}", payload)).output().ok()
+        .filter(|o| o.status.success()).map(|o| base64_encode(&o.stdout));
+    let running = std::process::Command::new("systemctl").args(["--user", "is-active", "genesis-companiond.service"]).output().map(|o| o.status.success()).unwrap_or(false);
+    serde_json::json!({"available": true, "running": running, "hosts": v.get("hosts").cloned().unwrap_or(serde_json::json!([])), "port": v.get("port").cloned().unwrap_or(serde_json::json!(11530)),
+        "fingerprint": v.get("fp").cloned().unwrap_or(serde_json::Value::Null), "qr_png_b64": qr})
+}
+
+fn base64_encode(bytes: &[u8]) -> String {
+    const T: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity((bytes.len() + 2) / 3 * 4);
+    for chunk in bytes.chunks(3) {
+        let b = [chunk[0], *chunk.get(1).unwrap_or(&0), *chunk.get(2).unwrap_or(&0)];
+        let n = ((b[0] as u32) << 16) | ((b[1] as u32) << 8) | b[2] as u32;
+        out.push(T[(n >> 18) as usize & 63] as char); out.push(T[(n >> 12) as usize & 63] as char);
+        out.push(if chunk.len() > 1 { T[(n >> 6) as usize & 63] as char } else { '=' });
+        out.push(if chunk.len() > 2 { T[n as usize & 63] as char } else { '=' });
+    }
+    out
 }
