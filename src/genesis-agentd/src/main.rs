@@ -764,8 +764,10 @@ fn same_origin(req: &Request, listen: &str) -> bool {
 fn openable(p: &str) -> anyhow::Result<std::path::PathBuf> {
     let canon = std::fs::canonicalize(p).map_err(|_| anyhow!("no such file"))?;
     let home = std::env::var("HOME").unwrap_or_else(|_| "/nonexistent".into());
-    let roots = [format!("{}/Projects", home), format!("{}/Genesis", home), format!("{}/Documents/Genesis", home)];
-    if !roots.iter().any(|r| canon.starts_with(r)) { return Err(anyhow!("only things Genesis made or exported can be opened from here")); }
+    let mut roots = vec![format!("{}/Projects", home), format!("{}/Genesis", home), format!("{}/Documents/Genesis", home), format!("{}/Downloads", home)];
+    // and every project the maker made, wherever it lives (they sit under the home folder by default)
+    roots.extend(maker::made_here(std::path::Path::new(&default_project())).into_iter().map(|m| m.path));
+    if !roots.iter().any(|r| std::fs::canonicalize(r).map(|c| canon.starts_with(&c)).unwrap_or(false)) { return Err(anyhow!("only things Genesis made or exported can be opened from here")); }
     let name = canon.file_name().map(|n| n.to_string_lossy().to_lowercase()).unwrap_or_default();
     if name.ends_with(".desktop") || name.ends_with(".sh") || name.ends_with(".run") || name.ends_with(".appimage") { return Err(anyhow!("launchers are not opened from here")); }
     Ok(canon)
