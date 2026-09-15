@@ -5,48 +5,104 @@
   "version": "0.1.0",
   "publisher": "genesis",
   "license": "Apache-2.0",
-  "engines": { "vscode": "^1.90.0" },
-  "categories": ["Other", "Themes"],
-  "activationEvents": ["onStartupFinished"],
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other",
+    "Themes"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./extension.js",
   "contributes": {
     "viewsContainers": {
       "activitybar": [
-        { "id": "genesis", "title": "Genesis", "icon": "media/genesis.svg" }
+        {
+          "id": "genesis",
+          "title": "Genesis",
+          "icon": "media/genesis.svg"
+        }
       ]
     },
     "views": {
       "genesis": [
-        { "type": "webview", "id": "genesis.maker", "name": "Maker" }
+        {
+          "type": "webview",
+          "id": "genesis.maker",
+          "name": "Maker"
+        }
       ]
     },
     "commands": [
-      { "command": "genesis.make", "title": "Genesis: Make something in this workspace…" },
-      { "command": "genesis.askSelection", "title": "Genesis: Ask about the selection" },
-      { "command": "genesis.changeFile", "title": "Genesis: Change this file…" },
-      { "command": "genesis.openMaker", "title": "Genesis: Open the maker window" },
-      { "command": "genesis.settings", "title": "Genesis: Settings" }
+      {
+        "command": "genesis.make",
+        "title": "Genesis: Make something in this workspace\u2026"
+      },
+      {
+        "command": "genesis.askSelection",
+        "title": "Genesis: Ask about the selection"
+      },
+      {
+        "command": "genesis.changeFile",
+        "title": "Genesis: Change this file\u2026"
+      },
+      {
+        "command": "genesis.openMaker",
+        "title": "Genesis: Open the maker window"
+      },
+      {
+        "command": "genesis.settings",
+        "title": "Genesis: Settings"
+      }
     ],
     "menus": {
       "editor/context": [
-        { "command": "genesis.askSelection", "when": "editorHasSelection", "group": "genesis@1" },
-        { "command": "genesis.changeFile", "group": "genesis@2" }
+        {
+          "command": "genesis.askSelection",
+          "when": "editorHasSelection",
+          "group": "genesis@1"
+        },
+        {
+          "command": "genesis.changeFile",
+          "group": "genesis@2"
+        }
       ],
       "explorer/context": [
-        { "command": "genesis.make", "group": "genesis@1" }
+        {
+          "command": "genesis.make",
+          "group": "genesis@1"
+        }
       ]
     },
     "keybindings": [
-      { "command": "genesis.make", "key": "ctrl+alt+space", "mac": "cmd+alt+space" },
-      { "command": "genesis.askSelection", "key": "ctrl+alt+a", "when": "editorHasSelection" }
+      {
+        "command": "genesis.make",
+        "key": "ctrl+alt+space",
+        "mac": "cmd+alt+space"
+      },
+      {
+        "command": "genesis.askSelection",
+        "key": "ctrl+alt+a",
+        "when": "editorHasSelection"
+      }
     ],
     "themes": [
-      { "label": "Genesis Dark", "uiTheme": "vs-dark", "path": "./themes/genesis-dark.json" }
+      {
+        "label": "Genesis Dark",
+        "uiTheme": "vs-dark",
+        "path": "./themes/genesis-dark.json"
+      }
     ],
     "configuration": {
       "title": "Genesis",
       "properties": {
-        "genesis.agentd": { "type": "string", "default": "http://127.0.0.1:11520", "description": "The Genesis maker daemon on this machine." }
+        "genesis.agentd": {
+          "type": "string",
+          "default": "http://127.0.0.1:11520",
+          "description": "The Genesis maker daemon on this machine."
+        }
       }
     },
     "configurationDefaults": {
@@ -62,5 +118,11 @@
       "workbench.activityBar.location": "default",
       "security.workspace.trust.enabled": false
     }
+  },
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    },
+    "virtualWorkspaces": false
   }
 }
