@@ -165,6 +165,9 @@ own maker, palette and `ask` stay local.
 - **Claude is optional and separate.** Claude Code signs in with your account in the terminal; its credentials
   live in your home folder under `~/.claude`, Genesis never reads them, and they never touch this repository
   or the image. There are no API keys anywhere in Genesis.
+- **A closed front door.** The local daemons answer only their own pages and local helpers: same-origin
+  checks plus a per-boot token, so a web page open in the browser cannot drive the maker; request
+  bodies are capped and file opening is limited to what Genesis made. Reviewed adversarially (decision 70).
 - **Reviewed rules.** The permission policy is exercised by an adversarial test battery (keys read through a
   shell, login files, code piped from the network, disk wipes); every rule change must keep it green.
 - **Nothing secret in git.** CI fails if a credential-like string is committed; disks, run logs and local
