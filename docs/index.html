@@ -44,6 +44,7 @@ cat genesis-VERSION.iso.*.part &gt; genesis.iso</pre>
   <ul>
     <li><b>Any x86_64 PC with an AMD or Intel GPU:</b> the standard image. Models run on the GPU through Vulkan.</li>
     <li><b>NVIDIA:</b> install the standard image, then <code>sudo bootc switch ghcr.io/matijagorsek/genesis:stable-nvidia</code> and restart; that flavour carries the open NVIDIA kernel modules.</li>
+    <li><b>Your phone:</b> KDE Connect pairs the phone for notifications, files and "ask" from the share sheet. The Genesis app for Android (jobs, permission cards, a make from the phone, a screenshot) builds from the repository's <code>android/</code> folder; a store listing comes later.</li>
     <li><b>No usable GPU:</b> Genesis still works. The wizard picks a small pack; replies take seconds, app building is slow or limited, and every pack card says what to expect.</li>
     <li><b>Apple Silicon Mac:</b> the arm64 flavour in a VM, natively. Models run on the CPU inside the VM; the desktop, voice and the terminal command are quick, app building needs a bigger machine or a real GPU.</li>
     <li><b>Tested so far:</b> virtual machines on x86_64 and Apple Silicon. Real hardware reports are welcome: open a "Hardware report" issue.</li>

@@ -15,7 +15,7 @@ I have been building Genesis, a desktop OS with local language models as one of 
 as the product. Press Meta+Space, say "a pomodoro timer with a bell", and it makes one on your
 machine, every step that changes something waiting for your yes, with Keep / Undo at the end. First
 run measures your hardware and installs the biggest model pack that fits, from a 3.7 GB pack for 8 GB
-laptops upwards. Pair your phone once and you can ask it questions from there.
+laptops upwards. Pair your phone once and you can ask it questions from there; an Android companion app shows your jobs and their permission cards on the phone.
 
 It is Fedora bootc under KDE Plasma, so updates are signed images with rollback. Three flavours:
 x86_64, x86_64 with NVIDIA, arm64. Apache-2.0, everything in the repo, including the decision log and

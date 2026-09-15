@@ -13,6 +13,7 @@ the image recipe, the Rust daemons, the desktop files, the docs and the decision
 - Docker or Podman for the image and for cross-compiling into the VM (`prototype/vm-push.sh`).
 - The Qt window and the System Settings module build only inside the Containerfile (Qt 6 WebEngine, KF6); you do not need them locally to work on the daemons or the pages under `src/*/ui/`.
 - macOS with Apple Silicon: `just image-arm64 && just qcow2-arm64`, then `prototype/vm-dev-arm.command`. Elsewhere: `just image && just qcow2`, then `prototype/vm-dev.sh`.
+- The Android app: JDK 17 and the Android SDK (platform 35); `cd android && ./gradlew assembleDebug` builds the APK.
 - `just` (task runner), `zstd`, `qemu` for the VMs; `sshpass` makes the dev loop password-less.
 
 ## Working on it
