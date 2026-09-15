@@ -185,7 +185,7 @@ section{display:none}section.active{display:block}
       const f=fits[p.id]||{fits:true,reason:''};
       const d=document.createElement('label'); d.className='pack'+(f.fits?'':' nofit')+(p.id===chosen?' sel':'');
       // "fits your machine" at a glance: the largest always-loaded model against the memory budget, and the pack against free disk
-      const prof=st.profile||{};const budgetGb=(prof.budget_mb||0)/1024, freeGb=(prof.disk_free_mb||0)/1024;
+      const prof=st.profile||{};const budgetGb=(prof.budget_mb||0)/1024, freeGb=((prof.disk_free_mb||0)+(prof.models_present_mb||0))/1024;
       const biggest=Math.max(0,...((p.models||[]).filter(m=>!m.optional).map(m=>m.size_gb||0)));
       const bar=(label,val,max,unit)=>{const pct=max>0?Math.min(100,Math.round(val/max*100)):0;const over=max>0&&val>max;return `<div class="fit"><span>${label}</span><div class="bar"><div class="fill${over?' over':''}" style="width:${pct}%"></div></div><span class="n">${val.toFixed(1)} of ${max.toFixed(0)} ${unit}</span></div>`};
       const bars=(budgetGb||freeGb)?`<div class="fits">${budgetGb?bar('memory',biggest,budgetGb,'GB'):''}${freeGb?bar('disk',p.disk_gb||0,freeGb,'GB'):''}</div>`:'';

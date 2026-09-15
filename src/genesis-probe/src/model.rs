@@ -44,6 +44,9 @@ pub struct Profile {
     pub gpus: Vec<Gpu>,
     pub ram_mb: u64,
     pub cpu: Cpu,
+    /// Model files already on the models volume: they count as free space for the pack that owns them.
+    #[serde(default)]
+    pub models_present_mb: u64,
     /// Free space on the models volume (/var/lib/genesis or the given path) in MB.
     pub disk_free_mb: u64,
     /// Unified memory (Apple Silicon, some APUs): GPU shares system RAM.

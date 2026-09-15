@@ -78,9 +78,16 @@ fn parse_fake(spec: &str) -> Result<(Vec<Gpu>, u64, u64, bool)> {
 }
 
 pub fn build_profile(gpus: Vec<Gpu>, ram_mb: u64, cpu: Cpu, disk_free_mb: u64, unified: bool, host_os: &str, packs: &[model::PackFile]) -> Profile {
+    build_profile_with(gpus, ram_mb, cpu, disk_free_mb, 0, unified, host_os, packs)
+}
+
+/// `models_present_mb` is what already sits on the models volume: a pack whose files are downloaded
+/// still fits after the download filled the disk, so that space counts as free for the fit check.
+pub fn build_profile_with(gpus: Vec<Gpu>, ram_mb: u64, cpu: Cpu, disk_free_mb: u64, models_present_mb: u64, unified: bool, host_os: &str, packs: &[model::PackFile]) -> Profile {
     let (budget_mb, budget_kind) = select::budget(&gpus, ram_mb, unified);
-    let (fits, recommended) = select::evaluate(packs, &gpus, ram_mb, unified, budget_mb, disk_free_mb);
-    let mut profile = Profile { version: 1, probed_at: now(), host_os: host_os.into(), gpus, ram_mb, cpu, disk_free_mb, unified_memory: unified, budget_mb, budget_kind, recommended_pack: recommended, packs: fits, notes: vec![] };
+    let effective_free = if disk_free_mb > 0 { disk_free_mb + models_present_mb } else { 0 };
+    let (fits, recommended) = select::evaluate(packs, &gpus, ram_mb, unified, budget_mb, effective_free);
+    let mut profile = Profile { version: 1, probed_at: now(), host_os: host_os.into(), gpus, ram_mb, cpu, models_present_mb, disk_free_mb, unified_memory: unified, budget_mb, budget_kind, recommended_pack: recommended, packs: fits, notes: vec![] };
     profile.notes = select::notes_for(&profile);
     profile
 }
@@ -102,7 +109,8 @@ fn main() -> Result<()> {
         let raw = detect::detect(&cli.sysfs, &cli.procfs);
         let unified = raw.gpus.iter().any(|g| g.vendor == GpuVendor::Apple);
         let disk = detect::disk_free_mb(&cli.models_dir);
-        build_profile(raw.gpus, raw.ram_mb, raw.cpu, disk, unified, &raw.host_os, &packs)
+        let present = models_present_mb(&cli.models_dir);
+        build_profile_with(raw.gpus, raw.ram_mb, raw.cpu, disk, present, unified, &raw.host_os, &packs)
     };
 
     if cli.write {
@@ -188,6 +196,12 @@ mod tests {
     }
 
     #[test]
+    fn installed_pack_still_fits_on_a_full_disk() {
+        let (gpus, ram, unified) = (vec![], 8 * 1024, false);
+        let p = build_profile_with(gpus, ram, Cpu::default(), 500, 4 * 1024, unified, "fake", &packs());
+        assert!(p.recommended_pack.is_some(), "a downloaded pack must still fit: {:?}", p.packs.iter().map(|f| (&f.id, &f.reason)).collect::<Vec<_>>());
+    }
+    #[test]
     fn low_disk_blocks_big_packs() {
         assert_eq!(rec("gpu=nvidia,vram=24,ram=64,disk=20").as_deref(), Some("cpu"));
     }
@@ -227,4 +241,19 @@ mod tests {
         assert!(cpu.avx2 && cpu.avx512);
         assert_eq!(cpu.model, "AMD Ryzen 9 7950X");
     }
+}
+
+/// Bytes of model files already under the models directory (one level of role folders), in MB.
+fn models_present_mb(dir: &std::path::Path) -> u64 {
+    let mut total = 0u64;
+    if let Ok(roles) = std::fs::read_dir(dir) {
+        for r in roles.flatten() {
+            if let Ok(files) = std::fs::read_dir(r.path()) {
+                for f in files.flatten() {
+                    if let Ok(md) = f.metadata() { if md.is_file() { total += md.len(); } }
+                }
+            }
+        }
+    }
+    total / (1024 * 1024)
 }
