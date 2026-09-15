@@ -66,7 +66,7 @@ ol.next{padding-left:22px;max-width:70ch}ol.next li{margin-bottom:7px}
 <div class="meta"><span>updated 2026-09-14</span><span>200+ commits on main</span><span>github.com/matijagorsek/genesis</span></div>
 
 <div class="tiles">
-  <div class="tile"><div class="k">Phase 0 tasks</div><div class="v">3 / 3 <span class="pill ok">pass</span></div><div class="s">shell, repo edit, kanban app, all with a local 27B</div></div>
+  <div class="tile"><div class="k">Verified</div><div class="v">VM + phone <span class="pill ok">real</span></div><div class="s">fresh-disk run, 0.1 to 0.2 upgrade, an iPhone paired; real hardware next</div></div>
   <div class="tile"><div class="k">Image</div><div class="v">3.80 GB</div><div class="s">ghcr.io/matijagorsek/genesis:0.1 · strict lint · +70 MB over base</div></div>
   <div class="tile"><div class="k">Boot test</div><div class="v">pass <span class="pill ok">CI + Mac</span></div><div class="s">KVM on the runner; native arm64 VM on the Mac boots to login in under a minute</div></div>
   <div class="tile"><div class="k">Release</div><div class="v">v0.2 <span class="pill ok">green</span></div><div class="s">x86_64, arm64 and NVIDIA flavours, signed; desktop, maker, voice, browser, terminal, updates, all verified in booted VMs</div></div>
@@ -96,7 +96,7 @@ ol.next{padding-left:22px;max-width:70ch}ol.next li{margin-bottom:7px}
 <tr><td>Complete desktop</td><td>Firefox, Dolphin, Konsole, Kate, Okular, Gwenview, Haruna, Elisa, KCalc, Discover, System Settings, Ark, Spectacle, System Monitor as RPMs; LibreOffice, Thunderbird, VLC, GIMP, Krita, Bazaar preinstalled as Flatpaks once online. Genesis look-and-feel, wallpaper, login screen, panel; Plasma Setup masked; Aurora welcome removed.</td><td><span class="pill ok">built (v0.1.28 pending)</span></td></tr>
 <tr><td>Distribution</td><td>Download page at matijagorsek.github.io/genesis, signed images (sigstore), background updates applied on restart, NVIDIA flavour, arm64 flavour, Genesis module in System Settings.</td><td><span class="pill ok">built</span></td></tr>
 <tr><td>arm64 flavour</td><td>Genesis on plain Fedora bootc with Plasma installed by the image, for Apple Silicon and ARM machines. Built and verified natively on the founder's Mac under Apple's hypervisor: boot under a minute, models answer in seconds. CI attaches arm64 disk parts to every release.</td><td><span class="pill ok">built</span></td></tr>
-<tr><td>Trust surface and one door</td><td>Status widget in the dock (model, network use, sandbox), select-to-act at Meta+Shift+Space, Genesis Settings page (models, default autonomy, voice, undo history), plain-verb permission cards, Keep / Undo toast, starter prompts, Made-here gallery. Verified live in a v0.1.34 session through the SSH dev loop, which also found and fixed the missing-panel bug.</td><td><span class="pill ok">built</span></td></tr>
+<tr><td>Trust surface and one door</td><td>Status widget in the dock (model, network use, sandbox), select-to-act at Meta+Shift+Space, screen question at Meta+Shift+A, Genesis Settings page (models, default autonomy, voice, undo history), plain-verb permission cards, Keep / Undo toast, starter prompts, Made-here gallery. Verified live in a v0.1.34 session through the SSH dev loop, which also found and fixed the missing-panel bug.</td><td><span class="pill ok">built</span></td></tr>
 <tr><td>Browser control</td><td>Agent drives its own headless Chromium: open, read (text + numbered elements), click, type, screenshot. Private profile, permission-gated, page reads taint the session.</td><td><span class="pill ok">built</span></td></tr>
 <tr><td>Voice in and out</td><td>whisper.cpp and Piper in the image, optional stt and tts models in every pack, hold-to-talk and a speaker toggle in the maker. Speech never leaves the machine.</td><td><span class="pill ok">built</span></td></tr>
 <tr><td>Maker workspace and launcher</td><td>"What do you want to make?" → templates → the agent scaffolds a real project, writes it, runs it, and the live preview sits in the middle; steer from the side, install as an app, undo. KRunner "ask …" and Meta+Space open it on Plasma. Proven: a pomodoro timer made by the local 27B from one sentence.</td><td><span class="pill ok">built</span></td></tr>
@@ -108,7 +108,7 @@ ol.next{padding-left:22px;max-width:70ch}ol.next li{margin-bottom:7px}
 <tr><td>Safety</td><td>Sandbox tiers T0 to T4, btrfs snapshots and undo, agent as its own user, everything local as a visible fact.</td><td><span class="pill warn">Phase 1</span></td></tr>
 </tbody></table></div>
 
-<h2>Phase 0: does the core loop work on local models?</h2>
+<h2>History: Phase 0, does the core loop work on local models?</h2>
 <p>Run on the M4 Max with three models resident behind one endpoint. All three tasks passed on the first attempt.</p>
 <div class="tablewrap"><table>
 <thead><tr><th>Task</th><th>Result</th><th>Notes</th></tr></thead>
@@ -125,7 +125,7 @@ ol.next{padding-left:22px;max-width:70ch}ol.next li{margin-bottom:7px}
 <tr><td>Qwen3-Embedding-0.6B</td><td>search</td><td class="num">&lt;1 s</td><td class="num">1024 dims</td></tr>
 </tbody></table></div>
 
-<h2>The image and the pipeline</h2>
+<h2>The image and the pipeline (as first built; today: five jobs, three flavours, signed, captured)</h2>
 <div class="pipe">
   <div class="step ok"><div class="n">1 · done</div>free disk, pull base</div>
   <div class="step ok"><div class="n">2 · done</div>build, strict bootc lint</div>
@@ -138,7 +138,7 @@ ol.next{padding-left:22px;max-width:70ch}ol.next li{margin-bottom:7px}
 </div>
 <p>Fourteen CI runs. Run 10 was the first fully green pipeline; run 14 added a Rust test job and shipped the permission broker inside the image, verified by the boot test. Run 17 closed the hostname item after in-VM diagnostics showed why two earlier fixes could not work; run 21 shipped the hardware probe and verified the first-boot profile. Each failure was a distinct pipeline issue, not an image problem: podman lacking Docker's heredoc syntax, a registry pull timeout, an old podman flag, runner disk exhausted, a missing distro definition for an OS named "genesis", KVM device permissions, and a boot script typing before the shell was ready. All fixed, and a full audit removed the next ones in line: 2 GB release asset limit, private-repo artifact quota, and three bugs in the test script.</p>
 
-<h2>Proof of first boot</h2>
+<h2>History: proof of first boot (0.1.7)</h2>
 <p>Serial console from CI run 7 on 2026-09-11, trimmed. This is Genesis booting from its own disk image under KVM, logging in, and passing its checks.</p>
 <pre><span class="d">GRUB</span>   <span class="g">*Genesis 0.1.7 (Fedora bootc 44) (ostree:0)</span>
 <span class="d">[0.000000]</span> Command line: BOOT_IMAGE=(hd0,gpt3)/boot/ostree/default-…/vmlinuz-7.1.8-200.fc44.x86_64

@@ -11,19 +11,19 @@ permission-gated and undoable.
 
 | | |
 |---|---|
-| ![Desktop](docs/screens/real/desktop-v0.1.47.png) | ![Login](docs/screens/real/login-v0.1.47.png) |
-| The desktop, release v0.1.47 booted in QEMU | The login screen, same boot |
-| ![Maker](docs/screens/real/maker-v0.1.47.png) | ![App menu](docs/screens/real/menu-v0.1.34.png) |
-| The maker, opened after first run | The application menu (v0.1.34 session) |
+| ![Desktop](docs/screens/latest/04-desktop.png) | ![Login](docs/screens/latest/02-login.png) |
+| The desktop, captured by CI from the latest release | The login screen, same capture |
+| ![Maker](docs/screens/fresh-run/03-pomodoro-made-by-the-2B-model.png) | ![App menu](docs/screens/latest/05-app-menu.png) |
+| The maker after building a pomodoro timer on a fresh disk (2B model, CPU) | The application menu |
 
 Automatic screenshots from the latest release: [docs/screens/latest](docs/screens/latest). Phone pairing and replies, captured in the VM with an Android emulator: [docs/screens/phone](docs/screens/phone). A fresh-disk run of a downloaded release as a new user: [docs/screens/fresh-run](docs/screens/fresh-run). Release notes: [docs/releases/0.2.md](docs/releases/0.2.md). Preview renderings: [docs/screens/preview](docs/screens/preview).
 
 <p align="center"><img src="docs/screens/latest/04-desktop.png" width="49%" alt="Genesis desktop, captured from the latest release"> <img src="docs/screens/latest/03-first-run.png" width="49%" alt="Genesis first run, captured from the latest release"></p>
-What changed in each release: [Releases](../../releases) (notes are generated from the commits).
+What changed: [docs/releases/0.2.md](docs/releases/0.2.md) for people, [Releases](../../releases) for every build (notes generated from the commits).
 Design brief: [docs/genesis-brief.html](docs/genesis-brief.html) · Design plan: [docs/genesis-design-plan.html](docs/genesis-design-plan.html)
 · Decision log: [docs/decisions.md](docs/decisions.md) · Walkthrough: [docs/genesis-walkthrough.html](docs/genesis-walkthrough.html).
 
-## What works today (v0.1.34 and the next release)
+## What works today (0.2)
 
 - **Bootable image and installer ISO**, built and boot-tested in CI on every push; releases carry a
   qcow2 disk and the ISO ([Releases](../../releases)).
@@ -65,7 +65,7 @@ Design brief: [docs/genesis-brief.html](docs/genesis-brief.html) · Design plan:
 - **Voice**: hold-to-talk (whisper.cpp; the more accurate "small" model on machines with 16 GB or a GPU) with a
   chime and glow the instant you press, and spoken replies (Piper, English for now), all local.
 - **Ask about the screen**: Meta+Shift+A, select a region, ask; the local vision model answers (every pack
-  ships a vision projector from 0.1.103). Notification and clipboard, nothing leaves the machine.
+  ships a vision projector since 0.2). Notification and clipboard, nothing leaves the machine.
 - **Your files, on request**: opt folders in under Settings and the maker can search your notes, documents,
   PDFs and code ("what did I write about the trip?"). A local SQLite index, refreshed every 20 minutes.
 - **Signed model packs**: pack definitions are OCI artifacts on GHCR, signed with the Genesis key and
@@ -103,7 +103,8 @@ switch to the NVIDIA flavour afterwards: `sudo bootc switch ghcr.io/matijagorsek
 
 **On an Apple Silicon Mac**, use the arm64 flavour, which runs natively under Apple's hypervisor at
 full speed, models included: download the `genesis-<version>-arm64.qcow2.zst.*.part` files, join them
-the same way, and run `just vm-dev-arm`. The arm64 flavour is Genesis on plain Fedora bootc with the
+the same way, and run `just vm-dev-arm` (or `prototype/vm-dev-arm-monitor.command` for a 4K monitor:
+the window zooms to fit and Plasma runs at 2x). The arm64 flavour is Genesis on plain Fedora bootc with the
 Plasma desktop installed by the image (Aurora, the x86_64 base, publishes no arm64 image). Measured on
 an M4 Max: boot to login under a minute, first model reply in about 10 seconds, about 6 tokens/s on the tiny
 pack on the CPU, `ask` answers in about 7 seconds.
@@ -113,10 +114,11 @@ pack on the CPU, `ask` answers in about 7 seconds.
 Fast loop, no image build:
 
 ```bash
-just vm-dev            # boots the last downloaded disk with a window and SSH (port 2222); the VM has
-                       # internet, so the wizard can download the tiny pack. On Apple Silicon this VM is
-                       # emulated x86_64: the desktop is fine, model answers take minutes (see decision 45)
-just vm-push           # cross-compiles the daemons in Docker and copies them into the running VM
+just vm-dev-arm        # Apple Silicon: the arm64 disk under Apple's hypervisor, SSH on port 2223,
+                       # window zooms to fit; GENESIS_VM_MEM / CPUS / XRES / YRES tune it
+just vm-dev            # elsewhere (or emulated on a Mac, slow): the x86_64 disk, SSH on port 2222
+GENESIS_VM_PORT=2223 prototype/vm-push.sh   # cross-compiles the daemons in Docker, copies them into the
+                       # running VM (bootc usr-overlay) and restarts the services; no image rebuild
 prototype/serial-cmd.py iso/output/dev/serial.sock 'cmd'   # run commands over the serial console
 just firstrun          # the wizard, natively on this Mac, at http://127.0.0.1:11510
 just workspace         # the maker, natively, at http://127.0.0.1:11520 (needs `just up`)
@@ -131,8 +133,11 @@ just image             # podman/docker build of the bootc image
 just iso               # installer ISO via bootc-image-builder
 ```
 
-CI (`.github/workflows/build-image.yml`): Rust tests and policy diff → image build (strict
-`bootc container lint`, ~45 image self-checks) → push to GHCR → qcow2 → KVM boot test → release.
+CI (`.github/workflows/build-image.yml`): Rust tests, policy diff and a RustSec audit → x86_64 image
+(strict `bootc container lint`, ~75 self-checks) → push to GHCR, signed keyless and with the release key →
+qcow2 → KVM boot test and screenshots → release; then the ISO, the arm64 and the NVIDIA flavours.
+Base images are pinned by digest and moved forward weekly (`bump-base.yml`); pack definitions and the
+tiny/cpu model files are published as signed artifacts (`publish-packs.yml`, `publish-models.yml`).
 
 ## Layout
 
@@ -148,7 +153,7 @@ templates/           maker templates (genesis.json: dev/run commands)
 iso/                 bootc-image-builder config and distro definition
 prototype/           macOS dev scripts, router config, VM boot/screenshot/dev-loop scripts
 docs/                brief, decisions, status board, previews, screenshots
-examples/            recorded real runs (Phase 0 tasks, gated install, pomodoro app)
+examples/            recorded real runs (the first tasks, a gated install, the checklist app made in the VM)
 ```
 
 ## Optional: Claude, with your own account
