@@ -172,8 +172,7 @@ RUN set -eux; \
     echo "$SUM  /tmp/babel.tgz" | sha256sum -c -; \
     mkdir -p /usr/lib/babel; tar -xzf /tmp/babel.tgz -C /usr/lib/babel; rm -f /tmp/babel.tgz; \
     /usr/bin/genesis-babel-brand; \
-    ln -sf /usr/lib/babel/bin/codium /usr/bin/babel; \
-    test -x /usr/bin/babel
+    test -x /usr/bin/babel && test -x /usr/lib/babel/bin/codium
 
 # llama-swap: model router (Go, static upstream binary)
 RUN set -eux; \

@@ -3,7 +3,7 @@ Type=Application
 Name=Babel
 GenericName=Code editor
 Comment=The Genesis IDE: every language, with the maker at your side
-Exec=/usr/bin/babel --ozone-platform-hint=auto %F
+Exec=/usr/bin/babel %F
 Icon=babel
 Terminal=false
 StartupWMClass=Babel

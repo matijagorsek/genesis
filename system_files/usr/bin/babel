@@ -1,0 +1,21 @@
+#!/usr/bin/bash
+# Babel, the Genesis IDE (Code-OSS via VSCodium under /usr/lib/babel). On first start, seed the user
+# settings that an extension cannot set as defaults (telemetry off, no update checks, no trust prompts).
+U="${XDG_CONFIG_HOME:-$HOME/.config}/Babel/User"
+if [ ! -f "$U/settings.json" ]; then
+  mkdir -p "$U"
+  cat > "$U/settings.json" <<'EOF'
+{
+  "workbench.colorTheme": "Genesis Dark",
+  "workbench.startupEditor": "none",
+  "telemetry.telemetryLevel": "off",
+  "update.mode": "none",
+  "extensions.autoCheckUpdates": false,
+  "security.workspace.trust.enabled": false,
+  "window.titleBarStyle": "custom",
+  "editor.fontFamily": "'IBM Plex Mono', 'JetBrains Mono', monospace",
+  "editor.fontSize": 14
+}
+EOF
+fi
+exec /usr/lib/babel/bin/codium --ozone-platform-hint=auto "$@"

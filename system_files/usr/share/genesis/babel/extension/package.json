@@ -108,15 +108,9 @@
     "configurationDefaults": {
       "workbench.colorTheme": "Genesis Dark",
       "workbench.startupEditor": "none",
-      "telemetry.telemetryLevel": "off",
-      "update.mode": "none",
-      "extensions.autoCheckUpdates": false,
       "editor.fontFamily": "'IBM Plex Mono', 'JetBrains Mono', monospace",
       "editor.fontSize": 14,
-      "terminal.integrated.fontFamily": "'IBM Plex Mono', monospace",
-      "window.titleBarStyle": "custom",
-      "workbench.activityBar.location": "default",
-      "security.workspace.trust.enabled": false
+      "terminal.integrated.fontFamily": "'IBM Plex Mono', monospace"
     }
   },
   "capabilities": {
