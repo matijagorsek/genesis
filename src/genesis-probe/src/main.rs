@@ -245,8 +245,10 @@ mod tests {
 
 /// Bytes of model files already under the models directory (one level of role folders), in MB.
 fn models_present_mb(dir: &std::path::Path) -> u64 {
+    // the CLI's --models-dir is the volume root (/var/lib/genesis); the files live under models/<role>/
+    let dir = if dir.join("models").is_dir() { dir.join("models") } else { dir.to_path_buf() };
     let mut total = 0u64;
-    if let Ok(roles) = std::fs::read_dir(dir) {
+    if let Ok(roles) = std::fs::read_dir(&dir) {
         for r in roles.flatten() {
             if let Ok(files) = std::fs::read_dir(r.path()) {
                 for f in files.flatten() {
