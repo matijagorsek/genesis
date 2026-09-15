@@ -57,7 +57,7 @@ class MakerView {
       if (m.type === "undo") await api("POST", `/api/sessions/${this.session}/undo`, {});
       if (m.type === "open") vscode.commands.executeCommand("genesis.openMaker");
       if (m.type === "openFolder" && m.path) vscode.commands.executeCommand("vscode.openFolder", vscode.Uri.file(m.path), { forceNewWindow: false });
-      if (m.type === "ready") this.health();
+      if (m.type === "ready") { this.health(); if (this.session) { this.seen = 0; this.post({ type: "started", id: this.session, text: this.pendingText || "" }); this.start(); } }
       if (m.type === "attach" && m.id) this.attach(m.id);
     });
     view.onDidDispose(() => { this.stop(); this.view = null; });
@@ -76,7 +76,9 @@ class MakerView {
     try { mode = JSON.parse(fs.readFileSync(path.join(process.env.XDG_CONFIG_HOME || path.join(process.env.HOME || "", ".config"), "genesis", "settings.json"), "utf8")).default_mode || mode; } catch {}
     const r = await api("POST", "/api/sessions", { mode, project });
     if (r.status !== 200 || !r.body.id) { this.post({ type: "error", text: (r.body && r.body.error) || "could not start" }); return; }
-    this.session = r.body.id; this.seen = 0; this.answered = new Set();
+    this.session = r.body.id; this.seen = 0; this.answered = new Set(); this.pendingText = text;
+    // the sidebar may still be opening (Ctrl+Alt+Space from anywhere): wait for it briefly
+    for (let i = 0; i < 20 && !this.view; i++) await new Promise((res) => setTimeout(res, 150));
     this.post({ type: "started", id: this.session, text });
     await api("POST", `/api/sessions/${this.session}/prompt`, { text });
     this.start();
