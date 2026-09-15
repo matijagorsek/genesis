@@ -34,6 +34,8 @@ table{width:100%;border-collapse:collapse;font-size:13px}td,th{text-align:left;p
 <section id="undo"><h2>Undo history</h2><p class="d">Every job that changed something outside its project was snapshotted first. Undo from the maker, or with <span class="mono">genesis-txd undo &lt;id&gt;</span> in a terminal.</p><div id="history"></div></section>
 </main>
 <script>
+  // every call to this daemon carries the per-boot token the page was served with
+  const GENESIS_TOKEN='__GENESIS_TOKEN__';(function(){const f=window.fetch.bind(window);window.fetch=(u,o)=>{o=o||{};const h=new Headers(o.headers||{});h.set('X-Genesis-Token',GENESIS_TOKEN);o.headers=h;return f(u,o)}})();
 (async function(){
   const $=s=>document.querySelector(s);const esc=t=>String(t==null?'':t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   document.getElementById('back').addEventListener('click',()=>{location.href='/'});

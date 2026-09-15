@@ -24,6 +24,8 @@ body.listening .wrap{box-shadow:inset 0 0 0 2px var(--accent),inset 0 0 40px rgb
   <div class="foot" aria-hidden="true"><span><kbd>Enter</kbd> make it</span><span><kbd>Esc</kbd> close</span><span><kbd>hold 🎤</kbd> talk</span><span>Everything runs here. Nothing is sent anywhere.</span></div>
 </div>
 <script>
+  // every call to this daemon carries the per-boot token the page was served with
+  const GENESIS_TOKEN='__GENESIS_TOKEN__';(function(){const f=window.fetch.bind(window);window.fetch=(u,o)=>{o=o||{};const h=new Headers(o.headers||{});h.set('X-Genesis-Token',GENESIS_TOKEN);o.headers=h;return f(u,o)}})();
 (function(){
   // Localisation: the person's language from the browser (KDE sets it from System Settings). English is the source.
   const I18N={
@@ -41,7 +43,7 @@ body.listening .wrap{box-shadow:inset 0 0 0 2px var(--accent),inset 0 0 40px rgb
   // what is on the phone right now (KDE Connect notification sync); replies go back through the phone
   async function phoneNotes(){try{const r=await (await fetch('/api/phone/notifications')).json();const box=document.getElementById('phoneNotes');const list=(r.notifications||[]).slice(0,4);
     if(!list.length){box.hidden=true;box.innerHTML='';return}
-    box.innerHTML=list.map(n=>`<div class="pn"><span class="app">${n.app}</span><b>${(n.title||'').replace(/</g,'&lt;')}</b><span class="t">${(n.text||'').replace(/</g,'&lt;')}</span>${n.can_reply?`<input placeholder="Reply from here…" data-d="${n.device}" data-i="${n.id}" aria-label="Reply to ${n.title}">`:''}</div>`).join('');box.hidden=false;
+    box.innerHTML=list.map(n=>`<div class="pn"><span class="app">${(n.app||'').replace(/</g,'&lt;')}</span><b>${(n.title||'').replace(/</g,'&lt;')}</b><span class="t">${(n.text||'').replace(/</g,'&lt;')}</span>${n.can_reply?`<input placeholder="Reply from here…" data-d="${n.device}" data-i="${n.id}" aria-label="Reply to ${n.title}">`:''}</div>`).join('');box.hidden=false;
     box.querySelectorAll('input').forEach(i=>i.addEventListener('keydown',async e=>{if(e.key==='Enter'&&i.value.trim()){e.preventDefault();const t=i.value.trim();i.disabled=true;await fetch('/api/phone/reply',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({device:i.dataset.d,id:i.dataset.i,text:t})});i.value='';i.placeholder='Sent';setTimeout(phoneNotes,1500)}}))}catch(e){}}
   phoneNotes();setInterval(phoneNotes,10000);
   const STARTERS=['a checklist app that saves to a file','a pomodoro timer with a bell','rename the photos in a folder by date taken','a simple website for a club','a word-count tool for text files'];

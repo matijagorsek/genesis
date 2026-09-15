@@ -78,6 +78,9 @@ struct Daemon {
     model: String,
     broker: Arc<Mutex<Broker>>,
     sessions: Mutex<HashMap<String, (Arc<Shared>, Arc<Mutex<Option<Agent>>>)>>,
+    /// Where we listen (Host header must match) and the per-boot token state-changing calls must carry.
+    listen: String,
+    token: String,
 }
 
 fn new_shared(id: &str, mode: Mode, project: &str, model: &str) -> Arc<Shared> {
@@ -143,7 +146,7 @@ fn main() -> Result<()> {
         Cmd::Serve { listen } => {
             let server = Server::http(&listen).map_err(|e| anyhow!("listen {}: {}", listen, e))?;
             tracing::info!(listen = %listen, endpoint = %cli.endpoint, model = %cli.model, "genesis-agentd serving");
-            let d = Arc::new(Daemon { endpoint: cli.endpoint.clone(), model: cli.model.clone(), broker, sessions: Mutex::new(HashMap::new()) });
+            let d = Arc::new(Daemon { endpoint: cli.endpoint.clone(), model: cli.model.clone(), broker, sessions: Mutex::new(HashMap::new()), listen: listen.to_string(), token: load_or_create_token("agentd") });
             for req in server.incoming_requests() {
                 let d = d.clone();
                 std::thread::spawn(move || { let _ = handle(&d, req); });
@@ -190,8 +193,24 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
     let url = req.url().to_string();
     let path: Vec<&str> = url.split('?').next().unwrap_or("/").trim_matches('/').split('/').collect();
     let method = req.method().clone();
+    // The front door: only our own pages (same origin) and local programs holding the token may talk to
+    // this daemon. A web page open in a browser cannot: cross-site requests carry Origin / Sec-Fetch-Site,
+    // and a rebound DNS name fails the Host check.
+    if !same_origin(&req, &d.listen) {
+        return req.respond(json_response(&serde_json::json!({"error": "forbidden: not a Genesis origin"}), 403)).map_err(|e| anyhow!(e));
+    }
+    if method != Method::Get && header(&req, "X-Genesis-Token") != Some(d.token.as_str()) {
+        return req.respond(json_response(&serde_json::json!({"error": "unauthorized: missing Genesis token"}), 401)).map_err(|e| anyhow!(e));
+    }
+    let limit: usize = match path.as_slice() { ["api", "vision"] => 32 << 20, ["api", "transcribe"] => 16 << 20, _ => 1 << 20 };
+    if req.body_length().unwrap_or(0) > limit {
+        return req.respond(json_response(&serde_json::json!({"error": "request body too large"}), 413)).map_err(|e| anyhow!(e));
+    }
     let mut raw: Vec<u8> = Vec::new();
-    let _ = req.as_reader().read_to_end(&mut raw);
+    { use std::io::Read; let _ = req.as_reader().take(limit as u64 + 1).read_to_end(&mut raw); }
+    if raw.len() > limit {
+        return req.respond(json_response(&serde_json::json!({"error": "request body too large"}), 413)).map_err(|e| anyhow!(e));
+    }
     if method == Method::Post && path.as_slice() == ["api", "transcribe"] {
         let resp = match voice::transcribe(&raw) {
             Ok(text) => json_response(&serde_json::json!({"text": text}), 200),
@@ -209,11 +228,11 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
         return req.respond(resp).map_err(|e| anyhow!(e));
     }
     let resp = match (method, path.as_slice()) {
-        (Method::Get, [""]) | (Method::Get, ["index.html"]) | (Method::Get, ["workspace"]) => Response::from_string(WORKSPACE_HTML).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
+        (Method::Get, [""]) | (Method::Get, ["index.html"]) | (Method::Get, ["workspace"]) => Response::from_string(WORKSPACE_HTML.replace("__GENESIS_TOKEN__", &d.token)).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
         (Method::Get, ["api", "health"]) => json_response(&serde_json::json!({"ok": true, "endpoint": d.endpoint, "model": served_model(&d.endpoint, &d.model), "sandbox": sandbox::bwrap_available(), "voice": voice::available(), "speech": voice::speech_available(), "default_project": default_project()}), 200),
         (Method::Get, ["api", "templates"]) => json_response(&maker::list_templates(), 200),
-        (Method::Get, ["palette"]) => Response::from_string(PALETTE_HTML).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
-        (Method::Get, ["settings"]) => Response::from_string(SETTINGS_HTML).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
+        (Method::Get, ["palette"]) => Response::from_string(PALETTE_HTML.replace("__GENESIS_TOKEN__", &d.token)).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
+        (Method::Get, ["settings"]) => Response::from_string(SETTINGS_HTML.replace("__GENESIS_TOKEN__", &d.token)).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
         (Method::Get, ["api", "system"]) => json_response(&system_overview(d), 200),
         (Method::Post, ["api", "system", "theme"]) => {
             let want = serde_json::from_str::<serde_json::Value>(&body).ok().and_then(|v| v.get("theme").and_then(|m| m.as_str()).map(|s| s.to_string())).unwrap_or_else(|| "toggle".into());
@@ -280,13 +299,17 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
             },
             None => json_response(&serde_json::json!({"error": "expected {path}"}), 400),
         },
-        (Method::Post, ["api", "open"]) => match serde_json::from_str::<serde_json::Value>(&body).ok().and_then(|v| v.get("path").and_then(|p| p.as_str()).map(|s| s.to_string())) {
-            Some(p) if std::path::Path::new(&p).exists() => match std::process::Command::new("xdg-open").arg(&p).spawn() {
-                Ok(_) => json_response(&serde_json::json!({"opened": true}), 200),
-                Err(e) => json_response(&serde_json::json!({"error": e.to_string()}), 503),
-            },
-            _ => json_response(&serde_json::json!({"error": "expected an existing {path}"}), 400),
-        },
+        (Method::Post, ["api", "open"]) => {
+            let v: serde_json::Value = serde_json::from_str(&body).unwrap_or(serde_json::Value::Null);
+            let p = v.get("path").and_then(|p| p.as_str()).unwrap_or("").to_string();
+            match openable(&p) {
+                Ok(canon) => match std::process::Command::new("xdg-open").arg(&canon).spawn() {
+                    Ok(_) => json_response(&serde_json::json!({"opened": true, "path": canon.display().to_string()}), 200),
+                    Err(e) => json_response(&serde_json::json!({"error": e.to_string()}), 503),
+                },
+                Err(e) => json_response(&serde_json::json!({"error": e.to_string()}), 400),
+            }
+        }
         (Method::Get, ["api", "activity"]) => json_response(&recent_activity(40), 200),
         (Method::Get, ["api", "notices"]) => json_response(&maker::notices(std::path::Path::new(&default_project())), 200),
         (Method::Get, ["api", "claude"]) => json_response(&claude_status(), 200),
@@ -682,4 +705,43 @@ fn vision_answer(endpoint: &str, question: &str, png_b64: &str) -> anyhow::Resul
         }
         Err(e) => Err(anyhow::anyhow!("model router: {}", e)),
     }
+}
+
+/// Per-boot secret shared with our own pages and local helpers (0600 under XDG_RUNTIME_DIR).
+fn token_path(name: &str) -> std::path::PathBuf {
+    let rt = std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".into());
+    std::path::PathBuf::from(rt).join("genesis").join(format!("{}.token", name))
+}
+fn load_or_create_token(name: &str) -> String {
+    let p = token_path(name);
+    if let Ok(t) = std::fs::read_to_string(&p) { if t.trim().len() >= 32 { return t.trim().to_string(); } }
+    let t = format!("{}{}", uuid::Uuid::new_v4().simple(), uuid::Uuid::new_v4().simple());
+    if let Some(d) = p.parent() { let _ = std::fs::create_dir_all(d); }
+    use std::os::unix::fs::OpenOptionsExt;
+    if let Ok(mut f) = std::fs::OpenOptions::new().write(true).create(true).truncate(true).mode(0o600).open(&p) {
+        use std::io::Write;
+        let _ = f.write_all(t.as_bytes());
+    }
+    t
+}
+fn header<'a>(req: &'a Request, name: &'static str) -> Option<&'a str> {
+    req.headers().iter().find(|h| h.field.equiv(name)).map(|h| h.value.as_str())
+}
+/// Same origin only: Host is ours; Origin, when a browser sends one, is ours; Sec-Fetch-Site is not cross-site.
+fn same_origin(req: &Request, listen: &str) -> bool {
+    let host_ok = header(req, "Host").map(|h| h == listen).unwrap_or(false);
+    let origin_ok = match header(req, "Origin") { None => true, Some(o) => o == format!("http://{}", listen) };
+    let sfs_ok = matches!(header(req, "Sec-Fetch-Site"), None | Some("same-origin") | Some("none"));
+    host_ok && origin_ok && sfs_ok
+}
+/// What /api/open may hand to xdg-open: an existing file or folder under the projects or exports
+/// directories, resolved through symlinks, and never a launcher or executable.
+fn openable(p: &str) -> anyhow::Result<std::path::PathBuf> {
+    let canon = std::fs::canonicalize(p).map_err(|_| anyhow!("no such file"))?;
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/nonexistent".into());
+    let roots = [format!("{}/Projects", home), format!("{}/Genesis", home), format!("{}/Documents/Genesis", home)];
+    if !roots.iter().any(|r| canon.starts_with(r)) { return Err(anyhow!("only things Genesis made or exported can be opened from here")); }
+    let name = canon.file_name().map(|n| n.to_string_lossy().to_lowercase()).unwrap_or_default();
+    if name.ends_with(".desktop") || name.ends_with(".sh") || name.ends_with(".run") || name.ends_with(".appimage") { return Err(anyhow!("launchers are not opened from here")); }
+    Ok(canon)
 }

@@ -441,3 +441,19 @@ mod tests {
         assert!(text.contains("xdg-open http://127.0.0.1:5300/"));
     }
 }
+
+/// The dev command a preview would run for this project, and whether it is exactly what the shipped
+/// template says (placeholders aside). Anything else was written by the model or the user.
+pub fn preview_command(project: &Path) -> Option<(String, bool)> {
+    let t: Template = serde_json::from_str(&std::fs::read_to_string(project.join("genesis.json")).ok()?).ok()?;
+    let name = project.file_name().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+    let norm = |c: &str| c.replace("{port}", "PORT").replace("{name}", &name).replace(&t.dev.port.to_string(), "PORT");
+    let mine = norm(&t.dev.cmd);
+    let dir = std::env::var("GENESIS_TEMPLATES").unwrap_or_else(|_| "/usr/share/genesis/templates".into());
+    let trusted = std::fs::read_dir(dir).ok().map(|rd| rd.filter_map(|e| e.ok()).any(|e| {
+        std::fs::read_to_string(e.path().join("genesis.json")).ok()
+            .and_then(|s| serde_json::from_str::<Template>(&s).ok())
+            .map(|tt| norm(&tt.dev.cmd) == mine).unwrap_or(false)
+    })).unwrap_or(false);
+    Some((t.dev.cmd.replace("{port}", &t.dev.port.to_string()).replace("{name}", &name), trusted))
+}

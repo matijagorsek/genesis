@@ -271,7 +271,16 @@ impl Agent {
             "read_file" | "list_dir" => i.reads = vec![path("path")],
             "write_file" | "edit_file" => i.writes = vec![path("path")],
             "scaffold" => i.writes = vec![self.scaffold_dest(&s("name")).display().to_string()],
-            "preview_start" | "preview_stop" => i.command = Some(format!("{} {}", name, self.target_project(args).display())),
+            "preview_stop" => i.command = Some(format!("{} {}", name, self.target_project(args).display())),
+            "preview_start" => {
+                // the dev command comes from the project's genesis.json, which the model can rewrite: a command that
+                // is not the template's own is classified as what it really is, and as a change to the project
+                let project = self.target_project(args);
+                match crate::maker::preview_command(&project) {
+                    Some((cmd, trusted)) if !trusted => { i.command = Some(cmd); i.writes = vec![project.display().to_string()]; }
+                    _ => i.command = Some(format!("preview_start {}", project.display())),
+                }
+            }
             "browser_open" => i.network.domains = vec![browser::Browser::host(&s("url"))],
             "browser_screenshot" => i.writes = vec![path("path")],
             "install_app" => {

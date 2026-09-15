@@ -16,7 +16,7 @@ ENV CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=x86_64-linux-gnu-gcc \
 WORKDIR /src
 COPY src/ /src/
 RUN case "${TARGETARCH:-amd64}" in arm64) T=aarch64-unknown-linux-gnu;; *) T=x86_64-unknown-linux-gnu;; esac; \
-    cargo build --release --target $T -p genesis-permd -p genesis-probe -p genesis-firstrun -p genesis-agentd -p genesis-txd -p genesis-krunner -p genesis-ask \
+    cargo build --release --locked --target $T -p genesis-permd -p genesis-probe -p genesis-firstrun -p genesis-agentd -p genesis-txd -p genesis-krunner -p genesis-ask \
  && for b in genesis-permd genesis-probe genesis-firstrun genesis-agentd genesis-txd genesis-krunner genesis-ask; do install -D -m 0755 target/$T/release/$b /out/usr/bin/$b; done
 
 # ---- stage 1b: genesis-window (Qt WebEngine), built on Fedora so it links against the image's Qt ------

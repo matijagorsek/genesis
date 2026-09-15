@@ -56,6 +56,8 @@ struct App {
     cli: Cli,
     progress: Shared,
     settings: Mutex<Settings>,
+    /// Per-boot token our page carries on every state-changing call (/run/genesis/firstrun.token).
+    token: String,
 }
 
 fn json_response<T: Serialize>(v: &T, status: u16) -> Response<std::io::Cursor<Vec<u8>>> {
@@ -104,8 +106,21 @@ fn handle(app: &Arc<App>, mut req: Request) -> Result<bool> {
     let path = url.split('?').next().unwrap_or("/").to_string();
     let method = req.method().clone();
     let mut finish = false;
+    // same front door as genesis-agentd: our own pages and token holders only (this daemon runs as root)
+    if !same_origin(&req, &app.cli.listen) {
+        let _ = req.respond(json_response(&serde_json::json!({"error": "forbidden: not a Genesis origin"}), 403));
+        return Ok(false);
+    }
+    if method != Method::Get && header(&req, "X-Genesis-Token") != Some(app.token.as_str()) {
+        let _ = req.respond(json_response(&serde_json::json!({"error": "unauthorized: missing Genesis token"}), 401));
+        return Ok(false);
+    }
+    if req.body_length().unwrap_or(0) > (1 << 20) {
+        let _ = req.respond(json_response(&serde_json::json!({"error": "request body too large"}), 413));
+        return Ok(false);
+    }
     let resp = match (method, path.as_str()) {
-        (Method::Get, "/") | (Method::Get, "/index.html") => Response::from_string(UI_HTML).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
+        (Method::Get, "/") | (Method::Get, "/index.html") => Response::from_string(UI_HTML.replace("__GENESIS_TOKEN__", &app.token)).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
         (Method::Get, "/api/state") => json_response(&state(app), 200),
         (Method::Get, "/api/phone") => json_response(&phone(&["status"]), 200),
         (Method::Post, "/api/phone/action") => {
@@ -246,7 +261,7 @@ fn main() -> Result<()> {
     let server = Server::http(&cli.listen).map_err(|e| anyhow::anyhow!("listen {}: {}", cli.listen, e))?;
     tracing::info!(listen = %cli.listen, "genesis-firstrun serving the wizard");
     let exit_on_finish = cli.exit_on_finish;
-    let app = Arc::new(App { cli, progress: Arc::new(Mutex::new(Progress { state: "idle".into(), ..Default::default() })), settings: Mutex::new(Settings::default()) });
+    let app = Arc::new(App { cli, progress: Arc::new(Mutex::new(Progress { state: "idle".into(), ..Default::default() })), settings: Mutex::new(Settings::default()), token: load_or_create_token() });
     for req in server.incoming_requests() {
         match handle(&app, req) {
             Ok(true) if exit_on_finish => {
@@ -278,4 +293,29 @@ fn plan_for(pack: &packs::Pack, models_dir: &std::path::Path) -> Result<Vec<pack
         return Ok(packs::plan_signed(&sp, models_dir));
     }
     packs::plan(pack, models_dir, &packs::hf_files)
+}
+
+fn token_path() -> std::path::PathBuf {
+    if std::path::Path::new("/run/genesis").is_dir() { std::path::PathBuf::from("/run/genesis/firstrun.token") }
+    else { std::path::PathBuf::from(std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".into())).join("genesis-firstrun.token") }
+}
+/// Readable by local users (the page is served with it anyway); what matters is that browsers cannot read files.
+fn load_or_create_token() -> String {
+    let p = token_path();
+    if let Ok(t) = std::fs::read_to_string(&p) { if t.trim().len() >= 32 { return t.trim().to_string(); } }
+    let mut buf = [0u8; 32];
+    if let Ok(mut f) = std::fs::File::open("/dev/urandom") { use std::io::Read; let _ = f.read_exact(&mut buf); }
+    let t: String = buf.iter().map(|b| format!("{:02x}", b)).collect();
+    use std::os::unix::fs::OpenOptionsExt;
+    if let Ok(mut f) = std::fs::OpenOptions::new().write(true).create(true).truncate(true).mode(0o644).open(&p) { use std::io::Write; let _ = f.write_all(t.as_bytes()); }
+    t
+}
+fn header<'a>(req: &'a Request, name: &'static str) -> Option<&'a str> {
+    req.headers().iter().find(|h| h.field.equiv(name)).map(|h| h.value.as_str())
+}
+fn same_origin(req: &Request, listen: &str) -> bool {
+    let host_ok = header(req, "Host").map(|h| h == listen).unwrap_or(false);
+    let origin_ok = match header(req, "Origin") { None => true, Some(o) => o == format!("http://{}", listen) };
+    let sfs_ok = matches!(header(req, "Sec-Fetch-Site"), None | Some("same-origin") | Some("none"));
+    host_ok && origin_ok && sfs_ok
 }

@@ -134,6 +134,8 @@ body.listening header{box-shadow:inset 0 -2px 0 var(--accent)}body.listening tex
 </main>
 
 <script>
+  // every call to this daemon carries the per-boot token the page was served with
+  const GENESIS_TOKEN='__GENESIS_TOKEN__';(function(){const f=window.fetch.bind(window);window.fetch=(u,o)=>{o=o||{};const h=new Headers(o.headers||{});h.set('X-Genesis-Token',GENESIS_TOKEN);o.headers=h;return f(u,o)}})();
 (function(){
   // Localisation: the person's language from the browser (KDE sets it from System Settings). English is the source.
   const I18N={
