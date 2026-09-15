@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Genesis</title>
 <style>
-:root{--bg:#10161e;--panel:#161d27;--panel-2:#1d2631;--ink:#e6ebf1;--ink-2:#a9b4c1;--ink-3:#6f7a89;--line:#232c37;--accent:#5fb5bd;--accent-ink:#08181a;--good:#6ccf94;--warn:#e0a84a;--bad:#ef7b7b;--mono:ui-monospace,Menlo,Consolas,monospace}
+:root{--bg:#10161e;--panel:#161d27;--panel-2:#1d2631;--ink:#e6ebf1;--ink-2:#a9b4c1;--ink-3:#8894a3;--line:#232c37;--accent:#5fb5bd;--accent-ink:#08181a;--good:#6ccf94;--warn:#e0a84a;--bad:#ef7b7b;--mono:ui-monospace,Menlo,Consolas,monospace}
 *{box-sizing:border-box}
 html,body{height:100%}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans",sans-serif;font-size:14px;line-height:1.5;display:grid;grid-template-rows:auto 1fr;height:100vh}
@@ -99,6 +99,7 @@ body.listening header{box-shadow:inset 0 -2px 0 var(--accent)}body.listening tex
 <section id="start">
   <h1>What do you want to make?</h1>
   <p class="sub">Describe an app, a tool or a script. Genesis builds it here with local models, shows it running, and can put it in your app menu.</p>
+  <p class="sub" id="routerNote" hidden style="color:var(--warn)" role="status">Genesis has no language models running yet. Open <b>Set up models</b> from the app menu to download a pack that fits this machine; the desktop works as usual meanwhile.</p>
   <p class="sub" id="smallNote" hidden style="color:var(--warn)">This machine runs the small model only. It can scaffold and make simple changes; for real app building, install a bigger pack in Genesis Settings when the hardware allows.</p>
   <div class="ask"><textarea id="ask" aria-label="What do you want to make" placeholder="e.g. a pomodoro timer web app with a big countdown and a bell"></textarea><button id="micAsk" class="mic" title="Hold to talk" hidden>🎤</button><button class="primary" id="go">Make it</button></div>
   <div class="where">
@@ -119,6 +120,7 @@ body.listening header{box-shadow:inset 0 -2px 0 var(--accent)}body.listening tex
   <aside>
     <div class="title"><b id="ttl">…</b><div class="p" id="tproj"></div><div class="st" id="tstate"></div></div>
     <div class="steps" id="steps" role="log" aria-label="Steps"></div>
+<div id="elapsed" class="sub" hidden role="status" style="margin:6px 0 0;font-size:12px;color:var(--ink-3)"></div>
     <div id="a11yStatus" class="sr" role="status" aria-live="polite"></div>
     <div class="steer">
       <textarea id="steerText" aria-label="Change something" placeholder="Change something, add a feature, fix a bug… (Enter to send)"></textarea>
@@ -163,7 +165,7 @@ body.listening header{box-shadow:inset 0 -2px 0 var(--accent)}body.listening tex
       ctx=new AudioContext();src=ctx.createMediaStreamSource(stream);proc=ctx.createScriptProcessor(4096,1,1);chunks=[];proc.onaudioprocess=ev=>chunks.push(new Float32Array(ev.inputBuffer.getChannelData(0)));src.connect(proc);proc.connect(ctx.destination);btn.classList.add('rec');target.placeholder='Listening…'}
     async function stop(e){if(!ctx)return;e&&e.preventDefault();proc.disconnect();src.disconnect();stream.getTracks().forEach(t=>t.stop());const rate=ctx.sampleRate;await ctx.close();ctx=null;btn.classList.remove('rec');target.placeholder='Transcribing…';
       try{const r=await fetch('/api/transcribe',{method:'POST',headers:{'content-type':'audio/wav'},body:wavEncode(chunks,rate)});const j=await r.json();if(j.error)throw new Error(j.error);target.value=(target.value?target.value+' ':'')+j.text;target.placeholder='';if(onDone&&j.text)onDone(j.text)}catch(err){target.placeholder='Could not transcribe: '+err.message}}
-    btn.addEventListener('pointerdown',start);btn.addEventListener('pointerup',stop);btn.addEventListener('pointerleave',stop);
+    btn.addEventListener('pointerdown',start);btn.addEventListener('pointerup',stop);btn.addEventListener('keydown',e=>{if((e.key===' '||e.key==='Enter')&&!e.repeat){e.preventDefault();start(e)}});btn.addEventListener('keyup',e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();stop(e)}});btn.addEventListener('pointerleave',stop);
   }
   fetch('/api/health').then(r=>r.json()).then(h=>{if(h.voice){document.getElementById('micAsk').hidden=false;document.getElementById('micSteer').hidden=false}}).catch(()=>{});
   // Voice output: Piper on this machine reads the maker's replies aloud when the speaker is on.
@@ -180,7 +182,7 @@ body.listening header{box-shadow:inset 0 -2px 0 var(--accent)}body.listening tex
   let current=null, seen=0, poll=null, lastUrl=null;
   async function api(path,body){const r=await fetch(path,body?{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}:{});return r.json();}
   function showStart(on){$('#start').style.display=on?'flex':'none';$('#maker').classList.toggle('on',!on);}
-  async function health(){try{const h=await api('/api/health');document.getElementById('smallNote').hidden=!(h.model==='fast'||h.model==='auto');$('#badgeModel').textContent='model: '+h.model;$('#badgeSandbox').textContent=h.sandbox?'sandbox: bubblewrap':'sandbox: dev mode';if(!$('#project').value)$('#project').value=h.default_project||'';}catch(e){$('#badgeModel').textContent='model: unreachable'}}
+  async function health(){try{const h=await api('/api/health');document.getElementById('smallNote').hidden=!(h.model==='fast'||h.model==='auto');$('#badgeModel').textContent=h.router_ok?'model: '+h.model:'no models yet';const rn=document.getElementById('routerNote');if(rn){rn.hidden=!!h.router_ok}$('#go').disabled=!h.router_ok;$('#go').title=h.router_ok?'':'Genesis has no models running yet';$('#badgeSandbox').textContent=h.sandbox?'sandbox: bubblewrap':'sandbox: dev mode';if(!$('#project').value)$('#project').value=h.default_project||'';}catch(e){$('#badgeModel').textContent='model: unreachable'}}
   async function templates(){const t=await api('/api/templates');const box=$('#tpls');box.innerHTML='';(t||[]).forEach(x=>{const d=document.createElement('button');d.className='tpl';d.innerHTML=`<b>${x.name}</b><span>${x.description}</span>`;d.addEventListener('click',()=>{const a=$('#ask');a.value=(a.value.trim()?a.value.trim()+' ':'')+`(use the ${x.id} template)`;a.focus()});box.appendChild(d)})}
   async function recent(){const list=await api('/api/sessions');const r=$('#recent');r.innerHTML='';if(!Array.isArray(list)||!list.length)return;r.appendChild(document.createTextNode('Recent: '));list.slice(-6).reverse().forEach(s=>{const a=document.createElement('a');a.textContent=(s.active_project||s.project).split('/').pop()+' · '+s.state;a.addEventListener('click',()=>open(s.id));r.appendChild(a)})}
   function stepEl(e){const d=document.createElement('div');let cls='',icon='',text='';
@@ -221,6 +223,7 @@ body.listening header{box-shadow:inset 0 -2px 0 var(--accent)}body.listening tex
     const want=new Set((s.pending||[]).map(p=>p.request_id));
     document.querySelectorAll('.perm').forEach(x=>{if(!want.has(x.dataset.rid))x.remove()});
     (s.pending||[]).forEach(p=>{if(!document.querySelector('.perm[data-rid="'+p.request_id+'"]'))$('#perms').appendChild(permEl(p))});
+    if(s.state==='running'){if(!runSince)runSince=Date.now()}else runSince=null;lastState=s.state;
     const busy=(s.state==='running'||s.state==='waiting');$('#steerSend').disabled=busy;$('#installBtn').disabled=busy;
     $('#txInfo').innerHTML=s.transaction?`Changes outside the project are snapshotted (<code>${s.transaction}</code>).`:'';
     $('#undo').style.display=(s.transaction&&!busy)?'':'none';
@@ -231,7 +234,8 @@ body.listening header{box-shadow:inset 0 -2px 0 var(--accent)}body.listening tex
   function keepToast(){if(!current)return;api('/api/sessions/'+current).then(s=>{if(!s.transaction)return;const t=document.createElement('div');t.className='toast';t.innerHTML='<span>Done. Changes outside the project are kept unless you undo them.</span><button class="primary" data-k="1">Keep</button><button data-k="0">Undo</button>';
     t.querySelectorAll('button').forEach(b=>b.addEventListener('click',async()=>{if(b.dataset.k==='0'){const r=await api('/api/sessions/'+current+'/undo');$('#steps').appendChild(stepEl({kind:'snapshot',tx:'undo',detail:(r.log||[r.error]).join(' · ')}))}t.remove()}));
     document.body.appendChild(t);setTimeout(()=>t.remove(),20000)})}
-  function open(id){current=id;seen=0;lastUrl=null;$('#steps').innerHTML='';$('#perms').innerHTML='';$('#frame').hidden=true;$('#viewEmpty').hidden=false;$('#previewUrl').textContent='';showStart(false);refresh();if(!poll)poll=setInterval(refresh,700)}
+  let runSince=null,elapsedTimer=null,lastState='',tick=0;function elapsedTick(){const el=document.getElementById('elapsed');if(!el)return;if(!runSince){el.hidden=true;return}const sec=Math.round((Date.now()-runSince)/1000);el.hidden=sec<10;el.textContent=`Still working, ${sec>=60?Math.floor(sec/60)+' min '+(sec%60)+' s':sec+' s'} on this step. On a machine without a GPU a step can take minutes; the model is running here, not waiting on anything.`}
+  function open(id){current=id;seen=0;lastUrl=null;runSince=null;if(!elapsedTimer)elapsedTimer=setInterval(elapsedTick,1000);$('#steps').innerHTML='';$('#perms').innerHTML='';$('#frame').hidden=true;$('#viewEmpty').hidden=false;$('#previewUrl').textContent='';showStart(false);refresh();if(!poll)poll=setInterval(()=>{tick++;if((lastState==='done'||lastState==='error')&&tick%5)return;refresh()},700)}
   async function make(text){if(!text.trim())return;const r=await api('/api/sessions',{mode:$('#mode').value,project:$('#project').value});if(r.error){alert(r.error);return}open(r.id);await api('/api/sessions/'+r.id+'/prompt',{text:text.trim()})}
   $('#go').addEventListener('click',()=>make($('#ask').value));
   $('#ask').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();make($('#ask').value)}});

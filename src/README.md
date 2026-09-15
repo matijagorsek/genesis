@@ -1,15 +1,18 @@
-# src — Genesis daemons (Phase 1, Rust)
+# src: the Genesis daemons and surfaces (Rust, C++/QML)
 
-Cargo workspace. `cd src && cargo test`. Phase 0 proved the loop with off-the-shelf parts; the daemons below add what the OS must own.
+Cargo workspace; `cargo test` runs every test that needs no desktop.
 
-Planned crates, per the brief:
+| crate            | what it is |
+|------------------|------------|
+| genesis-permd    | permission broker: tiers, modes, taint, keyed audit chain, policy files, the adversarial battery |
+| genesis-agentd   | the maker: sessions, tools, sandbox (bubblewrap), previews, gallery, notices, voice, vision, phone and index endpoints; serves the workspace, palette and Settings pages from `ui/` |
+| genesis-firstrun | first-run wizard: hardware profile, packs, resumable verified downloads, router config, phone step |
+| genesis-probe    | hardware probe: GPUs, memory, disk, which packs fit |
+| genesis-txd      | transactions and undo: pre-images, rollback, history |
+| genesis-ask      | `ask` in the terminal and Ctrl+G |
+| genesis-krunner  | KRunner plugin: "Ask Genesis" from the launcher |
+| genesis-window   | Qt WebEngine window for the pages (C++) |
+| genesis-kcm      | the Genesis module in System Settings (QML) |
 
-| crate           | role                                                                 |
-|-----------------|----------------------------------------------------------------------|
-| genesis-gateway | OpenAI-compatible endpoint on 127.0.0.1:11500; routing by surface and intent; VRAM plan; cloud opt-in |
-| genesis-agentd  | embeds Goose; D-Bus `org.genesis.Agent1`; ACP over Unix socket for editors |
-| genesis-permd   | permission broker: tiers, modes, taint, audit chain, D-Bus. **Built.** Keyring broker: later |
-| genesis-txd     | transactions: btrfs snapshots, bootc/flatpak rollback, `genesis undo` |
-| genesis-indexd  | file watcher + embeddings + sqlite-vec hybrid search                  |
-| genesis-probe   | first-boot hardware detection → /etc/genesis/profile.json → pack      |
-| genesis-cli     | `genesis ask | do | undo | models | packs | doctor | apply`            |
+The permission policy that ships is generated from `genesis-permd` (`policy dump`) into
+`system_files/usr/share/genesis/policy.d/00-default.toml`; CI fails when the two drift.

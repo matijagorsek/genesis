@@ -229,7 +229,7 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
     }
     let resp = match (method, path.as_slice()) {
         (Method::Get, [""]) | (Method::Get, ["index.html"]) | (Method::Get, ["workspace"]) => Response::from_string(WORKSPACE_HTML.replace("__GENESIS_TOKEN__", &d.token)).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
-        (Method::Get, ["api", "health"]) => json_response(&serde_json::json!({"ok": true, "endpoint": d.endpoint, "model": served_model(&d.endpoint, &d.model), "sandbox": sandbox::bwrap_available(), "voice": voice::available(), "speech": voice::speech_available(), "default_project": default_project()}), 200),
+        (Method::Get, ["api", "health"]) => json_response(&serde_json::json!({"ok": true, "endpoint": d.endpoint, "router_ok": router_ok(&d.endpoint), "model": served_model(&d.endpoint, &d.model), "sandbox": sandbox::bwrap_available(), "voice": voice::available(), "speech": voice::speech_available(), "default_project": default_project()}), 200),
         (Method::Get, ["api", "templates"]) => json_response(&maker::list_templates(), 200),
         (Method::Get, ["palette"]) => Response::from_string(PALETTE_HTML.replace("__GENESIS_TOKEN__", &d.token)).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
         (Method::Get, ["settings"]) => Response::from_string(SETTINGS_HTML.replace("__GENESIS_TOKEN__", &d.token)).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
@@ -268,6 +268,13 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
             let (dev, id, text) = (g("device"), g("id"), g("text"));
             if dev.is_empty() || id.is_empty() || text.is_empty() { json_response(&serde_json::json!({"error": "device, id, text required"}), 400) }
             else { json_response(&phone(&["reply", &dev, &id, &text]), 200) }
+        }
+        (Method::Post, ["api", "history", id, "undo"]) => {
+            // undo from Settings, for jobs whose session is gone (after a re-login): straight through the store
+            match genesis_txd::Store::open(genesis_txd::default_store()).and_then(|st| st.load(id).and_then(|mut tx| st.rollback(&mut tx))) {
+                Ok(lines) => json_response(&serde_json::json!({"undone": true, "log": lines}), 200),
+                Err(e) => json_response(&serde_json::json!({"error": e.to_string()}), 500),
+            }
         }
         (Method::Get, ["api", "phone"]) => json_response(&phone(&["status"]), 200),
         (Method::Post, ["api", "phone", "action"]) => {
@@ -744,4 +751,9 @@ fn openable(p: &str) -> anyhow::Result<std::path::PathBuf> {
     let name = canon.file_name().map(|n| n.to_string_lossy().to_lowercase()).unwrap_or_default();
     if name.ends_with(".desktop") || name.ends_with(".sh") || name.ends_with(".run") || name.ends_with(".appimage") { return Err(anyhow!("launchers are not opened from here")); }
     Ok(canon)
+}
+
+/// Is the model router answering at all (quick, 1.5 s)? The badge and the start page say so before a job is started.
+fn router_ok(endpoint: &str) -> bool {
+    ureq::get(&format!("{}/models", endpoint.trim_end_matches('/'))).timeout(std::time::Duration::from_millis(1500)).call().is_ok()
 }

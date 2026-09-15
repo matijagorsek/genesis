@@ -1,7 +1,13 @@
+# Prototype (Phase 0, historical)
+
+This folder is the record of the first week, when the loop was proven with off-the-shelf parts. What is still in daily use: the VM scripts (`vm-dev*.sh`, `vm-push.sh`, the `.command` launchers), the capture scripts, `serial-cmd.py`. The Goose recipes are kept for the record only; the maker is `src/genesis-agentd`.
+
+---
+
 # Phase 0 prototype
 
 One local OpenAI-compatible endpoint (`http://127.0.0.1:8080/v1`) fronting three models,
-plus Goose as the agent. No Genesis code yet; this is glue around llama-swap, llama.cpp
+plus Goose as the agent. The Genesis code lives in src/; this folder holds the dev loop scripts and captures; this is glue around llama-swap, llama.cpp
 and Goose to answer "does the core loop feel good?".
 
 | Role  | Model (pack mac-36)              | Residency                 |

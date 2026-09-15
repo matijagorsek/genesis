@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Welcome to Genesis</title>
 <style>
-:root{--bg:#10161e;--panel:#161d27;--panel-2:#1d2631;--ink:#e6ebf1;--ink-2:#a9b4c1;--ink-3:#6f7a89;--line:#232c37;--accent:#5fb5bd;--accent-ink:#08181a;--good:#6ccf94;--warn:#e0a84a;--bad:#ef7b7b}
+:root{--bg:#10161e;--panel:#161d27;--panel-2:#1d2631;--ink:#e6ebf1;--ink-2:#a9b4c1;--ink-3:#8894a3;--line:#232c37;--accent:#5fb5bd;--accent-ink:#08181a;--good:#6ccf94;--warn:#e0a84a;--bad:#ef7b7b}
 *{box-sizing:border-box}
 html,body{height:100%}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans",sans-serif;font-size:15px;line-height:1.55}
@@ -104,9 +104,9 @@ section{display:none}section.active{display:block}
 <section id="s1">
   <h1>Downloading your models</h1>
   <p id="dlText">Preparing…</p>
-  <div class="prog"><i id="bar"></i></div>
+  <div class="prog" role="progressbar" aria-label="Download progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progWrap"><i id="bar"></i></div>
   <div class="mono" id="dlDetail"></div>
-  <div id="dlErr"></div>
+  <div id="dlErr" role="alert" aria-live="assertive"></div>
   <p class="small" style="margin-top:22px">You can leave this page; the download continues. When it finishes, the local AI service is configured automatically.</p>
   <div class="btns"><button id="btnNextPrivacy" disabled>Continue</button><button id="btnRetry" style="display:none">Retry</button></div>
 </section>
@@ -164,7 +164,7 @@ section{display:none}section.active{display:block}
   let state=null, chosen=null, plan=null, poll=null;
   const gb=b=>(b/1e9).toFixed(1)+' GB';
   const mb2gb=m=>(m/1024).toFixed(0);
-  function step(n){document.querySelectorAll('section').forEach((s,i)=>s.classList.toggle('active',i===n));document.querySelectorAll('#steps li').forEach((li,i)=>{li.className=i<n?'done':(i===n?'now':'')});}
+  function step(n){document.querySelectorAll('section').forEach((s,i)=>s.classList.toggle('active',i===n));document.querySelectorAll('#steps li').forEach((li,i)=>{li.className=i<n?'done':(i===n?'now':'');if(i===n)li.setAttribute('aria-current','step');else li.removeAttribute('aria-current')});}
   async function api(path,body){const r=await fetch(path,body?{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}:{});return r.json();}
   function renderHw(p){
     const hw=$('#hw'); hw.innerHTML='';
@@ -212,7 +212,7 @@ section{display:none}section.active{display:block}
   $('#btnPlan').addEventListener('click',async()=>{$('#btnPlan').disabled=true;$('#planInfo').textContent='Checking sizes…';const r=await api('/api/plan',{pack:chosen});$('#btnPlan').disabled=false;if(r.error){$('#planInfo').textContent='Could not reach the model registry: '+r.error;return}plan=r;const mins=Math.max(1,Math.round(r.bytes_total/(25e6)/60));$('#planInfo').textContent=`${r.files.length} files, ${gb(r.bytes_total)} · about ${mins} min at 25 MB/s`;$('#btnDownload').disabled=false});
   $('#btnDownload').addEventListener('click',async()=>{$('#btnDownload').disabled=true;const r=await api('/api/choose',{pack:chosen});if(r.error){$('#planInfo').textContent=r.error;$('#btnDownload').disabled=false;return}step(1);startPoll()});
   function showProgress(p){
-    const pct=p.bytes_total?Math.min(100,100*p.bytes_done/p.bytes_total):0;$('#bar').style.width=pct.toFixed(1)+'%';
+    const pct=p.bytes_total?Math.min(100,100*p.bytes_done/p.bytes_total):0;$('#bar').style.width=pct.toFixed(1)+'%';$('#progWrap').setAttribute('aria-valuenow',Math.round(pct));
     if(p.state==='planning'){$('#dlText').textContent='Checking the model registry…';}
     else if(p.state==='downloading'){$('#dlText').textContent=`${gb(p.bytes_done)} of ${gb(p.bytes_total)} · file ${Math.min(p.files_done+1,p.files_total)} of ${p.files_total}`;$('#dlDetail').textContent=p.current||'';}
     else if(p.state==='done'){$('#dlText').textContent=`Done: ${gb(p.bytes_total)} in ${p.files_total} files. The local AI service is configured.`;$('#dlDetail').textContent='';$('#bar').style.width='100%';$('#btnNextPrivacy').disabled=false;}

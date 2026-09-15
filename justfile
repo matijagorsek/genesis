@@ -1,4 +1,4 @@
-# Genesis Phase 0 — prototype tasks. Run `just` to list.
+# Genesis tasks. Run `just` to list.
 
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
@@ -49,25 +49,13 @@ status:
 smoke:
     prototype/smoke.sh {{endpoint}}
 
-# Open Goose against the local endpoint (model: code)
-goose model="code":
-    GOOSE_PROVIDER=openai OPENAI_HOST={{endpoint}} OPENAI_API_KEY=local GOOSE_MODEL={{model}} goose session
 
-# First feel without downloads: Goose against the Ollama models already installed
-quick model="qwen3-coder:30b":
-    GOOSE_PROVIDER=ollama OLLAMA_HOST=http://127.0.0.1:11434 GOOSE_MODEL={{model}} goose session
 
 # Free disk: list the pack on disk with sizes
 du:
     du -sh "{{models_dir}}"/* 2>/dev/null || echo "no models yet"
 
-# Headless agent run against the local endpoint, e.g. just run "list the 5 largest files here"
-run text model="code":
-    GOOSE_PROVIDER=openai OPENAI_HOST={{endpoint}} OPENAI_API_KEY=local GOOSE_MODEL={{model}} GOOSE_MODE=auto goose run --no-session --text "{{text}}"
 
-# Run a Goose recipe from prototype/goose/, e.g. just recipe kanban
-recipe name:
-    GOOSE_PROVIDER=openai OPENAI_HOST={{endpoint}} OPENAI_API_KEY=local GOOSE_MODEL=code GOOSE_MODE=auto goose run --no-session --recipe prototype/goose/{{name}}.yaml
 
 # Build the Genesis OCI image (x86_64) with Docker
 image tag="genesis:0.1":

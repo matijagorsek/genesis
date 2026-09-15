@@ -1,7 +1,7 @@
 <!doctype html>
 <html><head><meta charset="utf-8"><title>Genesis settings</title>
 <style>
-:root{--bg:#0b0f14;--panel:#161d27;--panel-2:#1d2631;--line:#232c37;--ink:#e6ebf1;--ink-2:#a9b4c1;--ink-3:#6f7a89;--accent:#5fb5bd;--good:#6ccf94;--warn:#e0a84a;--bad:#e16060;--mono:ui-monospace,Menlo,monospace}
+:root{--bg:#0b0f14;--panel:#161d27;--panel-2:#1d2631;--line:#232c37;--ink:#e6ebf1;--ink-2:#a9b4c1;--ink-3:#8894a3;--accent:#5fb5bd;--good:#6ccf94;--warn:#e0a84a;--bad:#e16060;--mono:ui-monospace,Menlo,monospace}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-size:14px}
 header{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel)}header b{font-size:15px}header .sp{flex:1}
 button,select{font:inherit;color:var(--ink);background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer}button.primary{background:var(--accent);border-color:var(--accent);color:#08181a;font-weight:600}
@@ -74,6 +74,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}td,th{text-align:left;p
   $('#phoneRefresh').addEventListener('click',()=>phoneAct('refresh'));
   $('#phoneCmds').addEventListener('click',async()=>{await phoneAct('commands');$('#phoneInfo').textContent='Commands sent to every paired phone.'});
   fetch('/api/activity').then(r=>r.json()).then(a=>{const rows=a.entries||[];$('#activity').innerHTML=rows.length?`<table><tr><th>When</th><th>Action</th><th>Decision</th></tr>${rows.map(e=>`<tr><td>${esc((e.ts||'').replace('T',' ').slice(0,16))}</td><td class="mono">${esc(e.tool||'')}${e.command?' · '+esc(String(e.command).slice(0,60)):''}</td><td>${esc(e.verdict||'')}${e.reason?' <span class="muted">'+esc(String(e.reason).slice(0,70))+'</span>':''}</td></tr>`).join('')}</table>`:'<p class="muted">No actions recorded yet.</p>'}).catch(()=>{});
-  const h=s.history||[];$('#history').innerHTML=h.length?`<table><tr><th>When</th><th>Job</th><th>Changes</th><th>Status</th></tr>${h.map(t=>`<tr><td>${esc((t.started_at||'').replace('T',' ').slice(0,16))}</td><td class="mono">${esc(t.id)}</td><td>${t.changes}</td><td>${esc(t.status)}</td></tr>`).join('')}</table>`:'<p class="muted">No job has changed anything outside its project yet.</p>';
+  const h=s.history||[];$('#history').innerHTML=h.length?`<table><tr><th>When</th><th>Job</th><th>Changes</th><th>Status</th><th></th></tr>${h.map(t=>`<tr><td>${esc((t.started_at||'').replace('T',' ').slice(0,16))}</td><td class="mono">${esc(t.id)}</td><td>${t.changes}</td><td>${esc(t.status)}</td><td>${/committed|kept|done/i.test(t.status||'')?`<button data-undo="${esc(t.id)}">Undo</button>`:''}</td></tr>`).join('')}</table>`:'<p class="muted">No job has changed anything outside its project yet.</p>';
+  $('#history').querySelectorAll('button[data-undo]').forEach(b=>b.addEventListener('click',async()=>{if(!confirm('Undo every change this job made outside its project?'))return;b.disabled=true;const r=await (await fetch('/api/history/'+b.dataset.undo+'/undo',{method:'POST',headers:{'content-type':'application/json'},body:'{}'})).json();b.textContent=r.undone?'Undone':(r.error||'Failed');}));
 })();
 </script></body></html>

@@ -67,7 +67,7 @@ cat genesis-VERSION.iso.*.part &gt; genesis.iso</pre>
     const x86=by(n=>n.includes('.qcow2.zst.')&&!n.includes('arm64'));const iso=by(n=>n.includes('.iso.'));const a64=by(n=>n.includes('arm64.qcow2.zst.'));
     const card=(title,tag,desc,assets,rec)=>{const d=document.createElement('div');d.className='card'+(rec?' rec':'');d.innerHTML=`<div class="tag">${tag}</div><h2>${title}</h2><p>${desc}</p>`;
       if(!assets.length){d.innerHTML+='<p class="files">not in this release</p>';return d}
-      d.innerHTML+=assets.map((a,i)=>`<a class="btn${i?' sec':''}" href="${a.browser_download_url}">Part ${i+1} · ${(a.size/1e9).toFixed(2)} GB</a>`).join('')+`<div class="files">${assets.map(a=>a.name).join('<br>')}</div>`;return d};
+      const sums=rel.assets.find(a=>a.name==='SHA256SUMS.'+(assets[0].name.includes('arm64')?'qcow2-arm64':(assets[0].name.includes('.iso.')?'iso':'qcow2')));d.innerHTML+=assets.map((a,i)=>`<a class="btn${i?' sec':''}" href="${a.browser_download_url}">Part ${i+1} · ${(a.size/1e9).toFixed(2)} GB</a>`).join('')+`<div class="files">${assets.map(a=>a.name).join('<br>')}${sums?`<br><a href="${sums.browser_download_url}">${sums.name}</a> · verify with <code>sha256sum -c</code>`:''}</div>`;return d};
     const dl=document.getElementById('dl');
     dl.appendChild(card('Apple Silicon Mac','arm64 disk · native speed','Runs in UTM or QEMU with Apple\'s hypervisor. Boots to the login screen in under a minute.',a64,arm));
     dl.appendChild(card('PC installer','x86_64 ISO','Install Genesis on a machine or in a VM.',iso,!arm));

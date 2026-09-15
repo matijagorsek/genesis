@@ -23,7 +23,7 @@ KCM.SimpleKCM {
         api("GET", "/api/activity", null, function(st, j) { if (st !== 200 || !j) return; var rows = (j.entries || []).slice(0, 12); activityText = rows.length ? rows.map(function(e) { return (e.ts || "").replace("T", " ").substring(0, 16) + "  " + (e.tool || "") + "  " + (e.verdict || "") }).join("\n") : "No actions recorded yet." })
     }
     Component.onCompleted: refresh()
-    Timer { interval: 5000; running: true; repeat: true; onTriggered: root.refresh() }
+    Timer { interval: 20000; running: true; repeat: true; onTriggered: root.refresh() }
 
     Kirigami.FormLayout {
         Kirigami.InlineMessage {

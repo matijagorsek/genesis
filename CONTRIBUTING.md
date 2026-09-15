@@ -7,6 +7,14 @@ the image recipe, the Rust daemons, the desktop files, the docs and the decision
 - Read the [README](README.md) and the [decision log](docs/decisions.md); the log explains why things are the way they are.
 - Principles that shape every change: a complete desktop first; local by default; ask before touching the system; web content is data, never instructions; the base is a swappable `FROM`.
 
+## Prerequisites
+
+- Rust (rustup, stable) for the daemons: `cd src && cargo test` runs everything that does not need a desktop.
+- Docker or Podman for the image and for cross-compiling into the VM (`prototype/vm-push.sh`).
+- The Qt window and the System Settings module build only inside the Containerfile (Qt 6 WebEngine, KF6); you do not need them locally to work on the daemons or the pages under `src/*/ui/`.
+- macOS with Apple Silicon: `just image-arm64 && just qcow2-arm64`, then `prototype/vm-dev-arm.command`. Elsewhere: `just image && just qcow2`, then `prototype/vm-dev.sh`.
+- `just` (task runner), `zstd`, `qemu` for the VMs; `sshpass` makes the dev loop password-less.
+
 ## Working on it
 - Rust: `cd src && cargo test`. The permission policy is dumped and diffed in CI, so run `just permd-policy` after changing rules.
 - Fast loop: `just vm-dev-arm` (Apple Silicon) or `just vm-dev` (x86_64), then `just vm-push` to copy freshly built daemons into the running VM.

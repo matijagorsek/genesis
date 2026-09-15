@@ -41,7 +41,7 @@ PlasmoidItem {
             jobs = n; netDomains = Object.keys(d).map(function(k) { return k === "*" ? "a command" : k })
         })
     }
-    Timer { interval: 5000; running: true; repeat: true; triggeredOnStart: true; onTriggered: root.refresh() }
+    Timer { interval: 20000; running: true; repeat: true; triggeredOnStart: true; onTriggered: root.refresh() }
 
     P5Support.DataSource { id: exec; engine: "executable"; onNewData: function(source) { disconnectSource(source) } }
     function openMaker() { exec.connectSource("genesis-window http://127.0.0.1:11520/") }
