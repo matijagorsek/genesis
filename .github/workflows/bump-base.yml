@@ -21,6 +21,7 @@ jobs:
         id: dig
         run: |
           set -euo pipefail
+          command -v skopeo >/dev/null || sudo apt-get install -y -q skopeo >/dev/null
           d() { skopeo inspect --raw "docker://$1" | sha256sum | cut -d' ' -f1; }
           echo "aurora=sha256:$(d ghcr.io/ublue-os/aurora:stable)" >> "$GITHUB_OUTPUT"
           echo "nvidia=sha256:$(d ghcr.io/ublue-os/aurora-nvidia-open:stable)" >> "$GITHUB_OUTPUT"

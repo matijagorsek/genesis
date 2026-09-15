@@ -168,6 +168,8 @@ own maker, palette and `ask` stay local.
 - **A closed front door.** The local daemons answer only their own pages and local helpers: same-origin
   checks plus a per-boot token, so a web page open in the browser cannot drive the maker; request
   bodies are capped and file opening is limited to what Genesis made. Reviewed adversarially (decision 70).
+- **Pinned and checked.** Base images by digest (moved forward weekly, as a commit), upstream binaries by
+  checksum, dependencies by lockfile with a RustSec audit in CI, the audit log chained with a key.
 - **Reviewed rules.** The permission policy is exercised by an adversarial test battery (keys read through a
   shell, login files, code piped from the network, disk wipes); every rule change must keep it green.
 - **Nothing secret in git.** CI fails if a credential-like string is committed; disks, run logs and local
