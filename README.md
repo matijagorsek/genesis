@@ -71,6 +71,9 @@ Design brief: [docs/genesis-brief.html](docs/genesis-brief.html) · Design plan:
 - **Signed model packs**: pack definitions are OCI artifacts on GHCR, signed with the Genesis key and
   verified by the same containers policy as the OS; every model download is checked against the sha256
   in the signed definition. Built-in definitions remain the offline fallback.
+- **Babel, the IDE**: Code-OSS (VSCodium, MIT) branded as Babel, every language VS Code speaks, with the
+  Genesis extension built in: the maker in the sidebar working on the open folder, permission cards
+  next to the code, "change this file", "ask about the selection", and the Genesis Dark theme.
 - **Phone app** (Android): the Genesis companion shows your jobs, raises permission cards as
   notifications you answer from the shade, starts a make from the phone, lists what was made and
   fetches one screenshot on demand, over your own network with a pinned

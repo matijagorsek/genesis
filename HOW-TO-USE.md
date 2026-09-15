@@ -68,6 +68,17 @@ Every job that changed something outside its project ends with **Keep / Undo**. 
 Undo history lists those jobs with an Undo button. In a terminal, `genesis-txd list` and
 `genesis-txd undo <id>` do the same.
 
+## Babel, the IDE
+
+Babel is in the dock and the app menu: a full code editor (Code-OSS, so every language, debugger and
+extension VS Code has), with Genesis built in.
+
+- **Genesis in the sidebar** (the ring icon): type what should change in the open folder, watch the
+  steps, answer the cards, steer, undo. It is the same maker, working on the folder you have open.
+- **Right-click in the editor**: "Ask about the selection" explains the selected code in the Genesis
+  output panel; "Change this file…" asks for a change to just that file.
+- **Ctrl+Alt+Space** anywhere in Babel: make something in this workspace.
+
 ## Ask, anywhere
 
 <p align="center"><img src="docs/screens/more/02-screen-region-asked.png" width="88%" alt="A screen region handed to "What is on my screen"; the local model described it in seven seconds"></p>
