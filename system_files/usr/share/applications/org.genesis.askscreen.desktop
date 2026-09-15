@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=Ask about the screen
+Name=What is on my screen
 Comment=Select a region of the screen and ask the local model about it
 Exec=/usr/bin/genesis-ask-screen
 Icon=genesis
