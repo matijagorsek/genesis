@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 """genesis-packs: signed model-pack definitions from GHCR.
 
-  refresh          pull every pack definition (ghcr.io/<owner>/genesis-packs:<id>) through podman, which
+  refresh          pull every pack definition (ghcr.io/<owner>/genesis-packs:<id>) through skopeo, which
                    enforces the containers signature policy (release key in /etc/pki/genesis/cosign.pub),
                    and keep the verified JSON under the packs state directory
   status           JSON: which packs have a signed definition, when it was resolved
@@ -14,7 +14,7 @@ import glob, json, os, subprocess, sys, tempfile
 
 REPO = os.environ.get("GENESIS_PACKS_REPO", "ghcr.io/matijagorsek/genesis-packs")
 BUILTIN = "/usr/share/genesis/packs"
-STATE = os.environ.get("GENESIS_PACKS_STATE", "/var/lib/genesis/packs/signed")
+STATE = os.environ.get("GENESIS_PACKS_STATE", os.path.join(os.environ.get("XDG_STATE_HOME", os.path.expanduser("~/.local/state")), "genesis", "packs"))
 
 
 def pack_ids():
@@ -22,25 +22,28 @@ def pack_ids():
 
 
 def refresh():
+    """skopeo copy applies /etc/containers/policy.json to the source (the release key must have signed the
+    artifact) and writes an OCI layout; the pack JSON is the single layer blob of that manifest."""
     os.makedirs(STATE, exist_ok=True)
     result = {"repo": REPO, "ok": [], "failed": {}}
     for pid in pack_ids():
         ref = f"{REPO}:{pid}"
         try:
-            pull = subprocess.run(["podman", "artifact", "pull", ref], capture_output=True, text=True, timeout=300)
-            if pull.returncode != 0:
-                result["failed"][pid] = pull.stderr.strip().splitlines()[-1][:300] if pull.stderr.strip() else "pull failed"
-                continue
             with tempfile.TemporaryDirectory() as td:
-                ext = subprocess.run(["podman", "artifact", "extract", ref, td], capture_output=True, text=True, timeout=120)
-                if ext.returncode != 0:
-                    result["failed"][pid] = ext.stderr.strip()[-300:] or "extract failed"
+                cp = subprocess.run(["skopeo", "copy", "--remove-signatures", f"docker://{ref}", f"oci:{td}:{pid}"], capture_output=True, text=True, timeout=300)
+                if cp.returncode != 0:
+                    err = cp.stderr.strip().splitlines()
+                    result["failed"][pid] = (err[-1] if err else "copy failed")[:300]
                     continue
-                files = [os.path.join(td, f) for f in os.listdir(td)]
-                if not files:
-                    result["failed"][pid] = "empty artifact"
+                index = json.load(open(os.path.join(td, "index.json")))
+                mdigest = index["manifests"][0]["digest"].split(":", 1)[1]
+                manifest = json.load(open(os.path.join(td, "blobs", "sha256", mdigest)))
+                layers = manifest.get("layers", [])
+                if len(layers) != 1:
+                    result["failed"][pid] = f"expected one layer, got {len(layers)}"
                     continue
-                doc = json.load(open(files[0]))
+                ldigest = layers[0]["digest"].split(":", 1)[1]
+                doc = json.load(open(os.path.join(td, "blobs", "sha256", ldigest)))
                 if doc.get("id") != pid or not doc.get("files"):
                     result["failed"][pid] = "unexpected content"
                     continue
@@ -49,7 +52,7 @@ def refresh():
                     json.dump(doc, f)
                 os.replace(tmp, os.path.join(STATE, f"{pid}.json"))
                 result["ok"].append(pid)
-        except (OSError, subprocess.TimeoutExpired, ValueError) as e:
+        except (OSError, subprocess.TimeoutExpired, ValueError, KeyError, IndexError) as e:
             result["failed"][pid] = str(e)[:300]
     return result
 

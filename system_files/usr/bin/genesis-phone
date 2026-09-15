@@ -255,15 +255,23 @@ def transcribe(path):
         return None
     wav = path + ".16k.wav"
     try:
-        if subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", path, "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", wav], capture_output=True, timeout=120).returncode != 0:
-            return None
+        try:
+            conv = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", path, "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", wav], capture_output=True, timeout=120).returncode
+        except OSError:
+            conv = -1  # no ffmpeg: a wav that is already 16 kHz mono still works
+        if conv != 0:
+            if path.lower().endswith(".wav"):
+                wav = path
+            else:
+                return None
         out = subprocess.run([cli, "-m", model, "-f", wav, "-nt", "-np"], capture_output=True, text=True, timeout=300)
         return " ".join(out.stdout.split()).strip() or None
     except (OSError, subprocess.TimeoutExpired):
         return None
     finally:
-        try: os.remove(wav)
-        except OSError: pass
+        if wav != path:
+            try: os.remove(wav)
+            except OSError: pass
 
 
 def watch_voice_notes():

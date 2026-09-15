@@ -80,7 +80,11 @@ pub struct SignedPack {
 pub struct SignedFile { pub role: String, pub repo: String, pub name: String, #[serde(default)] pub size: u64, pub sha256: String }
 
 pub fn signed_pack(id: &str) -> Option<SignedPack> {
-    let dir = std::env::var("GENESIS_PACKS_STATE").unwrap_or_else(|_| "/var/lib/genesis/packs/signed".into());
+    // per user, like the refresh timer that writes it: ~/.local/state/genesis/packs/<id>.json
+    let dir = std::env::var("GENESIS_PACKS_STATE").unwrap_or_else(|_| {
+        let base = std::env::var("XDG_STATE_HOME").ok().filter(|s| !s.is_empty()).unwrap_or_else(|| format!("{}/.local/state", std::env::var("HOME").unwrap_or_default()));
+        format!("{}/genesis/packs", base)
+    });
     let text = std::fs::read_to_string(Path::new(&dir).join(format!("{}.json", id))).ok()?;
     let sp: SignedPack = serde_json::from_str(&text).ok()?;
     if sp.id == id && !sp.files.is_empty() { Some(sp) } else { None }
