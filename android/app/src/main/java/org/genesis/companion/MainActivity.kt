@@ -1,6 +1,7 @@
 package org.genesis.companion
 
 import android.graphics.BitmapFactory
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -39,6 +40,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         // a pairing code handed over by intent (development, or a QR app that opens us): same as a scan
         intent?.getStringExtra("pair")?.let { Pairing.parse(it)?.save(this) }
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED)
+            requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1)
+        if (Pairing.load(this) != null) WatchService.start(this)
         setContent { GenesisTheme { App() } }
     }
 }
@@ -52,8 +56,8 @@ class MainActivity : ComponentActivity() {
     var pairing by remember { mutableStateOf(Pairing.load(ctx)) }
     Surface(Modifier.fillMaxSize(), color = Bg) {
         val p = pairing
-        if (p == null) PairScreen { pairing = it; it.save(ctx) }
-        else Home(Genesis(p), p) { p.forget(ctx); pairing = null }
+        if (p == null) PairScreen { pairing = it; it.save(ctx); WatchService.start(ctx) }
+        else Home(Genesis(p), p) { WatchService.stop(ctx); p.forget(ctx); pairing = null }
     }
 }
 

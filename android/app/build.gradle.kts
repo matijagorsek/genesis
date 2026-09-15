@@ -14,8 +14,22 @@ android {
         versionCode = 1
         versionName = "0.1"
     }
+    // a release keystore outside the repository: ~/.config/genesis-android/keystore.properties
+    val ksProps = java.util.Properties().apply {
+        val f = java.io.File(System.getProperty("user.home"), ".config/genesis-android/keystore.properties")
+        if (f.exists()) f.inputStream().use { load(it) }
+    }
+    signingConfigs {
+        if (ksProps.containsKey("storeFile")) create("release") {
+            storeFile = file(ksProps["storeFile"] as String); storePassword = ksProps["storePassword"] as String
+            keyAlias = ksProps["keyAlias"] as String; keyPassword = ksProps["keyPassword"] as String
+        }
+    }
     buildTypes {
-        release { isMinifyEnabled = false }
+        release {
+            isMinifyEnabled = false
+            if (ksProps.containsKey("storeFile")) signingConfig = signingConfigs.getByName("release")
+        }
     }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }

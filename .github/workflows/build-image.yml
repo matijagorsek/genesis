@@ -72,7 +72,7 @@ jobs:
       - name: Pull base image (retry on GHCR blob timeouts)
         run: |
           for i in 1 2 3 4 5 6; do
-            sudo podman pull ghcr.io/ublue-os/aurora:stable && break
+            sudo podman pull ghcr.io/ublue-os/aurora:stable@sha256:1faf35ec2a253c445e3802d946ee75d37fd9b61935398ba5084c7f488ba6db14 && break
             echo "pull attempt $i failed, waiting"; sleep 30
           done
           sudo podman image exists ghcr.io/ublue-os/aurora:stable
@@ -289,7 +289,7 @@ jobs:
 
       - name: Pull base images
         run: |
-          for img in quay.io/fedora/fedora-bootc:44 docker.io/library/rust:1-bookworm quay.io/fedora/fedora:44; do
+          for img in quay.io/fedora/fedora-bootc:44@sha256:0c138bc7c1593f50fc074411089531ff19cd3bc4430252ad9e4fb5c7412d5f44 docker.io/library/rust:1-bookworm quay.io/fedora/fedora:44; do
             for i in 1 2 3 4 5 6; do sudo podman pull --platform linux/arm64 $img && break; echo "pull attempt $i failed, waiting"; sleep 30; done
           done
 
@@ -380,7 +380,7 @@ jobs:
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/.ghcup || true
       - name: Pull base images
         run: |
-          for img in ghcr.io/ublue-os/aurora-nvidia-open:stable docker.io/library/rust:1-bookworm quay.io/fedora/fedora:44; do
+          for img in ghcr.io/ublue-os/aurora-nvidia-open:stable@sha256:70ac76354578bcda18280bd5904330ebb96c7c80c30855bbea689abf0ec12fee docker.io/library/rust:1-bookworm quay.io/fedora/fedora:44; do
             for i in 1 2 3 4 5 6; do sudo podman pull $img && break; echo "pull attempt $i failed, waiting"; sleep 30; done
           done
       - name: Login to GHCR
