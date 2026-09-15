@@ -64,7 +64,7 @@ Design brief: [docs/genesis-brief.html](docs/genesis-brief.html) · Design plan:
   sentence and press `Ctrl+G` to replace it with the command.
 - **Voice**: hold-to-talk (whisper.cpp; the more accurate "small" model on machines with 16 GB or a GPU) with a
   chime and glow the instant you press, and spoken replies (Piper, English for now), all local.
-- **Ask about the screen**: Meta+Shift+Space, select a region, ask; the local vision model answers (every pack
+- **Ask about the screen**: Meta+Shift+A, select a region, ask; the local vision model answers (every pack
   ships a vision projector from 0.1.103). Notification and clipboard, nothing leaves the machine.
 - **Your files, on request**: opt folders in under Settings and the maker can search your notes, documents,
   PDFs and code ("what did I write about the trip?"). A local SQLite index, refreshed every 20 minutes.

@@ -205,7 +205,7 @@ pub fn render_router_tuned(models_dir: &Path, port_base: u16, t: Tuning) -> Resu
     }
     if let Some(f) = find("code", false) {
         let mm = find("code", true).map(|m| format!(" --mmproj {}", m)).unwrap_or_default();
-        y.push_str(&format!("  code:\n    cmd: |\n      ${{server}} -m {}{}\n      -c 32768 --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0.0 --reasoning auto --reasoning-budget 4096\n      --cache-type-k q8_0 --cache-type-v q8_0\n    aliases: [ \"genesis-code\" ]\n    ttl: 600\n\n", f, mm));
+        y.push_str(&format!("  code:\n    cmd: |\n      ${{server}} -m {}{}\n      -c {} --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0.0 --reasoning auto --reasoning-budget {}\n      --cache-type-k q8_0 --cache-type-v q8_0\n    aliases: [ \"genesis-code\" ]\n    ttl: 600\n\n", f, mm, if t.ngl == 0 { 8192 } else { 32768 }, if t.ngl == 0 { 512 } else { 4096 }));
         big.push("code");
     }
     if let Some(f) = find("chat", false) {

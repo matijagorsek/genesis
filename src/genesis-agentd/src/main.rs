@@ -326,7 +326,7 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
             json_response(&list, 200)
         }
         (Method::Post, ["api", "sessions"]) => match serde_json::from_str::<NewSession>(&body) {
-            Ok(n) => match (parse_mode(&n.mode), std::fs::canonicalize(&n.project)) {
+            Ok(n) => match (parse_mode(&n.mode), std::fs::canonicalize(if n.project.trim().is_empty() { default_project() } else { n.project.clone() })) {
                 (Ok(mode), Ok(project)) => {
                     let id = uuid::Uuid::new_v4().to_string();
                     d.broker.lock().unwrap().open_session(&id, mode, vec![project.display().to_string()], "api")?;

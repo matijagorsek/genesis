@@ -39,7 +39,7 @@ for u in genesis-router.service; do [ -f "/usr/lib/systemd/system/$u" ] && ok "u
 [ -x /usr/bin/genesis-phone ] && [ -f /usr/lib/systemd/user/genesis-phone.service ] && [ -x /usr/bin/kdeconnectd ] && ok "phone bridge (KDE Connect, genesis-phone)" || fail "phone bridge missing"
 [ -x /usr/bin/genesis-packs ] && [ -f /usr/lib/systemd/user/genesis-packs.timer ] && grep -q genesis-packs /etc/containers/policy.json && ok "signed pack definitions (genesis-packs, policy)" || fail "genesis-packs missing"
 [ -x /usr/bin/genesis-index ] && [ -f /usr/lib/systemd/user/genesis-index.timer ] && [ -x /usr/bin/pdftotext ] && ok "local file index (genesis-index, pdftotext)" || fail "genesis-index missing"
-[ -x /usr/bin/genesis-ask-screen ] && [ -x /usr/bin/spectacle ] && grep -q askscreen /etc/xdg/kglobalshortcutsrc && ok "ask about the screen (spectacle, Meta+Shift+Space)" || fail "ask-screen missing"
+[ -x /usr/bin/genesis-ask-screen ] && [ -x /usr/bin/spectacle ] && grep -q askscreen /etc/xdg/kglobalshortcutsrc && ok "ask about the screen (spectacle, Meta+Shift+A)" || fail "ask-screen missing"
 [ -x /usr/bin/genesis-claude ] && [ -f /usr/share/applications/org.genesis.claude.desktop ] && ok "Claude (sign in with your account)" || fail "claude launcher"
 [ -x /usr/lib/genesis/piper/piper ] && ok "piper (voice output)" || fail "piper"
 [ -x /usr/lib/genesis/whisper/bin/whisper-cli ] && ok "whisper-cli (voice input)" || fail "whisper-cli"

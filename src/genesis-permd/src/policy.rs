@@ -501,7 +501,7 @@ impl CompiledPolicy {
                 raise(Tier::System, Some("path.system".into()), format!("writes system path {}", p));
             } else if self.system_user.is_match(&path) {
                 raise(Tier::SystemUser, Some("path.system_user".into()), format!("writes user-scope system path {}", p));
-            } else if in_roots(&path, &session.project_roots) || self.project_like.is_match(&path) {
+            } else if in_roots(&path, &session.project_roots) || in_roots(&path, &session.project_roots.iter().map(|r| canonical_path(r)).collect::<Vec<_>>()) || self.project_like.is_match(&path) {
                 raise(Tier::WriteProject, Some("path.project".into()), format!("writes inside project: {}", p));
             } else {
                 raise(Tier::WriteUser, Some("path.user".into()), format!("writes outside the project: {}", p));

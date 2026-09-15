@@ -58,7 +58,7 @@ cat genesis-VERSION.iso.*.part &gt; genesis.iso</pre>
 <p class="foot">Alpha. Test user on prebuilt disks: <span style="font-family:'IBM Plex Mono',monospace">genesis / genesis</span>.</p>
 <script>
 (async function(){
-  const isMac=/Mac/.test(navigator.platform)&&(navigator.userAgent.includes('Mac')); const arm=/arm|aarch64/i.test(navigator.userAgent)||isMac;
+  const isMac=/Mac/.test(navigator.platform)&&(navigator.userAgent.includes('Mac')); const arm=/arm|aarch64/i.test(navigator.userAgent); // browsers on Apple Silicon still claim Intel: Macs get both choices below
   try{
     const r=await fetch('https://api.github.com/repos/matijagorsek/genesis/releases?per_page=5');const rels=await r.json();
     const rel=rels.find(x=>x.assets&&x.assets.some(a=>a.name.includes('qcow2')))||rels[0];

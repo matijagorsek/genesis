@@ -1,0 +1,7 @@
+#!/usr/bin/bash
+# Reopen the model setup (the first-run wizard) after it was skipped or finished. Needs the marker
+# removed and the wizard service started, both root; polkit asks once.
+set -u
+pkexec sh -c 'rm -f /var/lib/genesis/first-run-done; systemctl start genesis-firstrun.service' || exit 1
+sleep 1
+exec /usr/bin/genesis-window --first-run

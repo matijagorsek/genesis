@@ -7,8 +7,6 @@ on:
   pull_request:
     paths: [Containerfile, system_files/**, iso/**, src/**]
   workflow_dispatch:
-  schedule:
-    - cron: "17 4 * * *"   # nightly: inherit Fedora/Aurora updates
 
 permissions:
   contents: write
@@ -198,11 +196,11 @@ jobs:
           EOF
           timeout 900 expect -f boot.exp
           echo "=== checks"
-          grep -q 'ID=genesis' boot-serial.log && echo "ok  os-release ID=genesis"
-          grep -qE '^enabled' boot-serial.log && echo "ok  genesis-router.service enabled"
-          grep -qE '^active|^inactive' boot-serial.log && echo "ok  socket state reported"
-          grep -q 'PROFILE-OK' boot-serial.log && echo "ok  first-boot profile written"
-          grep -q 'WIZARD-API recommended_pack' boot-serial.log && echo "ok  first-run wizard API answers"
+          grep -q 'ID=genesis' boot-serial.log && echo "ok  os-release ID=genesis" || { echo "missing: os-release ID=genesis"; exit 1; }
+          grep -qE '^enabled' boot-serial.log && echo "ok  genesis-router.service enabled" || { echo "missing: genesis-router.service enabled"; exit 1; }
+          grep -qE '^active|^inactive' boot-serial.log && echo "ok  socket state reported" || { echo "missing: socket state reported"; exit 1; }
+          grep -q 'PROFILE-OK' boot-serial.log && echo "ok  first-boot profile written" || { echo "missing: first-boot profile written"; exit 1; }
+          grep -q 'WIZARD-API recommended_pack' boot-serial.log && echo "ok  first-run wizard API answers" || { echo "missing: first-run wizard API answers"; exit 1; }
           grep -o 'recommended_pack[^,]*' boot-serial.log | head -1
 
       - name: Screenshots under KVM, headless (login, first run, desktop, menu, Genesis)

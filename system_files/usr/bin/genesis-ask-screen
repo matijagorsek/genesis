@@ -1,7 +1,7 @@
 #!/usr/bin/bash
 # Ask about a region of the screen, on this machine. Select a region (Spectacle), optionally type a
 # question, and the local vision model answers; the answer is shown as a notification and copied to
-# the clipboard. Bound to Meta+Shift+Space. Needs a pack whose fast model ships a vision projector
+# the clipboard. Bound to Meta+Shift+A. Needs a pack whose fast model ships a vision projector
 # (every pack does from 0.1.103); otherwise the answer says so.
 set -u
 shot=$(mktemp --suffix=.png)

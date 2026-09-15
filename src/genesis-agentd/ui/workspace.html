@@ -156,7 +156,7 @@ body.listening header{box-shadow:inset 0 -2px 0 var(--accent)}body.listening tex
   // Voice feedback within a few milliseconds of the press: a short chime and a glow, before the mic is even open.
   let __ac=null;function tone(f,ms,g){try{__ac=__ac||new (window.AudioContext||window.webkitAudioContext)();const o=__ac.createOscillator(),v=__ac.createGain();o.type='sine';o.frequency.value=f;v.gain.value=0;o.connect(v);v.connect(__ac.destination);const t=__ac.currentTime;v.gain.linearRampToValueAtTime(g||0.08,t+0.01);v.gain.exponentialRampToValueAtTime(0.0001,t+ms/1000);o.start(t);o.stop(t+ms/1000+0.02)}catch(e){}}
   function listenOn(btn){document.body.classList.add('listening');tone(880,140)}
-  function listenOff(btn){listenOff(btn);document.body.classList.remove('listening');tone(520,160)}
+  function listenOff(btn){btn.classList.remove('rec');document.body.classList.remove('listening');tone(520,160)}
   function holdToTalk(btn, target, onDone){
     let ctx,src,proc,chunks=[],stream;
     async function start(e){e.preventDefault();if(ctx)return;listenOn(btn);try{stream=await navigator.mediaDevices.getUserMedia({audio:true})}catch(err){btn.title='Microphone not available: '+err.message;listenOff(btn);return}

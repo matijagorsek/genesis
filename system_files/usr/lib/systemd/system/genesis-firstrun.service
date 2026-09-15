@@ -6,6 +6,7 @@ Wants=network-online.target
 ConditionPathExists=!/var/lib/genesis/first-run-done
 
 [Service]
+Environment=GENESIS_PACKS_STATE=/var/lib/genesis/packs
 Type=simple
 ExecStart=/usr/bin/genesis-firstrun
 Restart=on-failure

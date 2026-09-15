@@ -11,4 +11,4 @@ _launch=Meta+Shift+Space
 _launch=Meta+Shift+T
 
 [services][org.genesis.askscreen.desktop]
-_launch=Meta+Shift+Space
+_launch=Meta+Shift+A

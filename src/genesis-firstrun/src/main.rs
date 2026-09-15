@@ -171,6 +171,14 @@ fn handle(app: &Arc<App>, mut req: Request) -> Result<bool> {
                     app.progress.lock().unwrap().state = "planning".into();
                     match plan_for(&pack, &app.cli.models_dir) {
                         Ok(files) => {
+                            let need: u64 = files.iter().filter(|f| !std::path::Path::new(&f.dest).exists()).map(|f| f.size).sum();
+                            let free = free_bytes(&app.cli.models_dir);
+                            if free > 0 && need > free {
+                                app.progress.lock().unwrap().state = "idle".into();
+                                let resp = json_response(&serde_json::json!({ "error": format!("this pack needs {:.1} GB more and the models volume has {:.1} GB free; free some space or pick a smaller pack", need as f64 / 1e9, free as f64 / 1e9) }), 409);
+                                let _ = req.respond(resp);
+                                return Ok(false);
+                            }
                             app.settings.lock().unwrap().pack = Some(pack.id.clone());
                             let models_dir = app.cli.models_dir.clone();
                             let router_out = app.cli.router_out.clone();
@@ -318,4 +326,10 @@ fn same_origin(req: &Request, listen: &str) -> bool {
     let origin_ok = match header(req, "Origin") { None => true, Some(o) => o == format!("http://{}", listen) };
     let sfs_ok = matches!(header(req, "Sec-Fetch-Site"), None | Some("same-origin") | Some("none"));
     host_ok && origin_ok && sfs_ok
+}
+
+/// Free bytes on the filesystem holding a directory (0 when unknown).
+fn free_bytes(dir: &std::path::Path) -> u64 {
+    std::process::Command::new("df").args(["--output=avail", "-B1"]).arg(dir).output().ok()
+        .and_then(|o| String::from_utf8_lossy(&o.stdout).lines().nth(1).and_then(|l| l.trim().parse().ok())).unwrap_or(0)
 }

@@ -34,7 +34,16 @@ Rules: never finish before step 3 changed a file; do not install packages; keep 
 
 pub fn compact_model(model: &str) -> bool {
     let m = model.to_lowercase();
-    m == "fast" || m == "auto" || m.contains("tiny") || m.contains("-2b") || m.contains("-4b")
+    m == "fast" || m == "auto" || m.contains("tiny") || m.contains("-2b") || m.contains("-4b") || cpu_only_machine()
+}
+
+/// No real GPU in the hardware profile: every model is small enough to want the compact tool set.
+fn cpu_only_machine() -> bool {
+    let prof: serde_json::Value = std::fs::read_to_string("/etc/genesis/profile.json").ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(serde_json::Value::Null);
+    match prof.get("gpus").and_then(|g| g.as_array()) {
+        Some(g) => !g.iter().any(|x| { let n = x.get("name").and_then(|n| n.as_str()).unwrap_or("").to_lowercase(); !(n.contains("virtio") || n.contains("llvmpipe") || n.contains("qxl") || n.contains("vmware") || n.contains("bochs") || n.contains("other gpu")) }),
+        None => false,
+    }
 }
 
 pub fn tool_schemas_compact() -> Value {
@@ -278,7 +287,15 @@ impl Agent {
                 let project = self.target_project(args);
                 match crate::maker::preview_command(&project) {
                     Some((cmd, trusted)) if !trusted => { i.command = Some(cmd); i.writes = vec![project.display().to_string()]; }
-                    _ => i.command = Some(format!("preview_start {}", project.display())),
+                    Some((cmd, _)) => {
+                        i.command = Some(format!("preview_start {}", project.display()));
+                        // a toolbox that does not exist yet is created from a container image: that is network use
+                        let home = std::env::var("HOME").unwrap_or_default();
+                        if cmd.starts_with("genesis-toolbox") && !std::path::Path::new(&format!("{}/.local/share/containers/storage/overlay-containers", home)).exists() {
+                            i.network.domains = vec!["quay.io".into()];
+                        }
+                    }
+                    None => i.command = Some(format!("preview_start {}", project.display())),
                 }
             }
             "browser_open" => i.network.domains = vec![browser::Browser::host(&s("url"))],

@@ -137,7 +137,7 @@ section{display:none}section.active{display:block}
   <h1>Genesis is ready</h1>
   <p id="doneText">Your models are installed and the local AI service is configured.</p>
   <ul class="models" id="doneList"></ul>
-  <p><b>Make something now.</b> Pick one and Genesis builds it the moment the desktop opens, or press <b>Super + Space</b> later and describe your own.</p>
+  <p><b>Make something now.</b> Pick one and Genesis builds it the moment the desktop opens, or press <b>Meta + Space</b> later and describe your own.</p>
   <div class="starters">
     <button class="starter" data-p="a checklist app that saves to a file">A checklist app</button>
     <button class="starter" data-p="a pomodoro timer with a bell">A pomodoro timer</button>
@@ -228,12 +228,12 @@ section{display:none}section.active{display:block}
     if(!st.devices.length){box.innerHTML='<div class="small">No phone yet. On the phone, open KDE Connect and look for <b>'+(st.self_name||'this computer')+'</b>.</div>';localise(box);return}
     st.devices.forEach(d=>{const el=document.createElement('div');el.className='phone'+(d.paired?' paired':'');
       let st2=d.paired?'Paired':(d.pair_requested_by_peer?'Wants to pair with this computer':(d.pair_requested?'Waiting for the phone':'Visible on the network'));
-      let html=`<b>${d.name}</b><span class="st">${st2}</span>`;
+      const esc=x=>String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');let html=`<b>${esc(d.name)}</b><span class="st">${st2}</span>`;
       if(!d.paired&&(d.pair_requested||d.pair_requested_by_peer)&&d.verification_key)html+=`<span class="code" title="Same code on the phone">${d.verification_key}</span>`;
       if(d.paired)html+=`<span class="tag local">connected</span>`;
-      else if(d.pair_requested_by_peer)html+=`<button class="primary" data-a="accept" data-id="${d.id}">Accept</button>`;
-      else if(d.pair_requested)html+=`<button data-a="cancel" data-id="${d.id}">Cancel</button>`;
-      else html+=`<button class="primary" data-a="pair" data-id="${d.id}">Pair</button>`;
+      else if(d.pair_requested_by_peer)html+=`<button class="primary" data-a="accept" data-id="${esc(d.id)}">Accept</button>`;
+      else if(d.pair_requested)html+=`<button data-a="cancel" data-id="${esc(d.id)}">Cancel</button>`;
+      else html+=`<button class="primary" data-a="pair" data-id="${esc(d.id)}">Pair</button>`;
       el.innerHTML=html;box.appendChild(el)});
     box.querySelectorAll('button').forEach(b=>b.addEventListener('click',async()=>{b.disabled=true;await api('/api/phone/action',{action:b.dataset.a,id:b.dataset.id});phoneTick()}));localise(box)}
   async function phoneTick(){try{renderPhones(await api('/api/phone'))}catch(e){}}
@@ -249,7 +249,7 @@ section{display:none}section.active{display:block}
   setInterval(async()=>{if(!document.querySelector('#s0').classList.contains('active'))return;try{const st=await api('/api/state');if(st.progress.state==='downloading'||st.progress.state==='planning'){step(1);startPoll()}}catch(e){}},3000);
 })();
   // Skip: Genesis works as a normal desktop without models; the wizard can be reopened from the Genesis menu entry.
-  async function skipSetup(ask){if(ask&&!confirm('Skip model setup for now? Genesis works as a normal desktop; you can download models later from the Genesis app.'))return;await fetch('/api/finish',{method:'POST',headers:{'content-type':'application/json'},body:'{}'});document.body.innerHTML='<div style="display:grid;place-items:center;height:100vh;font-size:20px">Done. Genesis is ready to use.</div>'}
+  async function skipSetup(ask){if(ask&&!confirm('Skip model setup for now? Genesis works as a normal desktop; you can come back any time with "Set up models" in the app menu.'))return;await fetch('/api/finish',{method:'POST',headers:{'content-type':'application/json'},body:'{}'});document.body.innerHTML='<div style="display:grid;place-items:center;height:100vh;font-size:20px">Done. Genesis is ready to use.</div>'}
   document.getElementById('skip').addEventListener('click',e=>{e.preventDefault();skipSetup(true)});
   // Ctrl+Shift+S skips without the confirmation (used by automated captures and by people who know)
   document.addEventListener('keydown',e=>{if(e.ctrlKey&&e.shiftKey&&e.key.toLowerCase()==='s'){e.preventDefault();skipSetup(false)}});
