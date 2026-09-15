@@ -26,6 +26,7 @@ jobs:
           echo "aurora=sha256:$(d ghcr.io/ublue-os/aurora:stable)" >> "$GITHUB_OUTPUT"
           echo "nvidia=sha256:$(d ghcr.io/ublue-os/aurora-nvidia-open:stable)" >> "$GITHUB_OUTPUT"
           echo "fedora=sha256:$(d quay.io/fedora/fedora-bootc:44)" >> "$GITHUB_OUTPUT"
+          echo "bib=sha256:$(d quay.io/centos-bootc/bootc-image-builder:latest)" >> "$GITHUB_OUTPUT"
       - name: Rewrite the pins
         run: |
           set -euo pipefail
@@ -35,6 +36,7 @@ jobs:
             "ghcr.io/ublue-os/aurora:stable": os.environ["AURORA"],
             "ghcr.io/ublue-os/aurora-nvidia-open:stable": os.environ["NVIDIA"],
             "quay.io/fedora/fedora-bootc:44": os.environ["FEDORA"],
+            "quay.io/centos-bootc/bootc-image-builder:latest": os.environ["BIB"],
           }
           for path in ["Containerfile", ".github/workflows/build-image.yml"]:
               s = open(path).read()
@@ -46,6 +48,7 @@ jobs:
           AURORA: ${{ steps.dig.outputs.aurora }}
           NVIDIA: ${{ steps.dig.outputs.nvidia }}
           FEDORA: ${{ steps.dig.outputs.fedora }}
+          BIB: ${{ steps.dig.outputs.bib }}
       - name: Commit if anything moved
         run: |
           git config user.name "genesis-bot"
