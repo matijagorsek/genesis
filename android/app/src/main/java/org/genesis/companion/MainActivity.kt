@@ -37,6 +37,8 @@ val Ink = Color(0xFFE6EBF1); val Ink2 = Color(0xFFA9B4C1); val Ink3 = Color(0xFF
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // a pairing code handed over by intent (development, or a QR app that opens us): same as a scan
+        intent?.getStringExtra("pair")?.let { Pairing.parse(it)?.save(this) }
         setContent { GenesisTheme { App() } }
     }
 }
@@ -70,6 +72,11 @@ class MainActivity : ComponentActivity() {
         Text("On the computer: Settings, Phone app. Then scan the code.", color = Ink3, fontSize = 13.sp)
         Spacer(Modifier.height(12.dp))
         Button(onClick = { scanner.launch(ScanOptions().setOrientationLocked(false).setBeepEnabled(false).setPrompt("Scan the code in Genesis Settings")) }) { Text("Scan the pairing code") }
+        Spacer(Modifier.height(18.dp))
+        var pasted by remember { mutableStateOf("") }
+        Text("Or paste the code (Settings, Phone app, \"copy the code\"):", color = Ink3, fontSize = 13.sp)
+        OutlinedTextField(pasted, { pasted = it }, Modifier.fillMaxWidth(), placeholder = { Text("genesis-pair:{…}", color = Ink3) }, minLines = 2)
+        TextButton(enabled = pasted.isNotBlank(), onClick = { val p = Pairing.parse(pasted); if (p == null) error = "That is not a Genesis pairing code." else onPaired(p) }) { Text("Pair with the pasted code") }
         error?.let { Spacer(Modifier.height(12.dp)); Text(it, color = Bad) }
     }
 }

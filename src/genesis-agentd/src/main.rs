@@ -776,7 +776,7 @@ fn companion_pairing() -> serde_json::Value {
         .filter(|o| o.status.success()).map(|o| base64_encode(&o.stdout));
     let running = std::process::Command::new("systemctl").args(["--user", "is-active", "genesis-companiond.service"]).output().map(|o| o.status.success()).unwrap_or(false);
     serde_json::json!({"available": true, "running": running, "hosts": v.get("hosts").cloned().unwrap_or(serde_json::json!([])), "port": v.get("port").cloned().unwrap_or(serde_json::json!(11530)),
-        "fingerprint": v.get("fp").cloned().unwrap_or(serde_json::Value::Null), "qr_png_b64": qr})
+        "fingerprint": v.get("fp").cloned().unwrap_or(serde_json::Value::Null), "qr_png_b64": qr, "payload": payload})
 }
 
 fn base64_encode(bytes: &[u8]) -> String {
