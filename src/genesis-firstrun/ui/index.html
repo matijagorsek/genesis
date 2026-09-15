@@ -244,6 +244,8 @@ section{display:none}section.active{display:block}
   let starter='';document.querySelectorAll('.starter').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.starter').forEach(x=>x.classList.toggle('on',x===b));starter=b.dataset.p;$('#btnFinish').textContent='Start using Genesis and make it'}));
   $('#btnFinish').addEventListener('click',async()=>{$('#btnFinish').disabled=true;const r=await api('/api/finish',{starter});$('#finishInfo').textContent=r.done?'Setup complete. You can close this window.':(r.error||'');});
   load().then(()=>{if(location.hash==='#phone'){step(3);phoneStart()}});
+  // a download started elsewhere (Settings, a second window) moves this page along too
+  setInterval(async()=>{if(!document.querySelector('#s0').classList.contains('active'))return;try{const st=await api('/api/state');if(st.progress.state==='downloading'||st.progress.state==='planning'){step(1);startPoll()}}catch(e){}},3000);
 })();
   // Skip: Genesis works as a normal desktop without models; the wizard can be reopened from the Genesis menu entry.
   async function skipSetup(ask){if(ask&&!confirm('Skip model setup for now? Genesis works as a normal desktop; you can download models later from the Genesis app.'))return;await fetch('/api/finish',{method:'POST',headers:{'content-type':'application/json'},body:'{}'});document.body.innerHTML='<div style="display:grid;place-items:center;height:100vh;font-size:20px">Done. Genesis is ready to use.</div>'}
