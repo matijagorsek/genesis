@@ -6,4 +6,4 @@ Exec=/usr/bin/genesis-ask-screen
 Icon=genesis
 Terminal=false
 Categories=Utility;
-Keywords=genesis;screen;vision;ask;
+Keywords=screen;vision;region;question;
