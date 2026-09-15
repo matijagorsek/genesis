@@ -33,8 +33,14 @@ while time.time() - t0 < login_at + 260:
     if "skip" not in done and el > login_at + 100: mon("sendkey ctrl-shift-s"); done.add("skip")
     if "desktop" not in done and el > login_at + 170: mon("sendkey meta_l-d"); time.sleep(3); shot("04-desktop"); done.add("desktop")
     if "menu" not in done and el > login_at + 185: mon("sendkey meta_l"); time.sleep(5); shot("05-app-menu"); mon("sendkey esc"); done.add("menu")
-    if "maker" not in done and el > login_at + 200: mon("sendkey meta_l-spc"); time.sleep(25); shot("06-palette"); done.add("maker")
-    if "maker2" not in done and el > login_at + 260: shot("06-palette"); mon("sendkey esc"); done.add("maker2"); break
+    # Meta+Space is not delivered as a global shortcut by QEMU's key injection; launch "Ask Genesis" from the menu search instead
+    if "maker" not in done and el > login_at + 200:
+        mon("sendkey meta_l"); time.sleep(4)
+        for ch in "ask": mon(f"sendkey {ch}"); time.sleep(0.15)
+        mon("sendkey spc")
+        for ch in "genesis": mon(f"sendkey {ch}"); time.sleep(0.15)
+        time.sleep(4); mon("sendkey ret"); time.sleep(25); shot("06-genesis"); done.add("maker")
+    if "maker2" not in done and el > login_at + 270: shot("06-genesis"); mon("sendkey esc"); done.add("maker2"); break
     time.sleep(2)
 mon("quit"); time.sleep(2); q.kill()
 print("captured:", sorted(f for f in os.listdir(outdir) if f.endswith(".png")), flush=True)

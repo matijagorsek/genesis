@@ -199,7 +199,7 @@ jobs:
           grep -q 'WIZARD-API recommended_pack' boot-serial.log && echo "ok  first-run wizard API answers"
           grep -o 'recommended_pack[^,]*' boot-serial.log | head -1
 
-      - name: Screenshots under KVM, headless (login, first run, desktop, menu, palette)
+      - name: Screenshots under KVM, headless (login, first run, desktop, menu, Genesis)
         continue-on-error: true
         run: |
           mkdir -p shots
@@ -262,6 +262,7 @@ jobs:
             Login for boot tests: `genesis` / `genesis`. Boot-test serial log attached.
           files: |
             release/*
+            shots/*.png
 
   # ---------------------------------------------------------------------------------------
   # Job 3: arm64 flavour (plain Fedora bootc + Plasma installed by us) -> push -> qcow2 -> release
