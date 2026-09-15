@@ -74,7 +74,9 @@ Undo history lists those jobs with an Undo button. In a terminal, `genesis-txd l
 <p align="center"><img src="docs/screens/babel/01-maker-in-the-sidebar.png" width="88%" alt="Babel with the Genesis maker in the sidebar after changing pomodoro.py"></p>
 
 Babel is in the dock and the app menu: a full code editor (Code-OSS, so every language, debugger and
-extension VS Code has), with Genesis built in.
+extension VS Code has), with Genesis built in. Python, JavaScript and TypeScript, Rust, Go and C/C++
+understand your code out of the box: completion, errors, go to definition, debugging for Python; the
+language servers are part of the image, nothing is downloaded on first use.
 
 - **Genesis in the sidebar** (the ring icon): type what should change in the open folder, watch the
   steps, answer the cards, steer, undo. It is the same maker, working on the folder you have open.
