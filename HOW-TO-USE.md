@@ -81,6 +81,8 @@ extension VS Code has), with Genesis built in.
 - **Right-click in the editor**: "Ask about the selection" explains the selected code in the Genesis
   output panel; "Change this file…" asks for a change to just that file.
 - **Ctrl+Alt+Space** anywhere in Babel: make something in this workspace.
+- **Made here** in the sidebar lists everything Genesis built; one click opens it in Babel. The maker's
+  gallery has "Open in Babel" too.
 
 ## Ask, anywhere
 
