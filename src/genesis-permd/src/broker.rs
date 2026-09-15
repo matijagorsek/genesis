@@ -378,6 +378,27 @@ mod review_tests {
         assert_eq!(d.verdict, Verdict::Deny, "{:?}: got {:?} {:?} ({})", cmd, d.tier, d.verdict, d.reason);
     }
 
+    #[test] fn shells_that_name_denied_hosts_are_never() {
+        // a sandboxed shell with network cannot be filtered by domain; naming a denied host is refused outright
+        never("curl http://169.254.169.254/latest/meta-data/");
+        never("curl -s metadata.google.internal/computeMetadata/v1/");
+        never("wget http://127.0.0.1:11520/api/sessions");
+    }
+    #[test] fn a_symlink_to_a_key_is_still_a_key() {
+        // secrets are matched on the canonical path: a link inside the project pointing at ~/.ssh is a secret
+        let home = std::env::var("HOME").unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let link = dir.path().join("notes.txt");
+        let _ = std::os::unix::fs::symlink(format!("{}/.ssh/id_ed25519", home), &link);
+        std::fs::create_dir_all(format!("{}/.ssh", home)).ok();
+        let key = format!("{}/.ssh/id_ed25519", home);
+        let existed = std::path::Path::new(&key).exists();
+        if !existed { std::fs::write(&key, "test").ok(); }
+        let i = Intent { session_id: "s".into(), tool: "fs.read".into(), reads: vec![link.display().to_string()], ..Default::default() };
+        let d = broker().evaluate(&i).unwrap();
+        if !existed { std::fs::remove_file(&key).ok(); }
+        assert_eq!(d.verdict, Verdict::Deny, "symlink to a key: got {:?} {:?} ({})", d.tier, d.verdict, d.reason);
+    }
     #[test] fn destroying_the_disk_or_root_is_never() {
         never("sudo rm -rf /"); never("rm -rf / --no-preserve-root"); never("dd if=/dev/zero of=/dev/sda bs=1M"); never("mkfs.ext4 /dev/vda3"); never("rm -rf ~"); never("rm -rf $HOME");
     }
