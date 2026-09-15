@@ -126,6 +126,7 @@ class MainActivity : ComponentActivity() {
         Chip(if (!ok) "not reachable" else if (router) "on this machine" else "no models yet", if (!ok) Bad else if (router) Good else Warn)
     }
     h?.optJSONObject("os")?.optString("pretty")?.takeIf { it.isNotBlank() }?.let { Text(it, color = Ink3, fontSize = 12.sp) }
+    if (!ok) h?.optString("error")?.takeIf { it.isNotBlank() }?.let { Text(it, color = Ink3, fontSize = 12.sp) }
 }
 
 @Composable fun Chip(text: String, color: Color) {

@@ -87,6 +87,11 @@ After pairing with KDE Connect:
 If the phone does not find the computer, type the phone's address into Settings > Phone; the computer
 starts the connection instead.
 
+**The Genesis app (Android).** Settings > Phone app shows a code; scan it with the app (or copy and
+paste it). From then on the phone shows your jobs, lets you answer permission cards, start a make and
+fetch one screenshot of the computer. Same network, encrypted to this machine only; "Regenerate the
+code" unpairs every phone.
+
 ## Updates
 
 Genesis fetches updates in the background and stages them; nothing restarts on its own. The dock's

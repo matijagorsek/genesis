@@ -71,9 +71,10 @@ Design brief: [docs/genesis-brief.html](docs/genesis-brief.html) · Design plan:
 - **Signed model packs**: pack definitions are OCI artifacts on GHCR, signed with the Genesis key and
   verified by the same containers policy as the OS; every model download is checked against the sha256
   in the signed definition. Built-in definitions remain the offline fallback.
-- **Phone app** (in progress): a companion app that shows your jobs, answers permission cards and
-  starts a make from the phone, over your own network with a pinned certificate, paired by a QR code
-  in Settings. The desktop side (`genesis-companiond`) ships; the Android app is being built.
+- **Phone app** (Android): the Genesis companion shows your jobs, answers permission cards, starts a
+  make from the phone and fetches one screenshot on demand, over your own network with a pinned
+  certificate, paired by a QR code (or a pasted code) in Settings. Verified on a real phone; the APK
+  builds from `android/` (no store listing yet).
 - **Phone**: pair once with KDE Connect (first run has a step for it, with the same code on both screens).
   Notifications, clipboard and files both ways. Share text to Genesis starting with "ask" and the local
   model answers as a phone notification; "make …" starts the maker on the desktop. Voice notes sent to Genesis are
