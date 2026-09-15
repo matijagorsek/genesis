@@ -1,0 +1,37 @@
+#!/usr/bin/python3
+"""Install Babel's language extensions as built-ins, from Open VSX, pinned by version and checksum.
+The language servers themselves come from Fedora packages (rust-analyzer, clangd) or are built in the
+image (gopls); TypeScript's is part of Code-OSS; Python uses the extension's bundled Jedi server."""
+import hashlib, os, shutil, sys, urllib.request, zipfile, platform
+root = os.environ.get("BABEL_ROOT", "/usr/lib/babel")
+arch = "arm64" if platform.machine() in ("aarch64", "arm64") else "x64"
+EXT = [
+    ("ms-python.python", "https://open-vsx.org/api/ms-python/python/2026.4.0/file/ms-python.python-2026.4.0.vsix", "232aeafb01f069824fdd92d3e628c1c442bbcfa1d3cc945ff97076340bb2b4a6"),
+    ("ms-python.debugpy", f"https://open-vsx.org/api/ms-python/debugpy/linux-{arch}/2026.6.0/file/ms-python.debugpy-2026.6.0@linux-{arch}.vsix",
+        {"x64": "c7744af4bf72978f5792624a71c80e2b622a1118574fada3a903d70ac03d5bca", "arm64": "4e7aa92b0459c1010ee010a79b35ecc16328b943a84589bd9e8ead3d4eb0010b"}[arch]),
+    ("rust-lang.rust-analyzer", "https://open-vsx.org/api/rust-lang/rust-analyzer/0.4.3050/file/rust-lang.rust-analyzer-0.4.3050.vsix", "2cfd9c070512f80402485b0ff70aa5c1bdf631506f8d202b1e3f4d02b460d125"),
+    ("golang.go", "https://open-vsx.org/api/golang/Go/0.56.1/file/golang.Go-0.56.1.vsix", "45365da5d1284f3518b2949f218481f1e9ef6221b3d999a2e3082ccbb61e874b"),
+    ("llvm-vs-code-extensions.vscode-clangd", "https://open-vsx.org/api/llvm-vs-code-extensions/vscode-clangd/0.6.0/file/llvm-vs-code-extensions.vscode-clangd-0.6.0.vsix", "32030694fa6c0ef438f4e4219f84677cd32f603c7faa4c71a283efc1f5b51751"),
+]
+dest_root = os.path.join(root, "resources/app/extensions")
+for ident, url, sha in EXT:
+    tmp = f"/tmp/{ident}.vsix"
+    for attempt in range(5):
+        try:
+            urllib.request.urlretrieve(url, tmp); break
+        except Exception as e:
+            if attempt == 4: raise
+    got = hashlib.sha256(open(tmp, "rb").read()).hexdigest()
+    if got != sha: sys.exit(f"{ident}: checksum mismatch ({got})")
+    dest = os.path.join(dest_root, ident)
+    shutil.rmtree(dest, ignore_errors=True); os.makedirs(dest)
+    with zipfile.ZipFile(tmp) as z:
+        for m in z.infolist():
+            if not m.filename.startswith("extension/") or m.filename.endswith("/"): continue
+            rel = m.filename[len("extension/"):]
+            if ".." in rel.split("/"): continue
+            target = os.path.join(dest, rel); os.makedirs(os.path.dirname(target), exist_ok=True)
+            with z.open(m) as src, open(target, "wb") as out: shutil.copyfileobj(src, out)
+            if (m.external_attr >> 16) & 0o111: os.chmod(target, 0o755)
+    os.remove(tmp)
+    print("built in:", ident)

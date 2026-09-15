@@ -26,7 +26,15 @@ if [ ! -f "$U/settings.json" ]; then
   "workbench.secondarySideBar.defaultVisibility": "hidden",
   "chat.commandCenter.enabled": false,
   "chat.agent.enabled": false,
-  "workbench.commandPalette.experimental.askChatLocation": "quickChat"
+  "workbench.commandPalette.experimental.askChatLocation": "quickChat",
+  "rust-analyzer.server.path": "/usr/bin/rust-analyzer",
+  "rust-analyzer.updates.askBeforeDownload": false,
+  "clangd.path": "/usr/bin/clangd",
+  "clangd.checkUpdates": false,
+  "go.alternateTools": { "gopls": "/usr/bin/gopls" },
+  "go.toolsManagement.checkForUpdates": "off",
+  "python.languageServer": "Jedi",
+  "python.defaultInterpreterPath": "/usr/bin/python3"
 }
 EOF
 fi

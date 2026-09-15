@@ -41,6 +41,7 @@ for u in genesis-router.service; do [ -f "/usr/lib/systemd/system/$u" ] && ok "u
 [ -x /usr/bin/genesis-backup ] && ok "backup and restore (genesis-backup)" || fail "genesis-backup missing"
 [ -x /usr/bin/genesis-companiond ] && [ -f /usr/lib/systemd/user/genesis-companiond.service ] && [ -x /usr/bin/qrencode ] && ok "phone companion API (genesis-companiond, qrencode)" || fail "companion daemon missing"
 [ -x /usr/bin/babel ] && [ -d /usr/lib/babel/resources/app/extensions/genesis-babel ] && grep -q '"nameShort": "Babel"' /usr/lib/babel/resources/app/product.json && ok "Babel (Code-OSS, Genesis extension built in)" || fail "Babel missing"
+[ -x /usr/bin/rust-analyzer ] && [ -x /usr/bin/clangd ] && [ -x /usr/bin/gopls ] && [ -d /usr/lib/babel/resources/app/extensions/ms-python.python ] && [ -d /usr/lib/babel/resources/app/extensions/golang.go ] && ok "Babel language servers (Python, TypeScript, Rust, Go, C/C++)" || fail "Babel language servers missing"
 [ -x /usr/bin/genesis-index ] && [ -f /usr/lib/systemd/user/genesis-index.timer ] && [ -x /usr/bin/pdftotext ] && ok "local file index (genesis-index, pdftotext)" || fail "genesis-index missing"
 [ -x /usr/bin/genesis-ask-screen ] && [ -x /usr/bin/spectacle ] && grep -q askscreen /etc/xdg/kglobalshortcutsrc && ok "ask about the screen (spectacle, Meta+Shift+A)" || fail "ask-screen missing"
 [ -x /usr/bin/genesis-claude ] && [ -f /usr/share/applications/org.genesis.claude.desktop ] && ok "Claude (sign in with your account)" || fail "claude launcher"

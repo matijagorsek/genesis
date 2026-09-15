@@ -57,6 +57,11 @@ RUN set -eux; mkdir -p /out; if [ "$TARGETARCH" = arm64 ]; then \
     fi
 
 # ---- stage 2: the OS image ------------------------------------------------------------------------
+# gopls for Babel: built from the pinned tag, the only Go on the image is this one binary
+FROM quay.io/fedora/fedora:44 AS goplsbuild
+RUN dnf install -y --setopt=install_weak_deps=False golang git >/dev/null && dnf clean all \
+ && GOFLAGS=-mod=mod GOPATH=/go GOBIN=/out go install golang.org/x/tools/gopls@v0.23.0 >/dev/null 2>&1 && /out/gopls version
+
 FROM ${BASE}
 
 # FLAVOUR=aurora: Universal Blue Aurora already brings the Plasma desktop (x86_64 only).
@@ -151,7 +156,7 @@ RUN set -eux; \
     dnf5 install -y --setopt=install_weak_deps=False \
       rsms-inter-fonts ibm-plex-mono-fonts papirus-icon-theme papirus-icon-theme-dark papirus-icon-theme-light ocean-sound-theme \
       chromium firefox okular gwenview kcalc plasma-discover plasma-discover-flatpak haruna elisa kcharselect kfind \
-      kdeconnect-kde kwalletmanager5 partitionmanager rsync python3-pytest ffmpeg-free qrencode; \
+      kdeconnect-kde kwalletmanager5 partitionmanager rsync python3-pytest ffmpeg-free qrencode rust-analyzer clang-tools-extra; \
     dnf5 clean all
 
 # Piper: local text-to-speech (static upstream build with its espeak-ng data and onnxruntime)
@@ -172,7 +177,9 @@ RUN set -eux; \
     echo "$SUM  /tmp/babel.tgz" | sha256sum -c -; \
     mkdir -p /usr/lib/babel; tar -xzf /tmp/babel.tgz -C /usr/lib/babel; rm -f /tmp/babel.tgz; \
     /usr/bin/genesis-babel-brand; \
+    /usr/bin/genesis-babel-extensions; \
     test -x /usr/bin/babel && test -x /usr/lib/babel/bin/codium
+COPY --from=goplsbuild /out/gopls /usr/bin/gopls
 
 # llama-swap: model router (Go, static upstream binary)
 RUN set -eux; \
