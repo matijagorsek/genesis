@@ -217,6 +217,11 @@ pub fn render_router_tuned(models_dir: &Path, port_base: u16, t: Tuning) -> Resu
         y.push_str(&format!("  fim:\n    cmd: |\n      ${{server}} -m {}\n      -c 4096 --temp 0.2 --top-p 0.9 --reasoning off\n    aliases: [ \"genesis-fim\" ]\n    ttl: 0\n\n", f));
         hot.push("fim");
     }
+    if let Some(f) = find("rerank", false) {
+        // reranker for the file index: scores query/passage pairs (llama-server --reranking, /v1/rerank)
+        y.push_str(&format!("  rerank:\n    cmd: |\n      ${{server}} -m {} --reranking -c 4096 -b 4096 -ub 4096\n    aliases: [ \"genesis-rerank\" ]\n    ttl: 600\n\n", f));
+        big.push("rerank");
+    }
     if let Some(f) = find("embed", false) {
         y.push_str(&format!("  embed:\n    cmd: |\n      ${{server}} -m {} --embedding --pooling last -c 8192 -b 8192 -ub 8192\n    aliases: [ \"genesis-embed\", \"text-embedding-3-small\" ]\n    ttl: 0\n\n", f));
         hot.push("embed");
@@ -275,7 +280,7 @@ mod tests {
     #[test]
     fn router_renders_from_files_on_disk() {
         let dir = tempfile::tempdir().unwrap();
-        for (role, f) in [("fast", "a-Q8_0.gguf"), ("fast", "mmproj-F16.gguf"), ("code", "b-Q4_K_M.gguf"), ("embed", "e.gguf"), ("fim", "f.gguf")] {
+        for (role, f) in [("fast", "a-Q8_0.gguf"), ("fast", "mmproj-F16.gguf"), ("code", "b-Q4_K_M.gguf"), ("embed", "e.gguf"), ("fim", "f.gguf"), ("rerank", "r.gguf")] {
             std::fs::create_dir_all(dir.path().join(role)).unwrap();
             std::fs::write(dir.path().join(role).join(f), b"x").unwrap();
         }
@@ -287,6 +292,7 @@ mod tests {
         assert!(!y.contains("  chat:"));
         assert!(y.contains("  fim:"));
         assert!(y.contains("members: [ fast, fim, embed ]"));
-        assert!(y.contains("members: [ code ]"));
+        assert!(y.contains("  rerank:"));
+        assert!(y.contains("members: [ code, rerank ]"));
     }
 }

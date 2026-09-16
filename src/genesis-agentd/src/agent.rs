@@ -539,9 +539,18 @@ impl Agent {
             "read_document" => {
                 let p = resolve_path(&self.project, &s("path"));
                 if !p.is_file() { return Err(anyhow!("{}: no such file", p.display())); }
-                let out = std::process::Command::new("/usr/bin/genesis-index").args(["extract", &p.display().to_string()]).output().map_err(|e| anyhow!("genesis-index: {}", e))?;
-                let text = String::from_utf8_lossy(&out.stdout).to_string();
-                if text.trim().is_empty() { return Ok(format!("{}: no text could be extracted (a scanned PDF or an image; ask about the screen instead)", p.display())); }
+                let lower = p.display().to_string().to_lowercase();
+                let is_image = [".png", ".jpg", ".jpeg", ".webp"].iter().any(|e| lower.ends_with(e));
+                let mut text = if is_image { String::new() } else {
+                    let out = std::process::Command::new("/usr/bin/genesis-index").args(["extract", &p.display().to_string()]).output().map_err(|e| anyhow!("genesis-index: {}", e))?;
+                    String::from_utf8_lossy(&out.stdout).to_string()
+                };
+                if text.trim().is_empty() {
+                    // a photo or a scanned PDF: the local vision model reads the text off the pixels (OCR)
+                    text = crate::ocr::read_text(&self.client.endpoint, &p)?;
+                    if text.trim().is_empty() { return Ok(format!("{}: no text could be read from it", p.display())); }
+                    text = format!("[text read from the image by the local vision model]\n{}", text);
+                }
                 Ok(if text.len() > 60_000 { format!("{}\n…[truncated, {} characters total]", &text[..60_000], text.len()) } else { text })
             }
             "read_file" => {

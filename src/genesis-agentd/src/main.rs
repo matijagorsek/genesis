@@ -19,6 +19,7 @@ mod llm;
 mod maker;
 mod mcp;
 mod chat;
+mod ocr;
 mod sandbox;
 
 use agent::{Agent, Event, SessionInfo, Shared};
@@ -734,7 +735,7 @@ fn system_overview(d: &Arc<Daemon>) -> serde_json::Value {
 /// is used as given when the router serves it.
 fn served_model(endpoint: &str, wanted: &str) -> String { served_model_for(endpoint, wanted, "make") }
 
-fn served_model_for(endpoint: &str, wanted: &str, kind: &str) -> String {
+pub(crate) fn served_model_for(endpoint: &str, wanted: &str, kind: &str) -> String {
     let list = ureq::get(&format!("{}/models", endpoint.trim_end_matches('/'))).timeout(std::time::Duration::from_secs(8)).call().ok()
         .and_then(|r| r.into_json::<serde_json::Value>().ok())
         .and_then(|v| v.get("data").and_then(|d| d.as_array()).map(|a| a.iter().filter_map(|m| m.get("id").and_then(|i| i.as_str()).map(|s| s.to_string())).collect::<Vec<_>>()));
@@ -922,7 +923,7 @@ fn companion_pairing() -> serde_json::Value {
         "fingerprint": v.get("fp").cloned().unwrap_or(serde_json::Value::Null), "qr_png_b64": qr, "payload": payload})
 }
 
-fn base64_encode(bytes: &[u8]) -> String {
+pub(crate) fn base64_encode(bytes: &[u8]) -> String {
     const T: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut out = String::with_capacity((bytes.len() + 2) / 3 * 4);
     for chunk in bytes.chunks(3) {

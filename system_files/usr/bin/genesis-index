@@ -221,9 +221,40 @@ def search(query, n=8):
             sn = (t[0] if t else "")[:180]
             fused[(p, o)] = {"path": p, "chunk": o, "snippet": sn.replace("\n", " "), "score": 0.0, "by": []}
         fused[(p, o)]["score"] += 1.0 / (10 + rank); fused[(p, o)]["by"].append("meaning")
-    out = sorted(fused.values(), key=lambda h: -h["score"])[:n]
+    out = sorted(fused.values(), key=lambda h: -h["score"])[:max(n * 3, 12)]
+    out = rerank(c, query, out, n)[:n]
     for h in out:
         h["score"] = round(h["score"], 4); h["by"] = "+".join(h["by"])
+    return out
+
+
+def rerank(c, query, hits, n):
+    """Packs with a reranker (llama-server --reranking) re-score the fused candidates against the query;
+    without one, or when it does not answer, the fused order stands."""
+    if len(hits) < 2:
+        return hits
+    docs = []
+    for h in hits:
+        t = c.execute("select text from chunks where path=? and ord=?", (h["path"], h["chunk"])).fetchone()
+        docs.append((t[0] if t else h["snippet"])[:EMBED_CHARS])
+    body = json.dumps({"model": "rerank", "query": query, "documents": docs, "top_n": len(docs)}).encode()
+    req = urllib.request.Request(ROUTER + "/v1/rerank", data=body, headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=120) as r:
+            results = json.load(r).get("results", [])
+    except Exception:
+        return hits
+    scored = []
+    for res in results:
+        i = res.get("index"); sc = res.get("relevance_score")
+        if isinstance(i, int) and 0 <= i < len(hits) and sc is not None:
+            scored.append((float(sc), hits[i]))
+    if len(scored) < 2:
+        return hits
+    scored.sort(key=lambda t: -t[0])
+    out = []
+    for sc, h in scored:
+        h["score"] = sc; h["by"].append("rerank"); out.append(h)
     return out
 
 
