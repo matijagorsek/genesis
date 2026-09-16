@@ -58,8 +58,11 @@ jobs:
           spawn qemu-system-x86_64 {*}$env(ACCEL) -m 4096 -smp 2 -nographic -bios $env(FW) -drive file=old.qcow2,if=virtio,format=qcow2 -netdev user,id=n0 -device virtio-net-pci,netdev=n0 -serial mon:stdio -display none
           proc login {} {
             # kernel messages can land on the same line as the prompt: match the prompt itself, not the line end
-            expect { -re "login:" { sleep 2; send "genesis\r" } timeout { puts "\nTIMEOUT: no login prompt"; exit 1 } eof { puts "\nQEMU exited"; exit 1 } }
-            expect { -re "Password:" { sleep 1; send "genesis\r" } timeout { puts "\nTIMEOUT: no password prompt"; exit 1 } }
+            # wait for the getty prompt itself, then ask for a fresh one on its own line before typing
+            expect { -re "genesis login:" {} timeout { puts "\nTIMEOUT: no login prompt"; exit 1 } eof { puts "\nQEMU exited"; exit 1 } }
+            sleep 3; send "\r"
+            expect { -re "login: *$" { sleep 1; send "genesis\r" } timeout { puts "\nTIMEOUT: no fresh login prompt"; exit 1 } }
+            expect { -re "Password: *$" { sleep 1; send "genesis\r" } timeout { puts "\nTIMEOUT: no password prompt"; exit 1 } }
             set timeout 60
             expect { -re {(\$|❯|#) *$} {} timeout {} }
             sleep 2; send "\r"; sleep 1
