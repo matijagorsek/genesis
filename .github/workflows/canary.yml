@@ -51,6 +51,8 @@ jobs:
           set -o pipefail
           FW=/usr/share/ovmf/OVMF.fd; [ -f "$FW" ] || FW=/usr/share/OVMF/OVMF.fd
           if [ -r /dev/kvm ] && [ -w /dev/kvm ]; then ACCEL="-enable-kvm -cpu host"; else ACCEL="-cpu max"; fi
+          # An install that already follows :stable answers "unchanged" to the switch, so the upgrade is
+          # asked for explicitly afterwards; a machine on a versioned tag gets both.
           # The guest is driven over SSH on a forwarded port, not by typing at the serial console: the
           # getty handshake proved racy (prompt flushes, delayed echo), and SSH is what a person would use.
           # The serial console still goes to a file and is attached as the artifact.
@@ -67,7 +69,7 @@ jobs:
           wait_ssh || exit 1
           before=$(vm 'grep --color=never ^IMAGE_VERSION= /etc/os-release'); echo "before: $before"
           timeout 1500 sshpass -p genesis ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR genesis@127.0.0.1 \
-            'echo genesis | sudo -S bootc switch ghcr.io/matijagorsek/genesis:stable 2>&1 | tail -5' || { echo "the switch did not finish"; exit 1; }
+            'echo genesis | sudo -S bootc switch ghcr.io/matijagorsek/genesis:stable 2>&1 | tail -3; sudo bootc upgrade 2>&1 | tail -5' || { echo "the switch did not finish"; exit 1; }
           vm 'echo genesis | sudo -S systemctl reboot' || true
           sleep 30; wait_ssh || exit 1
           after=$(vm 'grep --color=never ^IMAGE_VERSION= /etc/os-release'); echo "after: $after"
