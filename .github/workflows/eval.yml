@@ -58,13 +58,18 @@ jobs:
           vm() { sshpass -p genesis ssh -p 2222 -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR genesis@127.0.0.1 "$@"; }
           for i in $(seq 1 120); do vm true 2>/dev/null && break; kill -0 $QEMU 2>/dev/null || { echo "QEMU exited"; tail -5 qemu.out; exit 1; }; sleep 10; done
           vm 'grep --color=never ^IMAGE_VERSION= /etc/os-release'
-          # the tiny pack through the wizard's own API (the model files come from GHCR or Hugging Face)
-          vm 'T=$(echo genesis | sudo -S cat /run/genesis/firstrun.token 2>/dev/null); curl -s -m 20 -H "X-Genesis-Token: $T" -H "Content-Type: application/json" -d "{\"pack\":\"tiny\",\"force\":true}" 127.0.0.1:11510/api/choose; echo'
+          # the first-run wizard answers once its service is up; then the tiny pack through its own API
+          # (the model files come from GHCR or Hugging Face)
+          for i in $(seq 1 60); do vm 'curl -s -m 10 127.0.0.1:11510/api/state' | grep -q '"packs"' && break; sleep 5; done
+          vm 'curl -s -m 10 127.0.0.1:11510/api/state | head -c 400; echo'
+          vm 'T=$(echo genesis | sudo -S cat /run/genesis/firstrun.token 2>/dev/null); echo "token: ${#T} chars"; curl -s -m 20 -H "X-Genesis-Token: $T" -H "Content-Type: application/json" -d "{\"pack\":\"tiny\",\"force\":true}" 127.0.0.1:11510/api/choose; echo'
           for i in $(seq 1 240); do
-            st=$(vm 'curl -s -m 10 127.0.0.1:11510/api/state' | python3 -c 'import sys,json; p=json.load(sys.stdin).get("progress",{}); print(p.get("state",""), int(p.get("done_bytes",p.get("done",0)) or 0)//1000000, "MB", p.get("error","") or "")' 2>/dev/null || echo "?")
+            st=$(vm 'curl -s -m 10 127.0.0.1:11510/api/state' | python3 -c 'import sys,json; p=json.load(sys.stdin).get("progress",{}); print(p.get("state",""), p.get("error","") or "", {k:v for k,v in p.items() if "byte" in k or "file" in k})' 2>/dev/null || echo "?")
             echo "  $st"
-            case "$st" in downloading*|planning*|verifying*|extracting*) sleep 15;; *) break;; esac
+            case "$st" in done*) break;; error*) echo "download failed"; break;; *) sleep 15;; esac
           done
+          # the maker is a user service: an SSH login has a user manager, but nothing started the daemons yet
+          vm 'systemctl --user start genesis-permd genesis-agentd; sleep 3; systemctl --user is-active genesis-permd genesis-agentd; echo genesis | sudo -S systemctl status genesis-router --no-pager 2>&1 | head -3'
           for i in $(seq 1 60); do vm 'curl -s -m 10 127.0.0.1:8080/v1/models' | grep -q '"fast"' && break; sleep 10; done
           vm 'curl -s -m 10 127.0.0.1:8080/v1/models | head -c 300; echo'
           vm 'cat > /tmp/eval-makes.py' < prototype/eval-makes.py
