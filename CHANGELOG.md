@@ -3,6 +3,7 @@
 Derived from the decision log (`docs/decisions.md`); one line per decision, newest first. Versions are 0.2.N on the stable channel; 0.1.N before 2026-09-15.
 
 ## 2026-09-16
+- Phase H: fix my computer, the morning card, the time machine view of undo, Settings regrouped (built, decision 109)
 - Phase G: small model first and the router up early, template hints, mode key and widget, always/never rules, Esc and spoken confirms, German and Slovenian voices (built, decision 108)
 - The wow plan: state, improvements, ten moments, phases G to K (accepted, decision 107)
 - Baseline evaluation 4 of 10 on the tiny pack; four guards for the failure patterns it showed (decision 106)

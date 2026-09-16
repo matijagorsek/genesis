@@ -20,6 +20,7 @@ mod maker;
 mod mcp;
 mod chat;
 mod ocr;
+mod timeline;
 mod sandbox;
 
 use agent::{Agent, Event, SessionInfo, Shared};
@@ -341,6 +342,17 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
             if dev.is_empty() || id.is_empty() || text.is_empty() { json_response(&serde_json::json!({"error": "device, id, text required"}), 400) }
             else { json_response(&phone(&["reply", &dev, &id, &text]), 200) }
         }
+        (Method::Get, ["api", "history", id, "changes"]) => match Store::open(default_store()).and_then(|st| timeline::changes(&st, id)) {
+            Ok(c) => json_response(&c, 200),
+            Err(e) => json_response(&serde_json::json!({"error": e.to_string()}), 404),
+        },
+        (Method::Post, ["api", "history", id, "restore-file"]) => {
+            let path = serde_json::from_str::<serde_json::Value>(&body).ok().and_then(|v| v.get("path").and_then(|p| p.as_str()).map(|s| s.to_string())).unwrap_or_default();
+            match Store::open(default_store()).and_then(|st| timeline::restore_file(&st, id, &path)) {
+                Ok(m) => json_response(&serde_json::json!({"ok": true, "message": m}), 200),
+                Err(e) => json_response(&serde_json::json!({"error": e.to_string()}), 400),
+            }
+        }
         (Method::Post, ["api", "history", id, "undo"]) => {
             // undo from Settings, for jobs whose session is gone (after a re-login): straight through the store
             match genesis_txd::Store::open(genesis_txd::default_store()).and_then(|st| st.load(id).and_then(|mut tx| st.rollback(&mut tx))) {
@@ -446,6 +458,7 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
             }
         }
         (Method::Get, ["api", "activity"]) => json_response(&recent_activity(40), 200),
+        (Method::Post, ["api", "notices", "morning", "dismiss"]) => { maker::dismiss_morning(); json_response(&serde_json::json!({"ok": true}), 200) }
         (Method::Get, ["api", "notices"]) => json_response(&maker::notices(std::path::Path::new(&default_project())), 200),
         (Method::Get, ["api", "claude"]) => json_response(&claude_status(), 200),
         (Method::Post, ["api", "claude", "open"]) => {

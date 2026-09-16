@@ -1,9 +1,57 @@
 [
-  {"id": "summarise", "title": "Summarise this document", "text": "Summarise the attached document in five short bullet points, then one sentence on what it asks me to do."},
-  {"id": "explain", "title": "Explain like I am new to this", "text": "Explain the following as if I have never heard of it, in plain words, with one everyday example:\n\n"},
-  {"id": "reply", "title": "Draft a reply", "text": "Draft a short, polite reply to this message. Keep my tone friendly and direct. The message:\n\n"},
-  {"id": "translate-de", "title": "Translate to German", "text": "Translate the following into natural German, keeping the tone:\n\n"},
-  {"id": "translate-sl", "title": "Translate to Slovenian", "text": "Translate the following into natural Slovenian, keeping the tone:\n\n"},
-  {"id": "checklist", "title": "Checklist from my notes", "text": "Search my files for notes about this and turn what you find into a checklist with the source file for each item: "},
-  {"id": "machine", "title": "What changed on this computer", "text": "Using your system tools: is an update waiting, which apps were installed recently, and is the network healthy? Answer in a few lines."}
+ {
+  "id": "summarise",
+  "title": "Summarise this document",
+  "text": "Summarise the attached document in five short bullet points, then one sentence on what it asks me to do."
+ },
+ {
+  "id": "explain",
+  "title": "Explain like I am new to this",
+  "text": "Explain the following as if I have never heard of it, in plain words, with one everyday example:\n\n"
+ },
+ {
+  "id": "reply",
+  "title": "Draft a reply",
+  "text": "Draft a short, polite reply to this message. Keep my tone friendly and direct. The message:\n\n"
+ },
+ {
+  "id": "translate-de",
+  "title": "Translate to German",
+  "text": "Translate the following into natural German, keeping the tone:\n\n"
+ },
+ {
+  "id": "translate-sl",
+  "title": "Translate to Slovenian",
+  "text": "Translate the following into natural Slovenian, keeping the tone:\n\n"
+ },
+ {
+  "id": "checklist",
+  "title": "Checklist from my notes",
+  "text": "Search my files for notes about this and turn what you find into a checklist with the source file for each item: "
+ },
+ {
+  "id": "machine",
+  "title": "What changed on this computer",
+  "text": "Using your system tools: is an update waiting, which apps were installed recently, and is the network healthy? Answer in a few lines."
+ },
+ {
+  "id": "fix-wifi",
+  "title": "My Wi-Fi is slow",
+  "text": "My Wi-Fi is slow or keeps dropping. Diagnose it with your system tools, tell me in one or two sentences what is wrong, and then offer the one fix you would try first."
+ },
+ {
+  "id": "fix-printer",
+  "title": "The printer does not print",
+  "text": "The printer does not print. Check the printers set up on this computer and look for printers on the network, then tell me what is wrong and offer to set it up or print a test page."
+ },
+ {
+  "id": "fix-battery",
+  "title": "My battery drains fast",
+  "text": "My battery drains fast. Look at the processes using the most CPU and the power profile, tell me the likely cause in plain words, and offer the one change you would make."
+ },
+ {
+  "id": "fix-slow",
+  "title": "My computer feels slow",
+  "text": "My computer feels slow right now. Check the top processes, memory and disk with your system tools and tell me what is using it, then what I can do."
+ }
 ]

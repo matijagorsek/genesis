@@ -11,7 +11,9 @@
         "set_theme": "write",
         "printer_setup": "system",
         "power_profile": "write",
-        "wifi_diagnose": "network"
+        "wifi_diagnose": "network",
+        "wifi_reconnect": "write",
+        "print_test_page": "write"
       }
     }
   }

@@ -291,8 +291,50 @@ pub struct Notice {
 }
 
 /// What Genesis noticed: made projects whose last run failed, and made projects never installed to the menu.
+/// The morning card: once a day, the machine in four lines from local facts. Dismissed with "Got it"
+/// (a dated marker); the phone app shows the same card through the notices endpoint.
+fn morning_marker() -> PathBuf {
+    let state = std::env::var("XDG_STATE_HOME").map(PathBuf::from).unwrap_or_else(|_| PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/tmp".into())).join(".local/state"));
+    state.join("genesis").join("morning-seen")
+}
+
+pub fn dismiss_morning() {
+    if let Some(d) = morning_marker().parent() { let _ = std::fs::create_dir_all(d); }
+    let today = time::OffsetDateTime::now_utc().date().to_string();
+    let _ = std::fs::write(morning_marker(), today);
+}
+
+pub fn morning_card(projects_dir: &Path) -> Option<Notice> {
+    let today = time::OffsetDateTime::now_utc().date().to_string();
+    if std::fs::read_to_string(morning_marker()).map(|s| s.trim() == today).unwrap_or(false) { return None; }
+    let mut lines: Vec<String> = Vec::new();
+    let bootc: serde_json::Value = std::fs::read_to_string("/run/genesis/bootc-status.json").ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(serde_json::Value::Null);
+    if let Some(v) = bootc.pointer("/status/staged/image/version").and_then(|v| v.as_str()) { lines.push(format!("An update ({}) is ready; it applies when you restart.", v)); }
+    let made = made_here(projects_dir);
+    let day_ago = std::time::SystemTime::now() - std::time::Duration::from_secs(36 * 3600);
+    let recent: Vec<&Made> = made.iter().filter(|m| std::fs::metadata(&m.path).and_then(|md| md.modified()).map(|t| t > day_ago).unwrap_or(false)).collect();
+    let not_installed = recent.iter().filter(|m| !m.installed).count();
+    if !recent.is_empty() { lines.push(format!("{} thing{} made since yesterday{}.", recent.len(), if recent.len() == 1 { "" } else { "s" }, if not_installed > 0 { format!(", {} not in your app menu yet", not_installed) } else { String::new() })); }
+    if let Ok(o) = std::process::Command::new("nmcli").args(["-t", "-f", "ACTIVE,SSID,SIGNAL", "device", "wifi"]).output() {
+        for l in String::from_utf8_lossy(&o.stdout).lines() {
+            if l.starts_with("yes:") { if let Some(sig) = l.rsplit(':').next().and_then(|s| s.parse::<u32>().ok()) { if sig < 45 { lines.push(format!("Wi-Fi signal is weak ({}%); closer to the router helps.", sig)); } } }
+        }
+    }
+    if let Ok(rd) = std::fs::read_dir("/sys/class/power_supply") {
+        for e in rd.flatten() {
+            let p = e.path();
+            if let (Ok(cap), Ok(st)) = (std::fs::read_to_string(p.join("capacity")), std::fs::read_to_string(p.join("status"))) {
+                if let Ok(c) = cap.trim().parse::<u32>() { if c < 25 && st.trim() != "Charging" { lines.push(format!("Battery at {}%, not charging.", c)); } }
+            }
+        }
+    }
+    if lines.is_empty() { lines.push("Nothing waiting: no update staged, nothing unfinished, network and battery fine.".into()); }
+    Some(Notice { kind: "morning".into(), title: "Good morning".into(), text: lines.join(" "), prompt: String::new(), project: String::new() })
+}
+
 pub fn notices(projects_dir: &Path) -> Vec<Notice> {
     let mut out = Vec::new();
+    if let Some(m) = morning_card(projects_dir) { out.push(m); }
     for m in made_here(projects_dir) {
         let log = Path::new(&m.path).join(".genesis-preview.log");
         if let Ok(text) = std::fs::read_to_string(&log) {

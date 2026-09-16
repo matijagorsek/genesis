@@ -130,6 +130,22 @@ def wifi_diagnose(_):
         except (IndexError, ValueError): pass
     return "\n".join(lines)
 
+def wifi_reconnect(_):
+    """The first fix for a flaky Wi-Fi: drop and re-establish the current wireless connection."""
+    _, dev = run(["nmcli", "-t", "-f", "DEVICE,TYPE,STATE", "device"])
+    wifi = next((l.split(":")[0] for l in dev.splitlines() if ":wifi:" in l), "")
+    if not wifi: return "no Wi-Fi device on this computer"
+    run(["nmcli", "device", "disconnect", wifi], timeout=30)
+    code, out = run(["nmcli", "device", "connect", wifi], timeout=60)
+    return f"reconnected {wifi}" if code == 0 else "could not reconnect:\n" + out
+
+def print_test_page(a):
+    name = (a.get("printer") or "").strip()
+    args = ["lp", "-o", "fit-to-page", "/usr/share/cups/data/testprint"]
+    if name: args = ["lp", "-d", name] + args[1:]
+    code, out = run(args, timeout=60)
+    return ("sent a test page" + (f" to {name}" if name else " to the default printer") + f": {out}") if code == 0 else "could not print:\n" + out
+
 def power_profile(a):
     mode = (a.get("profile") or "").strip().lower()
     if mode not in ("balanced", "performance", "power-saver"):
@@ -169,6 +185,8 @@ TOOLS = [
     ("find_printers", "Look for network printers on this network (their URIs, for printer_setup).", {"type": "object", "properties": {}}, find_printers),
     ("printer_setup", "Add a printer by URI through CUPS and make it the default (a system change: asks first).", {"type": "object", "properties": {"name": {"type": "string"}, "uri": {"type": "string", "description": "e.g. ipp://192.168.1.50/ipp/print"}}, "required": ["name", "uri"]}, printer_setup),
     ("wifi_diagnose", "Why the network is slow or down: connection, gateway, internet by address, DNS, signal.", {"type": "object", "properties": {}}, wifi_diagnose),
+    ("wifi_reconnect", "Drop and re-establish the Wi-Fi connection (the first fix to try; asks first).", {"type": "object", "properties": {}}, wifi_reconnect),
+    ("print_test_page", "Print a test page on a printer (the default one when no name is given; asks first).", {"type": "object", "properties": {"printer": {"type": "string"}}}, print_test_page),
     ("power_profile", "Show or set the power profile: balanced, performance or power-saver.", {"type": "object", "properties": {"profile": {"type": "string"}}}, power_profile),
     ("bluetooth_status", "The Bluetooth adapter and connected devices.", {"type": "object", "properties": {}}, bluetooth_status),
     ("audio_devices", "Audio outputs and inputs and which are active.", {"type": "object", "properties": {}}, audio_devices),

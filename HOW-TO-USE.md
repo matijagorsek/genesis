@@ -82,9 +82,10 @@ installs and user settings on its own; things that touch the system still ask.
 
 ## Undo
 
-Every job that changed something outside its project ends with **Keep / Undo**. Later, Settings >
-Undo history lists those jobs with an Undo button. In a terminal, `genesis-txd list` and
-`genesis-txd undo <id>` do the same.
+Every job that changed something outside its project was snapshotted first. The maker's toast offers
+Undo right after a job; Settings, Undo history lists every job. **Changes** on a job shows what it did
+file by file, with the lines before and after, and **Restore just this file** puts one file back
+without undoing the rest. Undo takes the whole job back.
 
 ## Babel, the IDE
 
@@ -126,6 +127,17 @@ is read from the file; a photo, or a scanned PDF with no text layer, is read by 
 or a file outside your opted-in folders, the same permission card appears as in the maker.
 The Templates button keeps prompts you use often; seven come with Genesis and yours are saved from the
 composer.
+
+**Fix my computer.** The templates include "My Wi-Fi is slow", "The printer does not print", "My battery
+drains fast" and "My computer feels slow". Genesis diagnoses with its system tools, says what is wrong
+in a sentence or two, and then offers the one fix it would try first as a card: reconnect the Wi-Fi,
+set up the printer, print a test page, switch the power profile. Allow once, and it does it.
+
+## The morning card
+
+The first time the maker opens on a day, one card sums the machine up: an update waiting, things you
+made yesterday that are not installed yet, a weak Wi-Fi, a low battery. Every line comes from a local
+tool; "Got it" puts it away until tomorrow. The phone app shows the same card.
 
 ## Ask, anywhere
 
