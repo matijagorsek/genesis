@@ -304,6 +304,15 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
                 _ => json_response(&serde_json::json!({"error": "pick a genesis-backup-*.tar.gz under your home folder"}), 400),
             }
         }
+        (Method::Get, ["api", "recipes"]) => json_response(&recipes(), 200),
+        (Method::Post, ["api", "recipes"]) => {
+            let v: serde_json::Value = serde_json::from_str(&body).unwrap_or(serde_json::Value::Null);
+            match save_recipe(&v) { Ok(id) => json_response(&serde_json::json!({"saved": id}), 200), Err(e) => json_response(&serde_json::json!({"error": e.to_string()}), 400) }
+        }
+        (Method::Post, ["api", "recipes", id, "delete"]) => {
+            let p = my_recipes_dir().join(format!("{}.json", id.replace(['/', '.'], "")));
+            match std::fs::remove_file(&p) { Ok(_) => json_response(&serde_json::json!({"deleted": true}), 200), Err(e) => json_response(&serde_json::json!({"error": e.to_string()}), 404) }
+        }
         (Method::Get, ["api", "phone"]) => json_response(&phone(&["status"]), 200),
         (Method::Post, ["api", "phone", "action"]) => {
             let v: serde_json::Value = serde_json::from_str(&body).unwrap_or(serde_json::Value::Null);
@@ -814,4 +823,37 @@ fn base64_encode(bytes: &[u8]) -> String {
         out.push(if chunk.len() > 2 { T[n as usize & 63] as char } else { '=' });
     }
     out
+}
+
+/// Recipes: the ones that ship with Genesis (/usr/share/genesis/recipes) and the user's own (~/.local/share/genesis/recipes).
+fn my_recipes_dir() -> std::path::PathBuf {
+    let base = std::env::var("XDG_DATA_HOME").ok().filter(|s| !s.is_empty()).unwrap_or_else(|| format!("{}/.local/share", std::env::var("HOME").unwrap_or_default()));
+    std::path::PathBuf::from(base).join("genesis").join("recipes")
+}
+fn recipes() -> serde_json::Value {
+    let mut out = Vec::new();
+    for (dir, mine) in [(std::path::PathBuf::from(std::env::var("GENESIS_RECIPES").unwrap_or_else(|_| "/usr/share/genesis/recipes".into())), false), (my_recipes_dir(), true)] {
+        if let Ok(rd) = std::fs::read_dir(&dir) {
+            let mut files: Vec<_> = rd.flatten().map(|e| e.path()).filter(|p| p.extension().map(|x| x == "json").unwrap_or(false)).collect();
+            files.sort();
+            for f in files {
+                if let Ok(mut v) = std::fs::read_to_string(&f).ok().and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok()).ok_or(()) {
+                    if let Some(o) = v.as_object_mut() { o.insert("mine".into(), serde_json::json!(mine)); if !o.contains_key("id") { o.insert("id".into(), serde_json::json!(f.file_stem().unwrap().to_string_lossy())); } }
+                    out.push(v);
+                }
+            }
+        }
+    }
+    serde_json::Value::Array(out)
+}
+fn save_recipe(v: &serde_json::Value) -> anyhow::Result<String> {
+    let name = v.get("name").and_then(|n| n.as_str()).map(|s| s.trim()).filter(|s| !s.is_empty()).ok_or_else(|| anyhow!("a name is needed"))?;
+    let steps: Vec<String> = v.get("steps").and_then(|s| s.as_array()).map(|a| a.iter().filter_map(|x| x.as_str().map(|s| s.trim().to_string())).filter(|s| !s.is_empty()).collect()).unwrap_or_default();
+    if steps.is_empty() { return Err(anyhow!("at least one step is needed")); }
+    let id: String = name.to_lowercase().chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '-' }).collect::<String>().trim_matches('-').chars().take(48).collect();
+    let id = if id.is_empty() { format!("recipe-{}", uuid::Uuid::new_v4().simple()) } else { id };
+    let dir = my_recipes_dir(); std::fs::create_dir_all(&dir)?;
+    let doc = serde_json::json!({"id": id, "name": name, "template": v.get("template").and_then(|t| t.as_str()).unwrap_or(""), "steps": steps, "description": v.get("description").and_then(|d| d.as_str()).unwrap_or(""), "source": "mine"});
+    std::fs::write(dir.join(format!("{}.json", id)), serde_json::to_string_pretty(&doc)?)?;
+    Ok(id)
 }

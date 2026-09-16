@@ -39,6 +39,7 @@ for u in genesis-router.service; do [ -f "/usr/lib/systemd/system/$u" ] && ok "u
 [ -x /usr/bin/genesis-phone ] && [ -f /usr/lib/systemd/user/genesis-phone.service ] && [ -x /usr/bin/kdeconnectd ] && ok "phone bridge (KDE Connect, genesis-phone)" || fail "phone bridge missing"
 [ -x /usr/bin/genesis-packs ] && [ -f /usr/lib/systemd/user/genesis-packs.timer ] && grep -q genesis-packs /etc/containers/policy.json && ok "signed pack definitions (genesis-packs, policy)" || fail "genesis-packs missing"
 [ -x /usr/bin/genesis-backup ] && ok "backup and restore (genesis-backup)" || fail "genesis-backup missing"
+[ "$(ls /usr/share/genesis/recipes/*.json 2>/dev/null | wc -l)" -ge 5 ] && ok "recipes shipped" || fail "recipes missing"
 [ -x /usr/bin/genesis-companiond ] && [ -f /usr/lib/systemd/user/genesis-companiond.service ] && [ -x /usr/bin/qrencode ] && ok "phone companion API (genesis-companiond, qrencode)" || fail "companion daemon missing"
 [ -x /usr/bin/babel ] && [ -d /usr/lib/babel/resources/app/extensions/genesis-babel ] && grep -q '"nameShort": "Babel"' /usr/lib/babel/resources/app/product.json && ok "Babel (Code-OSS, Genesis extension built in)" || fail "Babel missing"
 [ -x /usr/bin/rust-analyzer ] && [ -x /usr/bin/clangd ] && [ -x /usr/bin/gopls ] && [ -d /usr/lib/babel/resources/app/extensions/ms-python.python ] && [ -d /usr/lib/babel/resources/app/extensions/golang.go ] && ok "Babel language servers (Python, TypeScript, Rust, Go, C/C++)" || fail "Babel language servers missing"

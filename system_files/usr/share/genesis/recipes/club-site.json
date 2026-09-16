@@ -1,0 +1,11 @@
+{
+ "id": "club-site",
+ "name": "A website for a club",
+ "template": "web-static",
+ "steps": [
+  "a simple website for a club with three pages",
+  "add a contact page with an email address and opening hours"
+ ],
+ "description": "Three pages, one style, served locally so you can see it.",
+ "source": "Genesis"
+}

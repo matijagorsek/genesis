@@ -1,0 +1,10 @@
+{
+ "id": "checklist-app",
+ "name": "A checklist app",
+ "template": "node-web",
+ "steps": [
+  "a checklist app that saves to a file"
+ ],
+ "description": "A small web app with a JSON file behind it. The first-run starter.",
+ "source": "Genesis"
+}

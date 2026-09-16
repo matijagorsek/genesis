@@ -1,0 +1,12 @@
+{
+ "id": "json-flag",
+ "name": "A --json flag for a CLI",
+ "template": "python-cli",
+ "steps": [
+  "a command-line tool that lists the largest files in a folder",
+  "add a --json flag that prints the result as JSON",
+  "add a test for the --json output"
+ ],
+ "description": "A CLI grown in three steps, with a test at the end.",
+ "source": "Genesis"
+}

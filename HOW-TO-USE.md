@@ -139,12 +139,14 @@ passwords. On a new Genesis, put the file anywhere in your home folder and use *
 projects are kept, restored ones get a "-restored" suffix if a name is taken. Pair the phone again
 afterwards. In a terminal: `genesis-backup export`, `genesis-backup restore <file>`.
 
-## Recipes: sharing what you made
+## Recipes: what to make, step by step
 
-Every made project carries its recipe, the list of requests that made it. In the maker's gallery,
-**Copy recipe** puts it on the clipboard; send it to someone. On their Genesis, "Make this from a
-recipe" on the maker's start page replays the steps, with the same permission cards. **Export** does
-the same with the files included, as one archive.
+The maker's start page has a **Recipes** row: a few that ship with Genesis (a checklist app, a
+pomodoro timer, a website for a club, a CLI grown in three steps…) and your own. One click replays the
+steps, with the same permission cards. In the gallery, **Save recipe** keeps a made project's steps
+under Recipes; **Copy recipe** puts them on the clipboard to send to someone, who pastes them into
+"Make this from a recipe". Right-click one of your recipes to delete it. **Export** bundles the files
+with the recipe, as one archive.
 
 ## Updates
 

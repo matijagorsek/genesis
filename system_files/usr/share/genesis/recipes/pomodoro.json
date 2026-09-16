@@ -1,0 +1,11 @@
+{
+ "id": "pomodoro",
+ "name": "A pomodoro timer",
+ "template": "python-script",
+ "steps": [
+  "a pomodoro timer with a bell",
+  "add a seconds option so the length can be set in seconds"
+ ],
+ "description": "A script that counts 25 minutes and rings; step two makes the length adjustable.",
+ "source": "Genesis"
+}

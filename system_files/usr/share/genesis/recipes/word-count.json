@@ -1,0 +1,10 @@
+{
+ "id": "word-count",
+ "name": "A word-count tool",
+ "template": "python-script",
+ "steps": [
+  "a word-count tool for text files"
+ ],
+ "description": "Counts words, lines and characters in the files you give it.",
+ "source": "Genesis"
+}

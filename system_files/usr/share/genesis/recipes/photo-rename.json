@@ -1,0 +1,10 @@
+{
+ "id": "photo-rename",
+ "name": "Rename photos by date",
+ "template": "python-script",
+ "steps": [
+  "a script that renames photos in a folder by the date they were taken"
+ ],
+ "description": "Reads the date from each photo and renames it year-month-day. Asks before touching your Pictures.",
+ "source": "Genesis"
+}
