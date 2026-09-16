@@ -45,7 +45,7 @@ jobs:
           sudo apt-get update -q && sudo apt-get install -y -q qemu-system-x86 qemu-utils ovmf sshpass
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm; sudo chmod 0666 /dev/kvm || true
-          qemu-img resize old.qcow2 +8G
+          qemu-img resize old.qcow2 +16G
       - name: Boot the old release, switch to the stable channel, reboot, check
         run: |
           set -o pipefail
@@ -75,6 +75,7 @@ jobs:
           after=$(vm 'grep --color=never ^IMAGE_VERSION= /etc/os-release'); echo "after: $after"
           vm 'echo genesis | sudo -S genesis-image-check 2>&1' > check.txt || true
           echo "--- self-check after the upgrade:"; cat check.txt
+          echo "--- disk after the upgrade (the root should have grown into the resized disk):"; vm 'df -h / /var 2>/dev/null; lsblk -o NAME,SIZE,MOUNTPOINTS 2>/dev/null | head -8' || true
           ok=$(grep -c "^  ok" check.txt || echo 0)
           fails=$(grep FAIL check.txt || true)
           wizard=$(vm 'curl -s -m 20 127.0.0.1:11510/api/state | grep --color=never -o recommended_pack | head -1' || true)
