@@ -10,4 +10,6 @@ A code editor for every language, with Genesis at your side.
 
 Everything runs on this computer. Before anything changes outside the project, Genesis asks with a plain sentence: *Allow once* or *Not now*. Every job ends with Undo one click away.
 
+As you type, Babel suggests the next lines from the small local model; `Tab` takes them, the status bar switches them off.
+
 Babel is Code-OSS underneath, so every language, debugger and extension VS Code speaks works here too.

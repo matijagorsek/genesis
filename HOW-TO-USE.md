@@ -214,8 +214,8 @@ maker switch together.
 
 ## Your language, and screen readers
 
-The maker, the palette and Genesis Settings follow the language of your desktop: German and Slovenian
-are complete, English is the source. Anything not yet translated stays in English rather than
+The first-run wizard, the maker, chat, the palette, Genesis Settings and Babel's welcome follow the
+language of your desktop: German and Slovenian are complete, English is the source. Anything not yet translated stays in English rather than
 disappearing. To help with another language, see CONTRIBUTING.md.
 
 A screen reader works with all of Genesis: turn it on in System Settings, Accessibility, Screen Reader

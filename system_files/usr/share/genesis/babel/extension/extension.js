@@ -270,7 +270,9 @@ function activate(ctx) {
   ctx.subscriptions.push(vscode.commands.registerCommand("genesis.openMaker", () => { const { spawn } = require("child_process"); spawn("genesis-window", ["http://127.0.0.1:11520/"], { detached: true, stdio: "ignore" }).unref(); }));
   ctx.subscriptions.push(vscode.commands.registerCommand("genesis.settings", () => { const { spawn } = require("child_process"); spawn("genesis-window", ["http://127.0.0.1:11520/settings"], { detached: true, stdio: "ignore" }).unref(); }));
   ctx.subscriptions.push(vscode.commands.registerCommand("genesis.welcome", () => {
-    const uri = vscode.Uri.file(path.join(ctx.extensionPath, "media", "welcome.md"));
+    const lang = (vscode.env.language || "en").slice(0, 2);
+    const localised = path.join(ctx.extensionPath, "media", `welcome.${lang}.md`);
+    const uri = vscode.Uri.file(fs.existsSync(localised) ? localised : path.join(ctx.extensionPath, "media", "welcome.md"));
     vscode.commands.executeCommand("markdown.showPreview", uri);
   }));
   ctx.subscriptions.push(vscode.commands.registerCommand("genesis.openInBabel", async () => {
