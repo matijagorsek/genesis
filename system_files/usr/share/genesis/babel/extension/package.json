@@ -1,7 +1,7 @@
 {
   "name": "genesis-babel",
   "displayName": "Genesis",
-  "description": "The maker at your side: make and change things in this workspace with the local models, every step permission-gated; ask about the selection; Genesis Dark.",
+  "description": "The maker at your side: make and change things in this workspace with the local models, every step permission-gated; inline completion from the small local model in every language; ask about the selection; Genesis Dark.",
   "version": "0.1.0",
   "publisher": "genesis",
   "license": "Apache-2.0",
@@ -38,7 +38,7 @@
     "commands": [
       {
         "command": "genesis.make",
-        "title": "Genesis: Make something in this workspace\u2026"
+        "title": "Genesis: Make something in this workspace…"
       },
       {
         "command": "genesis.askSelection",
@@ -46,7 +46,7 @@
       },
       {
         "command": "genesis.changeFile",
-        "title": "Genesis: Change this file\u2026"
+        "title": "Genesis: Change this file…"
       },
       {
         "command": "genesis.openMaker",
@@ -58,11 +58,15 @@
       },
       {
         "command": "genesis.openInBabel",
-        "title": "Genesis: Open a made project in Babel\u2026"
+        "title": "Genesis: Open a made project in Babel…"
       },
       {
         "command": "genesis.welcome",
         "title": "Babel: Welcome"
+      },
+      {
+        "command": "genesis.toggleCompletion",
+        "title": "Babel: Turn local completion on or off"
       }
     ],
     "menus": {
@@ -110,6 +114,16 @@
           "type": "string",
           "default": "http://127.0.0.1:11520",
           "description": "The Genesis maker daemon on this machine."
+        },
+        "genesis.router": {
+          "type": "string",
+          "default": "http://127.0.0.1:8080",
+          "description": "The model service on this machine (llama-swap), used for inline completion."
+        },
+        "genesis.completion.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Inline suggestions from the local model while you type, in every language. Nothing leaves this machine."
         }
       }
     },

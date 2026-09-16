@@ -212,6 +212,11 @@ pub fn render_router_tuned(models_dir: &Path, port_base: u16, t: Tuning) -> Resu
         y.push_str(&format!("  chat:\n    cmd: |\n      ${{server}} -m {}\n      -c 32768 --temp 0.7 --top-p 0.8 --top-k 20\n    aliases: [ \"genesis-chat\" ]\n    ttl: 600\n\n", f));
         big.push("chat");
     }
+    if let Some(f) = find("fim", false) {
+        // fill-in-the-middle for Babel's inline completion: small, always resident, short context
+        y.push_str(&format!("  fim:\n    cmd: |\n      ${{server}} -m {}\n      -c 4096 --temp 0.2 --top-p 0.9 --reasoning off\n    aliases: [ \"genesis-fim\" ]\n    ttl: 0\n\n", f));
+        hot.push("fim");
+    }
     if let Some(f) = find("embed", false) {
         y.push_str(&format!("  embed:\n    cmd: |\n      ${{server}} -m {} --embedding --pooling last -c 8192 -b 8192 -ub 8192\n    aliases: [ \"genesis-embed\", \"text-embedding-3-small\" ]\n    ttl: 0\n\n", f));
         hot.push("embed");
@@ -270,7 +275,7 @@ mod tests {
     #[test]
     fn router_renders_from_files_on_disk() {
         let dir = tempfile::tempdir().unwrap();
-        for (role, f) in [("fast", "a-Q8_0.gguf"), ("fast", "mmproj-F16.gguf"), ("code", "b-Q4_K_M.gguf"), ("embed", "e.gguf")] {
+        for (role, f) in [("fast", "a-Q8_0.gguf"), ("fast", "mmproj-F16.gguf"), ("code", "b-Q4_K_M.gguf"), ("embed", "e.gguf"), ("fim", "f.gguf")] {
             std::fs::create_dir_all(dir.path().join(role)).unwrap();
             std::fs::write(dir.path().join(role).join(f), b"x").unwrap();
         }
@@ -280,7 +285,8 @@ mod tests {
         assert!(y.contains("  code:"));
         assert!(y.contains("  embed:"));
         assert!(!y.contains("  chat:"));
-        assert!(y.contains("members: [ fast, embed ]"));
+        assert!(y.contains("  fim:"));
+        assert!(y.contains("members: [ fast, fim, embed ]"));
         assert!(y.contains("members: [ code ]"));
     }
 }

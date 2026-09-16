@@ -34,5 +34,9 @@ for ident, url, sha in EXT:
             target = os.path.join(dest, rel); os.makedirs(os.path.dirname(target), exist_ok=True)
             with z.open(m) as src, open(target, "wb") as out: shutil.copyfileobj(src, out)
             if (m.external_attr >> 16) & 0o111: os.chmod(target, 0o755)
+    if ident == "ms-python.debugpy":
+        # the extension writes its no-config debug endpoint file next to itself; /usr is read-only on bootc,
+        # so point that folder at a tmpfiles-managed place (see usr/lib/tmpfiles.d/genesis.conf)
+        os.symlink("/tmp/.babel-debugpy", os.path.join(dest, ".noConfigDebugAdapterEndpoints"))
     os.remove(tmp)
     print("built in:", ident)

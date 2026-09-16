@@ -87,6 +87,14 @@ first use.
 - **Made here** in the sidebar lists everything Genesis built; one click opens it in Babel. The maker's
   gallery has "Open in Babel" too.
 
+### Suggestions while you type
+
+Babel suggests the next lines as you write, in every language, from the small model on this machine. The
+suggestion appears in grey; `Tab` takes it, keep typing to ignore it. The status bar says which model is
+answering ("fast completion") and one click turns it off. Packs with a dedicated completion model use
+that; the others use the always-loaded small model, so the first suggestion after a pause takes a few
+seconds on CPU-only machines and is quick once the file is warm. Nothing leaves the computer.
+
 ## Ask, anywhere
 
 <p align="center"><img src="docs/screens/more/02-screen-region-asked.png" width="88%" alt="A screen region handed to "What is on my screen"; the local model described it in seven seconds"></p>

@@ -26,6 +26,73 @@ function api(method, p, body) {
   });
 }
 
+// ---- Local completion: fill-in-the-middle on the model service (llama.cpp /infill through the router).
+// The small hot model of every pack answers this; a pack with a dedicated "fim" model uses that instead.
+// Nothing leaves the machine: the router only listens on 127.0.0.1.
+const completion = { enabled: true, model: null, modelsAt: 0, downUntil: 0, last: { key: "", text: "" }, sb: null, out: null };
+function clog(m) { try { if (!completion.out) completion.out = vscode.window.createOutputChannel("Genesis completion"); completion.out.appendLine(new Date().toISOString().slice(11, 19) + " " + m); } catch {} }
+function routerBase() { return new URL(vscode.workspace.getConfiguration("genesis").get("router") || "http://127.0.0.1:8080"); }
+function routerJson(method, p, body, ms, signal) {
+  const base = routerBase();
+  return new Promise((resolve) => {
+    const data = body ? JSON.stringify(body) : null;
+    const req = http.request({ host: base.hostname, port: base.port || 80, path: p, method, headers: { "Content-Type": "application/json", ...(data ? { "Content-Length": Buffer.byteLength(data) } : {}) }, timeout: ms }, (res) => {
+      let t = ""; res.on("data", (c) => t += c); res.on("end", () => { try { resolve({ status: res.statusCode, body: JSON.parse(t || "{}") }); } catch { resolve({ status: res.statusCode, body: {} }); } });
+    });
+    req.on("error", () => resolve({ status: 0, body: {} }));
+    req.on("timeout", () => { req.destroy(); resolve({ status: 0, body: {} }); });
+    if (signal) signal.onCancellationRequested(() => { req.destroy(); resolve({ status: 0, body: {} }); });
+    if (data) req.write(data);
+    req.end();
+  });
+}
+async function completionModel() {
+  const now = Date.now();
+  if (completion.model && now - completion.modelsAt < 60000) return completion.model;
+  const r = await routerJson("GET", "/v1/models", null, 3000);
+  const ids = ((r.body && r.body.data) || []).map((m) => m.id);
+  completion.modelsAt = now;
+  completion.model = ["fim", "fast", "code"].find((m) => ids.includes(m)) || null;
+  return completion.model;
+}
+function updateCompletionBar() {
+  const sb = completion.sb; if (!sb) return;
+  if (!completion.enabled) { sb.text = "$(circle-slash) completion off"; sb.tooltip = "Local completion is off. Click to turn it on."; }
+  else if (Date.now() < completion.downUntil || !completion.model) { sb.text = "$(debug-disconnect) no model"; sb.tooltip = "Local completion needs the model service. Set up models from the app menu, or wait for it to start."; }
+  else { sb.text = `$(lightbulb) ${completion.model} completion`; sb.tooltip = `Inline suggestions from the local ${completion.model} model. Nothing leaves this machine. Click to turn off.`; }
+  sb.show();
+}
+class LocalCompletion {
+  async provideInlineCompletionItems(doc, pos, ctx, cancel) {
+    if (!completion.enabled || Date.now() < completion.downUntil) return [];
+    clog(`asked at ${pos.line}:${pos.character} (${ctx.triggerKind})`);
+    const line = doc.lineAt(pos.line).text;
+    if (line.slice(pos.character).trim()) return []; // only complete at the end of what is typed
+    await new Promise((r) => setTimeout(r, 250)); if (cancel.isCancellationRequested) return [];
+    const model = await completionModel(); if (!model) { updateCompletionBar(); return []; }
+    const start = doc.positionAt(Math.max(0, doc.offsetAt(pos) - 2400));
+    const end = doc.positionAt(Math.min(doc.getText().length, doc.offsetAt(pos) + 800));
+    const prefix = doc.getText(new vscode.Range(start, pos));
+    const suffix = doc.getText(new vscode.Range(pos, end));
+    const key = doc.uri.toString() + " " + prefix + " " + suffix;
+    if (completion.last.key === key && completion.last.text) return [new vscode.InlineCompletionItem(completion.last.text, new vscode.Range(pos, pos))];
+    const t0 = Date.now();
+    const r = await routerJson("POST", "/infill", { model, input_prefix: prefix, input_suffix: suffix, n_predict: 48, temperature: 0.2, top_p: 0.9, stop: ["\n\n\n"], cache_prompt: true }, 20000, cancel);
+    clog(`infill ${model}: status ${r.status} in ${Date.now() - t0} ms, ${((r.body && r.body.content) || "").length} chars, cancelled=${cancel.isCancellationRequested}`);
+    if (cancel.isCancellationRequested) return []; // the editor moved on (more typing, a popup): not a failure
+    if (r.status !== 200) { if (r.status === 0) { completion.downUntil = Date.now() + 30000; completion.model = null; } updateCompletionBar(); return []; }
+    updateCompletionBar();
+    let text = ((r.body && r.body.content) || "").split("\r").join("");
+    if (!text.trim()) return [];
+    // never repeat what already follows the cursor
+    const after = suffix.split("\n")[0].trimEnd();
+    if (after && text.trimEnd().endsWith(after)) text = text.slice(0, text.lastIndexOf(after));
+    if (!text.trim()) return [];
+    completion.last = { key, text };
+    return [new vscode.InlineCompletionItem(text, new vscode.Range(pos, pos))];
+  }
+}
+
 function workspaceFolder() {
   const f = vscode.workspace.workspaceFolders;
   return f && f.length ? f[0].uri.fsPath : "";
@@ -218,6 +285,17 @@ function activate(ctx) {
   }
   const sb = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
   sb.text = "$(sparkle) Genesis"; sb.tooltip = "Make something with Genesis (Ctrl+Alt+Space)"; sb.command = "genesis.make"; sb.show(); ctx.subscriptions.push(sb);
+  // local completion: every language, the small model on this machine
+  completion.enabled = vscode.workspace.getConfiguration("genesis").get("completion.enabled") !== false;
+  completion.sb = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 50);
+  completion.sb.command = "genesis.toggleCompletion"; ctx.subscriptions.push(completion.sb);
+  ctx.subscriptions.push(vscode.languages.registerInlineCompletionItemProvider({ pattern: "**" }, new LocalCompletion()));
+  ctx.subscriptions.push(vscode.commands.registerCommand("genesis.toggleCompletion", async () => {
+    completion.enabled = !completion.enabled;
+    await vscode.workspace.getConfiguration("genesis").update("completion.enabled", completion.enabled, vscode.ConfigurationTarget.Global);
+    updateCompletionBar();
+  }));
+  completionModel().then(updateCompletionBar);
 }
 function deactivate() {}
 module.exports = { activate, deactivate };
