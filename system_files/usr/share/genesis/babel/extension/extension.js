@@ -102,6 +102,7 @@ function workspaceFolder() {
 function verb(tool, a) {
   a = a || {};
   if (tool === "shell") { const c = (a.command || "").trim(); if (/\b(pip3?|npm|dnf5?|flatpak|cargo|apt)\b.*\binstall\b/.test(c)) return ["install software", c]; if (a.needs_network) return ["use the network", c]; return ["run a command", c]; }
+  if (tool.startsWith("mcp__")) { const m = tool.split("__"); return ["use your " + (m[1] || "") + " tool: " + (m.slice(2).join("__") || ""), JSON.stringify(a).slice(0, 200)]; }
   if (tool === "write_file" || tool === "edit_file") return ["change a file outside the project", a.path || ""];
   if (tool === "read_file" || tool === "list_dir") return ["read a file", a.path || ""];
   if (tool === "browser_open") return ["open a web page", a.url || ""];

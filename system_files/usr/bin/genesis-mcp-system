@@ -1,0 +1,149 @@
+#!/usr/bin/python3
+"""genesis-mcp-system: the machine as tools, over MCP (stdio, JSON-RPC 2.0, one message per line).
+
+The maker gets these as mcp__system__<tool>. Their permission tiers are declared next to the server in
+/usr/share/genesis/mcp/system.json: reading is free, installing or removing software is a system change
+(asks unless Hands-off), searching the app catalogue uses the network. Nothing here needs root except
+what polkit already lets a desktop user do (Flatpak installs go to the user's own installation).
+
+It is also the worked example for writing your own server: ~120 lines, no framework.
+"""
+import json, os, shutil, subprocess, sys
+
+def run(cmd, timeout=120):
+    try:
+        p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        out = (p.stdout or "") + (("\n" + p.stderr) if p.stderr and p.returncode else "")
+        return p.returncode, out.strip()
+    except FileNotFoundError:
+        return 127, f"{cmd[0]} is not installed"
+    except subprocess.TimeoutExpired:
+        return 124, "timed out"
+
+def read(path, n=4000):
+    try:
+        return open(path).read()[:n].strip()
+    except OSError:
+        return ""
+
+# ---- the tools -------------------------------------------------------------------------------
+
+def system_status(_):
+    lines = []
+    for l in read("/etc/os-release").splitlines():
+        if l.startswith(("PRETTY_NAME=", "IMAGE_VERSION=")): lines.append(l.split("=", 1)[1].strip('"'))
+    _, up = run(["uptime", "-p"]); lines.append(up)
+    _, df = run(["df", "-h", "/var", "/var/home"]); lines.append(df)
+    mem = read("/proc/meminfo", 400).splitlines()[:3]; lines.extend(mem)
+    bat = "/sys/class/power_supply"
+    for b in sorted(os.listdir(bat)) if os.path.isdir(bat) else []:
+        cap = read(f"{bat}/{b}/capacity"); st = read(f"{bat}/{b}/status")
+        if cap: lines.append(f"battery {b}: {cap}% ({st})")
+    _, temp = run(["sh", "-c", "cat /sys/class/thermal/thermal_zone*/temp 2>/dev/null | head -1"])
+    if temp.isdigit(): lines.append(f"cpu temperature: {int(temp)//1000} C")
+    return "\n".join(l for l in lines if l)
+
+def network_status(_):
+    code, out = run(["nmcli", "-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "device"])
+    if code: return out
+    _, wifi = run(["nmcli", "-t", "-f", "ACTIVE,SSID,SIGNAL,RATE", "device", "wifi"])
+    active = [l for l in wifi.splitlines() if l.startswith("yes")]
+    return out + ("\nwifi: " + "; ".join(active) if active else "")
+
+def updates_status(_):
+    # bootc status needs root; genesis-bootc-status.service publishes it for the desktop
+    try:
+        st = json.load(open("/run/genesis/bootc-status.json"))["status"]
+    except (OSError, ValueError, KeyError) as e:
+        return f"the published update status is not available ({e}); Settings > Updates shows it"
+    try:
+        booted = (st.get("booted") or {}).get("image", {}).get("image", {}).get("image", "?")
+        ver = (st.get("booted") or {}).get("image", {}).get("version", "?")
+        staged = (st.get("staged") or {}).get("image", {}).get("version")
+        return f"running: {booted} version {ver}" + (f"\nstaged, applies at next restart: {staged}" if staged else "\nno update staged")
+    except Exception as e:
+        return f"could not read bootc status: {e}"
+
+def installed_apps(_):
+    code, out = run(["flatpak", "list", "--app", "--columns=application,name,version"])
+    rpm = run(["sh", "-c", "ls /usr/share/applications/*.desktop 2>/dev/null | wc -l"])[1]
+    return (out or "no Flatpak apps") + f"\n(plus {rpm} desktop entries that ship with the image)"
+
+def search_apps(a):
+    q = (a.get("query") or "").strip()
+    if not q: return "give a query"
+    code, out = run(["flatpak", "search", "--columns=application,name,description", q], timeout=180)
+    return out or f"nothing on Flathub matches {q!r}"
+
+def install_app(a):
+    app = (a.get("app_id") or "").strip()
+    if not app or " " in app: return "give a Flatpak application id like org.videolan.VLC (use search_apps first)"
+    code, out = run(["flatpak", "install", "--user", "--noninteractive", "-y", "flathub", app], timeout=1800)
+    return ("installed " + app if code == 0 else "install failed:\n" + out)
+
+def remove_app(a):
+    app = (a.get("app_id") or "").strip()
+    if not app or " " in app: return "give the Flatpak application id (see installed_apps)"
+    code, out = run(["flatpak", "uninstall", "--user", "--noninteractive", "-y", app], timeout=600)
+    return ("removed " + app if code == 0 else "remove failed:\n" + out)
+
+def set_theme(a):
+    mode = (a.get("mode") or "").strip().lower()
+    if mode not in ("dark", "light"): return "mode must be dark or light"
+    code, out = run(["genesis-theme", mode])
+    return f"switched to {mode}" if code == 0 else out
+
+def printers(_):
+    code, out = run(["lpstat", "-p", "-d"])
+    return out if out else "no printers set up"
+
+def processes(_):
+    _, out = run(["sh", "-c", "ps -eo pcpu,pmem,comm --sort=-pcpu | head -12"])
+    return out
+
+TOOLS = [
+    ("system_status", "What this computer is running: image version, uptime, disk, memory, battery, temperature.", {"type": "object", "properties": {}}, system_status),
+    ("network_status", "Network devices, which are connected, and the current wifi.", {"type": "object", "properties": {}}, network_status),
+    ("updates_status", "Whether a Genesis update is staged for the next restart.", {"type": "object", "properties": {}}, updates_status),
+    ("installed_apps", "Apps installed as Flatpaks, plus how many ship with the image.", {"type": "object", "properties": {}}, installed_apps),
+    ("search_apps", "Search the Flathub app catalogue (uses the network).", {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}, search_apps),
+    ("install_app", "Install an app from Flathub for this user (a system change: asks first).", {"type": "object", "properties": {"app_id": {"type": "string", "description": "Flatpak id, e.g. org.gimp.GIMP"}}, "required": ["app_id"]}, install_app),
+    ("remove_app", "Remove a Flatpak app (a system change: asks first).", {"type": "object", "properties": {"app_id": {"type": "string"}}, "required": ["app_id"]}, remove_app),
+    ("set_theme", "Switch the whole desktop between day and night.", {"type": "object", "properties": {"mode": {"type": "string", "enum": ["dark", "light"]}}, "required": ["mode"]}, set_theme),
+    ("printers", "Printers set up on this computer.", {"type": "object", "properties": {}}, printers),
+    ("processes", "The processes using the most CPU right now.", {"type": "object", "properties": {}}, processes),
+]
+
+# ---- MCP over stdio ---------------------------------------------------------------------------
+
+def reply(mid, result=None, error=None):
+    msg = {"jsonrpc": "2.0", "id": mid}
+    if error is not None: msg["error"] = {"code": -32000, "message": str(error)}
+    else: msg["result"] = result
+    sys.stdout.write(json.dumps(msg) + "\n"); sys.stdout.flush()
+
+def main():
+    for line in sys.stdin:
+        line = line.strip()
+        if not line: continue
+        try: m = json.loads(line)
+        except ValueError: continue
+        method, mid = m.get("method"), m.get("id")
+        if mid is None: continue  # notifications need no answer
+        if method == "initialize":
+            reply(mid, {"protocolVersion": m.get("params", {}).get("protocolVersion", "2025-06-18"), "capabilities": {"tools": {}}, "serverInfo": {"name": "genesis-system", "version": "0.2"}})
+        elif method == "tools/list":
+            reply(mid, {"tools": [{"name": n, "description": d, "inputSchema": s} for n, d, s, _ in TOOLS]})
+        elif method == "tools/call":
+            p = m.get("params", {}); name = p.get("name"); args = p.get("arguments") or {}
+            fn = next((f for n, _, _, f in TOOLS if n == name), None)
+            if fn is None: reply(mid, error=f"no tool {name}"); continue
+            try: reply(mid, {"content": [{"type": "text", "text": fn(args)}]})
+            except Exception as e: reply(mid, {"content": [{"type": "text", "text": f"{name} failed: {e}"}], "isError": True})
+        elif method == "ping":
+            reply(mid, {})
+        else:
+            reply(mid, error=f"method {method} not supported")
+
+if __name__ == "__main__":
+    main()

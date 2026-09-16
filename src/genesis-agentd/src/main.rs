@@ -17,6 +17,7 @@ mod browser;
 mod voice;
 mod llm;
 mod maker;
+mod mcp;
 mod sandbox;
 
 use agent::{Agent, Event, SessionInfo, Shared};
@@ -304,6 +305,8 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
                 _ => json_response(&serde_json::json!({"error": "pick a genesis-backup-*.tar.gz under your home folder"}), 400),
             }
         }
+        (Method::Get, ["api", "mcp"]) => json_response(&mcp::status(), 200),
+        (Method::Post, ["api", "mcp", "reload"]) => { mcp::reload(); json_response(&mcp::status(), 200) }
         (Method::Get, ["api", "recipes"]) => json_response(&recipes(), 200),
         (Method::Post, ["api", "recipes"]) => {
             let v: serde_json::Value = serde_json::from_str(&body).unwrap_or(serde_json::Value::Null);

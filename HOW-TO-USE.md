@@ -138,6 +138,27 @@ notification with **Allow once** and **Not now** right on it; a quiet "Connected
 notification stays while the app watches. Same network, encrypted to this machine only; "Regenerate the
 code" unpairs every phone.
 
+## Your own tools (MCP)
+
+The maker's abilities are not fixed. Any program that speaks MCP, the open Model Context Protocol, can
+give it new tools, and Genesis ships one: the **system** server, which lets the maker read the
+machine's status, network and updates, search Flathub and install or remove apps, list printers, and
+switch day and night. Ask "install VLC" or "is an update waiting?" and the maker uses them, with the
+same permission cards as everything else: installing is a system change and asks first, searching the
+catalogue is network use, reading status is free.
+
+Settings, Tools shows every server, whether it runs, and each tool's tier. To add your own, put it in
+`~/.config/genesis/mcp.json` and press Reload:
+
+```json
+{"servers": {"notes": {"command": "/home/you/bin/notes-mcp", "tier": "read",
+                       "tiers": {"add_note": "write"}, "description": "my notes"}}}
+```
+
+The tier is what the permission rules apply to every tool of that server: `read`, `write`, `network`,
+`system` or `never`, per tool if you list them. The server runs as you, like any program you start.
+The shipped one, `/usr/bin/genesis-mcp-system`, is 120 lines of Python and a fine template.
+
 ## Backup, and moving to a new machine
 
 Settings > Backup and moving > **Export to Downloads** writes one file with everything Genesis made

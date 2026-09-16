@@ -45,6 +45,7 @@ for u in genesis-router.service; do [ -f "/usr/lib/systemd/system/$u" ] && ok "u
 [ -x /usr/bin/rust-analyzer ] && [ -x /usr/bin/clangd ] && [ -x /usr/bin/gopls ] && [ -d /usr/lib/babel/resources/app/extensions/ms-python.python ] && [ -d /usr/lib/babel/resources/app/extensions/golang.go ] && ok "Babel language servers (Python, TypeScript, Rust, Go, C/C++)" || fail "Babel language servers missing"
 [ -x /usr/bin/lldb-dap ] && [ -x /usr/bin/dlv ] && [ -d /usr/lib/babel/resources/app/extensions/llvm-vs-code-extensions.lldb-dap ] && ok "Babel debuggers (lldb-dap for Rust and C/C++, Delve for Go, debugpy for Python)" || fail "Babel debuggers missing"
 grep -q "/infill" /usr/lib/babel/resources/app/extensions/genesis-babel/extension.js 2>/dev/null && [ -L /usr/lib/babel/resources/app/extensions/ms-python.debugpy/.noConfigDebugAdapterEndpoints ] && ok "Babel local completion (fill-in-the-middle on the router) and debugpy endpoint folder redirected" || fail "Babel completion or debugpy folder"
+[ -x /usr/bin/genesis-mcp-system ] && [ -f /usr/share/genesis/mcp/system.json ] && grep -q "mcp.system" /usr/share/genesis/policy.d/00-default.toml && ok "MCP tool servers (system server shipped, tiers in the policy)" || fail "MCP server or policy tiers missing"
 [ -x /usr/bin/genesis-index ] && [ -f /usr/lib/systemd/user/genesis-index.timer ] && [ -x /usr/bin/pdftotext ] && ok "local file index (genesis-index, pdftotext)" || fail "genesis-index missing"
 [ -x /usr/bin/genesis-ask-screen ] && [ -x /usr/bin/spectacle ] && grep -q askscreen /etc/xdg/kglobalshortcutsrc && ok "ask about the screen (spectacle, Meta+Shift+A)" || fail "ask-screen missing"
 [ -x /usr/bin/genesis-claude ] && [ -f /usr/share/applications/org.genesis.claude.desktop ] && ok "Claude (sign in with your account)" || fail "claude launcher"
@@ -62,7 +63,8 @@ GENESIS_TX_STORE=/tmp/genesis-check-tx genesis-txd list >/dev/null 2>&1 && ok "t
 [ -f /usr/share/applications/org.genesis.workspace.desktop ] && ok "workspace desktop entry" || fail "workspace desktop entry"
 grep -q "Meta+Space" /etc/xdg/kglobalshortcutsrc 2>/dev/null && ok "Meta+Space default shortcut" || fail "global shortcut default"
 [ "$(ls -d /usr/share/genesis/templates/*/ 2>/dev/null | wc -l)" -ge 3 ] && ok "project templates shipped" || fail "templates"
-[ -x /usr/bin/growpart ] && [ -f /usr/lib/systemd/system/bootc-generic-growpart.service ] && ok "root grows into a resized disk (growpart present for bootc's fallback unit)" || fail "growpart missing: a resized disk would not be used"
+if [ -x /usr/bin/growpart ] && [ -f /usr/lib/systemd/system/bootc-generic-growpart.service ]; then ok "root grows into a resized disk (growpart present for bootc's fallback unit)"
+else fail "grow on boot: growpart $([ -x /usr/bin/growpart ] && echo present || echo missing) ($(ls /usr/bin/growpart /usr/sbin/growpart 2>/dev/null | tr '\n' ' ')), bootc unit $([ -f /usr/lib/systemd/system/bootc-generic-growpart.service ] && echo present || echo missing) (bootc $(rpm -q bootc 2>/dev/null))"; fi
 probe_out=$(genesis-probe --json 2>&1 || true)
 # a machine too small for any pack is a valid probe result (the wizard offers "set up later"), not a failed probe
 if grep -q '"recommended_pack": "' <<<"$probe_out"; then ok "probe: $(grep -o '"recommended_pack": "[^"]*"' <<<"$probe_out")"

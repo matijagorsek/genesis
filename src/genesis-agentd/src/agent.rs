@@ -200,7 +200,10 @@ impl Agent {
         let compact = compact_model(&self.client.model);
         if compact && self.messages.len() == 1 { self.messages[0] = Message::system(SYSTEM_PROMPT_COMPACT); }
         self.messages.push(Message::user(format!("Project directory: {}\n\nTask: {}", self.project.display(), text)));
-        let tools = if compact { tool_schemas_compact() } else { tool_schemas() };
+        // the user's MCP tools join both tool sets: they are few, plainly described, and the way a small
+        // model answers "is an update waiting?" or "install VLC" on a CPU-only machine
+        let mut tools = if compact { tool_schemas_compact() } else { tool_schemas() };
+        tools.as_array_mut().unwrap().extend(crate::mcp::tool_schemas());
         let mut final_text = String::new();
         for turn in 0..self.max_turns {
             let started = Instant::now();
@@ -259,6 +262,11 @@ impl Agent {
     fn intent_for(&self, name: &str, args: &Value) -> Intent {
         let s = |k: &str| args.get(k).and_then(|v| v.as_str()).unwrap_or("").to_string();
         let path = |k: &str| resolve_path(&self.project, &s(k)).display().to_string();
+        if let Some((server, tool)) = name.strip_prefix("mcp__").and_then(|_| crate::mcp::split_id(name)) {
+            // an MCP tool is classified by the tier its server config declares; the call is shown like a command
+            let tier = crate::mcp::tier_of(&server, &tool);
+            return Intent { session_id: self.session_id.clone(), origin: "agentd".into(), tool: format!("mcp.{}", tier), command: Some(format!("{}: {} {}", server, tool, args)), network: genesis_permd::Network { domains: if tier == "network" { vec!["*".into()] } else { vec![] } }, ..Default::default() };
+        }
         let mut i = Intent { session_id: self.session_id.clone(), origin: "agentd".into(), tool: match name {
             "shell" => "shell",
             "read_file" | "list_dir" | "list_templates" | "search_files" => "fs.read",
@@ -515,7 +523,12 @@ impl Agent {
                 names.sort();
                 Ok(names.join("\n"))
             }
-            other => Err(anyhow!("unknown tool {}", other)),
+            other => {
+                if let Some((server, tool)) = crate::mcp::split_id(other) {
+                    return crate::mcp::call(&server, &tool, args);
+                }
+                Err(anyhow!("unknown tool {}", other))
+            }
         }
     }
 }

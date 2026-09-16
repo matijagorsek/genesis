@@ -275,6 +275,12 @@ impl Policy {
                 ("sysconfig.set".to_string(), System),
                 ("bootc.upgrade".to_string(), System),
                 ("keyring.read".to_string(), Secrets),
+                // MCP servers: the tier their configuration declares (see genesis-agentd mcp.rs)
+                ("mcp.read".to_string(), ReadLocal),
+                ("mcp.write".to_string(), WriteUser),
+                ("mcp.network".to_string(), ReadNetwork),
+                ("mcp.system".to_string(), System),
+                ("mcp.never".to_string(), Never),
                 ("message.send".to_string(), Never),
                 ("payment".to_string(), Never),
             ]

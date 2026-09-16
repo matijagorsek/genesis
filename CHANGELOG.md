@@ -3,6 +3,7 @@
 Derived from the decision log (`docs/decisions.md`); one line per decision, newest first. Versions are 0.2.N on the stable channel; 0.1.N before 2026-09-15.
 
 ## 2026-09-16
+- MCP tool servers as the extension point; the shipped system server makes the maker an administrator (built, decision 87)
 - Local completion in Babel from the small model on this machine; debugpy activation fixed (built, decision 86)
 - A resized disk is used on the x86 flavours too: growpart in the image (done, decision 85)
 - Base images pinned on our own mirror (`ghcr.io/matijagorsek/genesis-base`), moved forward weekly by a bump job (done, decision 82)

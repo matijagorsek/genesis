@@ -1,0 +1,15 @@
+{
+  "servers": {
+    "system": {
+      "command": "/usr/bin/genesis-mcp-system",
+      "description": "This computer as tools: status, network, updates, apps from Flathub, printers, day and night.",
+      "tier": "read",
+      "tiers": {
+        "search_apps": "network",
+        "install_app": "system",
+        "remove_app": "system",
+        "set_theme": "write"
+      }
+    }
+  }
+}

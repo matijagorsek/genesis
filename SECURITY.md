@@ -20,3 +20,14 @@ are classified by the command they really run, paths are matched on their canoni
 chain is keyed, base images are pinned by digest, upstream binaries are verified by checksum, and CI
 runs a RustSec audit. The shell classifier remains heuristic: the sandbox is the boundary, the policy is
 the second line. Reports of anything that gets past either are welcome, privately, as described above.
+
+## MCP tool servers
+
+A tool server declared in `/usr/share/genesis/mcp` or `~/.config/genesis/mcp.json` runs as the user,
+without the shell sandbox: it is the user's own choice of program, like anything they start from a
+terminal. What stays in place is the permission broker: every call is classified by the tier the
+server's configuration declares (`read`, `write`, `network`, `system`, `never`), per tool when listed,
+and answered per session mode, so a `system`-tier tool asks before it runs unless the user chose
+Hands-off. Tool results are model input, never instructions to Genesis. A server that needs the
+network should say so with the `network` tier; the network badge then shows the job used it.
+

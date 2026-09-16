@@ -73,6 +73,10 @@ How Genesis got here, in the order it happened. The decision log has the detail 
   and a Day / Night switch for the whole desktop (also `Meta+Shift+T`).
 - **Status widget** in the dock: model loaded, whether any job used the network, sandbox on, one click
   to the maker.
+- **Tools as MCP servers**: the maker's abilities extend with any program speaking the Model Context
+  Protocol; each server's tools carry a declared permission tier and go through the same cards. The
+  shipped `system` server makes the maker a careful administrator: status, network, updates, apps from
+  Flathub, printers, day and night. Settings > Tools lists them; add yours in `~/.config/genesis/mcp.json`.
 - **Browser control**: the agent drives a headless Chromium with a throw-away profile (open, read,
   click, type, screenshot). Page content is treated as untrusted and taints the session.
 - **Terminal**: `ask list the ten biggest files here` prints the command, says what it would touch

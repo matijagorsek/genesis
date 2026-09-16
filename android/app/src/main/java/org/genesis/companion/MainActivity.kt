@@ -285,5 +285,6 @@ fun plainVerb(tool: String, a: JSONObject): Pair<String, String> = when (tool) {
     "install_app" -> "add an app to your menu" to a.optString("display_name")
     "preview_start" -> "run the project" to a.optString("path")
     "scaffold" -> "create the project ${a.optString("name")}" to "from the ${a.optString("template")} template"
-    else -> tool.replace('_', ' ') to a.toString().take(120)
+    else -> if (tool.startsWith("mcp__")) { val m = tool.split("__"); "use your ${m.getOrElse(1) { "" }} tool: ${m.drop(2).joinToString("__")}" to a.toString().take(120) }
+            else tool.replace('_', ' ') to a.toString().take(120)
 }
