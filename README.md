@@ -63,7 +63,7 @@ How Genesis got here, in the order it happened. The decision log has the detail 
   Keep / Undo toast, a "Made here" gallery with shareable recipes and one-click export bundles, and
   proactive cards for projects that failed their last run or were never installed. Small models get a compact
   mode with a short strict script; the wizard says what each pack can do on this hardware. Templates: static web app,
-  Python CLI, Python script.
+  web app with a Python or Node backend, Python CLI and script, Rust CLI, a JSON API server, a GTK 4 desktop app.
 - **Permission broker** (`genesis-permd`): every tool call classified into tiers (read, write in
   project, write elsewhere, system, secrets, never) and answered per session mode
   (assist / auto-edit / autonomous). Hash-chained audit log. D-Bus `org.genesis.Permission1`.

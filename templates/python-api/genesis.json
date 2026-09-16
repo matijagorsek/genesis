@@ -1,0 +1,8 @@
+{
+  "id": "python-api",
+  "name": "API server (Python)",
+  "description": "A small JSON API: a standard-library HTTP server with routes, a data file, CORS for a front end, and a test. No dependencies beyond Python.",
+  "entry": "app.py",
+  "dev": { "cmd": "python3 app.py --port {port}", "port": 5500, "open": "http://127.0.0.1:{port}/api/items" },
+  "run": { "cmd": "python3 app.py --port 5500", "port": 5500, "open": "http://127.0.0.1:5500/api/items" }
+}

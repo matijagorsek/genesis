@@ -1,0 +1,8 @@
+{
+  "id": "gtk-app",
+  "name": "Desktop app (GTK 4, Python)",
+  "description": "A real desktop window: GTK 4 through Python's GObject bindings, both in the image. A header bar, a list, an entry, and a settings file. Follows the Genesis day/night theme.",
+  "entry": "app.py",
+  "dev": { "cmd": "python3 app.py", "port": 0 },
+  "run": { "cmd": "python3 app.py" }
+}
