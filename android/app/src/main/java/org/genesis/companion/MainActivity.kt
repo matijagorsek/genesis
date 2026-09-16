@@ -37,8 +37,8 @@ val Bg = Color(0xFF10161E); val Panel = Color(0xFF161D27); val Panel2 = Color(0x
 val Ink = Color(0xFFE6EBF1); val Ink2 = Color(0xFFA9B4C1); val Ink3 = Color(0xFF8894A3); val Accent = Color(0xFF5FB5BD); val Good = Color(0xFF6CCF94); val Warn = Color(0xFFE0A84A); val Bad = Color(0xFFEF7B7B)
 
 class MainActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+    /// Intents reach a fresh activity (onCreate) or a running one (onNewIntent); both go here.
+    private fun handleIntent(intent: Intent?) {
         // a pairing code handed over by intent (development, or a QR app that opens us): same as a scan
         intent?.getStringExtra("pair")?.let { Pairing.parse(it)?.save(this) }
         // "open this on the desktop": text or a link shared to the app goes to the paired Genesis
@@ -48,10 +48,22 @@ class MainActivity : ComponentActivity() {
             if (shared.isNotBlank() && pairing != null) {
                 Thread {
                     val r = runCatching { Genesis(pairing).share(shared) }
-                    runOnUiThread { android.widget.Toast.makeText(this, if (r.isSuccess) "Sent to the desktop" else "Genesis not reachable", android.widget.Toast.LENGTH_SHORT).show(); finish() }
+                    runOnUiThread { android.widget.Toast.makeText(this, if (r.isSuccess) "Sent to the desktop" else "Genesis not reachable", android.widget.Toast.LENGTH_SHORT).show() }
                 }.start()
+            } else if (shared.isNotBlank()) {
+                android.widget.Toast.makeText(this, "Pair the app with Genesis first", android.widget.Toast.LENGTH_SHORT).show()
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        handleIntent(intent)
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED)
             requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1)
         if (Pairing.load(this) != null) WatchService.start(this)
