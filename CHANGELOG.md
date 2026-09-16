@@ -3,6 +3,7 @@
 Derived from the decision log (`docs/decisions.md`); one line per decision, newest first. Versions are 0.2.N on the stable channel; 0.1.N before 2026-09-15.
 
 ## 2026-09-16
+- Evaluation on 0.2.164: 8 of 10 makes on the tiny pack, small model serving 81 s after the pack choice (decision 113)
 - A resized disk is used on x86 too, verified by the canary: 22 GB to 38 GB on first boot (decision 112)
 - Phase J: press-speak-done (Meta+Shift+V), Babel inline rewrite and explain-this-error, the sixty-second demo entry (built, decision 111)
 - Phase I: send to phone and share to desktop, the overnight queue, the APK workflow for releases (built, decision 110)

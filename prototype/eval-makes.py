@@ -51,7 +51,10 @@ def one(name, prompt, timeout):
         time.sleep(5)
         st = api(f"/api/sessions/{sid}")
         for p in st.get("pending", []):
-            api(f"/api/prompts/{p['request_id']}", {"allow": True})
+            try:
+                api(f"/api/prompts/{p['request_id']}", {"allow": True})
+            except Exception:
+                pass  # already answered (a prompt that timed out between two polls is a 404, not a crash)
         if st["state"] in ("done", "error"):
             row["state"] = st["state"]
             break
