@@ -1,0 +1,21 @@
+# The root grows into a resized disk on boot. Same conditions as bootc's own unit; steps aside when
+# that unit exists (the Fedora bootc base), does the work on bases that lack it (Aurora).
+[Unit]
+Description=Genesis: grow the root filesystem into a resized disk
+ConditionVirtualization=vm
+ConditionPathIsMountPoint=/sysroot
+ConditionPathExists=/usr/bin/growpart
+ConditionPathExists=!/usr/lib/systemd/system/bootc-generic-growpart.service
+DefaultDependencies=no
+Requires=sysinit.target
+After=sysinit.target
+Before=basic.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/genesis-growpart
+MountFlags=slave
+PrivateTmp=yes
+
+[Install]
+WantedBy=local-fs.target

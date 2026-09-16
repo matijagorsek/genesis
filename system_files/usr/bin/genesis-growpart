@@ -1,0 +1,24 @@
+#!/usr/bin/bash
+# Grow the root partition and filesystem into a disk that was made bigger (qemu-img resize, a larger
+# real disk after a clone). bootc's own unit does this on the Fedora bootc base; the Aurora base does
+# not carry that unit, so Genesis ships this equivalent. Idempotent: nothing to grow, nothing happens.
+set -u
+src=$(findmnt -n -o SOURCE /sysroot 2>/dev/null || findmnt -n -o SOURCE / 2>/dev/null)
+dev=${src%%[*}
+[ -b "$dev" ] || { echo "genesis-growpart: no block device behind /sysroot ($src)"; exit 0; }
+disk=$(lsblk -n -o PKNAME "$dev" 2>/dev/null | head -1)
+num=$(lsblk -n -o PARTN "$dev" 2>/dev/null | head -1)
+[ -n "$disk" ] && [ -n "$num" ] || { echo "genesis-growpart: $dev is not a partition"; exit 0; }
+out=$(growpart "/dev/$disk" "$num" 2>&1); rc=$?
+case $rc in
+  0) echo "genesis-growpart: $out" ;;
+  1) echo "genesis-growpart: nothing to grow"; exit 0 ;;
+  *) echo "genesis-growpart: growpart failed ($rc): $out"; exit 0 ;;
+esac
+mnt=/sysroot; findmnt -n "$mnt" >/dev/null 2>&1 || mnt=/
+case $(findmnt -n -o FSTYPE "$mnt") in
+  btrfs) btrfs filesystem resize max "$mnt" ;;
+  xfs) xfs_growfs "$mnt" ;;
+  ext4|ext3) resize2fs "$dev" ;;
+  *) echo "genesis-growpart: unknown filesystem, partition grown only" ;;
+esac

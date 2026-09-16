@@ -66,8 +66,8 @@ GENESIS_TX_STORE=/tmp/genesis-check-tx genesis-txd list >/dev/null 2>&1 && ok "t
 [ -f /usr/share/applications/org.genesis.workspace.desktop ] && ok "workspace desktop entry" || fail "workspace desktop entry"
 grep -q "Meta+Space" /etc/xdg/kglobalshortcutsrc 2>/dev/null && ok "Meta+Space default shortcut" || fail "global shortcut default"
 [ "$(ls -d /usr/share/genesis/templates/*/ 2>/dev/null | wc -l)" -ge 3 ] && ok "project templates shipped" || fail "templates"
-if [ -x /usr/bin/growpart ] && [ -f /usr/lib/systemd/system/bootc-generic-growpart.service ]; then ok "root grows into a resized disk (growpart present for bootc's fallback unit)"
-else fail "grow on boot: growpart $([ -x /usr/bin/growpart ] && echo present || echo missing) ($(ls /usr/bin/growpart /usr/sbin/growpart 2>/dev/null | tr '\n' ' ')), bootc unit $([ -f /usr/lib/systemd/system/bootc-generic-growpart.service ] && echo present || echo missing) (bootc $(rpm -q bootc 2>/dev/null))"; fi
+if [ -x /usr/bin/growpart ] && { [ -f /usr/lib/systemd/system/bootc-generic-growpart.service ] || [ -L /etc/systemd/system/local-fs.target.wants/genesis-growpart.service ]; }; then ok "root grows into a resized disk (growpart + $([ -f /usr/lib/systemd/system/bootc-generic-growpart.service ] && echo "bootc's unit" || echo "genesis-growpart"))"
+else fail "grow on boot: growpart $([ -x /usr/bin/growpart ] && echo present || echo missing), no grow unit enabled (bootc $(rpm -q bootc 2>/dev/null))"; fi
 probe_out=$(genesis-probe --json 2>&1 || true)
 # a machine too small for any pack is a valid probe result (the wizard offers "set up later"), not a failed probe
 if grep -q '"recommended_pack": "' <<<"$probe_out"; then ok "probe: $(grep -o '"recommended_pack": "[^"]*"' <<<"$probe_out")"
