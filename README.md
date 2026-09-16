@@ -36,6 +36,7 @@ How Genesis got here, in the order it happened. The decision log has the detail 
 | 3. Distribution | 14 Sep | Signed images, the stable channel with `bootc upgrade`, the NVIDIA flavour, a download page, System Settings module, licences and a code of conduct. |
 | 4. Phone and hardening | 15 Sep | KDE Connect pairing, ask from the phone, the companion app; a security review of the daemons and its fixes; signed packs; the local file index. |
 | 5. Babel and day two | 15 to 16 Sep | The IDE with the maker at its side and language servers and debuggers in the box; recipes, backup and moving, the weekly canary, German and Slovenian, a screen-reader pass. |
+| 6. Back to the brief | 16 Sep | The gaps against the original brief closed: inline completion in Babel from the local model, MCP servers as the extension point with a system-administrator server, a kept and searchable chat that reads documents, search by meaning, the plan card before a job, an Ollama-compatible door, and a weekly ten-make evaluation. |
 | Next | | Real hardware. See [ROADMAP.md](ROADMAP.md). |
 
 ## What works today (0.2)
