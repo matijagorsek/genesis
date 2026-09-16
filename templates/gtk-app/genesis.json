@@ -3,6 +3,12 @@
   "name": "Desktop app (GTK 4, Python)",
   "description": "A real desktop window: GTK 4 through Python's GObject bindings, both in the image. A header bar, a list, an entry, and a settings file. Follows the Genesis day/night theme.",
   "entry": "app.py",
-  "dev": { "cmd": "python3 app.py", "port": 0 },
-  "run": { "cmd": "python3 app.py" }
+  "dev": {
+    "cmd": "python3 app.py",
+    "port": 0
+  },
+  "run": {
+    "cmd": "python3 app.py"
+  },
+  "hints": "Change the window in app.py: widgets in Window.__init__, behaviour in on_add and the list row. Run it once to see the window; there is no web preview."
 }

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Genesis: cycle the mode
+Comment=Ask, Trusted, Hands-off: how much Genesis may do on its own
+Exec=genesis-mode cycle
+Icon=genesis
+Terminal=false
+NoDisplay=true
+Categories=Utility;

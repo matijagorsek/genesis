@@ -29,8 +29,8 @@ When the task is complete, reply with a short summary of what you did and how to
 pub const SYSTEM_PROMPT_COMPACT: &str = "You are Genesis, the maker built into this computer. Build exactly what the user asks, step by step, using tools. \
 Follow this script: 1) call scaffold with the closest template (web-static for anything with a page, python-cli for a command, python-script for a one-off, python-web for a page with saved data, python-api for a JSON API, gtk-app for a desktop window). \
 2) read_file the entry file. 3) write_file the entry file with the complete program that does what was asked (replace the template code, do not describe it). \
-4) call preview_start (or shell to run it once). 5) if the result shows an error, fix the file and run again. 6) then reply with one short paragraph: what you made and how to use it. \
-Rules: never finish before step 3 changed a file; do not install packages; keep everything in the project folder; do not explain the tools to the user.";
+4) call preview_start (or shell to run it once). 5) if the result shows an error, fix that one thing and run again; at most three fixes. 6) then reply with one short paragraph: what you made and how to use it. \
+Rules: never finish before step 3 changed a file; write the entry file once, completely, instead of many small edits; do not install packages; never edit genesis.json; keep everything in the project folder; do not explain the tools to the user.";
 
 /// Chat: the assistant, not the maker. Reads and searches, uses the user's tools, never scaffolds.
 pub const SYSTEM_PROMPT_CHAT: &str = "You are Genesis, the assistant built into this computer; everything runs here, nothing leaves the machine. \
@@ -503,7 +503,7 @@ impl Agent {
                 let mut files: Vec<String> = std::fs::read_dir(&dest)?.filter_map(|e| e.ok()).map(|e| e.file_name().to_string_lossy().to_string()).collect();
                 files.sort();
                 let entry = t.entry.replace("{name}", &s("name"));
-                Ok(format!("created {} from template {} with files: {}. Entry file (full path): {}. Edit the files by their full path; do not edit genesis.json. Preview: call preview_start (dev command: {}).", dest.display(), t.id, files.join(", "), dest.join(&entry).display(), t.dev.cmd))
+                Ok(format!("created {} from template {} with files: {}. Entry file (full path): {}. {} Edit the files by their full path; do not edit genesis.json. Preview: call preview_start (dev command: {}).", dest.display(), t.id, files.join(", "), dest.join(&entry).display(), t.hints, t.dev.cmd))
             }
             "preview_start" => {
                 let p = self.target_project(args);
@@ -606,6 +606,7 @@ impl Agent {
                 let p = resolve_path(&self.project, &s("path"));
                 let text = std::fs::read_to_string(&p).map_err(|e| anyhow!("{}: {}", p.display(), e))?;
                 let old = s("old_text");
+                if old == s("new_text") { return Ok("unchanged: old_text and new_text are the same; make the actual change, or run the program if it is already right".into()); }
                 let n = text.matches(&old).count();
                 if n != 1 {
                     return Err(anyhow!("old_text found {} times in {}; it must match exactly once", n, p.display()));

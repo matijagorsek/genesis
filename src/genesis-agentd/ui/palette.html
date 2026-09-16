@@ -14,6 +14,7 @@
 body.listening .wrap{box-shadow:inset 0 0 0 2px var(--accent),inset 0 0 40px rgba(95,181,189,.25);transition:box-shadow .15s}@media (prefers-reduced-motion:reduce){body.listening .wrap{transition:none}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .confirm{margin:6px 0;color:var(--warn,#f59e0b);font-size:13px}
 </style></head><body>
 <div class="wrap" role="dialog" aria-label="Ask Genesis">
   <div class="top"><b>Genesis</b><span class="local">● on this machine</span><span id="hint">Tell it what you want made, or what to do with this.</span></div>
@@ -60,7 +61,10 @@ body.listening .wrap{box-shadow:inset 0 0 0 2px var(--accent),inset 0 0 40px rgb
   const mic=$('#mic');let ctx,src,proc,chunks=[],stream;
   async function start(e){e.preventDefault();if(ctx)return;listenOn(mic);try{stream=await navigator.mediaDevices.getUserMedia({audio:true})}catch(err){mic.title='Microphone not available';listenOff(mic);return}ctx=new AudioContext();src=ctx.createMediaStreamSource(stream);proc=ctx.createScriptProcessor(4096,1,1);chunks=[];proc.onaudioprocess=ev=>chunks.push(new Float32Array(ev.inputBuffer.getChannelData(0)));src.connect(proc);proc.connect(ctx.destination);q.placeholder='Listening…'}
   async function stop(e){if(!ctx)return;e&&e.preventDefault();proc.disconnect();src.disconnect();stream.getTracks().forEach(t=>t.stop());const rate=ctx.sampleRate;await ctx.close();ctx=null;listenOff(mic);q.placeholder='Transcribing…';
-    try{const r=await fetch('/api/transcribe',{method:'POST',headers:{'content-type':'audio/wav'},body:wavEncode(chunks,rate)});const j=await r.json();if(j.error)throw new Error(j.error);q.value=(q.value?q.value+' ':'')+j.text;q.placeholder='';if(j.text)go(q.value)}catch(err){q.placeholder='Could not transcribe: '+err.message}}
+    try{const r=await fetch('/api/transcribe',{method:'POST',headers:{'content-type':'audio/wav'},body:wavEncode(chunks,rate)});const j=await r.json();if(j.error)throw new Error(j.error);q.value=(q.value?q.value+' ':'')+j.text;q.placeholder='';
+      // a spoken request that would install, delete or send is shown first and needs Enter (rule 8: risky spoken intents confirm)
+      if(j.text&&/\b(install|uninstall|delete|remove|erase|wipe|format|send|pay|buy)\b/i.test(j.text)){q.placeholder='';q.setAttribute('aria-label','Check what was heard, then press Enter to send or Esc to cancel');const n=document.createElement('div');n.className='confirm';n.textContent='Heard: "'+j.text+'". Enter sends it, Esc cancels.';n.setAttribute('role','status');q.parentNode.insertBefore(n,q.nextSibling);q.focus();q.addEventListener('keydown',()=>n.remove(),{once:true});return}
+      if(j.text)go(q.value)}catch(err){q.placeholder='Could not transcribe: '+err.message}}
   mic.addEventListener('pointerdown',start);mic.addEventListener('pointerup',stop);mic.addEventListener('keydown',e=>{if((e.key===' '||e.key==='Enter')&&!e.repeat){e.preventDefault();start(e)}});mic.addEventListener('keyup',e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();stop(e)}});mic.addEventListener('pointerleave',stop);
   fetch('/api/health').then(r=>r.json()).then(h=>{if(h.voice)mic.hidden=false}).catch(()=>{});
   q.focus();

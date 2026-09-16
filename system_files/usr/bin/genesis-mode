@@ -1,0 +1,23 @@
+#!/usr/bin/bash
+# genesis-mode [show|cycle|ask|trusted|hands-off]: the default autonomy mode, from anywhere.
+# Meta+Shift+M cycles it (rule 4 of the design plan: three modes, one key). Talks to the maker daemon
+# on 127.0.0.1 with the per-boot token; shows the result as a notification.
+set -u
+tok=$(cat "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/genesis/agentd.token" 2>/dev/null || true)
+api=http://127.0.0.1:11520
+cur=$(curl -s -m 5 -H "X-Genesis-Token: $tok" "$api/api/settings" 2>/dev/null | python3 -c 'import sys,json; print(json.load(sys.stdin).get("default_mode","auto_edit"))' 2>/dev/null || echo auto_edit)
+label() { case "$1" in assist) echo "Ask: asks before every change";; auto_edit) echo "Trusted: works inside the project on its own";; autonomous) echo "Hands-off: also outside the project, everything snapshotted";; esac; }
+want=""
+case "${1:-show}" in
+  show) echo "$cur: $(label "$cur")"; exit 0 ;;
+  cycle) case "$cur" in assist) want=auto_edit;; auto_edit) want=autonomous;; *) want=assist;; esac ;;
+  ask) want=assist ;; trusted) want=auto_edit ;; hands-off|autonomous) want=autonomous ;;
+  *) echo "usage: genesis-mode [show|cycle|ask|trusted|hands-off]"; exit 2 ;;
+esac
+out=$(curl -s -m 5 -X POST -H "X-Genesis-Token: $tok" -H "Content-Type: application/json" -d "{\"mode\":\"$want\"}" "$api/api/system/mode")
+if echo "$out" | grep -q '"ok"'; then
+  notify-send -a Genesis -i genesis "Genesis mode: $(label "$want" | cut -d: -f1)" "$(label "$want" | cut -d: -f2- | sed 's/^ //')" 2>/dev/null
+  echo "$want"
+else
+  notify-send -a Genesis -i genesis "Genesis" "Could not change the mode: is the maker running?" 2>/dev/null; echo "failed: $out"; exit 1
+fi

@@ -240,7 +240,7 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
     }
     let resp = match (method, path.as_slice()) {
         (Method::Get, [""]) | (Method::Get, ["index.html"]) | (Method::Get, ["workspace"]) => Response::from_string(WORKSPACE_HTML.replace("__GENESIS_TOKEN__", &d.token)).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
-        (Method::Get, ["api", "health"]) => json_response(&serde_json::json!({"ok": true, "endpoint": d.endpoint, "router_ok": router_ok(&d.endpoint), "model": served_model(&d.endpoint, &d.model), "sandbox": sandbox::bwrap_available(), "voice": voice::available(), "speech": voice::speech_available(), "default_project": default_project()}), 200),
+        (Method::Get, ["api", "health"]) => json_response(&serde_json::json!({"ok": true, "endpoint": d.endpoint, "router_ok": router_ok(&d.endpoint), "model": served_model(&d.endpoint, &d.model), "sandbox": sandbox::bwrap_available(), "voice": voice::available(), "speech": voice::speech_available(), "default_project": default_project(), "default_mode": read_user_settings().get("default_mode").and_then(|m| m.as_str()).unwrap_or("auto_edit")}), 200),
         (Method::Get, ["api", "templates"]) => json_response(&maker::list_templates(), 200),
         (Method::Get, ["palette"]) => Response::from_string(PALETTE_HTML.replace("__GENESIS_TOKEN__", &d.token)).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
         (Method::Get, ["chat"]) => Response::from_string(CHAT_HTML.replace("__GENESIS_TOKEN__", &d.token)).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
@@ -375,6 +375,23 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
                 Ok(c) if c.starts_with(&home) && c.file_name().map(|n| n.to_string_lossy().starts_with("genesis-backup-")).unwrap_or(false) => json_response(&run_json("/usr/bin/genesis-backup", &["restore", &c.display().to_string()]), 200),
                 _ => json_response(&serde_json::json!({"error": "pick a genesis-backup-*.tar.gz under your home folder"}), 400),
             }
+        }
+        (Method::Get, ["api", "policy", "rules"]) => json_response(&user_rules(), 200),
+        (Method::Post, ["api", "policy", "rules"]) => match serde_json::from_str::<serde_json::Value>(&body) {
+            Ok(v) => {
+                let pattern = v.get("pattern").and_then(|p| p.as_str()).unwrap_or("").trim().to_string();
+                let kind = v.get("kind").and_then(|k| k.as_str()).unwrap_or("always").to_string();
+                if pattern.is_empty() || pattern.len() > 200 || !(kind == "always" || kind == "never") { return Ok(req.respond(json_response(&serde_json::json!({"error": "expected {pattern, kind: always|never}"}), 400))?); }
+                let mut rules = user_rules();
+                let id = format!("user.{}", uuid::Uuid::new_v4().to_string().split('-').next().unwrap_or("x"));
+                rules.push(serde_json::json!({"id": id, "pattern": pattern, "kind": kind}));
+                match save_user_rules(d, &rules) { Ok(()) => json_response(&rules, 201), Err(e) => json_response(&serde_json::json!({"error": e.to_string()}), 500) }
+            }
+            Err(_) => json_response(&serde_json::json!({"error": "expected {pattern, kind}"}), 400),
+        },
+        (Method::Post, ["api", "policy", "rules", id, "delete"]) => {
+            let rules: Vec<serde_json::Value> = user_rules().into_iter().filter(|r| r.get("id").and_then(|i| i.as_str()) != Some(*id)).collect();
+            match save_user_rules(d, &rules) { Ok(()) => json_response(&rules, 200), Err(e) => json_response(&serde_json::json!({"error": e.to_string()}), 500) }
         }
         (Method::Get, ["api", "mcp"]) => json_response(&mcp::status(), 200),
         (Method::Post, ["api", "mcp", "reload"]) => { mcp::reload(); json_response(&mcp::status(), 200) }
@@ -758,6 +775,31 @@ pub(crate) fn served_model_for(endpoint: &str, wanted: &str, kind: &str) -> Stri
         }
         _ => wanted.to_string(),
     }
+}
+
+/// The user's always/never command rules (Settings > Always and never): kept as JSON, rendered into
+/// ~/.config/genesis/policy.toml (a source permd reads), and loaded into the running broker at once.
+fn user_rules_path() -> std::path::PathBuf { user_settings_path().with_file_name("rules.json") }
+
+fn user_rules() -> Vec<serde_json::Value> {
+    std::fs::read_to_string(user_rules_path()).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default()
+}
+
+fn save_user_rules(d: &Arc<Daemon>, rules: &[serde_json::Value]) -> Result<()> {
+    let dir = user_rules_path().parent().map(|p| p.to_path_buf()).unwrap_or_default();
+    std::fs::create_dir_all(&dir)?;
+    std::fs::write(user_rules_path(), serde_json::to_string_pretty(rules)?)?;
+    let mut toml = String::from("# Written by Genesis Settings (Always and never). Edit there, not here.\n\n");
+    for r in rules {
+        let (id, pattern, kind) = (r.get("id").and_then(|x| x.as_str()).unwrap_or(""), r.get("pattern").and_then(|x| x.as_str()).unwrap_or(""), r.get("kind").and_then(|x| x.as_str()).unwrap_or("always"));
+        let tier = if kind == "never" { "never" } else { "read_local" };
+        let reason = if kind == "never" { "you marked this never" } else { "you marked this always" };
+        toml.push_str(&format!("[[commands]]\nid = {:?}\npatterns = [{:?}]\ntier = {:?}\nreason = {:?}\n\n", id, pattern, tier, reason));
+    }
+    std::fs::write(dir.join("policy.toml"), toml)?;
+    let policy = genesis_permd::Policy::load(&genesis_permd::default_policy_sources())?;
+    d.broker.lock().unwrap().reload_policy(policy)?;
+    Ok(())
 }
 
 /// The agent session behind a chat: created on first use (or after a restart) with the stored

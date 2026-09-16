@@ -5,7 +5,7 @@
     "gpu": "any",
     "min_vram_gb": 48
   },
-  "disk_gb": 130,
+  "disk_gb": 130.13,
   "models": [
     {
       "role": "fast",
@@ -80,15 +80,19 @@
     },
     {
       "role": "tts",
-      "name": "piper-en_US-lessac",
+      "name": "piper voices (en, de, sl)",
       "repo": "rhasspy/piper-voices",
       "include": [
         "en/en_US/lessac/medium/en_US-lessac-medium.onnx",
-        "en/en_US/lessac/medium/en_US-lessac-medium.onnx.json"
+        "en/en_US/lessac/medium/en_US-lessac-medium.onnx.json",
+        "de/de_DE/thorsten/medium/de_DE-thorsten-medium.onnx",
+        "de/de_DE/thorsten/medium/de_DE-thorsten-medium.onnx.json",
+        "sl/sl_SI/artur/medium/sl_SI-artur-medium.onnx",
+        "sl/sl_SI/artur/medium/sl_SI-artur-medium.onnx.json"
       ],
       "license": "MIT",
       "tier": "main",
-      "size_gb": 0.07,
+      "size_gb": 0.2,
       "optional": true
     }
   ]

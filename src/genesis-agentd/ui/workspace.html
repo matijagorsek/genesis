@@ -182,7 +182,8 @@ body.listening header{box-shadow:inset 0 -2px 0 var(--accent)}body.listening tex
   const speakBtn=document.getElementById('speakBtn');
   function renderSpeak(){speakBtn.textContent=speakOn?'🔊':'🔇';speakBtn.title=speakOn?'Replies are read aloud (click to mute)':'Read replies aloud'}
   speakBtn.addEventListener('click',()=>{speakOn=!speakOn;try{localStorage.setItem('genesis.speak',speakOn?'1':'0')}catch(e){}renderSpeak()});
-  window.__speak=async text=>{if(!speakOn||!text)return;try{const r=await fetch('/api/speak',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text:text.slice(0,600)})});if(!r.ok)return;const a=new Audio(URL.createObjectURL(await r.blob()));a.play().catch(()=>{})}catch(e){}};
+  window.__audio=null;window.__stopSpeech=()=>{if(window.__audio){window.__audio.pause();window.__audio=null}};document.addEventListener('keydown',e=>{if(e.key==='Escape')window.__stopSpeech()});
+  window.__speak=async text=>{if(!speakOn||!text)return;try{const r=await fetch('/api/speak',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text:text.slice(0,600)})});if(!r.ok)return;window.__stopSpeech();const a=new Audio(URL.createObjectURL(await r.blob()));window.__audio=a;a.onended=()=>{if(window.__audio===a)window.__audio=null};a.play().catch(()=>{})}catch(e){}};
   fetch('/api/health').then(r=>r.json()).then(h=>{if(h.speech){speakBtn.hidden=false;renderSpeak()}}).catch(()=>{});
   holdToTalk(document.getElementById('micAsk'),document.getElementById('ask'));
   holdToTalk(document.getElementById('micSteer'),document.getElementById('steerText'));

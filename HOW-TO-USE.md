@@ -10,6 +10,9 @@ unless you choose it.
 
 ## First run
 
+The small model comes first and the maker starts the moment it is on disk, while the rest of the pack
+keeps downloading behind it.
+
 <p align="center"><img src="docs/screens/latest/03-first-run.png" width="88%" alt="First run: what this machine can run, and the recommended pack"></p>
 
 The first time you log in, a window asks three things:
@@ -45,6 +48,12 @@ under your home, named after the project.
 
 **Speed:** on a machine without a GPU, a step can take minutes. The line under the steps tells you
 how long the current one has run. It is working, not stuck.
+
+### Modes, from anywhere
+
+`Meta+Shift+M` cycles Ask, Trusted and Hands-off; the status widget in the dock shows the current
+mode and has a Cycle button. Settings, "Always and never" keeps your own rules: a command pattern
+marked always runs without asking in every mode, one marked never is refused everywhere.
 
 ### The card before it starts
 
@@ -135,9 +144,11 @@ composer.
 
 ## Voice
 
-Hold the microphone button in the maker or the palette, speak, release. The transcript appears before
-anything runs. Replies can be spoken back (toggle in the window). Speech recognition understands many
-languages; spoken replies are English for now.
+Hold the mic in the palette, the maker or chat and speak; let go and the words appear. Replies can be
+read aloud (the speaker button in the maker); `Esc` stops a reply mid-sentence. Spoken replies come in
+the desktop's language: English, German and Slovenian voices ship with every pack. A spoken request
+that would install, delete or send something is shown first and needs Enter, so a misheard word cannot
+act on its own.
 
 ## Your phone
 

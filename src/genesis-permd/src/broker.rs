@@ -29,6 +29,12 @@ impl Broker {
         self.audit.path()
     }
 
+    /// Swap the policy for a freshly loaded one (Settings wrote a new user overlay).
+    pub fn reload_policy(&mut self, policy: Policy) -> Result<()> {
+        self.policy = policy.compiled()?;
+        Ok(())
+    }
+
     pub fn open_session(&mut self, id: &str, mode: Mode, project_roots: Vec<String>, origin: &str) -> Result<Session> {
         let s = Session::new(id, mode, project_roots.clone());
         self.sessions.insert(id.to_string(), s.clone());

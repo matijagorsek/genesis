@@ -26,6 +26,9 @@ pub struct Template {
     pub run: Option<RunSpec>,
     #[serde(default)]
     pub entry: String,
+    /// What to change first, for the model: one or two sentences the scaffold result repeats.
+    #[serde(default)]
+    pub hints: String,
 }
 
 pub fn templates_dir() -> PathBuf {

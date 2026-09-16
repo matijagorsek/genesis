@@ -183,7 +183,12 @@ fn handle(app: &Arc<App>, mut req: Request) -> Result<bool> {
                             let models_dir = app.cli.models_dir.clone();
                             let router_out = app.cli.router_out.clone();
                             let profile_path = app.cli.profile.clone();
-                            let on_done: Box<dyn FnOnce() -> Result<()> + Send> = Box::new(move || {
+                            // the small model first: the maker can start the moment it is on disk, while the rest
+                            // of the pack (embedder, voices, the big models) keeps downloading behind it
+                            let order = |r: &str| match r { "fast" => 0, "embed" => 1, "stt" => 2, "tts" => 3, "fim" => 4, "code" => 5, "chat" => 6, _ => 7 };
+                            let mut files = files;
+                            files.sort_by_key(|f| order(&f.role));
+                            let render = std::sync::Arc::new(move || -> Result<()> {
                                 let prof: serde_json::Value = std::fs::read_to_string(&profile_path).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(serde_json::Value::Null);
                                 let cores = prof.pointer("/cpu/cores").and_then(|c| c.as_u64()).unwrap_or(4) as u32;
                                 let gpus: Vec<String> = prof.get("gpus").and_then(|g| g.as_array()).map(|a| a.iter().filter_map(|g| g.get("name").and_then(|n| n.as_str()).map(|s| s.to_string())).collect()).unwrap_or_default();
@@ -200,7 +205,17 @@ fn handle(app: &Arc<App>, mut req: Request) -> Result<bool> {
                                 let _ = std::process::Command::new("systemctl").args(["restart", "genesis-router.service"]).status();
                                 Ok(())
                             });
-                            download::start(app.progress.clone(), pack.id.clone(), files.clone(), on_done);
+                            let fast_files = files.iter().filter(|f| f.role == "fast").count();
+                            let seen = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+                            let render_early = render.clone();
+                            let on_file: Box<dyn Fn(&packs::PlannedFile) + Send> = Box::new(move |f| {
+                                if f.role == "fast" && seen.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1 == fast_files {
+                                    match render_early() { Ok(()) => tracing::info!("small model on disk: router up before the rest of the pack"), Err(e) => tracing::warn!(%e, "early router start failed") }
+                                }
+                            });
+                            let render_done = render.clone();
+                            let on_done: Box<dyn FnOnce() -> Result<()> + Send> = Box::new(move || render_done());
+                            download::start_with(app.progress.clone(), pack.id.clone(), files.clone(), on_file, on_done);
                             json_response(&serde_json::json!({ "started": true, "files": files.len(), "bytes_total": files.iter().map(|f| f.size).sum::<u64>() }), 202)
                         }
                         Err(e) => {

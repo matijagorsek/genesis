@@ -12,6 +12,7 @@ PlasmoidItem {
     id: root
     property bool alive: false
     property string model: ""
+    property string mode: ""
     property bool sandbox: false
     property bool voice: false
     property var netDomains: []
@@ -31,7 +32,7 @@ PlasmoidItem {
     function refresh() {
         get("/api/health", function(h) {
             alive = !!(h && h.ok); if (!h) return
-            model = h.model || ""; sandbox = !!h.sandbox; voice = !!h.voice
+            model = h.model || ""; sandbox = !!h.sandbox; voice = !!h.voice; mode = h.default_mode || ""
         })
         get("/api/system", function(sy) { staged = (sy && sy.os && sy.os.staged) ? (sy.os.staged_built || "").substring(0, 10) : "" })
         get("/api/sessions", function(list) {
@@ -42,6 +43,8 @@ PlasmoidItem {
         })
     }
     Timer { interval: 20000; running: true; repeat: true; triggeredOnStart: true; onTriggered: root.refresh() }
+    // Meta+Shift+M does the same from the keyboard; both go through genesis-mode
+    P5Support.DataSource { id: modeRunner; engine: "executable"; onNewData: function(source, data) { disconnectSource(source); root.refresh() } }
 
     P5Support.DataSource { id: exec; engine: "executable"; onNewData: function(source) { disconnectSource(source) } }
     function openMaker() { exec.connectSource("genesis-window http://127.0.0.1:11520/") }
@@ -62,6 +65,10 @@ PlasmoidItem {
         RowLayout { Kirigami.Icon { source: "genesis"; Layout.preferredWidth: Kirigami.Units.iconSizes.medium; Layout.preferredHeight: Kirigami.Units.iconSizes.medium }
             PC.Label { text: root.alive ? "On this machine" : "Genesis is starting"; font.bold: true; Layout.fillWidth: true } }
         PC.Label { text: root.alive ? "Model: " + root.model : "The local agent service is not up yet."; Layout.fillWidth: true; wrapMode: Text.Wrap }
+        RowLayout { visible: root.alive; Layout.fillWidth: true
+            PC.Label { text: "Mode: " + (root.mode === "assist" ? "Ask" : root.mode === "autonomous" ? "Hands-off" : "Trusted"); Layout.fillWidth: true }
+            PC.Button { text: "Cycle"; icon.name: "view-refresh"; onClicked: modeRunner.connectSource("genesis-mode cycle") }
+        }
         PC.Label { visible: root.alive; text: root.netDomains.length ? "Network used by a job: " + root.netDomains.join(", ") : "No job used the network."; color: root.netDomains.length ? Kirigami.Theme.neutralTextColor : Kirigami.Theme.positiveTextColor; Layout.fillWidth: true; wrapMode: Text.Wrap }
         PC.Label { visible: root.alive; text: (root.sandbox ? "Commands run in a sandbox. " : "") + (root.voice ? "Voice input ready." : ""); Layout.fillWidth: true; wrapMode: Text.Wrap; opacity: 0.8 }
         PC.Label { visible: root.staged !== ""; text: "A Genesis update built " + root.staged + " is ready. It applies when you restart."; color: Kirigami.Theme.positiveTextColor; Layout.fillWidth: true; wrapMode: Text.Wrap }

@@ -12,3 +12,7 @@ _launch=Meta+Shift+T
 
 [services][org.genesis.askscreen.desktop]
 _launch=Meta+Shift+A
+
+# Meta+Shift+M: cycle the autonomy mode (Ask, Trusted, Hands-off).
+[services][org.genesis.mode.desktop]
+_launch=Meta+Shift+M

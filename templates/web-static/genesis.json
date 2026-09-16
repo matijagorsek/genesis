@@ -2,7 +2,14 @@
   "id": "web-static",
   "name": "Web app (no build step)",
   "description": "HTML, CSS and JavaScript served by a tiny dev server. Good for tools, dashboards, small games.",
-  "dev": { "cmd": "python3 -m http.server {port} --bind 127.0.0.1", "port": 5300 },
-  "run": { "cmd": "python3 -m http.server {port} --bind 127.0.0.1", "open": "http://127.0.0.1:{port}/" },
-  "entry": "index.html"
+  "dev": {
+    "cmd": "python3 -m http.server {port} --bind 127.0.0.1",
+    "port": 5300
+  },
+  "run": {
+    "cmd": "python3 -m http.server {port} --bind 127.0.0.1",
+    "open": "http://127.0.0.1:{port}/"
+  },
+  "entry": "index.html",
+  "hints": "Put the whole app in the entry file's script block and the page markup; keep CSS in style.css. Start the preview, then change only what the preview shows wrong."
 }

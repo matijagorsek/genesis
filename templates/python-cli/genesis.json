@@ -2,7 +2,13 @@
   "id": "python-cli",
   "name": "Command-line tool (Python)",
   "description": "A small CLI with argument parsing and a test. No dependencies beyond Python.",
-  "dev": { "cmd": "python3 -m pytest -q", "port": 0 },
-  "run": { "cmd": "python3 {name}.py --help" },
-  "entry": "{name}.py"
+  "dev": {
+    "cmd": "python3 -m pytest -q",
+    "port": 0
+  },
+  "run": {
+    "cmd": "python3 {name}.py --help"
+  },
+  "entry": "{name}.py",
+  "hints": "Implement the command in the entry file's main(); keep argparse; the test in the test file must pass (python3 -m pytest -q). Run the tests before you finish."
 }

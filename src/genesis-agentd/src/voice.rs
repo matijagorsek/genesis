@@ -80,6 +80,12 @@ pub fn tts_model() -> Option<PathBuf> {
     if let Ok(p) = std::env::var("GENESIS_TTS_MODEL") { return Some(PathBuf::from(p)); }
     let dir = std::env::var("GENESIS_MODELS_DIR").map(PathBuf::from).unwrap_or_else(|_| PathBuf::from("/var/lib/genesis/models")).join("tts");
     let mut c: Vec<PathBuf> = std::fs::read_dir(dir).ok()?.filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.extension().map(|x| x == "onnx").unwrap_or(false)).collect();
+    // the desktop's language first (de_DE-… for a German desktop), English otherwise
+    let lang = std::env::var("LANG").unwrap_or_default().chars().take(2).collect::<String>().to_lowercase();
+    if lang.len() == 2 && lang != "en" {
+        if let Some(v) = c.iter().find(|p| p.file_name().map(|f| f.to_string_lossy().to_lowercase().starts_with(&format!("{}_", lang))).unwrap_or(false)) { return Some(v.clone()); }
+    }
+    if let Some(v) = c.iter().find(|p| p.file_name().map(|f| f.to_string_lossy().starts_with("en_")).unwrap_or(false)) { return Some(v.clone()); }
     c.sort();
     c.into_iter().next()
 }

@@ -10,6 +10,7 @@ for b in llama-server llama-swap ramalama bwrap distrobox bootc vulkaninfo genes
 for u in genesis-router.service; do [ -f "/usr/lib/systemd/system/$u" ] && ok "unit $u" || fail "unit $u"; done
 [ -L /etc/systemd/system/multi-user.target.wants/genesis-router.service ] && ok "router service enabled" || fail "router service not enabled"
 [ -x /usr/bin/genesis-ollama ] && [ -L /etc/systemd/system/multi-user.target.wants/genesis-ollama.service ] && ok "Ollama-compatible door (genesis-ollama on 127.0.0.1:11434)" || fail "genesis-ollama missing or not enabled"
+[ -x /usr/bin/genesis-mode ] && grep -q "org.genesis.mode.desktop" /etc/xdg/kglobalshortcutsrc && [ -f /usr/share/applications/org.genesis.mode.desktop ] && ok "mode key (genesis-mode, Meta+Shift+M)" || fail "genesis-mode or its shortcut missing"
 [ -f /usr/lib/sysusers.d/genesis.conf ] && ok "sysusers" || fail "sysusers"
 [ -f /usr/lib/tmpfiles.d/genesis.conf ] && ok "tmpfiles" || fail "tmpfiles"
 [ -d /etc/genesis ] && ok "/etc/genesis" || fail "/etc/genesis"

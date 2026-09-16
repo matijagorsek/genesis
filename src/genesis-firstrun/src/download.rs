@@ -29,6 +29,12 @@ fn now() -> String {
 
 /// Kick off the download of `files` on a thread. `on_done` runs after every file has finished.
 pub fn start(shared: Shared, pack_id: String, files: Vec<PlannedFile>, on_done: Box<dyn FnOnce() -> Result<()> + Send>) {
+    start_with(shared, pack_id, files, Box::new(|_| {}), on_done)
+}
+
+/// Like `start`, with `on_file` called after each file lands (the wizard uses it to bring the small
+/// model up before the rest of the pack has downloaded, so the first make does not wait for it all).
+pub fn start_with(shared: Shared, pack_id: String, files: Vec<PlannedFile>, on_file: Box<dyn Fn(&PlannedFile) + Send>, on_done: Box<dyn FnOnce() -> Result<()> + Send>) {
     {
         let mut p = shared.lock().unwrap();
         *p = Progress { state: "downloading".into(), pack: Some(pack_id), files_total: files.len(), bytes_total: files.iter().map(|f| f.size).sum(), started_at: Some(now()), ..Default::default() };
@@ -50,6 +56,7 @@ pub fn start(shared: Shared, pack_id: String, files: Vec<PlannedFile>, on_done: 
                 if f.size > 0 && md.len() == f.size {
                     done_bytes += f.size;
                     shared.lock().unwrap().bytes_done = done_bytes;
+                    on_file(f);
                     continue;
                 }
             }
@@ -87,6 +94,7 @@ pub fn start(shared: Shared, pack_id: String, files: Vec<PlannedFile>, on_done: 
             }
             done_bytes += f.size;
             shared.lock().unwrap().bytes_done = done_bytes;
+            on_file(f);
         }
         {
             let mut p = shared.lock().unwrap();

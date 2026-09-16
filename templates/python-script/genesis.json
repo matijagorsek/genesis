@@ -2,7 +2,13 @@
   "id": "python-script",
   "name": "Script (Python)",
   "description": "A single script for automation: files, data, one-off jobs.",
-  "dev": { "cmd": "python3 {name}.py", "port": 0 },
-  "run": { "cmd": "python3 {name}.py" },
-  "entry": "{name}.py"
+  "dev": {
+    "cmd": "python3 {name}.py",
+    "port": 0
+  },
+  "run": {
+    "cmd": "python3 {name}.py"
+  },
+  "entry": "{name}.py",
+  "hints": "One file, one job: replace the body of main() in the entry file, keep the argument parsing, run it once with an example input."
 }
