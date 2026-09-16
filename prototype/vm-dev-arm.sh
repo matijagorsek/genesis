@@ -3,6 +3,8 @@
 #   prototype/vm-dev-arm.sh [base-arm64.qcow2]   default: newest iso/output/v*-arm64/disk.qcow2 or iso/output/arm64/disk.qcow2
 #   GENESIS_VM_XRES/YRES set the guest display (default 1280x800); the window zooms to fit, so drag it
 #   to any size. For a 4K monitor: vm-dev-arm-monitor.command (3456x1944 = 90% of 4K, 2x scale in Plasma).
+#   The guest follows the window size (that is what makes it resizable), so a window that is still tiny
+#   when the firmware starts can leave it black on a console assert: close that window and launch again.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 base="${1:-$(ls -d iso/output/*arm64*/disk.qcow2 2>/dev/null | sort | tail -1)}"

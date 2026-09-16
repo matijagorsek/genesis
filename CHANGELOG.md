@@ -2,6 +2,11 @@
 
 Derived from the decision log (`docs/decisions.md`); one line per decision, newest first. Versions are 0.2.N on the stable channel; 0.1.N before 2026-09-15.
 
+## 2026-09-16
+- Base images pinned on our own mirror (`ghcr.io/matijagorsek/genesis-base`), moved forward weekly by a bump job (done, decision 82)
+- Recipes as a first-class thing in the maker: a Recipes row, one click to replay, save from the gallery (built, decision 83)
+- The canary is a gate for the stable tags; German and Slovenian complete for the maker, palette and Settings; screen-reader pass with Orca, every control named (done, decision 84)
+
 ## 2026-09-15
 - Packs as signed OCI artifacts (built, decision 66)
 - Local file index (built, decision 67)

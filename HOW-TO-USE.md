@@ -161,6 +161,17 @@ every update can be rolled back from the boot menu.
 Settings > Day / night, or say "dark mode" to the microphone. The desktop, the terminal and the
 maker switch together.
 
+## Your language, and screen readers
+
+The maker, the palette and Genesis Settings follow the language of your desktop: German and Slovenian
+are complete, English is the source. Anything not yet translated stays in English rather than
+disappearing. To help with another language, see CONTRIBUTING.md.
+
+A screen reader works with all of Genesis: turn it on in System Settings, Accessibility, Screen Reader
+(Orca), and every button in the maker, the palette and Settings reads its purpose, including which
+project a "Continue" or "Open in Babel" button belongs to. The dictation field says what it wants,
+and the mic button says "Hold to talk".
+
 ## Claude Code, with your own account
 
 If you have a Claude subscription: Settings > "Claude, with your account" opens Claude Code in a

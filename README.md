@@ -23,10 +23,26 @@ Automatic screenshots from the latest release: [docs/screens/latest](docs/screen
 Design brief: [docs/genesis-brief.html](docs/genesis-brief.html) · Design plan: [docs/genesis-design-plan.html](docs/genesis-design-plan.html)
 · Decision log: [docs/decisions.md](docs/decisions.md) · Walkthrough: [docs/genesis-walkthrough.html](docs/genesis-walkthrough.html).
 
+## Phases, so far
+
+How Genesis got here, in the order it happened. The decision log has the detail for each step.
+
+| Phase | When | What it proved |
+|---|---|---|
+| 0. Core loop | 10 to 11 Sep 2026 | A local model can plan, edit, run and fix a project through a permission broker; the one escalation it tried was caught and reordered the plan. Ran on the dev Mac first. |
+| 1. Own image | 11 to 12 Sep | Genesis as a bootc image: the Rust daemons, model service, first-run wizard and the maker window, boot-tested in CI on every push. |
+| A. Identity | 12 Sep | Colour scheme, wallpaper, type, dock, login and boot continuity; the palette at `Meta+Space`, select-to-act, voice in and out. |
+| 2. Native and real | 13 Sep | The arm64 flavour on Apple Silicon at native speed; the first thing made by the maker inside Genesis itself, on the tiny pack. |
+| 3. Distribution | 14 Sep | Signed images, the stable channel with `bootc upgrade`, the NVIDIA flavour, a download page, System Settings module, licences and a code of conduct. |
+| 4. Phone and hardening | 15 Sep | KDE Connect pairing, ask from the phone, the companion app; a security review of the daemons and its fixes; signed packs; the local file index. |
+| 5. Babel and day two | 15 to 16 Sep | The IDE with the maker at its side and language servers and debuggers in the box; recipes, backup and moving, the weekly canary, German and Slovenian, a screen-reader pass. |
+| Next | | Real hardware. See [ROADMAP.md](ROADMAP.md). |
+
 ## What works today (0.2)
 
 - **Bootable image and installer ISO**, built and boot-tested in CI on every push; releases carry a
-  qcow2 disk and the ISO ([Releases](../../releases)).
+  qcow2 disk and the ISO ([Releases](../../releases)). A weekly canary boots a release from a week
+  back and updates it to today's image; the stable tags only move when the last canary was green.
 - **Complete desktop**: KDE Plasma 6 with Firefox, Dolphin, Konsole, Kate, Okular, Gwenview, Haruna,
   Elisa, KCalc, Discover (Flatpak), Ark, Spectacle, System Monitor as RPMs; LibreOffice, Thunderbird,
   VLC, GIMP, Krita preinstalled as Flatpaks once online. Genesis identity: Genesis Dark colour scheme,

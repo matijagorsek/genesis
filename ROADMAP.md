@@ -10,16 +10,15 @@ are not promises. The decision log (`docs/decisions.md`) records what actually h
   installs on real laptops decide what comes next. File a "Hardware report" issue, good or bad.
 - Babel, the IDE, in daily use: what is missing when you write real code with the maker beside you.
 - The phone app on a store, so nobody needs a cable.
+- The weekly canary is now a gate: the stable tags only move when the last canary was green. Keeping
+  it green for a few weeks in a row is the test of that.
 
 ## Next
 
-- Language servers in the box for Python, JavaScript/TypeScript, Rust, Go and C/C++, so Babel's
-  "every language" needs no marketplace visit.
+- JavaScript/TypeScript language tooling in the box (Python, Rust, Go and C/C++ are there).
 - A better small coder model for CPU-only machines, whenever one appears; the packs are data, not code.
 - The maker handing hard steps to Claude Code with the user's own account, when the user chose that.
-- Finishing German and Slovenian, and a screen-reader pass with a real screen reader.
-- The weekly canary (old install updated to today's image, first-run story replayed) turning into a
-  gate for releases rather than a warning.
+- German and Slovenian beyond the maker, palette and settings: the first-run wizard and Babel's welcome.
 
 ## Later
 
