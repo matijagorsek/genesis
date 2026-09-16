@@ -53,6 +53,8 @@ How Genesis got here, in the order it happened. The decision log has the detail 
   boot watermark, login screen.
 - **Local models as an OS service**: llama.cpp (Vulkan) behind llama-swap on `127.0.0.1:8080`,
   one OpenAI-compatible endpoint; model packs per hardware tier (`packs/`), chosen at first run.
+  Routed by task: the maker takes the pack's coder, chat its chat model, search the embedder,
+  photos the vision model, completion the small one; each falls back to the always-loaded small model.
 - **First-run wizard** (`genesis-firstrun`): detects GPU, RAM and disk (`genesis-probe`), shows every
   pack with "fits your machine" bars for memory and disk, proposes one, downloads it, or lets you set
   models up later.

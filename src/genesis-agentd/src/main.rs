@@ -437,7 +437,7 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
                 (Ok(mode), Ok(project)) => {
                     let id = uuid::Uuid::new_v4().to_string();
                     d.broker.lock().unwrap().open_session(&id, mode, vec![project.display().to_string()], "api")?;
-                    let model = served_model(&d.endpoint, &d.model);
+                    let model = served_model_for(&d.endpoint, &d.model, if n.kind == "chat" { "chat" } else { "make" });
                     let shared = new_shared(&id, mode, &project.display().to_string(), &model);
                     let mut agent = Agent::new(Client { endpoint: d.endpoint.clone(), model, api_key: "local".into() }, d.broker.clone(), id.clone(), project, shared.clone());
                     agent.tx_store = Store::open(default_store()).ok();
@@ -729,14 +729,20 @@ fn system_overview(d: &Arc<Daemon>) -> serde_json::Value {
 
 /// The model to use: the configured one if the router serves it, otherwise the best one the router does
 /// serve (small packs have no "code" model; the tiny pack has only "fast"). Falls back to the configured name.
-fn served_model(endpoint: &str, wanted: &str) -> String {
+/// Routing by task: the maker wants the coder, a chat wants the chat model, and either falls back to
+/// the small always-loaded one. A model named explicitly on the command line (anything but "auto")
+/// is used as given when the router serves it.
+fn served_model(endpoint: &str, wanted: &str) -> String { served_model_for(endpoint, wanted, "make") }
+
+fn served_model_for(endpoint: &str, wanted: &str, kind: &str) -> String {
     let list = ureq::get(&format!("{}/models", endpoint.trim_end_matches('/'))).timeout(std::time::Duration::from_secs(8)).call().ok()
         .and_then(|r| r.into_json::<serde_json::Value>().ok())
         .and_then(|v| v.get("data").and_then(|d| d.as_array()).map(|a| a.iter().filter_map(|m| m.get("id").and_then(|i| i.as_str()).map(|s| s.to_string())).collect::<Vec<_>>()));
+    let prefs: &[&str] = match kind { "chat" => &["chat", "fast", "code", "auto"], "vision" => &["fast", "chat", "code", "auto"], _ => &["code", "fast", "chat", "auto"] };
     match list {
         Some(ids) if !ids.is_empty() => {
-            if ids.iter().any(|i| i == wanted) { return wanted.to_string(); }
-            for pref in ["code", "chat", "fast", "auto"] { if ids.iter().any(|i| i == pref) { return pref.to_string(); } }
+            if wanted != "auto" && ids.iter().any(|i| i == wanted) { return wanted.to_string(); }
+            for pref in prefs { if ids.iter().any(|i| i == pref) { return pref.to_string(); } }
             wanted.to_string()
         }
         _ => wanted.to_string(),
@@ -753,7 +759,7 @@ fn chat_session_for(d: &Arc<Daemon>, c: &chat::Chat) -> Result<String> {
     let project = chat::scratch_dir();
     let mode = Mode::AutoEdit;
     d.broker.lock().unwrap().open_session(&id, mode, vec![project.display().to_string()], "chat")?;
-    let model = served_model(&d.endpoint, &d.model);
+    let model = served_model_for(&d.endpoint, &d.model, "chat");
     let shared = new_shared(&id, mode, &project.display().to_string(), &model);
     let mut agent = Agent::new(Client { endpoint: d.endpoint.clone(), model, api_key: "local".into() }, d.broker.clone(), id.clone(), project, shared.clone());
     agent.tx_store = Store::open(default_store()).ok();
@@ -828,7 +834,7 @@ fn run_json(bin: &str, args: &[&str]) -> serde_json::Value {
 /// Ask the local vision-capable model about a PNG (base64). The router's "fast" model carries the
 /// projector in every pack from 0.1.103; older packs get a clear message instead of an answer.
 fn vision_answer(endpoint: &str, question: &str, png_b64: &str) -> anyhow::Result<String> {
-    let model = served_model(endpoint, "fast");
+    let model = served_model_for(endpoint, "auto", "vision");
     let body = serde_json::json!({
         "model": model, "temperature": 0.2, "max_tokens": 400,
         "messages": [

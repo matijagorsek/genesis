@@ -3,6 +3,7 @@
 Derived from the decision log (`docs/decisions.md`); one line per decision, newest first. Versions are 0.2.N on the stable channel; 0.1.N before 2026-09-15.
 
 ## 2026-09-16
+- Routing by task: the maker takes the coder, chat the chat model, both fall back to the small one (done, decision 94)
 - A weekly ten-make evaluation on the tiny pack in CI, scored (built, decision 92)
 - An Ollama-compatible door on 11434 for apps that speak that API (built, decision 91)
 - The plan card before a job: what it will touch and the steps, Proceed / Edit / do it myself (built, decision 90)
