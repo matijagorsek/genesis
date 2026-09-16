@@ -6,8 +6,8 @@ set -u
 src=$(findmnt -n -o SOURCE /sysroot 2>/dev/null || findmnt -n -o SOURCE / 2>/dev/null)
 dev=${src%%[*}
 [ -b "$dev" ] || { echo "genesis-growpart: no block device behind /sysroot ($src)"; exit 0; }
-disk=$(lsblk -n -o PKNAME "$dev" 2>/dev/null | head -1)
-num=$(lsblk -n -o PARTN "$dev" 2>/dev/null | head -1)
+disk=$(lsblk -n -o PKNAME "$dev" 2>/dev/null | head -1 | tr -d ' ')
+num=$(lsblk -n -o PARTN "$dev" 2>/dev/null | head -1 | tr -d ' ')
 [ -n "$disk" ] && [ -n "$num" ] || { echo "genesis-growpart: $dev is not a partition"; exit 0; }
 out=$(growpart "/dev/$disk" "$num" 2>&1); rc=$?
 case $rc in
