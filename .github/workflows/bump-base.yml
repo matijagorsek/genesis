@@ -49,18 +49,22 @@ jobs:
             (r"ghcr\.io/ublue-os/aurora-nvidia-open:stable(@sha256:[0-9a-f]{64})?", f"{M}:aurora-nvidia-open-stable@sha256:{os.environ['NVIDIA']}"),
             (r"quay\.io/fedora/fedora-bootc:44(@sha256:[0-9a-f]{64})?", f"{M}:fedora-bootc-44@sha256:{os.environ['FEDORA']}"),
             (r"quay\.io/centos-bootc/bootc-image-builder:latest(@sha256:[0-9a-f]{64})?", f"{M}:bootc-image-builder@sha256:{os.environ['BIB']}"),
+            (r"AURORA_REF=.*", f"AURORA_REF={M}:aurora-stable@sha256:{os.environ['AURORA']}"),
+            (r"NVIDIA_REF=.*", f"NVIDIA_REF={M}:aurora-nvidia-open-stable@sha256:{os.environ['NVIDIA']}"),
+            (r"FEDORA_REF=.*", f"FEDORA_REF={M}:fedora-bootc-44@sha256:{os.environ['FEDORA']}"),
+            (r"BIB_REF=.*", f"BIB_REF={M}:bootc-image-builder@sha256:{os.environ['BIB']}"),
             (re.escape(M) + r":aurora-stable@sha256:[0-9a-f]{64}", f"{M}:aurora-stable@sha256:{os.environ['AURORA']}"),
             (re.escape(M) + r":aurora-nvidia-open-stable@sha256:[0-9a-f]{64}", f"{M}:aurora-nvidia-open-stable@sha256:{os.environ['NVIDIA']}"),
             (re.escape(M) + r":fedora-bootc-44@sha256:[0-9a-f]{64}", f"{M}:fedora-bootc-44@sha256:{os.environ['FEDORA']}"),
             (re.escape(M) + r":bootc-image-builder@sha256:[0-9a-f]{64}", f"{M}:bootc-image-builder@sha256:{os.environ['BIB']}"),
           ]
-          for path in ["Containerfile", ".github/workflows/build-image.yml"]:
+          for path in ["Containerfile", ".github/base-pins.env"]:
               s = open(path).read()
               for pat, rep in pins:
                   s = re.sub(pat, rep, s)
               open(path, "w").write(s)
           PY
-          grep -n "genesis-base" Containerfile .github/workflows/build-image.yml | head -12
+          grep -n "genesis-base" Containerfile .github/base-pins.env | head -12
         env:
           AURORA: ${{ steps.dig.outputs.aurora }}
           NVIDIA: ${{ steps.dig.outputs.nvidia }}
@@ -70,7 +74,7 @@ jobs:
         run: |
           git config user.name "genesis-bot"
           git config user.email "genesis-bot@users.noreply.github.com"
-          git add Containerfile .github/workflows/build-image.yml
+          git add Containerfile .github/base-pins.env
           git diff --cached --quiet && { echo "pins unchanged"; exit 0; }
           git commit -m "base: move the pinned digests forward (mirrored under genesis-base)"
           git push
