@@ -200,6 +200,13 @@ pub struct Agent {
     pub kind: String,
 }
 
+/// The entry file named in a project's genesis.json, or app.py when there is none.
+fn maker_entry(project: &Path) -> String {
+    std::fs::read_to_string(project.join("genesis.json")).ok().and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+        .and_then(|v| v.get("entry").and_then(|e| e.as_str()).map(|e| e.replace("{name}", &project.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_default())))
+        .unwrap_or_else(|| "app.py".into())
+}
+
 fn resolve_path(project: &Path, p: &str) -> PathBuf {
     let path = Path::new(p);
     if path.is_absolute() { path.to_path_buf() } else { project.join(path) }
@@ -296,6 +303,12 @@ impl Agent {
                 self.shared.push(Event::Done { turns: turn + 1 });
                 self.shared.set_state("done");
                 return Ok(final_text);
+            }
+            if !chat && self.writes_since_run >= 16 {
+                // the nudge did not help: stop burning turns (the evaluation saw 37 edits and no run)
+                self.shared.push(Event::Error { text: "stopped: the model kept changing files without ever running the program; try a shorter request, or a bigger pack".into() });
+                self.shared.set_state("error");
+                return Err(anyhow!("stopped after 16 changes without a run"));
             }
             if !chat && self.writes_since_run >= 8 && !self.nudged_writes {
                 self.nudged_writes = true;
@@ -489,7 +502,8 @@ impl Agent {
                 self.shared.info.lock().unwrap().active_project = Some(dest.display().to_string());
                 let mut files: Vec<String> = std::fs::read_dir(&dest)?.filter_map(|e| e.ok()).map(|e| e.file_name().to_string_lossy().to_string()).collect();
                 files.sort();
-                Ok(format!("created {} from template {} with files: {}. Entry file: {}. Preview: call preview_start (dev command: {}).", dest.display(), t.id, files.join(", "), t.entry.replace("{name}", &s("name")), t.dev.cmd))
+                let entry = t.entry.replace("{name}", &s("name"));
+                Ok(format!("created {} from template {} with files: {}. Entry file (full path): {}. Edit the files by their full path; do not edit genesis.json. Preview: call preview_start (dev command: {}).", dest.display(), t.id, files.join(", "), dest.join(&entry).display(), t.dev.cmd))
             }
             "preview_start" => {
                 let p = self.target_project(args);
@@ -562,6 +576,13 @@ impl Agent {
                     text = format!("[text read from the image by the local vision model]\n{}", text);
                 }
                 Ok(if text.len() > 60_000 { format!("{}\n…[truncated, {} characters total]", &text[..60_000], text.len()) } else { text })
+            }
+            "read_file" | "write_file" | "edit_file" | "list_dir" if s("path").trim().is_empty() => {
+                Err(anyhow!("{} needs a path: give the file name, for example {}", name, self.active_project.as_ref().unwrap_or(&self.project).join("app.py").display()))
+            }
+            "write_file" | "edit_file" if resolve_path(&self.project, &s("path")).file_name().map(|f| f == "genesis.json").unwrap_or(false) => {
+                // the project manifest is Genesis's own: a broken one takes the preview down (seen in the evaluation)
+                Err(anyhow!("genesis.json is managed by Genesis and must not be edited; change the program files instead (the entry file is {})", self.active_project.as_ref().unwrap_or(&self.project).join(maker_entry(self.active_project.as_ref().unwrap_or(&self.project))).display()))
             }
             "read_file" => {
                 let p = resolve_path(&self.project, &s("path"));

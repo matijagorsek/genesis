@@ -71,6 +71,7 @@ def one(name, prompt, timeout):
         return f"{e['name']}({str(v)[:40]})"
     row["calls"] = [brief(e) for e in ev if e["kind"] == "tool_call"][:60]
     row["errors"] = [e.get("summary", "")[:160] for e in ev if e["kind"] == "tool_result" and not e.get("ok", True)][:10]
+    row["errors"] += ["session: " + e.get("text", "")[:160] for e in ev if e["kind"] == "error"][:3]
     row["summary"] = next((e["text"] for e in reversed(ev) if e["kind"] == "assistant"), "")[:200].replace("\n", " ")
     row["seconds"] = int(time.time() - t0)
     row["passed"] = row["state"] == "done" and row["writes"] > 0
