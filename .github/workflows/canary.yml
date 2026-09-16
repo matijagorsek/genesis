@@ -73,8 +73,10 @@ jobs:
           vm 'echo genesis | sudo -S systemctl reboot' || true
           sleep 30; wait_ssh || exit 1
           after=$(vm 'grep --color=never ^IMAGE_VERSION= /etc/os-release'); echo "after: $after"
-          ok=$(vm 'echo genesis | sudo -S genesis-image-check 2>&1 | grep --color=never -c "^  ok"' || echo 0)
-          fails=$(vm 'echo genesis | sudo -S genesis-image-check 2>&1 | grep --color=never FAIL' || true)
+          vm 'echo genesis | sudo -S genesis-image-check 2>&1' > check.txt || true
+          echo "--- self-check after the upgrade:"; cat check.txt
+          ok=$(grep -c "^  ok" check.txt || echo 0)
+          fails=$(grep FAIL check.txt || true)
           wizard=$(vm 'curl -s -m 20 127.0.0.1:11510/api/state | grep --color=never -o recommended_pack | head -1' || true)
           vm 'echo genesis | sudo -S systemctl poweroff' >/dev/null 2>&1 || true
           sleep 10; kill $QEMU 2>/dev/null || true
