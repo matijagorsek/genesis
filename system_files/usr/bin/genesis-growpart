@@ -15,10 +15,20 @@ case $rc in
   1) echo "genesis-growpart: nothing to grow"; exit 0 ;;
   *) echo "genesis-growpart: growpart failed ($rc): $out"; exit 0 ;;
 esac
-mnt=/sysroot; findmnt -n "$mnt" >/dev/null 2>&1 || mnt=/
+# the filesystem must be resized through a writable mount: /sysroot is read-only on bootc, /var is the
+# same filesystem mounted read-write (a btrfs subvolume); fall back to a temporary remount
+mnt=""
+for m in /var /sysroot /; do
+  if [ "$(findmnt -n -o SOURCE "$m" 2>/dev/null | sed 's/\[.*//')" = "$dev" ] && findmnt -n -o OPTIONS "$m" 2>/dev/null | grep -q '\brw\b'; then mnt=$m; break; fi
+done
+remount=""
+if [ -z "$mnt" ]; then mnt=/sysroot; mount -o remount,rw "$mnt" 2>/dev/null && remount=1; fi
+echo "genesis-growpart: resizing the filesystem through $mnt"
 case $(findmnt -n -o FSTYPE "$mnt") in
   btrfs) btrfs filesystem resize max "$mnt" ;;
   xfs) xfs_growfs "$mnt" ;;
   ext4|ext3) resize2fs "$dev" ;;
   *) echo "genesis-growpart: unknown filesystem, partition grown only" ;;
 esac
+[ -n "$remount" ] && mount -o remount,ro "$mnt" 2>/dev/null
+exit 0
