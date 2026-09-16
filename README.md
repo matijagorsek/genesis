@@ -43,6 +43,8 @@ How Genesis got here, in the order it happened. The decision log has the detail 
 - **Bootable image and installer ISO**, built and boot-tested in CI on every push; releases carry a
   qcow2 disk and the ISO ([Releases](../../releases)). A weekly canary boots a release from a week
   back and updates it to today's image; the stable tags only move when the last canary was green.
+  A weekly evaluation runs ten small makes on the tiny pack in a fresh VM and scores them, so a change
+  to the prompts or tools shows as a number ([eval.yml](.github/workflows/eval.yml)).
 - **Complete desktop**: KDE Plasma 6 with Firefox, Dolphin, Konsole, Kate, Okular, Gwenview, Haruna,
   Elisa, KCalc, Discover (Flatpak), Ark, Spectacle, System Monitor as RPMs; LibreOffice, Thunderbird,
   VLC, GIMP, Krita preinstalled as Flatpaks once online. Genesis identity: Genesis Dark colour scheme,

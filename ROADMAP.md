@@ -17,6 +17,7 @@ are not promises. The decision log (`docs/decisions.md`) records what actually h
 
 - JavaScript/TypeScript language tooling in the box (Python, Rust, Go and C/C++ are there).
 - A better small coder model for CPU-only machines, whenever one appears; the packs are data, not code.
+  The weekly ten-make evaluation is the yardstick.
 - The maker handing hard steps to Claude Code with the user's own account, when the user chose that.
 - German and Slovenian beyond the maker, palette and settings: the first-run wizard and Babel's welcome.
 
