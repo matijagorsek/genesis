@@ -75,7 +75,7 @@ jobs:
           after=$(vm 'grep --color=never ^IMAGE_VERSION= /etc/os-release'); echo "after: $after"
           vm 'echo genesis | sudo -S genesis-image-check 2>&1' > check.txt || true
           echo "--- self-check after the upgrade:"; cat check.txt
-          echo "--- disk after the upgrade (the root should have grown into the resized disk):"; vm 'df -h / /var 2>/dev/null; lsblk -o NAME,SIZE,MOUNTPOINTS 2>/dev/null | head -8; echo genesis | sudo -S journalctl -b -u genesis-growpart -u bootc-generic-growpart --no-pager 2>/dev/null | tail -12' || true
+          echo "--- disk after the upgrade (the root should have grown into the resized disk):"; vm 'df -h / /var 2>/dev/null; lsblk -o NAME,SIZE,MOUNTPOINTS 2>/dev/null | head -8; echo genesis | sudo -S journalctl -b -1 -u genesis-growpart -u bootc-generic-growpart --no-pager 2>/dev/null | tail -6; echo "--- this boot:"; sudo journalctl -b -u genesis-growpart -u bootc-generic-growpart --no-pager 2>/dev/null | tail -6' || true
           ok=$(grep -c "^  ok" check.txt || echo 0)
           fails=$(grep FAIL check.txt || true)
           wizard=$(vm 'curl -s -m 20 127.0.0.1:11510/api/state | grep --color=never -o recommended_pack | head -1' || true)
