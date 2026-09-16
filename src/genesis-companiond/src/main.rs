@@ -177,11 +177,11 @@ fn handle(req: &mut Request, pairing: &Pairing, agentd: &str) -> Response<std::i
             let text = v.get("text").and_then(|t| t.as_str()).unwrap_or("").trim().to_string();
             if text.is_empty() { json(&serde_json::json!({"error": "nothing shared"}), 400) }
             else if text.starts_with("http://") || text.starts_with("https://") {
-                let ok = std::process::Command::new("xdg-open").arg(&text).spawn().is_ok();
+                let ok = spawn_detached("xdg-open", &[&text]);
                 json(&serde_json::json!({"ok": ok, "opened": "browser"}), 200)
             } else {
                 let url = format!("http://127.0.0.1:11520/?prompt={}", urlencode(&text));
-                let ok = std::process::Command::new("genesis-window").arg(&url).spawn().is_ok();
+                let ok = spawn_detached("genesis-window", &[&url]);
                 json(&serde_json::json!({"ok": ok, "opened": "palette"}), 200)
             }
         }
@@ -216,4 +216,12 @@ fn urlencode(s: &str) -> String {
         match b { b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => out.push(b as char), b' ' => out.push('+'), _ => out.push_str(&format!("%{:02X}", b)) }
     }
     out
+}
+
+/// Start a desktop program and reap it on a side thread, so it never lingers as a zombie of this daemon.
+fn spawn_detached(cmd: &str, args: &[&str]) -> bool {
+    match std::process::Command::new(cmd).args(args).spawn() {
+        Ok(mut child) => { std::thread::spawn(move || { let _ = child.wait(); }); true }
+        Err(_) => false,
+    }
 }
