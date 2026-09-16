@@ -91,6 +91,8 @@ How Genesis got here, in the order it happened. The decision log has the detail 
   ships a vision projector since 0.2). Notification and clipboard, nothing leaves the machine.
 - **Your files, on request**: opt folders in under Settings and the maker can search your notes, documents,
   PDFs and code ("what did I write about the trip?"). A local SQLite index, refreshed every 20 minutes.
+  Search is by words and by meaning: the pack's small embedding model finds the note about Lisbon
+  when you ask about the trip.
 - **Signed model packs**: pack definitions are OCI artifacts on GHCR, signed with the Genesis key and
   verified by the same containers policy as the OS; every model download is checked against the sha256
   in the signed definition. Built-in definitions remain the offline fallback.

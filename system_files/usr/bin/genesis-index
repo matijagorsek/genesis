@@ -4,14 +4,26 @@
   folders                         JSON: the folders Genesis may search, with counts
   add <folder> | remove <folder>  opt a folder in or out (the index for a removed folder is dropped)
   update                          index new and changed files in every opted-in folder (the timer runs this)
-  search <query> [--json] [-n 8]  full-text search (SQLite FTS5, bm25); JSON for the maker
-  status                          JSON: files, chunks, last update
+  search <query> [--json] [-n 8]  search by words (SQLite FTS5, bm25) and by meaning (embeddings from the
+                                  local embed model, when the model service has one); JSON for the maker
+  extract <file>                  the text of one document (for the chat's "ask about this file")
+  status                          JSON: files, chunks, vectors, last update
 
 Text is extracted from plain text, Markdown, code, PDF (pdftotext), OpenDocument and Office documents
 (their XML). Nothing is uploaded: the index is a SQLite file under ~/.local/share/genesis, and only
 folders the user added are read. Hidden directories, node_modules, build trees and files over 20 MB are skipped.
+Embeddings come from the pack's "embed" model through the router on 127.0.0.1 (every pack ships one);
+"what did I write about the trip" then finds the note that says "our week in Lisbon".
 """
-import json, os, re, sqlite3, subprocess, sys, time, zipfile
+import json, os, re, sqlite3, subprocess, sys, time, zipfile, struct, urllib.request
+try:
+    import numpy as np
+except ImportError:  # pure Python fallback: fine up to a few thousand chunks
+    np = None
+
+ROUTER = os.environ.get("GENESIS_ROUTER", "http://127.0.0.1:8080")
+EMBED_MODEL = "embed"
+EMBED_CHARS = 1500
 
 HOME = os.path.expanduser("~")
 CONF = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.join(HOME, ".config")), "genesis", "index.json")
@@ -44,7 +56,72 @@ def db():
     c.execute("create table if not exists files(path text primary key, folder text, mtime real, size integer, indexed_at real)")
     c.execute("create virtual table if not exists chunks using fts5(path unindexed, ord unindexed, text, tokenize='unicode61 remove_diacritics 2')")
     c.execute("create table if not exists meta(k text primary key, v text)")
+    c.execute("create table if not exists vectors(path text, ord integer, dim integer, vec blob, primary key(path, ord))")
     return c
+
+
+# ---- embeddings ------------------------------------------------------------------------------
+
+def embed(texts, timeout=300):
+    """Vectors for a list of texts from the local embed model, or None when the service has no such model."""
+    if not texts:
+        return []
+    body = json.dumps({"model": EMBED_MODEL, "input": [t[:EMBED_CHARS] for t in texts]}).encode()
+    req = urllib.request.Request(ROUTER + "/v1/embeddings", data=body, headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            data = json.load(r)["data"]
+    except Exception:
+        return None
+    data.sort(key=lambda d: d.get("index", 0))
+    return [d["embedding"] for d in data]
+
+
+def pack_vec(v):
+    return struct.pack(f"{len(v)}f", *v)
+
+
+def unpack_vec(b, dim):
+    return struct.unpack(f"{dim}f", b)
+
+
+def embed_missing(c, limit=400):
+    """Embed chunks that have no vector yet, a few hundred per run so the timer never blocks long."""
+    rows = c.execute("select ch.path, ch.ord, ch.text from chunks ch left join vectors v on v.path=ch.path and v.ord=ch.ord where v.path is null limit ?", (limit,)).fetchall()
+    done = 0
+    for i in range(0, len(rows), 16):
+        batch = rows[i:i + 16]
+        vecs = embed([t for _, _, t in batch])
+        if vecs is None:
+            return {"embedded": done, "semantic": False}
+        c.executemany("insert or replace into vectors(path, ord, dim, vec) values(?,?,?,?)", [(p, o, len(v), pack_vec(v)) for (p, o, _), v in zip(batch, vecs)])
+        c.commit(); done += len(batch)
+    return {"embedded": done, "semantic": True, "remaining": max(0, c.execute("select count(*) from chunks").fetchone()[0] - c.execute("select count(*) from vectors").fetchone()[0])}
+
+
+def vector_search(c, query, n):
+    qv = embed([query], timeout=60)
+    if not qv:
+        return []
+    q = qv[0]
+    rows = c.execute("select path, ord, dim, vec from vectors").fetchall()
+    if not rows:
+        return []
+    if np is not None:
+        m = np.stack([np.frombuffer(b, dtype=np.float32) for _, _, d, b in rows])
+        qa = np.array(q, dtype=np.float32)
+        sims = m @ qa / (np.linalg.norm(m, axis=1) * (np.linalg.norm(qa) or 1) + 1e-9)
+        order = np.argsort(-sims)[:n]
+        return [(rows[int(i)][0], rows[int(i)][1], float(sims[int(i)])) for i in order]
+    import math
+    qn = math.sqrt(sum(x * x for x in q)) or 1.0
+    out = []
+    for p, o, d, b in rows:
+        v = unpack_vec(b, d)
+        dot = sum(a * b2 for a, b2 in zip(q, v)); vn = math.sqrt(sum(x * x for x in v)) or 1.0
+        out.append((p, o, dot / (qn * vn)))
+    out.sort(key=lambda t: -t[2])
+    return out[:n]
 
 
 def extract(path):
@@ -112,7 +189,7 @@ def update():
             if row and abs(row[0] - st.st_mtime) < 1 and row[1] == st.st_size:
                 continue
             text = extract(p)
-            c.execute("delete from chunks where path=?", (p,))
+            c.execute("delete from chunks where path=?", (p,)); c.execute("delete from vectors where path=?", (p,))
             if text.strip():
                 c.executemany("insert into chunks(path, ord, text) values(?,?,?)", [(p, i, t) for i, t in enumerate(chunks(text))])
             c.execute("insert or replace into files(path, folder, mtime, size, indexed_at) values(?,?,?,?,?)", (p, folder, st.st_mtime, st.st_size, time.time()))
@@ -120,18 +197,34 @@ def update():
             else: added += 1
     gone = [r[0] for r in c.execute("select path from files").fetchall() if r[0] not in seen]
     for p in gone:
-        c.execute("delete from chunks where path=?", (p,)); c.execute("delete from files where path=?", (p,))
+        c.execute("delete from chunks where path=?", (p,)); c.execute("delete from vectors where path=?", (p,)); c.execute("delete from files where path=?", (p,))
     c.execute("insert or replace into meta(k, v) values('updated_at', ?)", (time.strftime("%Y-%m-%dT%H:%M:%S"),))
     c.commit()
-    return {"added": added, "changed": changed, "removed": len(gone), "files": c.execute("select count(*) from files").fetchone()[0]}
+    emb = embed_missing(c)
+    return {"added": added, "changed": changed, "removed": len(gone), "files": c.execute("select count(*) from files").fetchone()[0], **emb}
 
 
 def search(query, n=8):
     c = db()
-    # any term may match; bm25 ranks passages with more of them higher
+    # by words: any term may match; bm25 ranks passages with more of them higher
     q = " OR ".join(f'"{t}"' for t in re.findall(r"\w+", query)) or '""'
-    rows = c.execute("select path, ord, snippet(chunks, 2, '[', ']', '…', 24), bm25(chunks) from chunks where chunks match ? order by bm25(chunks) limit ?", (q, n)).fetchall()
-    return [{"path": p, "chunk": o, "snippet": s.replace("\n", " "), "score": round(-sc, 2)} for p, o, s, sc in rows]
+    words = c.execute("select path, ord, snippet(chunks, 2, '[', ']', '…', 24), bm25(chunks) from chunks where chunks match ? order by bm25(chunks) limit ?", (q, max(n * 4, 20))).fetchall()
+    # by meaning: the closest vectors; the two lists are fused by rank so either kind of hit can win
+    meaning = vector_search(c, query, max(n * 4, 20))
+    fused = {}
+    for rank, (p, o, sn, sc) in enumerate(words):
+        fused.setdefault((p, o), {"path": p, "chunk": o, "snippet": sn.replace("\n", " "), "score": 0.0, "by": []})
+        fused[(p, o)]["score"] += 1.0 / (10 + rank); fused[(p, o)]["by"].append("words")
+    for rank, (p, o, sim) in enumerate(meaning):
+        if (p, o) not in fused:
+            t = c.execute("select text from chunks where path=? and ord=?", (p, o)).fetchone()
+            sn = (t[0] if t else "")[:180]
+            fused[(p, o)] = {"path": p, "chunk": o, "snippet": sn.replace("\n", " "), "score": 0.0, "by": []}
+        fused[(p, o)]["score"] += 1.0 / (10 + rank); fused[(p, o)]["by"].append("meaning")
+    out = sorted(fused.values(), key=lambda h: -h["score"])[:n]
+    for h in out:
+        h["score"] = round(h["score"], 4); h["by"] = "+".join(h["by"])
+    return out
 
 
 def status():
@@ -140,6 +233,7 @@ def status():
     upd = c.execute("select v from meta where k='updated_at'").fetchone()
     return {"folders": [{"path": f, "files": counts.get(f, 0)} for f in conf.get("folders", [])],
             "files": c.execute("select count(*) from files").fetchone()[0], "chunks": c.execute("select count(*) from chunks").fetchone()[0],
+            "vectors": c.execute("select count(*) from vectors").fetchone()[0],
             "updated_at": upd[0] if upd else None, "db": DB}
 
 
@@ -159,6 +253,8 @@ def main(argv):
         print(json.dumps(status()))
     elif cmd == "update":
         print(json.dumps(update()))
+    elif cmd == "embed":
+        print(json.dumps(embed_missing(db(), 100000)))
     elif cmd == "extract" and len(argv) > 2:
         # the text of one document (PDF, Office, OpenDocument, Markdown, code), for the chat's "ask about this file"
         print(extract(os.path.abspath(os.path.expanduser(argv[2]))) or "")

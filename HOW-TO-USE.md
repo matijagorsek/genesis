@@ -115,7 +115,9 @@ or a file outside your opted-in folders, the same permission card appears as in 
 - **Terminal:** `ask how do I find large files` answers in the shell; Ctrl+G turns the line you typed
   into a command.
 - **Your files:** Settings > "Files Genesis may search", add a folder (Documents, Notes). Then "what did I
-  write about the trip?" finds it. Only the folders you add are read.
+  write about the trip?" finds it, even when the note says "our week in Lisbon" and never "trip": the
+  index searches by words and by meaning, with the small embedding model every pack ships. Only the
+  folders you add are read, and nothing leaves the machine.
 
 ## Voice
 
