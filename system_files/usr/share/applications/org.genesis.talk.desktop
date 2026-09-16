@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Talk to Genesis
+Comment=Press, speak, done: the palette listens at once and sends when you pause
+Exec=/usr/bin/genesis-window --palette --listen
+Icon=genesis
+Terminal=false
+NoDisplay=true
+Categories=Utility;

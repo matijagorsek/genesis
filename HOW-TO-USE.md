@@ -8,6 +8,12 @@ Genesis is a normal desktop first. Everything below is optional and lives behind
 (the Windows or Command key, plus Space). Nothing here needs an account, and nothing leaves the machine
 unless you choose it.
 
+## Show me Genesis
+
+"Show me Genesis" in the app menu is a one-minute tour on the real maker: a make from one sentence,
+installed, asked about, undone, narrated by notifications. Nothing is staged, so it also serves as the
+launch video ([docs/demo-script.md](docs/demo-script.md)).
+
 ## First run
 
 The small model comes first and the maker starts the moment it is on disk, while the rest of the pack
@@ -114,6 +120,11 @@ answering ("fast completion") and one click turns it off. Packs with a dedicated
 that; the others use the always-loaded small model, so the first suggestion after a pause takes a few
 seconds on CPU-only machines and is quick once the file is warm. Nothing leaves the computer.
 
+**Ctrl+I** on a selection (or the current line): say how it should change, and it changes in place;
+Ctrl+Z puts it back. **Explain this error** in the right-click menu explains the problem on the line in
+plain words and names the one change that fixes it.
+
+
 ## Chat
 
 ![Chat with Genesis: a question about the machine answered through the system tools](docs/screens/brief/01-chat.png)
@@ -156,7 +167,8 @@ tool; "Got it" puts it away until tomorrow. The phone app shows the same card.
 
 ## Voice
 
-Hold the mic in the palette, the maker or chat and speak; let go and the words appear. Replies can be
+`Meta+Shift+V` anywhere: the palette opens listening, you speak, it sends when you pause. Or hold the
+mic in the palette, the maker or chat and speak; let go and the words appear. Replies can be
 read aloud (the speaker button in the maker); `Esc` stops a reply mid-sentence. Spoken replies come in
 the desktop's language: English, German and Slovenian voices ship with every pack. A spoken request
 that would install, delete or send something is shown first and needs Enter, so a misheard word cannot

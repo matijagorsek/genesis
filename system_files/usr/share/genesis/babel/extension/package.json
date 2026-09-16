@@ -67,10 +67,22 @@
       {
         "command": "genesis.toggleCompletion",
         "title": "Babel: Turn local completion on or off"
+      },
+      {
+        "command": "genesis.inline",
+        "title": "Genesis: Change the selection…"
+      },
+      {
+        "command": "genesis.explainError",
+        "title": "Genesis: Explain this error"
       }
     ],
     "menus": {
       "editor/context": [
+        {
+          "command": "genesis.inline",
+          "group": "genesis@0"
+        },
         {
           "command": "genesis.askSelection",
           "when": "editorHasSelection",
@@ -79,6 +91,10 @@
         {
           "command": "genesis.changeFile",
           "group": "genesis@2"
+        },
+        {
+          "command": "genesis.explainError",
+          "group": "genesis@3"
         }
       ],
       "explorer/context": [
@@ -98,6 +114,12 @@
         "command": "genesis.askSelection",
         "key": "ctrl+alt+a",
         "when": "editorHasSelection"
+      },
+      {
+        "command": "genesis.inline",
+        "key": "ctrl+i",
+        "mac": "cmd+i",
+        "when": "editorTextFocus"
       }
     ],
     "themes": [

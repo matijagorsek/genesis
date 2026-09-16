@@ -16,3 +16,7 @@ _launch=Meta+Shift+A
 # Meta+Shift+M: cycle the autonomy mode (Ask, Trusted, Hands-off).
 [services][org.genesis.mode.desktop]
 _launch=Meta+Shift+M
+
+# Meta+Shift+V: talk to Genesis (listens at once, sends when you pause).
+[services][org.genesis.talk.desktop]
+_launch=Meta+Shift+V

@@ -4,7 +4,7 @@
 //   genesis-window http://127.0.0.1:11520/          open the maker workspace
 //   genesis-window --first-run                        open the wizard if first run is not complete, else exit
 //   genesis-window --kiosk URL                        fullscreen
-//   genesis-window --palette [--selection TEXT]       the one door: a small centered window for a request
+//   genesis-window --palette [--selection TEXT] [--listen]   the one door: a small centered window for a request; --listen starts the mic at once
 
 #include <QApplication>
 #include <QFile>
@@ -41,6 +41,7 @@ int main(int argc, char **argv) {
     bool kiosk = args.removeAll("--kiosk") > 0;
     bool firstRun = args.removeAll("--first-run") > 0;
     bool palette = args.removeAll("--palette") > 0;
+    bool listen = args.removeAll("--listen") > 0;  // the palette listens at once (Meta+Shift+V)
     QString selection;
     int si = args.indexOf("--selection");
     if (si >= 0 && si + 1 < args.size()) { selection = args.at(si + 1); args.removeAt(si + 1); args.removeAt(si); }
@@ -55,6 +56,7 @@ int main(int argc, char **argv) {
     if (palette) {
         url = QStringLiteral("http://127.0.0.1:11520/palette");
         if (!selection.isEmpty()) url += "?selection=" + QString::fromUtf8(QUrl::toPercentEncoding(selection));
+        if (listen) url += (url.contains('?') ? "&" : "?") + QStringLiteral("listen=1");
     }
     if (!url.startsWith("http://127.0.0.1") && !url.startsWith("http://localhost"))
         return 2; // local surfaces only

@@ -282,7 +282,7 @@ body.listening header{box-shadow:inset 0 -2px 0 var(--accent)}body.listening tex
   $('#chatBtn').addEventListener('click',()=>{location.href='/chat'});
   $('#settingsBtn').addEventListener('click',()=>{location.href='/settings'});
   api('/api/system').then(sy=>{const m=sy.user&&sy.user.default_mode;if(m&&$('#mode').querySelector('option[value="'+m+'"]'))$('#mode').value=m}).catch(()=>{});
-  const q=new URLSearchParams(location.search);
+  const q=new URLSearchParams(location.search);if(q.get('session')){setTimeout(()=>open(q.get('session')),300)}
   async function noticesLoad(){const list=await api('/api/notices');const box=$('#notices');box.innerHTML='';if(!Array.isArray(list)||!list.length){box.hidden=true;return}box.hidden=false;
     list.forEach(n=>{const d=document.createElement('div');d.className='notice';d.innerHTML='<b></b><span></span>';d.querySelector('b').textContent=n.title;d.querySelector('span').textContent=n.text;
       const b=document.createElement('button');if(n.kind==='morning'){b.textContent='Got it';b.addEventListener('click',async()=>{await api('/api/notices/morning/dismiss',{});noticesLoad()});d.appendChild(b);box.appendChild(d);localise(d);return}

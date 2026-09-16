@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Show me Genesis
+GenericName=One-minute tour
+Comment=Sixty seconds, nothing staged: a make from one sentence, installed, asked about, undone
+Exec=/usr/bin/genesis-demo
+Icon=genesis
+Terminal=false
+Categories=Utility;
+Keywords=demo;tour;genesis;

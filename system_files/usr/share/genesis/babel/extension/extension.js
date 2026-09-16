@@ -267,6 +267,46 @@ function activate(ctx) {
       if (s.body.state === "done" || s.body.state === "error") clearInterval(t);
     }, 1200);
   }));
+  // Ctrl+I: select, describe, see it change; Undo (Ctrl+Z) drops it. Runs as a chat-kind session (no tools).
+  ctx.subscriptions.push(vscode.commands.registerCommand("genesis.inline", async () => {
+    const ed = vscode.window.activeTextEditor; if (!ed) return;
+    const range = ed.selection.isEmpty ? ed.document.lineAt(ed.selection.active.line).range : ed.selection;
+    const code = ed.document.getText(range);
+    const ask = await vscode.window.showInputBox({ prompt: ed.selection.isEmpty ? "Change this line how?" : "Change the selection how?", placeHolder: "add error handling, rename to snake_case, make it async…" });
+    if (!ask) return;
+    const lang = ed.document.languageId;
+    await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: "Genesis is rewriting…" }, async () => {
+      const r = await api("POST", "/api/sessions", { mode: "assist", project: workspaceFolder(), kind: "chat" });
+      if (r.status < 200 || r.status >= 300) { vscode.window.showErrorMessage((r.body && r.body.error) || "the maker is not running"); return; }
+      const before = ed.document.getText(new vscode.Range(new vscode.Position(Math.max(0, range.start.line - 30), 0), range.start));
+      const after = ed.document.getText(new vscode.Range(range.end, new vscode.Position(Math.min(ed.document.lineCount - 1, range.end.line + 30), 0)));
+      await api("POST", `/api/sessions/${r.body.id}/prompt`, { text: `You are editing ${lang} code. Rewrite ONLY the code between the markers according to the instruction, keeping indentation and style. Reply with the replacement code only: no explanation, no markdown fences.\n\nInstruction: ${ask}\n\nContext before:\n${before}\n<<<START>>>\n${code}\n<<<END>>>\nContext after:\n${after}` });
+      let text = null;
+      for (let i = 0; i < 150; i++) {
+        await new Promise((res) => setTimeout(res, 1000));
+        const s = await api("GET", `/api/sessions/${r.body.id}`);
+        (s.body.pending || []).forEach((p) => api("POST", `/api/prompts/${p.request_id}`, { allow: false }));
+        if (s.body.state === "done" || s.body.state === "error") { const a = (s.body.events || []).filter((e) => e.kind === "assistant").pop(); text = a ? a.text : null; break; }
+      }
+      if (!text) { vscode.window.showWarningMessage("Genesis gave no answer"); return; }
+      text = text.replace(/^```[a-zA-Z0-9_-]*\n?/m, "").replace(/\n?```\s*$/m, "").replace(/<<<START>>>|<<<END>>>/g, "").replace(/\s+$/, "");
+      const ok = await ed.edit((b) => b.replace(range, text));
+      if (ok) vscode.window.showInformationMessage("Changed. Ctrl+Z puts it back.", "Undo").then((c) => { if (c === "Undo") vscode.commands.executeCommand("undo"); });
+    });
+  }));
+  // explain the diagnostic under the cursor, in the Genesis output channel
+  ctx.subscriptions.push(vscode.commands.registerCommand("genesis.explainError", async () => {
+    const ed = vscode.window.activeTextEditor; if (!ed) return;
+    const diags = vscode.languages.getDiagnostics(ed.document.uri).filter((d) => d.range.contains(ed.selection.active) || d.range.start.line === ed.selection.active.line);
+    if (!diags.length) { vscode.window.showInformationMessage("No problem reported on this line."); return; }
+    const d = diags[0];
+    const snippet = ed.document.getText(new vscode.Range(new vscode.Position(Math.max(0, d.range.start.line - 8), 0), new vscode.Position(Math.min(ed.document.lineCount - 1, d.range.end.line + 8), 0)));
+    const out = vscode.window.createOutputChannel("Genesis"); out.show(true); out.appendLine(`> Explain this error: ${d.message}\n`);
+    const r = await api("POST", "/api/sessions", { mode: "assist", project: workspaceFolder(), kind: "chat" });
+    if (r.status < 200 || r.status >= 300) { out.appendLine("The maker is not running."); return; }
+    await api("POST", `/api/sessions/${r.body.id}/prompt`, { text: `Explain this ${ed.document.languageId} error in two or three plain sentences and say the one change that fixes it. Error: ${d.message}\n\nCode around it:\n${snippet}` });
+    let seen = 0; const t = setInterval(async () => { const s = await api("GET", `/api/sessions/${r.body.id}`); const ev = (s.body.events || []).slice(seen); seen = (s.body.events || []).length; ev.forEach((e) => { if (e.kind === "assistant") out.appendLine(e.text); }); if (s.body.state === "done" || s.body.state === "error") clearInterval(t); }, 1200);
+  }));
   ctx.subscriptions.push(vscode.commands.registerCommand("genesis.openMaker", () => { const { spawn } = require("child_process"); spawn("genesis-window", ["http://127.0.0.1:11520/"], { detached: true, stdio: "ignore" }).unref(); }));
   ctx.subscriptions.push(vscode.commands.registerCommand("genesis.settings", () => { const { spawn } = require("child_process"); spawn("genesis-window", ["http://127.0.0.1:11520/settings"], { detached: true, stdio: "ignore" }).unref(); }));
   ctx.subscriptions.push(vscode.commands.registerCommand("genesis.welcome", () => {
