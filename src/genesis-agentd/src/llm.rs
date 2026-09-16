@@ -42,6 +42,9 @@ impl Message {
     pub fn user(s: impl Into<String>) -> Self {
         Message { role: "user".into(), content: Some(s.into()), tool_calls: None, tool_call_id: None, name: None }
     }
+    pub fn assistant(s: impl Into<String>) -> Self {
+        Message { role: "assistant".into(), content: Some(s.into()), tool_calls: None, tool_call_id: None, name: None }
+    }
     pub fn tool(id: &str, name: &str, content: impl Into<String>) -> Self {
         Message { role: "tool".into(), content: Some(content.into()), tool_calls: None, tool_call_id: Some(id.into()), name: Some(name.into()) }
     }

@@ -18,6 +18,7 @@ mod voice;
 mod llm;
 mod maker;
 mod mcp;
+mod chat;
 mod sandbox;
 
 use agent::{Agent, Event, SessionInfo, Shared};
@@ -35,6 +36,7 @@ use tiny_http::{Header, Method, Request, Response, Server};
 const WORKSPACE_HTML: &str = include_str!("../ui/workspace.html");
 const SETTINGS_HTML: &str = include_str!("../ui/settings.html");
 const PALETTE_HTML: &str = include_str!("../ui/palette.html");
+const CHAT_HTML: &str = include_str!("../ui/chat.html");
 
 #[derive(Parser)]
 #[command(name = "genesis-agentd", version, about = "Genesis agent daemon")]
@@ -82,6 +84,8 @@ struct Daemon {
     /// Where we listen (Host header must match) and the per-boot token state-changing calls must carry.
     listen: String,
     token: String,
+    /// chat id -> the agent session that carries it (recreated, with the history replayed, after a restart)
+    chat_sessions: Mutex<HashMap<String, String>>,
 }
 
 fn new_shared(id: &str, mode: Mode, project: &str, model: &str) -> Arc<Shared> {
@@ -147,7 +151,7 @@ fn main() -> Result<()> {
         Cmd::Serve { listen } => {
             let server = Server::http(&listen).map_err(|e| anyhow!("listen {}: {}", listen, e))?;
             tracing::info!(listen = %listen, endpoint = %cli.endpoint, model = %cli.model, "genesis-agentd serving");
-            let d = Arc::new(Daemon { endpoint: cli.endpoint.clone(), model: cli.model.clone(), broker, sessions: Mutex::new(HashMap::new()), listen: listen.to_string(), token: load_or_create_token("agentd") });
+            let d = Arc::new(Daemon { endpoint: cli.endpoint.clone(), model: cli.model.clone(), broker, sessions: Mutex::new(HashMap::new()), listen: listen.to_string(), token: load_or_create_token("agentd"), chat_sessions: Mutex::new(HashMap::new()) });
             for req in server.incoming_requests() {
                 let d = d.clone();
                 std::thread::spawn(move || { let _ = handle(&d, req); });
@@ -184,7 +188,11 @@ fn json_response<T: serde::Serialize>(v: &T, status: u16) -> Response<std::io::C
 }
 
 #[derive(Deserialize)]
-struct NewSession { mode: String, project: String }
+struct NewSession { mode: String, project: String, #[serde(default)] kind: String }
+#[derive(Deserialize)]
+struct ChatSay { text: String, #[serde(default)] attachments: Vec<String> }
+#[derive(Deserialize)]
+struct ChatNew { #[serde(default)] title: String }
 #[derive(Deserialize)]
 struct PromptReq { text: String }
 #[derive(Deserialize)]
@@ -193,6 +201,7 @@ struct ResolveReq { allow: bool }
 fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
     let url = req.url().to_string();
     let path: Vec<&str> = url.split('?').next().unwrap_or("/").trim_matches('/').split('/').collect();
+    let query: HashMap<String, String> = url.splitn(2, '?').nth(1).unwrap_or("").split('&').filter(|kv| !kv.is_empty()).map(|kv| { let (k, v) = kv.split_once('=').unwrap_or((kv, "")); (k.to_string(), url_decode(v)) }).collect();
     let method = req.method().clone();
     // The front door: only our own pages (same origin) and local programs holding the token may talk to
     // this daemon. A web page open in a browser cannot: cross-site requests carry Origin / Sec-Fetch-Site,
@@ -233,6 +242,57 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
         (Method::Get, ["api", "health"]) => json_response(&serde_json::json!({"ok": true, "endpoint": d.endpoint, "router_ok": router_ok(&d.endpoint), "model": served_model(&d.endpoint, &d.model), "sandbox": sandbox::bwrap_available(), "voice": voice::available(), "speech": voice::speech_available(), "default_project": default_project()}), 200),
         (Method::Get, ["api", "templates"]) => json_response(&maker::list_templates(), 200),
         (Method::Get, ["palette"]) => Response::from_string(PALETTE_HTML.replace("__GENESIS_TOKEN__", &d.token)).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
+        (Method::Get, ["chat"]) => Response::from_string(CHAT_HTML.replace("__GENESIS_TOKEN__", &d.token)).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
+        (Method::Get, ["api", "chats"]) => json_response(&chat::list(&query.get("q").cloned().unwrap_or_default()), 200),
+        (Method::Post, ["api", "chats"]) => match chat::create(&serde_json::from_str::<ChatNew>(&body).map(|c| c.title).unwrap_or_default()) {
+            Ok(c) => json_response(&c, 201),
+            Err(e) => json_response(&serde_json::json!({"error": e.to_string()}), 500),
+        },
+        (Method::Get, ["api", "chats", id]) => match chat::load(id) {
+            Some(c) => {
+                let session = d.chat_sessions.lock().unwrap().get(*id).cloned();
+                json_response(&serde_json::json!({"chat": c, "session": session}), 200)
+            }
+            None => json_response(&serde_json::json!({"error": "no such chat"}), 404),
+        },
+        (Method::Post, ["api", "chats", id, "delete"]) => {
+            if let Some(sid) = d.chat_sessions.lock().unwrap().remove(*id) { d.sessions.lock().unwrap().remove(&sid); }
+            json_response(&serde_json::json!({"deleted": chat::delete(id)}), 200)
+        }
+        (Method::Post, ["api", "chats", id, "say"]) => match (chat::load(id), serde_json::from_str::<ChatSay>(&body)) {
+            (Some(existing), Ok(say)) => {
+                let text = say.text.trim().to_string();
+                if text.is_empty() { return Ok(req.respond(json_response(&serde_json::json!({"error": "say something"}), 400))?); }
+                // an image attached: the vision model answers directly, the exchange is kept like any other
+                let images: Vec<String> = say.attachments.iter().filter(|a| { let l = a.to_lowercase(); l.ends_with(".png") || l.ends_with(".jpg") || l.ends_with(".jpeg") || l.ends_with(".webp") }).cloned().collect();
+                let sid = chat_session_for(d, &existing)?;
+                let (shared, slot) = d.sessions.lock().unwrap().get(&sid).cloned().ok_or_else(|| anyhow!("chat session vanished"))?;
+                let state = shared.info.lock().unwrap().state.clone();
+                if state == "running" || state == "waiting" { return Ok(req.respond(json_response(&serde_json::json!({"error": "still answering"}), 409))?); }
+                chat::append(id, "user", &text, say.attachments.clone())?;
+                let mut prompt = text.clone();
+                for a in say.attachments.iter().filter(|a| !images.contains(a)) { prompt.push_str(&format!("\n\n(The user attached the file {}: read it with read_document before answering.)", a)); }
+                let chat_id = id.to_string();
+                let endpoint = d.endpoint.clone();
+                let d2 = Arc::clone(d);
+                std::thread::spawn(move || {
+                    let answer = if let Some(img) = images.first() {
+                        match std::fs::read(img).map(|b| base64_encode(&b)).map_err(|e| anyhow!("{}: {}", img, e)).and_then(|b64| vision_answer(&endpoint, &prompt, &b64)) {
+                            Ok(a) => { shared.push(Event::UserPrompt { text: prompt.clone() }); shared.push(Event::Assistant { text: a.clone() }); shared.push(Event::Done { turns: 1 }); shared.set_state("done"); a }
+                            Err(e) => { shared.push(Event::Error { text: e.to_string() }); shared.set_state("error"); format!("I could not look at that image: {}", e) }
+                        }
+                    } else {
+                        let mut guard = slot.lock().unwrap();
+                        match guard.as_mut() { Some(agent) => agent.run(&prompt).unwrap_or_else(|e| format!("I could not finish: {}", e)), None => "the chat session is gone; open the chat again".into() }
+                    };
+                    let _ = chat::append(&chat_id, "assistant", &answer, vec![]);
+                    let _ = d2; // keeps the daemon alive for the thread's lifetime
+                });
+                json_response(&serde_json::json!({"accepted": true, "session": sid}), 202)
+            }
+            (None, _) => json_response(&serde_json::json!({"error": "no such chat"}), 404),
+            (_, Err(_)) => json_response(&serde_json::json!({"error": "expected {text, attachments?}"}), 400),
+        },
         (Method::Get, ["settings"]) => Response::from_string(SETTINGS_HTML.replace("__GENESIS_TOKEN__", &d.token)).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
         (Method::Get, ["api", "system"]) => json_response(&system_overview(d), 200),
         (Method::Post, ["api", "system", "theme"]) => {
@@ -381,6 +441,7 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
                     let shared = new_shared(&id, mode, &project.display().to_string(), &model);
                     let mut agent = Agent::new(Client { endpoint: d.endpoint.clone(), model, api_key: "local".into() }, d.broker.clone(), id.clone(), project, shared.clone());
                     agent.tx_store = Store::open(default_store()).ok();
+                    if n.kind == "chat" { agent.kind = "chat".into(); }
                     d.sessions.lock().unwrap().insert(id.clone(), (shared, Arc::new(Mutex::new(Some(agent)))));
                     json_response(&serde_json::json!({"id": id}), 201)
                 }
@@ -666,6 +727,30 @@ fn served_model(endpoint: &str, wanted: &str) -> String {
     }
 }
 
+/// The agent session behind a chat: created on first use (or after a restart) with the stored
+/// conversation replayed, so the model sees what was said before.
+fn chat_session_for(d: &Arc<Daemon>, c: &chat::Chat) -> Result<String> {
+    if let Some(sid) = d.chat_sessions.lock().unwrap().get(&c.id).cloned() {
+        if d.sessions.lock().unwrap().contains_key(&sid) { return Ok(sid); }
+    }
+    let id = uuid::Uuid::new_v4().to_string();
+    let project = chat::scratch_dir();
+    let mode = Mode::AutoEdit;
+    d.broker.lock().unwrap().open_session(&id, mode, vec![project.display().to_string()], "chat")?;
+    let model = served_model(&d.endpoint, &d.model);
+    let shared = new_shared(&id, mode, &project.display().to_string(), &model);
+    let mut agent = Agent::new(Client { endpoint: d.endpoint.clone(), model, api_key: "local".into() }, d.broker.clone(), id.clone(), project, shared.clone());
+    agent.tx_store = Store::open(default_store()).ok();
+    agent.kind = "chat".into();
+    agent.messages[0] = crate::llm::Message::system(agent::SYSTEM_PROMPT_CHAT);
+    for m in c.messages.iter().rev().take(40).collect::<Vec<_>>().into_iter().rev() {
+        agent.messages.push(if m.role == "assistant" { crate::llm::Message::assistant(m.text.clone()) } else { crate::llm::Message::user(m.text.clone()) });
+    }
+    d.sessions.lock().unwrap().insert(id.clone(), (shared, Arc::new(Mutex::new(Some(agent)))));
+    d.chat_sessions.lock().unwrap().insert(c.id.clone(), id.clone());
+    Ok(id)
+}
+
 /// Which Genesis is running and whether an update is staged, from os-release and the published bootc status.
 fn os_status() -> serde_json::Value {
     let osr = std::fs::read_to_string("/usr/lib/os-release").unwrap_or_default();
@@ -859,4 +944,23 @@ fn save_recipe(v: &serde_json::Value) -> anyhow::Result<String> {
     let doc = serde_json::json!({"id": id, "name": name, "template": v.get("template").and_then(|t| t.as_str()).unwrap_or(""), "steps": steps, "description": v.get("description").and_then(|d| d.as_str()).unwrap_or(""), "source": "mine"});
     std::fs::write(dir.join(format!("{}.json", id)), serde_json::to_string_pretty(&doc)?)?;
     Ok(id)
+}
+
+/// Percent-decoding for query strings (+ as space), enough for a search box.
+fn url_decode(s: &str) -> String {
+    let b = s.as_bytes(); let mut out = Vec::with_capacity(b.len()); let mut i = 0;
+    while i < b.len() {
+        if b[i] == b'+' { out.push(b' '); i += 1; continue; }
+        if b[i] == b'%' && i + 2 < b.len() + 0 + 1 && i + 2 <= b.len() - 1 { // two hex digits follow
+            if let Ok(v) = u8::from_str_radix(std::str::from_utf8(&b[i + 1..i + 3]).unwrap_or("zz"), 16) { out.push(v); i += 3; continue; }
+        }
+        out.push(b[i]); i += 1;
+    }
+    String::from_utf8_lossy(&out).to_string()
+}
+
+#[cfg(test)]
+mod query_tests {
+    #[test]
+    fn decodes() { assert_eq!(super::url_decode("trip+to%20Lisbon%C3%A9%"), "trip to Lisboné%"); }
 }

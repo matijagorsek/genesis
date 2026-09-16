@@ -93,6 +93,7 @@ body.listening header{box-shadow:inset 0 -2px 0 var(--accent)}body.listening tex
   <span class="badge" id="badgeNet" title="Network use in this job">no network used</span>
   <span class="sp"></span>
   <button id="home">Make something new</button>
+  <button id="chatBtn" title="Chat with Genesis: questions, your documents, this computer">Chat</button>
   <button id="settingsBtn" title="Genesis settings">Settings</button>
 </header>
 
@@ -249,6 +250,7 @@ body.listening header{box-shadow:inset 0 -2px 0 var(--accent)}body.listening tex
   $('#reload').addEventListener('click',()=>{if(lastUrl)$('#frame').src=lastUrl});
   $('#openTab').addEventListener('click',()=>{if(lastUrl)window.open(lastUrl,'_blank')});
   $('#home').addEventListener('click',()=>{showStart(true);recent();made();noticesLoad()});
+  $('#chatBtn').addEventListener('click',()=>{location.href='/chat'});
   $('#settingsBtn').addEventListener('click',()=>{location.href='/settings'});
   api('/api/system').then(sy=>{const m=sy.user&&sy.user.default_mode;if(m&&$('#mode').querySelector('option[value="'+m+'"]'))$('#mode').value=m}).catch(()=>{});
   const q=new URLSearchParams(location.search);

@@ -95,6 +95,15 @@ answering ("fast completion") and one click turns it off. Packs with a dedicated
 that; the others use the always-loaded small model, so the first suggestion after a pause takes a few
 seconds on CPU-only machines and is quick once the file is warm. Nothing leaves the computer.
 
+## Chat
+
+Not everything is a thing to build. **Chat with Genesis** in the app menu (or the Chat button in the
+maker) is an ordinary conversation that stays on this machine: ask what you wrote about a trip, what a
+term means, whether an update is waiting, which apps are installed. Every chat is kept and the list on
+the left searches all of them. Attach a PDF, a document or a photo by its path and ask about it: text
+is read from the file, a photo goes to the local vision model. When a question needs one of your tools
+or a file outside your opted-in folders, the same permission card appears as in the maker.
+
 ## Ask, anywhere
 
 <p align="center"><img src="docs/screens/more/02-screen-region-asked.png" width="88%" alt="A screen region handed to "What is on my screen"; the local model described it in seven seconds"></p>

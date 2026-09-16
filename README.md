@@ -73,6 +73,9 @@ How Genesis got here, in the order it happened. The decision log has the detail 
   and a Day / Night switch for the whole desktop (also `Meta+Shift+T`).
 - **Status widget** in the dock: model loaded, whether any job used the network, sandbox on, one click
   to the maker.
+- **Chat**: an ordinary conversation with the assistant, kept on this machine and searchable across
+  chats; ask about your documents (PDF, Office, Markdown by path), a photo (local vision model), this
+  computer (through the system tools) or the web. The maker and the chat share the permission cards.
 - **Tools as MCP servers**: the maker's abilities extend with any program speaking the Model Context
   Protocol; each server's tools carry a declared permission tier and go through the same cards. The
   shipped `system` server makes the maker a careful administrator: status, network, updates, apps from

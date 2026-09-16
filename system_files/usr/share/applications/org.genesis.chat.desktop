@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Chat with Genesis
+GenericName=Assistant
+Comment=Ask anything: your documents, this computer, the web; kept and searchable, all on this machine
+Exec=genesis-window http://127.0.0.1:11520/chat
+Icon=genesis
+Terminal=false
+Categories=Utility;Office;
+Keywords=chat;assistant;ask;question;documents;pdf;genesis;
+StartupWMClass=genesis-window
