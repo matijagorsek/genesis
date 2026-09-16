@@ -62,7 +62,10 @@ GENESIS_TX_STORE=/tmp/genesis-check-tx genesis-txd list >/dev/null 2>&1 && ok "t
 grep -q "Meta+Space" /etc/xdg/kglobalshortcutsrc 2>/dev/null && ok "Meta+Space default shortcut" || fail "global shortcut default"
 [ "$(ls -d /usr/share/genesis/templates/*/ 2>/dev/null | wc -l)" -ge 3 ] && ok "project templates shipped" || fail "templates"
 probe_out=$(genesis-probe --json 2>&1 || true)
-if grep -q '"recommended_pack": "' <<<"$probe_out"; then ok "probe: $(grep -o '"recommended_pack": "[^"]*"' <<<"$probe_out")"; else fail "probe run"; printf '%s\n' "$probe_out" | tail -5 | sed 's/^/       /'; fi
+# a machine too small for any pack is a valid probe result (the wizard offers "set up later"), not a failed probe
+if grep -q '"recommended_pack": "' <<<"$probe_out"; then ok "probe: $(grep -o '"recommended_pack": "[^"]*"' <<<"$probe_out")"
+elif grep -q '"recommended_pack": null' <<<"$probe_out"; then ok "probe: no pack fits this machine ($(grep -o '"ram_mb": [0-9]*' <<<"$probe_out" | head -1) MB, $(grep -o '"disk_free_mb": [0-9]*' <<<"$probe_out" | head -1) free)"
+else fail "probe run"; printf '%s\n' "$probe_out" | tail -5 | sed 's/^/       /'; fi
 [ -L /etc/systemd/user/default.target.wants/genesis-permd.service ] && ok "permd user service enabled" || fail "permd user service not enabled"
 [ -f /usr/share/dbus-1/services/org.genesis.Permission1.service ] && ok "permd dbus activation" || fail "permd dbus activation"
 permd_out=$(genesis-permd --audit /tmp/genesis-check-audit.jsonl check --cmd "pip3 install --break-system-packages x" 2>&1 || true)
