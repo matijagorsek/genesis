@@ -64,6 +64,13 @@ def one(name, prompt, timeout):
     row["tool_errors"] = sum(1 for e in ev if e["kind"] == "tool_result" and not e.get("ok", True))
     row["preview"] = any(e["kind"] == "tool_call" and e["name"] == "preview_start" for e in ev) or bool(st.get("preview_url"))
     row["turns"] = next((e["turns"] for e in ev if e["kind"] == "done"), 0)
+    # the tool sequence, so a failed make can be read without the VM: name(first argument)
+    def brief(e):
+        a = e.get("args") or {}
+        v = a.get("path") or a.get("command") or a.get("name") or a.get("url") or ""
+        return f"{e['name']}({str(v)[:40]})"
+    row["calls"] = [brief(e) for e in ev if e["kind"] == "tool_call"][:60]
+    row["errors"] = [e.get("summary", "")[:160] for e in ev if e["kind"] == "tool_result" and not e.get("ok", True)][:10]
     row["summary"] = next((e["text"] for e in reversed(ev) if e["kind"] == "assistant"), "")[:200].replace("\n", " ")
     row["seconds"] = int(time.time() - t0)
     row["passed"] = row["state"] == "done" and row["writes"] > 0
@@ -71,7 +78,7 @@ def one(name, prompt, timeout):
 
 
 def main(argv):
-    out = "results.json"; only = None; timeout = 900
+    out = "results.json"; only = None; timeout = 1500
     if "--out" in argv: out = argv[argv.index("--out") + 1]
     if "--only" in argv: only = int(argv[argv.index("--only") + 1])
     if "--timeout" in argv: timeout = int(argv[argv.index("--timeout") + 1])

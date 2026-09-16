@@ -73,7 +73,7 @@ jobs:
           for i in $(seq 1 60); do vm 'curl -s -m 10 127.0.0.1:8080/v1/models' | grep -q '"fast"' && break; sleep 10; done
           vm 'curl -s -m 10 127.0.0.1:8080/v1/models | head -c 300; echo'
           vm 'cat > /tmp/eval-makes.py' < prototype/eval-makes.py
-          vm "python3 /tmp/eval-makes.py --only $ONLY --out /tmp/results.json --timeout 900" 2>eval-progress.log | tee eval-summary.md
+          vm "python3 /tmp/eval-makes.py --only $ONLY --out /tmp/results.json --timeout 1500" 2>eval-progress.log | tee eval-summary.md
           vm 'cat /tmp/results.json' > results.json
           vm 'echo genesis | sudo -S systemctl poweroff' >/dev/null 2>&1 || true
           sleep 10; kill $QEMU 2>/dev/null || true

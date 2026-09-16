@@ -190,6 +190,10 @@ pub struct Agent {
     pub scaffolded: bool,
     pub edited_after_scaffold: bool,
     pub nudged: bool,
+    /// Writes since the program last ran; small models can loop on writing (the first evaluation saw
+    /// 34 writes and no run in one make), so after a while they are told to run and finish.
+    pub writes_since_run: usize,
+    pub nudged_writes: bool,
     /// Project directory the maker tools currently target (set by scaffold).
     pub active_project: Option<PathBuf>,
     /// "make" (the maker, default) or "chat" (the assistant: chat prompt, read-only tools, the user's MCP tools).
@@ -203,7 +207,7 @@ fn resolve_path(project: &Path, p: &str) -> PathBuf {
 
 impl Agent {
     pub fn new(client: Client, broker: Arc<Mutex<Broker>>, session_id: String, project: PathBuf, shared: Arc<Shared>) -> Self {
-        Agent { client, broker, session_id, project, shared, max_turns: 40, prompt_timeout: Duration::from_secs(600), messages: vec![Message::system(SYSTEM_PROMPT)], tx_store: None, tx: None, previews: maker::Previews::default(), active_project: None, browser: None, last_prompt: String::new(), scaffolded: false, edited_after_scaffold: false, nudged: false, kind: "make".into() }
+        Agent { client, broker, session_id, project, shared, max_turns: 40, prompt_timeout: Duration::from_secs(600), messages: vec![Message::system(SYSTEM_PROMPT)], tx_store: None, tx: None, previews: maker::Previews::default(), active_project: None, browser: None, last_prompt: String::new(), scaffolded: false, edited_after_scaffold: false, nudged: false, writes_since_run: 0, nudged_writes: false, kind: "make".into() }
     }
 
     /// The plan card: what the job will touch and the steps, before anything runs. One short model call
@@ -244,7 +248,7 @@ impl Agent {
         self.shared.push(Event::UserPrompt { text: text.into() });
         self.shared.set_state("running");
         self.last_prompt = text.to_string();
-        self.scaffolded = false; self.edited_after_scaffold = false; self.nudged = false;
+        self.scaffolded = false; self.edited_after_scaffold = false; self.nudged = false; self.writes_since_run = 0; self.nudged_writes = false;
         let compact = compact_model(&self.client.model);
         let chat = self.kind == "chat";
         if chat { if self.messages.first().map(|m| m.content.as_deref() != Some(SYSTEM_PROMPT_CHAT)).unwrap_or(true) { self.messages[0] = Message::system(SYSTEM_PROMPT_CHAT); } }
@@ -293,9 +297,15 @@ impl Agent {
                 self.shared.set_state("done");
                 return Ok(final_text);
             }
+            if !chat && self.writes_since_run >= 8 && !self.nudged_writes {
+                self.nudged_writes = true;
+                self.messages.push(Message::user("You have changed files eight times without running anything. Stop editing now: run the program once (preview_start, or shell), fix only what that run shows, and then reply with the summary.".to_string()));
+                continue;
+            }
             for call in calls {
                 let args: Value = serde_json::from_str(&call.function.arguments).unwrap_or(json!({}));
                 self.shared.push(Event::ToolCall { id: call.id.clone(), name: call.function.name.clone(), args: args.clone() });
+                match call.function.name.as_str() { "write_file" | "edit_file" => self.writes_since_run += 1, "preview_start" | "shell" => self.writes_since_run = 0, _ => {} }
                 let result = self.execute(&call.id, &call.function.name, &args);
                 let (ok, text) = match result {
                     Ok(t) => (true, t),
