@@ -2,6 +2,7 @@ package org.genesis.companion
 
 import android.graphics.BitmapFactory
 import android.os.Build
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -40,6 +41,17 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         // a pairing code handed over by intent (development, or a QR app that opens us): same as a scan
         intent?.getStringExtra("pair")?.let { Pairing.parse(it)?.save(this) }
+        // "open this on the desktop": text or a link shared to the app goes to the paired Genesis
+        if (intent?.action == Intent.ACTION_SEND) {
+            val shared = intent.getStringExtra(Intent.EXTRA_TEXT) ?: ""
+            val pairing = Pairing.load(this)
+            if (shared.isNotBlank() && pairing != null) {
+                Thread {
+                    val r = runCatching { Genesis(pairing).share(shared) }
+                    runOnUiThread { android.widget.Toast.makeText(this, if (r.isSuccess) "Sent to the desktop" else "Genesis not reachable", android.widget.Toast.LENGTH_SHORT).show(); finish() }
+                }.start()
+            }
+        }
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED)
             requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1)
         if (Pairing.load(this) != null) WatchService.start(this)

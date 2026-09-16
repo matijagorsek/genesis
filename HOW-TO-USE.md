@@ -186,6 +186,16 @@ notification with **Allow once** and **Not now** right on it; a quiet "Connected
 notification stays while the app watches. Same network, encrypted to this machine only; "Regenerate the
 code" unpairs every phone.
 
+**One thing, two screens.** A make started on the phone shows up under Recent in the maker and can be
+continued there; a make started at the desk shows its steps and cards on the phone. In the palette,
+**To phone** sends the typed text or the current selection to the phone as a KDE Connect share.
+Share any text or link *to* the Genesis app on the phone and it opens on the desktop: a link in the
+browser, text in the palette.
+
+The app comes as a signed APK on every release once the signing key is in the repository's secrets
+(see `.github/workflows/android.yml`); until then it is built from `android/`.
+
+
 ## Your own tools (MCP)
 
 The maker's abilities are not fixed. Any program that speaks MCP, the open Model Context Protocol, can
@@ -216,6 +226,13 @@ for search, the phone pairings and the undo history. No models (they download ag
 passwords. On a new Genesis, put the file anywhere in your home folder and use **Restore**; existing
 projects are kept, restored ones get a "-restored" suffix if a name is taken. Pair the phone again
 afterwards. In a terminal: `genesis-backup export`, `genesis-backup restore <file>`.
+
+## Make it while I sleep
+
+Type a request in the maker and press **Tonight** instead of Make it. Queued requests run one after
+another at the time shown (23:00 by default), only on mains, in Trusted mode with every permission
+card answered "not now", so a job stays inside its project. Start now runs the queue immediately.
+The morning card says how many finished; the results are in Made here.
 
 ## Recipes: what to make, step by step
 

@@ -1,0 +1,59 @@
+name: android
+
+# The Genesis companion app as a signed APK on every release, when the signing key is in the
+# repository secrets (ANDROID_KEYSTORE_B64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS,
+# ANDROID_KEY_PASSWORD). Without them the job builds an unsigned debug APK for a look and attaches
+# nothing. The keystore never lives in the repository; the founder keeps it under ~/.config/genesis-android.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+  push:
+    paths: ['android/**', '.github/workflows/android.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Build
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          cd android
+          chmod +x gradlew
+          if [ -n "${KS_B64:-}" ]; then
+            echo "$KS_B64" | base64 -d > /tmp/genesis.jks
+            # the build reads ~/.config/genesis-android/keystore.properties, the same place as on the founder's Mac
+            mkdir -p ~/.config/genesis-android
+            printf 'storeFile=/tmp/genesis.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' "$KS_PASS" "$KEY_ALIAS" "$KEY_PASS" > ~/.config/genesis-android/keystore.properties
+            ./gradlew --no-daemon -q assembleRelease
+            cp app/build/outputs/apk/release/app-release.apk ../genesis-companion.apk
+            rm -f /tmp/genesis.jks ~/.config/genesis-android/keystore.properties
+            echo "SIGNED=1" >> "$GITHUB_ENV"
+          else
+            ./gradlew --no-daemon -q assembleDebug
+            cp app/build/outputs/apk/debug/app-debug.apk ../genesis-companion-debug.apk
+            echo "::notice::no signing key in the repository secrets: built an unsigned debug APK, not attached to the release"
+          fi
+      - name: Attach to the release
+        if: github.event_name == 'release' && env.SIGNED == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" genesis-companion.apk --clobber
+      - uses: actions/upload-artifact@v4
+        with:
+          name: genesis-companion-apk
+          path: genesis-companion*.apk

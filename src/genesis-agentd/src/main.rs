@@ -21,6 +21,7 @@ mod mcp;
 mod chat;
 mod ocr;
 mod timeline;
+mod queue;
 mod sandbox;
 
 use agent::{Agent, Event, SessionInfo, Shared};
@@ -154,6 +155,19 @@ fn main() -> Result<()> {
             let server = Server::http(&listen).map_err(|e| anyhow!("listen {}: {}", listen, e))?;
             tracing::info!(listen = %listen, endpoint = %cli.endpoint, model = %cli.model, "genesis-agentd serving");
             let d = Arc::new(Daemon { endpoint: cli.endpoint.clone(), model: cli.model.clone(), broker, sessions: Mutex::new(HashMap::new()), listen: listen.to_string(), token: load_or_create_token("agentd"), chat_sessions: Mutex::new(HashMap::new()) });
+            // make it while I sleep: the queue runner, once a minute
+            {
+                let d = d.clone();
+                std::thread::spawn(move || loop {
+                    std::thread::sleep(std::time::Duration::from_secs(60));
+                    let q = queue::load();
+                    if !queue::due(&q) || !queue::on_mains() { continue; }
+                    let busy = d.sessions.lock().unwrap().values().any(|(s, _)| { let st = s.info.lock().unwrap().state.clone(); st == "running" || st == "waiting" });
+                    if busy { continue; }
+                    let Some(item) = q.items.first().cloned() else { continue };
+                    if let Err(e) = run_queued(&d, &item) { tracing::warn!(%e, "queued make failed to start"); }
+                });
+            }
             for req in server.incoming_requests() {
                 let d = d.clone();
                 std::thread::spawn(move || { let _ = handle(&d, req); });
@@ -405,6 +419,33 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
             let rules: Vec<serde_json::Value> = user_rules().into_iter().filter(|r| r.get("id").and_then(|i| i.as_str()) != Some(*id)).collect();
             match save_user_rules(d, &rules) { Ok(()) => json_response(&rules, 200), Err(e) => json_response(&serde_json::json!({"error": e.to_string()}), 500) }
         }
+        (Method::Post, ["api", "phone", "send"]) => {
+            let text = serde_json::from_str::<serde_json::Value>(&body).ok().and_then(|v| v.get("text").and_then(|t| t.as_str()).map(|s| s.to_string())).unwrap_or_default();
+            if text.trim().is_empty() { return Ok(req.respond(json_response(&serde_json::json!({"error": "nothing to send"}), 400))?); }
+            match std::process::Command::new("/usr/bin/genesis-phone").args(["send", &text]).output() {
+                Ok(o) => { let v: serde_json::Value = serde_json::from_slice(&o.stdout).unwrap_or(serde_json::json!({"ok": false, "error": "genesis-phone gave no answer"})); json_response(&v, 200) }
+                Err(e) => json_response(&serde_json::json!({"ok": false, "error": e.to_string()}), 500),
+            }
+        }
+        (Method::Get, ["api", "queue"]) => json_response(&queue::load(), 200),
+        (Method::Post, ["api", "queue"]) => match serde_json::from_str::<serde_json::Value>(&body) {
+            Ok(v) => {
+                let text = v.get("text").and_then(|t| t.as_str()).unwrap_or("").trim().to_string();
+                if text.is_empty() { return Ok(req.respond(json_response(&serde_json::json!({"error": "say what to make"}), 400))?); }
+                let mut q = queue::load();
+                q.items.push(queue::Item { id: uuid::Uuid::new_v4().to_string(), text, project: v.get("project").and_then(|p| p.as_str()).unwrap_or("").to_string(), added: queue::now() });
+                queue::save(&q); json_response(&q, 201)
+            }
+            Err(_) => json_response(&serde_json::json!({"error": "expected {text, project?}"}), 400),
+        },
+        (Method::Post, ["api", "queue", "start"]) => { let mut q = queue::load(); q.start_now = true; queue::save(&q); json_response(&q, 200) }
+        (Method::Post, ["api", "queue", "settings"]) => {
+            let run_at = serde_json::from_str::<serde_json::Value>(&body).ok().and_then(|v| v.get("run_at").and_then(|t| t.as_str()).map(|s| s.to_string())).unwrap_or_default();
+            if run_at.len() != 5 || run_at.as_bytes()[2] != b':' { return Ok(req.respond(json_response(&serde_json::json!({"error": "run_at must be HH:MM"}), 400))?); }
+            let mut q = queue::load(); q.run_at = run_at; queue::save(&q); json_response(&q, 200)
+        }
+        (Method::Post, ["api", "queue", "clear-done"]) => { let mut q = queue::load(); q.done.clear(); queue::save(&q); json_response(&q, 200) }
+        (Method::Post, ["api", "queue", id, "delete"]) => { let mut q = queue::load(); q.items.retain(|i| i.id != *id); queue::save(&q); json_response(&q, 200) }
         (Method::Get, ["api", "mcp"]) => json_response(&mcp::status(), 200),
         (Method::Post, ["api", "mcp", "reload"]) => { mcp::reload(); json_response(&mcp::status(), 200) }
         (Method::Get, ["api", "recipes"]) => json_response(&recipes(), 200),
@@ -788,6 +829,40 @@ pub(crate) fn served_model_for(endpoint: &str, wanted: &str, kind: &str) -> Stri
         }
         _ => wanted.to_string(),
     }
+}
+
+/// One queued make: a Trusted session on the project (or a folder named after the request), every
+/// permission prompt answered "not now" so it stays inside the project, the outcome recorded for the
+/// morning card. Runs on the runner thread; the agent itself runs on its own thread so prompts can be
+/// answered while it waits.
+fn run_queued(d: &Arc<Daemon>, item: &queue::Item) -> Result<()> {
+    let project = if item.project.trim().is_empty() { std::fs::canonicalize(default_project())? } else { std::fs::canonicalize(&item.project)? };
+    let id = uuid::Uuid::new_v4().to_string();
+    let mode = Mode::AutoEdit;
+    d.broker.lock().unwrap().open_session(&id, mode, vec![project.display().to_string()], "queue")?;
+    let model = served_model_for(&d.endpoint, &d.model, "make");
+    let shared = new_shared(&id, mode, &project.display().to_string(), &model);
+    let mut agent = Agent::new(Client { endpoint: d.endpoint.clone(), model, api_key: "local".into() }, d.broker.clone(), id.clone(), project, shared.clone());
+    agent.tx_store = Store::open(default_store()).ok();
+    let slot = Arc::new(Mutex::new(Some(agent)));
+    d.sessions.lock().unwrap().insert(id.clone(), (shared.clone(), slot.clone()));
+    let text = item.text.clone();
+    let worker = std::thread::spawn(move || { let mut g = slot.lock().unwrap(); g.as_mut().map(|a| a.run(&text)) });
+    let started = std::time::Instant::now();
+    loop {
+        std::thread::sleep(std::time::Duration::from_secs(5));
+        let (state, pending): (String, Vec<String>) = { let i = shared.info.lock().unwrap(); (i.state.clone(), i.pending.iter().map(|p| p.request_id.clone()).collect()) };
+        for p in pending { shared.resolve(&p, false); }
+        if state == "done" || state == "error" || started.elapsed() > std::time::Duration::from_secs(1800) { break; }
+    }
+    let _ = worker.join();
+    let (state, summary) = { let i = shared.info.lock().unwrap(); (i.state.clone(), i.events.iter().rev().find_map(|e| if let Event::Assistant { text } = e { Some(text.chars().take(200).collect::<String>()) } else { None }).unwrap_or_default()) };
+    let mut q = queue::load();
+    q.items.retain(|i| i.id != item.id);
+    q.done.push(queue::Done { id: item.id.clone(), text: item.text.clone(), state: if state == "done" { "done".into() } else { "did not finish".into() }, at: queue::now(), summary, project: item.project.clone() });
+    if q.items.is_empty() { q.start_now = false; }
+    queue::save(&q);
+    Ok(())
 }
 
 /// The user's always/never command rules (Settings > Always and never): kept as JSON, rendered into

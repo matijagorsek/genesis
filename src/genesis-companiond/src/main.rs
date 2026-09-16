@@ -171,6 +171,20 @@ fn handle(req: &mut Request, pairing: &Pairing, agentd: &str) -> Response<std::i
         }
         (Method::Post, ["v1", "sessions", id, "prompt"]) => { let (v, st) = proxy(agentd, "POST", &format!("/api/sessions/{}/prompt", id), Some(&body)); json(&v, st) }
         (Method::Post, ["v1", "prompts", id]) => { let (v, st) = proxy(agentd, "POST", &format!("/api/prompts/{}", id), Some(&body)); json(&v, st) }
+        (Method::Post, ["v1", "share"]) => {
+            // "open this on the desktop": a link opens in the browser, text lands in the palette
+            let v: serde_json::Value = serde_json::from_str(&body).unwrap_or(serde_json::Value::Null);
+            let text = v.get("text").and_then(|t| t.as_str()).unwrap_or("").trim().to_string();
+            if text.is_empty() { json(&serde_json::json!({"error": "nothing shared"}), 400) }
+            else if text.starts_with("http://") || text.starts_with("https://") {
+                let ok = std::process::Command::new("xdg-open").arg(&text).spawn().is_ok();
+                json(&serde_json::json!({"ok": ok, "opened": "browser"}), 200)
+            } else {
+                let url = format!("http://127.0.0.1:11520/?prompt={}", urlencode(&text));
+                let ok = std::process::Command::new("genesis-window").arg(&url).spawn().is_ok();
+                json(&serde_json::json!({"ok": ok, "opened": "palette"}), 200)
+            }
+        }
         (Method::Get, ["v1", "screenshot"]) => match screenshot() {
             Ok(png) => Response::from_data(png).with_header(Header::from_bytes("Content-Type", "image/png").unwrap()),
             Err(e) => json(&serde_json::json!({"error": e.to_string()}), 503),
@@ -194,4 +208,12 @@ fn main() -> Result<()> {
         let _ = req.respond(resp);
     }
     Ok(())
+}
+
+fn urlencode(s: &str) -> String {
+    let mut out = String::new();
+    for b in s.bytes() {
+        match b { b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => out.push(b as char), b' ' => out.push('+'), _ => out.push_str(&format!("%{:02X}", b)) }
+    }
+    out
 }

@@ -8,6 +8,7 @@
   commands [device-id]   register the Genesis commands the phone can run (all paired phones by default)
   ask [text]             answer a question from the phone: text, or what the phone shared (clipboard);
                          a "make …" request starts the maker on the desktop; the reply is sent to the phone
+  send <text|file>          share text or a file to the phone (KDE Connect)
   notifications          JSON: the phone's current notifications (needs "Notification sync" on the phone)
   reply <dev> <id> <text>  reply to a phone notification that allows replies (messaging apps)
   watch                  run in the session: answer text starting with "ask" or "genesis" that arrives in
@@ -167,6 +168,18 @@ def paired_reachable():
 def ping(text, devs=None):
     for d in devs or paired_reachable():
         subprocess.run(["kdeconnect-cli", "-d", d, "--ping-msg", text[:900]], capture_output=True, timeout=10)
+
+
+def send(what, devs=None):
+    """Share text or a file to every paired, reachable phone (KDE Connect share plugin)."""
+    devs = devs or paired_reachable()
+    if not devs:
+        return {"ok": False, "error": "no paired phone is reachable"}
+    is_file = os.path.isfile(os.path.expanduser(what))
+    for d in devs:
+        args = ["kdeconnect-cli", "-d", d] + (["--share", os.path.abspath(os.path.expanduser(what))] if is_file else ["--share-text", what[:4000]])
+        subprocess.run(args, capture_output=True, timeout=20)
+    return {"ok": True, "devices": devs, "kind": "file" if is_file else "text"}
 
 
 def clipboard_text():
@@ -357,6 +370,8 @@ def main(argv):
         out = {"ok": ok, "action": cmd, "device": argv[2]}
     elif cmd == "add" and len(argv) > 2:
         out = add_custom(argv[2])
+    elif cmd == "send" and len(argv) > 2:
+        print(json.dumps(send(" ".join(argv[2:]))))
     elif cmd == "commands":
         out = register_commands(argv[2:] or [d["id"] for d in status().get("devices", []) if d["paired"]])
     elif cmd == "ask":

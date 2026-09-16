@@ -328,6 +328,11 @@ pub fn morning_card(projects_dir: &Path) -> Option<Notice> {
             }
         }
     }
+    if let Some(q) = std::fs::read_to_string(crate::queue::path()).ok().and_then(|s| serde_json::from_str::<crate::queue::Queue>(&s).ok()) {
+        let recent: Vec<&crate::queue::Done> = q.done.iter().filter(|d| d.at > time::OffsetDateTime::now_utc().checked_sub(time::Duration::hours(36)).map(|t| t.format(&time::format_description::well_known::Rfc3339).unwrap_or_default()).unwrap_or_default()).collect();
+        if !recent.is_empty() { let ok = recent.iter().filter(|d| d.state == "done").count(); lines.push(format!("Overnight: {} of {} queued make{} finished; see Made here.", ok, recent.len(), if recent.len() == 1 { "" } else { "s" })); }
+        if !q.items.is_empty() { lines.push(format!("{} make{} still queued for {}.", q.items.len(), if q.items.len() == 1 { "" } else { "s" }, q.run_at)); }
+    }
     if lines.is_empty() { lines.push("Nothing waiting: no update staged, nothing unfinished, network and battery fine.".into()); }
     Some(Notice { kind: "morning".into(), title: "Good morning".into(), text: lines.join(" "), prompt: String::new(), project: String::new() })
 }
