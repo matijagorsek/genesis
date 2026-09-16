@@ -61,6 +61,7 @@ GENESIS_TX_STORE=/tmp/genesis-check-tx genesis-txd list >/dev/null 2>&1 && ok "t
 [ -f /usr/share/applications/org.genesis.workspace.desktop ] && ok "workspace desktop entry" || fail "workspace desktop entry"
 grep -q "Meta+Space" /etc/xdg/kglobalshortcutsrc 2>/dev/null && ok "Meta+Space default shortcut" || fail "global shortcut default"
 [ "$(ls -d /usr/share/genesis/templates/*/ 2>/dev/null | wc -l)" -ge 3 ] && ok "project templates shipped" || fail "templates"
+[ -x /usr/bin/growpart ] && [ -f /usr/lib/systemd/system/bootc-generic-growpart.service ] && ok "root grows into a resized disk (growpart present for bootc's fallback unit)" || fail "growpart missing: a resized disk would not be used"
 probe_out=$(genesis-probe --json 2>&1 || true)
 # a machine too small for any pack is a valid probe result (the wizard offers "set up later"), not a failed probe
 if grep -q '"recommended_pack": "' <<<"$probe_out"; then ok "probe: $(grep -o '"recommended_pack": "[^"]*"' <<<"$probe_out")"
