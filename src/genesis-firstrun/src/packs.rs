@@ -205,7 +205,10 @@ pub fn render_router_tuned(models_dir: &Path, port_base: u16, t: Tuning) -> Resu
     }
     if let Some(f) = find("code", false) {
         let mm = find("code", true).map(|m| format!(" --mmproj {}", m)).unwrap_or_default();
-        y.push_str(&format!("  code:\n    cmd: |\n      ${{server}} -m {}{}\n      -c {} --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0.0 --reasoning auto --reasoning-budget {}\n      --cache-type-k q8_0 --cache-type-v q8_0\n    aliases: [ \"genesis-code\" ]\n    ttl: 600\n\n", f, mm, if t.ngl == 0 { 8192 } else { 32768 }, if t.ngl == 0 { 512 } else { 4096 }));
+        // speculative decoding: a pack may ship a small draft model for the coder (role "draft"); llama.cpp
+        // then proposes tokens with it and the big model verifies, roughly doubling generation on dense models
+        let draft = find("draft", false).filter(|_| t.ngl > 0).map(|d| format!(" -md {} --draft-max 16 --draft-min 4", d)).unwrap_or_default();
+        y.push_str(&format!("  code:\n    cmd: |\n      ${{server}} -m {}{}{}\n      -c {} --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0.0 --reasoning auto --reasoning-budget {}\n      --cache-type-k q8_0 --cache-type-v q8_0\n    aliases: [ \"genesis-code\" ]\n    ttl: 600\n\n", f, mm, draft, if t.ngl == 0 { 8192 } else { 32768 }, if t.ngl == 0 { 512 } else { 4096 }));
         big.push("code");
     }
     if let Some(f) = find("chat", false) {
@@ -275,6 +278,16 @@ mod tests {
         assert_eq!(p[0].dest, "/m/fast/x-Q8_0.gguf");
         assert!(p[0].url.ends_with("/org/x/resolve/main/x-Q8_0.gguf"));
         assert_eq!(p.iter().map(|f| f.size).sum::<u64>(), 110);
+    }
+
+    #[test]
+    fn draft_model_enables_speculative_decoding_on_gpu() {
+        let dir = tempfile::tempdir().unwrap();
+        for (role, f) in [("code", "b.gguf"), ("draft", "d.gguf")] { std::fs::create_dir_all(dir.path().join(role)).unwrap(); std::fs::write(dir.path().join(role).join(f), b"x").unwrap(); }
+        let gpu = render_router_tuned(dir.path(), 10001, Tuning { threads: 4, ngl: 99 }).unwrap();
+        assert!(gpu.contains("-md ") && gpu.contains("--draft-max 16"));
+        let cpu = render_router_tuned(dir.path(), 10001, Tuning { threads: 4, ngl: 0 }).unwrap();
+        assert!(!cpu.contains("-md "), "no draft on CPU: it would slow generation down");
     }
 
     #[test]

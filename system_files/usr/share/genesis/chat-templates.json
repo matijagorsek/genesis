@@ -1,0 +1,9 @@
+[
+  {"id": "summarise", "title": "Summarise this document", "text": "Summarise the attached document in five short bullet points, then one sentence on what it asks me to do."},
+  {"id": "explain", "title": "Explain like I am new to this", "text": "Explain the following as if I have never heard of it, in plain words, with one everyday example:\n\n"},
+  {"id": "reply", "title": "Draft a reply", "text": "Draft a short, polite reply to this message. Keep my tone friendly and direct. The message:\n\n"},
+  {"id": "translate-de", "title": "Translate to German", "text": "Translate the following into natural German, keeping the tone:\n\n"},
+  {"id": "translate-sl", "title": "Translate to Slovenian", "text": "Translate the following into natural Slovenian, keeping the tone:\n\n"},
+  {"id": "checklist", "title": "Checklist from my notes", "text": "Search my files for notes about this and turn what you find into a checklist with the source file for each item: "},
+  {"id": "machine", "title": "What changed on this computer", "text": "Using your system tools: is an update waiting, which apps were installed recently, and is the network healthy? Answer in a few lines."}
+]

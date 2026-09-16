@@ -45,6 +45,14 @@ jobs:
           for path in sorted(glob.glob("packs/*.json")):
               if path.endswith("schema.json"): continue
               pack = json.load(open(path))
+              # licensing tiers, the way a distro splits main and non-free: every model names its licence and
+              # tier; "excluded" models never publish; a pack with "restricted" ones is marked so the wizard says so
+              for m in pack["models"]:
+                  if not m.get("license") or m.get("tier") not in ("main", "restricted", "excluded"):
+                      raise SystemExit(f"{path}: model {m.get('name', m.get('repo'))} needs a license and a tier (main | restricted | excluded)")
+              if any(m.get("tier") == "excluded" for m in pack["models"]):
+                  print(f"::warning::{path}: contains an excluded-tier model, not published"); continue
+              pack["restricted"] = any(m.get("tier") == "restricted" for m in pack["models"])
               files = []
               for m in pack["models"]:
                   if m.get("optional"): continue

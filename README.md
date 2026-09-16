@@ -85,8 +85,8 @@ How Genesis got here, in the order it happened. The decision log has the detail 
   API use the pack's models with no setup; `/v1/*` passes straight to the router.
 - **Tools as MCP servers**: the maker's abilities extend with any program speaking the Model Context
   Protocol; each server's tools carry a declared permission tier and go through the same cards. The
-  shipped `system` server makes the maker a careful administrator: status, network, updates, apps from
-  Flathub, printers, day and night. Settings > Tools lists them; add yours in `~/.config/genesis/mcp.json`.
+  shipped `system` server makes the maker a careful administrator: status, network and wifi diagnosis,
+  updates, apps from Flathub, printer setup, power profile, Bluetooth, audio, day and night. Settings > Tools lists them; add yours in `~/.config/genesis/mcp.json`.
 - **Browser control**: the agent drives a headless Chromium with a throw-away profile (open, read,
   click, type, screenshot). Page content is treated as untrusted and taints the session.
 - **Terminal**: `ask list the ten biggest files here` prints the command, says what it would touch

@@ -111,6 +111,8 @@ the left searches all of them. Attach a PDF, a document or a photo by its path a
 is read from the file; a photo, or a scanned PDF with no text layer, is read by the local vision model
 (a few pages at a time). When a question needs one of your tools
 or a file outside your opted-in folders, the same permission card appears as in the maker.
+The Templates button keeps prompts you use often; seven come with Genesis and yours are saved from the
+composer.
 
 ## Ask, anywhere
 
@@ -161,8 +163,9 @@ code" unpairs every phone.
 
 The maker's abilities are not fixed. Any program that speaks MCP, the open Model Context Protocol, can
 give it new tools, and Genesis ships one: the **system** server, which lets the maker read the
-machine's status, network and updates, search Flathub and install or remove apps, list printers, and
-switch day and night. Ask "install VLC" or "is an update waiting?" and the maker uses them, with the
+machine's status, network and updates, search Flathub and install or remove apps, find and set up
+printers, say why the wifi is slow, switch the power profile, show Bluetooth and audio, and switch day
+and night. Ask "install VLC" or "is an update waiting?" and the maker uses them, with the
 same permission cards as everything else: installing is a system change and asks first, searching the
 catalogue is network use, reading status is free.
 

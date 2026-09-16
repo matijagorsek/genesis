@@ -244,6 +244,16 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
         (Method::Get, ["api", "templates"]) => json_response(&maker::list_templates(), 200),
         (Method::Get, ["palette"]) => Response::from_string(PALETTE_HTML.replace("__GENESIS_TOKEN__", &d.token)).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
         (Method::Get, ["chat"]) => Response::from_string(CHAT_HTML.replace("__GENESIS_TOKEN__", &d.token)).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
+        (Method::Get, ["api", "chat-templates"]) => json_response(&chat::templates(), 200),
+        (Method::Post, ["api", "chat-templates"]) => match serde_json::from_str::<serde_json::Value>(&body) {
+            Ok(v) => match chat::save_template(v.get("title").and_then(|t| t.as_str()).unwrap_or(""), v.get("text").and_then(|t| t.as_str()).unwrap_or("")) {
+                Ok(t) if !t.text.is_empty() => json_response(&t, 201),
+                Ok(_) => json_response(&serde_json::json!({"error": "a template needs text"}), 400),
+                Err(e) => json_response(&serde_json::json!({"error": e.to_string()}), 500),
+            },
+            Err(_) => json_response(&serde_json::json!({"error": "expected {title, text}"}), 400),
+        },
+        (Method::Post, ["api", "chat-templates", id, "delete"]) => json_response(&serde_json::json!({"deleted": chat::delete_template(id)}), 200),
         (Method::Get, ["api", "chats"]) => json_response(&chat::list(&query.get("q").cloned().unwrap_or_default()), 200),
         (Method::Post, ["api", "chats"]) => match chat::create(&serde_json::from_str::<ChatNew>(&body).map(|c| c.title).unwrap_or_default()) {
             Ok(c) => json_response(&c, 201),

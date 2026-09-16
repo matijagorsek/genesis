@@ -3,6 +3,7 @@
 Derived from the decision log (`docs/decisions.md`); one line per decision, newest first. Versions are 0.2.N on the stable channel; 0.1.N before 2026-09-15.
 
 ## 2026-09-16
+- Prompt templates in chat; printers, wifi diagnosis, power, Bluetooth and audio in the system tools; licence tiers enforced; speculative decoding via a draft model role (built, decisions 97 to 100)
 - A reranker on search for packs that ship one (built, decision 95)
 - Scanned PDFs and photos are read through the vision model in chat (built, decision 96)
 - Routing by task: the maker takes the coder, chat the chat model, both fall back to the small one (done, decision 94)

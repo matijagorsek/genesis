@@ -8,7 +8,7 @@ what polkit already lets a desktop user do (Flatpak installs go to the user's ow
 
 It is also the worked example for writing your own server: ~120 lines, no framework.
 """
-import json, os, shutil, subprocess, sys
+import json, os, re, shutil, subprocess, sys
 
 def run(cmd, timeout=120):
     try:
@@ -97,6 +97,61 @@ def printers(_):
     code, out = run(["lpstat", "-p", "-d"])
     return out if out else "no printers set up"
 
+def printer_setup(a):
+    """Add a printer through CUPS. Network printers: find_printers gives the URI; drivers are 'everywhere' (IPP)."""
+    name = re.sub(r"[^A-Za-z0-9_-]", "_", (a.get("name") or "").strip())[:40]
+    uri = (a.get("uri") or "").strip()
+    if not name or not uri or " " in uri: return "give a short name and the printer URI (see find_printers)"
+    code, out = run(["lpadmin", "-p", name, "-E", "-v", uri, "-m", "everywhere"], timeout=120)
+    if code: return "could not add the printer:\n" + out
+    run(["lpadmin", "-d", name])
+    return f"printer {name} added at {uri} and set as default"
+
+def find_printers(_):
+    code, out = run(["lpinfo", "-v"], timeout=60)
+    found = [l for l in out.splitlines() if l.startswith("network") and "://" in l]
+    return "\n".join(found) if found else "no network printers found (is the printer on and on this network?)"
+
+def wifi_diagnose(_):
+    lines = []
+    _, dev = run(["nmcli", "-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "device"]); lines.append(dev)
+    _, wifi = run(["nmcli", "-t", "-f", "ACTIVE,SSID,SIGNAL,RATE,SECURITY", "device", "wifi"])
+    act = [l for l in wifi.splitlines() if l.startswith("yes")]
+    lines.append("connected to: " + (act[0] if act else "no wifi network"))
+    _, gw = run(["sh", "-c", "ip route show default | head -1"]); lines.append("gateway: " + (gw or "none (no route to anything)"))
+    g = gw.split()[2] if gw and len(gw.split()) > 2 else ""
+    if g:
+        code, _ = run(["ping", "-c", "2", "-W", "2", g], timeout=10); lines.append(f"gateway answers ping: {'yes' if code == 0 else 'no'}")
+    code, _ = run(["ping", "-c", "2", "-W", "2", "1.1.1.1"], timeout=10); lines.append(f"internet by address: {'reachable' if code == 0 else 'not reachable'}")
+    code, out = run(["getent", "hosts", "fedoraproject.org"], timeout=10); lines.append(f"name resolution: {'works' if code == 0 else 'fails (DNS)'}")
+    if act:
+        try:
+            sig = int(act[0].split(":")[2]); lines.append("signal: " + ("good" if sig >= 60 else "weak, move closer to the router" if sig >= 35 else "very weak"))
+        except (IndexError, ValueError): pass
+    return "\n".join(lines)
+
+def power_profile(a):
+    mode = (a.get("profile") or "").strip().lower()
+    if mode not in ("balanced", "performance", "power-saver"):
+        _, cur = run(["powerprofilesctl", "get"]); return f"current profile: {cur or 'unknown'}; choose balanced, performance or power-saver"
+    code, out = run(["powerprofilesctl", "set", mode])
+    return f"power profile set to {mode}" if code == 0 else out
+
+def bluetooth_status(_):
+    code, out = run(["bluetoothctl", "show"], timeout=15)
+    _, devs = run(["bluetoothctl", "devices", "Connected"], timeout=15)
+    return (out.strip()[:600] if out else "no Bluetooth adapter") + ("\nconnected: " + devs if devs else "")
+
+def audio_devices(_):
+    code, out = run(["wpctl", "status"], timeout=15)
+    if code: return out
+    keep = []; take = False
+    for l in out.splitlines():
+        if "Audio" in l: take = True
+        if "Video" in l: take = False
+        if take and ("Sinks" in l or "Sources" in l or "*" in l or "vol:" in l): keep.append(l.strip())
+    return "\n".join(keep) if keep else out[:800]
+
 def processes(_):
     _, out = run(["sh", "-c", "ps -eo pcpu,pmem,comm --sort=-pcpu | head -12"])
     return out
@@ -111,6 +166,12 @@ TOOLS = [
     ("remove_app", "Remove a Flatpak app (a system change: asks first).", {"type": "object", "properties": {"app_id": {"type": "string"}}, "required": ["app_id"]}, remove_app),
     ("set_theme", "Switch the whole desktop between day and night.", {"type": "object", "properties": {"mode": {"type": "string", "enum": ["dark", "light"]}}, "required": ["mode"]}, set_theme),
     ("printers", "Printers set up on this computer.", {"type": "object", "properties": {}}, printers),
+    ("find_printers", "Look for network printers on this network (their URIs, for printer_setup).", {"type": "object", "properties": {}}, find_printers),
+    ("printer_setup", "Add a printer by URI through CUPS and make it the default (a system change: asks first).", {"type": "object", "properties": {"name": {"type": "string"}, "uri": {"type": "string", "description": "e.g. ipp://192.168.1.50/ipp/print"}}, "required": ["name", "uri"]}, printer_setup),
+    ("wifi_diagnose", "Why the network is slow or down: connection, gateway, internet by address, DNS, signal.", {"type": "object", "properties": {}}, wifi_diagnose),
+    ("power_profile", "Show or set the power profile: balanced, performance or power-saver.", {"type": "object", "properties": {"profile": {"type": "string"}}}, power_profile),
+    ("bluetooth_status", "The Bluetooth adapter and connected devices.", {"type": "object", "properties": {}}, bluetooth_status),
+    ("audio_devices", "Audio outputs and inputs and which are active.", {"type": "object", "properties": {}}, audio_devices),
     ("processes", "The processes using the most CPU right now.", {"type": "object", "properties": {}}, processes),
 ]
 

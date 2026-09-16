@@ -138,3 +138,35 @@ mod tests {
         assert_eq!(list("").len(), 1);
     }
 }
+
+// ---- prompt templates: the shipped list plus the user's own ------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Template { pub id: String, pub title: String, pub text: String, #[serde(default)] pub mine: bool }
+
+fn templates_file() -> PathBuf { dir().parent().map(|d| d.join("chat-templates.json")).unwrap_or_else(|| PathBuf::from("/tmp/chat-templates.json")) }
+
+pub fn templates() -> Vec<Template> {
+    let shipped = std::env::var("GENESIS_CHAT_TEMPLATES").unwrap_or_else(|_| "/usr/share/genesis/chat-templates.json".into());
+    let mut out: Vec<Template> = std::fs::read_to_string(shipped).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default();
+    let mine: Vec<Template> = std::fs::read_to_string(templates_file()).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default();
+    for mut t in mine { t.mine = true; out.retain(|x| x.id != t.id); out.push(t); }
+    out
+}
+
+pub fn save_template(title: &str, text: &str) -> Result<Template> {
+    let mut mine: Vec<Template> = std::fs::read_to_string(templates_file()).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default();
+    let id = format!("mine-{}", uuid::Uuid::new_v4().to_string().split('-').next().unwrap_or("x"));
+    let t = Template { id, title: title.trim().chars().take(60).collect(), text: text.trim().to_string(), mine: true };
+    mine.push(t.clone());
+    if let Some(d) = templates_file().parent() { std::fs::create_dir_all(d)?; }
+    std::fs::write(templates_file(), serde_json::to_string_pretty(&mine)?)?;
+    Ok(t)
+}
+
+pub fn delete_template(id: &str) -> bool {
+    let mut mine: Vec<Template> = std::fs::read_to_string(templates_file()).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default();
+    let before = mine.len(); mine.retain(|t| t.id != id);
+    if mine.len() == before { return false; }
+    std::fs::write(templates_file(), serde_json::to_string_pretty(&mine).unwrap_or_default()).is_ok()
+}

@@ -67,6 +67,7 @@ section{display:none}section.active{display:block}
 .expect{font-size:11.5px;color:var(--accent);margin:2px 0 0}
 .phones{display:flex;flex-direction:column;gap:8px;margin:14px 0}.phone{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}.phone b{flex:1;font-size:15px}.phone .st{font-size:12.5px;color:var(--ink-2)}.code{font-family:ui-monospace,Menlo,monospace;font-size:20px;letter-spacing:.18em;color:var(--accent)}.phone.paired{border-color:var(--good)}
 .addr{display:flex;gap:8px;align-items:center;margin-top:8px}.addr input{background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:7px;padding:8px 10px;font:inherit;font-size:14px;width:200px}
+  .tag.warn{border-color:#f59e0b;color:#f59e0b}
 </style>
 </head>
 <body>
@@ -199,7 +200,7 @@ section{display:none}section.active{display:block}
     });
     $('#btnPlan').disabled=!chosen;localise();
   }
-  function renderModels(p){const ul=$('#models');ul.innerHTML='';(p.models||[]).forEach(m=>{const li=document.createElement('li');li.innerHTML=`<span>${m.name||m.repo} <span class="n">${m.role}${m.optional?' · optional':''}${m.offload?' · partly on CPU':''}</span> <span class="tag local">${m.license||''}</span></span><span class="n">${m.size_gb} GB</span>`;ul.appendChild(li)})}
+  function renderModels(p){const ul=$('#models');ul.innerHTML='';(p.models||[]).forEach(m=>{const li=document.createElement('li');li.innerHTML=`<span>${m.name||m.repo} <span class="n">${m.role}${m.optional?' · optional':''}${m.offload?' · partly on CPU':''}</span> <span class="tag ${m.tier==='restricted'?'warn':'local'}" title="${m.tier==='restricted'?'restricted licence: read it before you rely on this model commercially':'open licence'}">${m.license||''}${m.tier==='restricted'?' · restricted':''}</span></span><span class="n">${m.size_gb} GB</span>`;ul.appendChild(li)})}
   async function load(){
     state=await api('/api/state');
     renderHw(state.profile);

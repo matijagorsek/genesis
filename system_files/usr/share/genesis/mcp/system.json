@@ -2,13 +2,16 @@
   "servers": {
     "system": {
       "command": "/usr/bin/genesis-mcp-system",
-      "description": "This computer as tools: status, network, updates, apps from Flathub, printers, day and night.",
+      "description": "This computer as tools: status, network and wifi diagnosis, updates, apps from Flathub, printers (find and set up), power profile, Bluetooth, audio, day and night.",
       "tier": "read",
       "tiers": {
         "search_apps": "network",
         "install_app": "system",
         "remove_app": "system",
-        "set_theme": "write"
+        "set_theme": "write",
+        "printer_setup": "system",
+        "power_profile": "write",
+        "wifi_diagnose": "network"
       }
     }
   }
