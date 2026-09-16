@@ -1,0 +1,24 @@
+# Ollama-compatible door to the Genesis model service, for apps and editors that speak that API.
+# Answers on 127.0.0.1:11434 from the models the router serves; nothing to configure, local only.
+[Unit]
+Description=Genesis Ollama-compatible API (127.0.0.1:11434)
+After=network.target genesis-router.service
+Wants=genesis-router.service
+
+[Service]
+User=genesis-ai
+Group=genesis-ai
+ExecStart=/usr/bin/genesis-ollama
+Restart=on-failure
+RestartSec=2
+MemoryMax=512M
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+DevicePolicy=closed
+IPAddressAllow=localhost
+IPAddressDeny=any
+
+[Install]
+WantedBy=multi-user.target

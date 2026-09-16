@@ -76,6 +76,8 @@ How Genesis got here, in the order it happened. The decision log has the detail 
 - **Chat**: an ordinary conversation with the assistant, kept on this machine and searchable across
   chats; ask about your documents (PDF, Office, Markdown by path), a photo (local vision model), this
   computer (through the system tools) or the web. The maker and the chat share the permission cards.
+- **Ollama-compatible door** on `127.0.0.1:11434` (`genesis-ollama`): apps and editors that speak Ollama's
+  API use the pack's models with no setup; `/v1/*` passes straight to the router.
 - **Tools as MCP servers**: the maker's abilities extend with any program speaking the Model Context
   Protocol; each server's tools carry a declared permission tier and go through the same cards. The
   shipped `system` server makes the maker a careful administrator: status, network, updates, apps from

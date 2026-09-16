@@ -206,6 +206,39 @@ impl Agent {
         Agent { client, broker, session_id, project, shared, max_turns: 40, prompt_timeout: Duration::from_secs(600), messages: vec![Message::system(SYSTEM_PROMPT)], tx_store: None, tx: None, previews: maker::Previews::default(), active_project: None, browser: None, last_prompt: String::new(), scaffolded: false, edited_after_scaffold: false, nudged: false, kind: "make".into() }
     }
 
+    /// The plan card: what the job will touch and the steps, before anything runs. One short model call
+    /// (no tools); when the model does not answer usable JSON, the card still shows what the words of the
+    /// request imply, so the user always sees the chips.
+    pub fn plan(&mut self, text: &str) -> Value {
+        let lower = text.to_lowercase();
+        let has = |ws: &[&str]| ws.iter().any(|w| lower.contains(w));
+        let mut touches = json!({
+            "files": true,
+            "network": has(&["install", "download", "fetch", "online", " api", "website", "http", "npm ", "pip "]),
+            "install": has(&["install", "npm ", "pip ", "cargo add", "dnf", "flatpak"]),
+            "outside_project": has(&["~/", "/home", "downloads", "documents", "desktop", "system", "settings", "/etc"]),
+        });
+        let mut steps: Vec<String> = Vec::new();
+        let msgs = vec![
+            Message::system("You plan a small job for a maker that works in one project folder on the user's computer. Answer with JSON only, no prose: {\"steps\": [three to six short imperative steps], \"network\": true|false (does any step need the internet: installing packages, fetching data), \"install\": true|false (installs software or packages), \"outside_project\": true|false (touches files outside the project folder or system settings)}."),
+            Message::user(format!("Project: {}\nRequest: {}", self.project.display(), text)),
+        ];
+        if let Ok(r) = self.client.chat(&msgs, &json!([]), 0.1) {
+            if let Some(c) = r.message.content.as_deref() {
+                if let (Some(a), Some(b)) = (c.find('{'), c.rfind('}')) {
+                    if let Ok(v) = serde_json::from_str::<Value>(&c[a..=b]) {
+                        steps = v.get("steps").and_then(|s| s.as_array()).map(|a| a.iter().filter_map(|x| x.as_str().map(|s| s.chars().take(120).collect())).take(8).collect()).unwrap_or_default();
+                        for k in ["network", "install", "outside_project"] {
+                            if v.get(k).and_then(|b| b.as_bool()).unwrap_or(false) { touches[k] = json!(true); }
+                        }
+                    }
+                }
+            }
+        }
+        if steps.is_empty() { steps = vec![format!("Do what was asked: {}", text.chars().take(100).collect::<String>())]; }
+        json!({"steps": steps, "touches": touches, "project": self.project.display().to_string()})
+    }
+
     /// Run one user prompt to completion (or until a tool call is denied and the model gives up).
     pub fn run(&mut self, text: &str) -> Result<String> {
         self.shared.push(Event::UserPrompt { text: text.into() });

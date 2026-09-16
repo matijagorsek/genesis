@@ -3,6 +3,8 @@
 Derived from the decision log (`docs/decisions.md`); one line per decision, newest first. Versions are 0.2.N on the stable channel; 0.1.N before 2026-09-15.
 
 ## 2026-09-16
+- An Ollama-compatible door on 11434 for apps that speak that API (built, decision 91)
+- The plan card before a job: what it will touch and the steps, Proceed / Edit / do it myself (built, decision 90)
 - The file index searches by meaning too, with the pack's embedding model (built, decision 89)
 - Chat: kept, searchable conversations with documents, photos and the system tools (built, decision 88)
 - MCP tool servers as the extension point; the shipped system server makes the maker an administrator (built, decision 87)

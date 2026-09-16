@@ -1,0 +1,202 @@
+#!/usr/bin/python3
+"""genesis-ollama: an Ollama-compatible door to the Genesis model service, on 127.0.0.1:11434.
+
+Many desktop apps and editors speak Ollama's API and nothing else. This shim answers that API from
+the models the router already serves (llama-swap on 127.0.0.1:8080): /api/tags, /api/version, /api/show,
+/api/generate, /api/chat (streaming NDJSON like Ollama), /api/embeddings and /api/embed, and passes /v1/*
+straight through. Localhost only; there is nothing to configure and nothing leaves the machine.
+
+Model names: use the Genesis roles ("fast", "code", "chat", "embed") or their aliases; anything else is
+handed to the router as-is (it answers 404 for unknown names, the shim relays it).
+"""
+import json, os, sys, time, urllib.request, urllib.error
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+ROUTER = os.environ.get("GENESIS_ROUTER", "http://127.0.0.1:8080")
+PORT = int(os.environ.get("GENESIS_OLLAMA_PORT", "11434"))
+
+
+def router(path, body=None, stream=False, timeout=600):
+    data = json.dumps(body).encode() if body is not None else None
+    req = urllib.request.Request(ROUTER + path, data=data, headers={"Content-Type": "application/json"})
+    return urllib.request.urlopen(req, timeout=timeout)
+
+
+def models():
+    try:
+        with router("/v1/models") as r:
+            return [m["id"] for m in json.load(r).get("data", [])]
+    except Exception:
+        return []
+
+
+def now():
+    return time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime())
+
+
+def sse_chunks(resp):
+    """Yield parsed JSON objects from an OpenAI-style SSE stream."""
+    for raw in resp:
+        line = raw.decode("utf-8", "ignore").strip()
+        if not line.startswith("data:"):
+            continue
+        payload = line[5:].strip()
+        if payload == "[DONE]":
+            return
+        try:
+            yield json.loads(payload)
+        except ValueError:
+            continue
+
+
+class H(BaseHTTPRequestHandler):
+    server_version = "genesis-ollama/0.2"
+
+    def log_message(self, *a):
+        pass
+
+    def _json(self, obj, code=200):
+        b = json.dumps(obj).encode()
+        self.send_response(code); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b)
+
+    def _ndjson_start(self):
+        self.send_response(200); self.send_header("Content-Type", "application/x-ndjson"); self.send_header("Transfer-Encoding", "chunked"); self.end_headers()
+
+    def _ndjson(self, obj):
+        b = json.dumps(obj).encode() + b"\n"
+        self.wfile.write(f"{len(b):x}\r\n".encode() + b + b"\r\n"); self.wfile.flush()
+
+    def _ndjson_end(self):
+        self.wfile.write(b"0\r\n\r\n"); self.wfile.flush()
+
+    def _body(self):
+        n = int(self.headers.get("Content-Length", 0) or 0)
+        try:
+            return json.loads(self.rfile.read(n) or b"{}")
+        except ValueError:
+            return {}
+
+    def do_HEAD(self):
+        self.send_response(200); self.end_headers()
+
+    def do_GET(self):
+        if self.path == "/" or self.path == "":
+            b = b"Ollama is running (Genesis)"; self.send_response(200); self.send_header("Content-Type", "text/plain"); self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b)
+        elif self.path == "/api/version":
+            self._json({"version": "0.6.0-genesis"})
+        elif self.path == "/api/tags":
+            self._json({"models": [{"name": m + ":latest", "model": m + ":latest", "modified_at": now(), "size": 0, "digest": "", "details": {"family": "gguf", "format": "gguf", "parameter_size": "", "quantization_level": ""}} for m in models()]})
+        elif self.path == "/api/ps":
+            self._json({"models": []})
+        elif self.path.startswith("/v1/"):
+            self._proxy("GET")
+        else:
+            self._json({"error": "not found"}, 404)
+
+    def do_POST(self):
+        if self.path.startswith("/v1/"):
+            return self._proxy("POST")
+        body = self._body()
+        model = (body.get("model") or "fast").split(":")[0]
+        if self.path == "/api/show":
+            self._json({"modelfile": "", "parameters": "", "template": "", "details": {"family": "gguf", "format": "gguf"}, "model_info": {}, "capabilities": ["completion", "tools"] if model != "embed" else ["embedding"]})
+        elif self.path in ("/api/embeddings", "/api/embed"):
+            inp = body.get("input", body.get("prompt", ""))
+            try:
+                with router("/v1/embeddings", {"model": model if model != "fast" else "embed", "input": inp}) as r:
+                    data = sorted(json.load(r)["data"], key=lambda d: d.get("index", 0))
+                vecs = [d["embedding"] for d in data]
+                self._json({"embedding": vecs[0] if vecs else []} if self.path == "/api/embeddings" else {"model": model, "embeddings": vecs})
+            except urllib.error.HTTPError as e:
+                self._json({"error": e.read().decode("utf-8", "ignore")[:400]}, e.code)
+            except Exception as e:
+                self._json({"error": str(e)}, 502)
+        elif self.path in ("/api/generate", "/api/chat"):
+            self._complete(body, model, chat=self.path == "/api/chat")
+        else:
+            self._json({"error": "not found"}, 404)
+
+    def _complete(self, body, model, chat):
+        if chat:
+            messages = body.get("messages") or []
+        else:
+            messages = ([{"role": "system", "content": body["system"]}] if body.get("system") else []) + [{"role": "user", "content": body.get("prompt", "")}]
+        opts = body.get("options") or {}
+        stream = body.get("stream", True)
+        req = {"model": model, "messages": messages, "stream": True, "temperature": opts.get("temperature", 0.7)}
+        if opts.get("num_predict"): req["max_tokens"] = opts["num_predict"]
+        if body.get("tools"): req["tools"] = body["tools"]
+        if body.get("format") == "json": req["response_format"] = {"type": "json_object"}
+        try:
+            resp = router("/v1/chat/completions", req)
+        except urllib.error.HTTPError as e:
+            return self._json({"error": e.read().decode("utf-8", "ignore")[:400]}, e.code)
+        except Exception as e:
+            return self._json({"error": f"the model service did not answer: {e}"}, 502)
+        t0 = time.time(); full = []; tool_calls = []
+        if stream:
+            self._ndjson_start()
+        with resp:
+            for ch in sse_chunks(resp):
+                choice = (ch.get("choices") or [{}])[0]
+                delta = choice.get("delta") or {}
+                piece = delta.get("content") or ""
+                for tc in delta.get("tool_calls") or []:
+                    tool_calls.append(tc)
+                if piece:
+                    full.append(piece)
+                    if stream:
+                        msg = {"model": model, "created_at": now(), "done": False}
+                        if chat: msg["message"] = {"role": "assistant", "content": piece}
+                        else: msg["response"] = piece
+                        self._ndjson(msg)
+        text = "".join(full)
+        final = {"model": model, "created_at": now(), "done": True, "done_reason": "stop", "total_duration": int((time.time() - t0) * 1e9), "eval_count": len(text.split())}
+        if chat:
+            m = {"role": "assistant", "content": "" if stream else text}
+            if tool_calls:
+                m["tool_calls"] = [{"function": {"name": (tc.get("function") or {}).get("name", ""), "arguments": _args((tc.get("function") or {}).get("arguments", "{}"))}} for tc in tool_calls]
+            final["message"] = m
+        else:
+            final["response"] = "" if stream else text
+        if stream:
+            self._ndjson(final); self._ndjson_end()
+        else:
+            self._json(final)
+
+    def _proxy(self, method):
+        body = None
+        if method == "POST":
+            n = int(self.headers.get("Content-Length", 0) or 0); body = self.rfile.read(n)
+        req = urllib.request.Request(ROUTER + self.path, data=body, method=method, headers={"Content-Type": self.headers.get("Content-Type", "application/json")})
+        try:
+            with urllib.request.urlopen(req, timeout=600) as r:
+                self.send_response(r.status)
+                ct = r.headers.get("Content-Type", "application/json"); self.send_header("Content-Type", ct)
+                if "text/event-stream" in ct:
+                    self.send_header("Transfer-Encoding", "chunked"); self.end_headers()
+                    for raw in r:
+                        self.wfile.write(f"{len(raw):x}\r\n".encode() + raw + b"\r\n"); self.wfile.flush()
+                    self.wfile.write(b"0\r\n\r\n")
+                else:
+                    data = r.read(); self.send_header("Content-Length", str(len(data))); self.end_headers(); self.wfile.write(data)
+        except urllib.error.HTTPError as e:
+            data = e.read(); self.send_response(e.code); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(data))); self.end_headers(); self.wfile.write(data)
+        except Exception as e:
+            self._json({"error": str(e)}, 502)
+
+
+def _args(a):
+    try:
+        return json.loads(a) if isinstance(a, str) else a
+    except ValueError:
+        return {"raw": a}
+
+
+if __name__ == "__main__":
+    srv = ThreadingHTTPServer(("127.0.0.1", PORT), H)
+    srv.daemon_threads = True
+    try:
+        srv.serve_forever()
+    except KeyboardInterrupt:
+        pass

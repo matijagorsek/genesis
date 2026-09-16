@@ -476,6 +476,22 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
                 (_, Err(_)) => json_response(&serde_json::json!({"error": "expected {text}"}), 400),
             }
         }
+        (Method::Post, ["api", "sessions", id, "plan"]) => {
+            // the plan card: synchronous, one short model call; the client shows it and then sends /prompt
+            let entry = d.sessions.lock().unwrap().get(*id).cloned();
+            match (entry, serde_json::from_str::<PromptReq>(&body)) {
+                (Some((shared, slot)), Ok(p)) => {
+                    let state = shared.info.lock().unwrap().state.clone();
+                    if state == "running" || state == "waiting" { json_response(&serde_json::json!({"error": "session busy"}), 409) }
+                    else {
+                        let mut guard = slot.lock().unwrap();
+                        match guard.as_mut() { Some(agent) => json_response(&agent.plan(&p.text), 200), None => json_response(&serde_json::json!({"error": "no agent"}), 500) }
+                    }
+                }
+                (None, _) => json_response(&serde_json::json!({"error": "no such session"}), 404),
+                (_, Err(_)) => json_response(&serde_json::json!({"error": "expected {text}"}), 400),
+            }
+        }
         (Method::Post, ["api", "sessions", id, "undo"]) => {
             let entry = d.sessions.lock().unwrap().get(*id).cloned();
             match entry {

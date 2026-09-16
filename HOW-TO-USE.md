@@ -46,6 +46,13 @@ under your home, named after the project.
 **Speed:** on a machine without a GPU, a step can take minutes. The line under the steps tells you
 how long the current one has run. It is working, not stuck.
 
+### The card before it starts
+
+In Ask and Trusted modes a card appears before anything runs: what the job will touch (the project
+folder, the network, installing software, files outside the project) and the steps Genesis intends
+to take. Proceed, edit the request, or do it yourself. Untick "Show this card" to skip it; Hands-off
+never shows it.
+
 ## When it asks
 
 Before anything that changes your machine outside the project, a card appears with a plain verb:
@@ -211,6 +218,13 @@ A screen reader works with all of Genesis: turn it on in System Settings, Access
 (Orca), and every button in the maker, the palette and Settings reads its purpose, including which
 project a "Continue" or "Open in Babel" button belongs to. The dictation field says what it wants,
 and the mic button says "Hold to talk".
+
+## Apps that speak Ollama
+
+Many editors and desktop apps can use "a local Ollama". Genesis answers that API on
+`127.0.0.1:11434` from the same models the maker uses, so those apps work without installing
+anything: point them at the default Ollama address and pick the model `fast` (or `code`, `chat`,
+`embed` on packs that have them). Nothing leaves the machine; the door is local only.
 
 ## Claude Code, with your own account
 
