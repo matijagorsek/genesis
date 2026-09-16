@@ -42,7 +42,7 @@ jobs:
           cd ..; rm -rf old; qemu-img info old.qcow2 | head -3 || true
       - name: KVM and firmware
         run: |
-          sudo apt-get update -q && sudo apt-get install -y -q qemu-system-x86 qemu-utils ovmf expect
+          sudo apt-get update -q && sudo apt-get install -y -q qemu-system-x86 qemu-utils ovmf sshpass
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm; sudo chmod 0666 /dev/kvm || true
           qemu-img resize old.qcow2 +8G
@@ -51,44 +51,36 @@ jobs:
           set -o pipefail
           FW=/usr/share/ovmf/OVMF.fd; [ -f "$FW" ] || FW=/usr/share/OVMF/OVMF.fd
           if [ -r /dev/kvm ] && [ -w /dev/kvm ]; then ACCEL="-enable-kvm -cpu host"; else ACCEL="-cpu max"; fi
-          export FW ACCEL
-          cat > canary.exp <<'EOF'
-          set timeout 600
-          log_file -noappend canary-serial.log
-          spawn qemu-system-x86_64 {*}$env(ACCEL) -m 4096 -smp 2 -nographic -bios $env(FW) -drive file=old.qcow2,if=virtio,format=qcow2 -netdev user,id=n0 -device virtio-net-pci,netdev=n0 -serial mon:stdio -display none
-          proc login {} {
-            # kernel messages can land on the same line as the prompt: match the prompt itself, not the line end
-            # wait for the getty prompt itself, then ask for a fresh one on its own line before typing
-            expect { -re "genesis login:" {} timeout { puts "\nTIMEOUT: no login prompt"; exit 1 } eof { puts "\nQEMU exited"; exit 1 } }
-            sleep 3; send "\r"
-            expect { -re "login: *$" { sleep 1; send "genesis\r" } timeout { puts "\nTIMEOUT: no fresh login prompt"; exit 1 } }
-            expect { -re "Password: *$" { sleep 1; send "genesis\r" } timeout { puts "\nTIMEOUT: no password prompt"; exit 1 } }
-            set timeout 60
-            expect { -re {(\$|❯|#) *$} {} timeout {} }
-            sleep 2; send "\r"; sleep 1
+          # The guest is driven over SSH on a forwarded port, not by typing at the serial console: the
+          # getty handshake proved racy (prompt flushes, delayed echo), and SSH is what a person would use.
+          # The serial console still goes to a file and is attached as the artifact.
+          nohup qemu-system-x86_64 $ACCEL -m 4096 -smp 2 -nographic -bios "$FW" \
+            -drive file=old.qcow2,if=virtio,format=qcow2 \
+            -netdev user,id=n0,hostfwd=tcp:127.0.0.1:2222-:22 -device virtio-net-pci,netdev=n0 \
+            -serial file:canary-serial.log -display none -monitor none >qemu.out 2>&1 &
+          QEMU=$!
+          vm() { sshpass -p genesis ssh -p 2222 -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR genesis@127.0.0.1 "$@"; }
+          wait_ssh() { # up to 20 minutes for the guest to answer
+            for i in $(seq 1 120); do vm true 2>/dev/null && return 0; kill -0 $QEMU 2>/dev/null || { echo "QEMU exited"; tail -5 qemu.out; return 1; }; sleep 10; done
+            echo "TIMEOUT: no SSH from the guest"; return 1
           }
-          login
-          set timeout 1500
-          send "echo CANARY-BE\"\"FORE; grep --color=never ^IMAGE_VERSION= /etc/os-release; echo genesis | sudo -S bootc switch ghcr.io/matijagorsek/genesis:stable 2>&1 | tail -3; echo CANARY-SWITCHED\r"
-          expect { "CANARY-SWITCHED" { puts "\nswitched" } timeout { puts "\nTIMEOUT: switch"; exit 1 } eof { puts "\nQEMU exited during switch"; exit 1 } }
-          send "echo genesis | sudo -S systemctl reboot\r"
-          set timeout 600
-          login
-          set timeout 300
-          send "echo CANARY-AF\"\"TER; grep --color=never ^IMAGE_VERSION= /etc/os-release; echo genesis | sudo -S genesis-image-check 2>&1 | grep --color=never -c '^  ok'; sudo genesis-image-check 2>&1 | grep --color=never FAIL; curl -s -m 20 127.0.0.1:11510/api/state | grep --color=never -o recommended_pack ; echo CANARY-DONE\r"
-          expect { "CANARY-DONE" { puts "\nchecks ran" } timeout { puts "\nTIMEOUT: checks"; exit 1 } eof { puts "\nQEMU exited during checks"; exit 1 } }
-          send "exit\r"; sleep 1; exit 0
-          EOF
-          timeout 4800 expect -f canary.exp
-          sed -E 's/\x1b\[[0-9;?]*[A-Za-z]//g; s/\x1b\]8;;[^\x07]*\x07//g' canary-serial.log > canary.clean
-          echo "--- before:"; grep -A1 'CANARY-BEFORE' canary.clean | grep IMAGE_VERSION | head -1
-          echo "--- after:";  grep -A1 'CANARY-AFTER'  canary.clean | grep IMAGE_VERSION | head -1
-          before=$(grep -A1 'CANARY-BEFORE' canary.clean | grep -o 'IMAGE_VERSION=[^ ]*' | head -1)
-          after=$(grep -A1 'CANARY-AFTER' canary.clean | grep -o 'IMAGE_VERSION=[^ ]*' | head -1)
+          wait_ssh || exit 1
+          before=$(vm 'grep --color=never ^IMAGE_VERSION= /etc/os-release'); echo "before: $before"
+          timeout 1500 sshpass -p genesis ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR genesis@127.0.0.1 \
+            'echo genesis | sudo -S bootc switch ghcr.io/matijagorsek/genesis:stable 2>&1 | tail -5' || { echo "the switch did not finish"; exit 1; }
+          vm 'echo genesis | sudo -S systemctl reboot' || true
+          sleep 30; wait_ssh || exit 1
+          after=$(vm 'grep --color=never ^IMAGE_VERSION= /etc/os-release'); echo "after: $after"
+          ok=$(vm 'echo genesis | sudo -S genesis-image-check 2>&1 | grep --color=never -c "^  ok"' || echo 0)
+          fails=$(vm 'echo genesis | sudo -S genesis-image-check 2>&1 | grep --color=never FAIL' || true)
+          wizard=$(vm 'curl -s -m 20 127.0.0.1:11510/api/state | grep --color=never -o recommended_pack | head -1' || true)
+          vm 'echo genesis | sudo -S systemctl poweroff' >/dev/null 2>&1 || true
+          sleep 10; kill $QEMU 2>/dev/null || true
+          echo "self-check: $ok ok; failures: ${fails:-none}; wizard: ${wizard:-silent}"
           [ -n "$after" ] || { echo "no version after the upgrade"; exit 1; }
           [ "$before" != "$after" ] || { echo "the version did not change: the upgrade did not take"; exit 1; }
-          grep -q 'recommended_pack' canary.clean || { echo "the wizard API did not answer after the upgrade"; exit 1; }
-          if grep -q 'FAIL' canary.clean; then echo "::warning::self-check reported a failure after the upgrade (see the log)"; fi
+          [ -n "$wizard" ] || { echo "the wizard API did not answer after the upgrade"; exit 1; }
+          if [ -n "$fails" ]; then echo "::warning::self-check reported a failure after the upgrade: $fails"; fi
           echo "canary: $before -> $after, wizard answers, self-check ran"
       - uses: actions/upload-artifact@v4
         if: always()
