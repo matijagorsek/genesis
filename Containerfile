@@ -158,6 +158,7 @@ RUN set -eux; \
       chromium firefox okular gwenview kcalc plasma-discover plasma-discover-flatpak haruna elisa kcharselect kfind \
       kdeconnect-kde kwalletmanager5 partitionmanager rsync python3-pytest ffmpeg-free qrencode rust-analyzer clang-tools-extra lldb delve \
       cloud-utils-growpart; \
+    [ -e /usr/bin/growpart ] || ln -s ../sbin/growpart /usr/bin/growpart; \
     dnf5 clean all
 
 # Piper: local text-to-speech (static upstream build with its espeak-ng data and onnxruntime)

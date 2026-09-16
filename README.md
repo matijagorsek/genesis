@@ -92,6 +92,8 @@ How Genesis got here, in the order it happened. The decision log has the detail 
   checksum), with the
   Genesis extension built in: the maker in the sidebar working on the open folder, permission cards
   next to the code, "change this file", "ask about the selection", and the Genesis Dark theme.
+  Inline suggestions while you type, in every language, from the small local model (fill-in-the-middle
+  through the router), with a status-bar switch.
 - **Phone app** (Android): the Genesis companion shows your jobs, raises permission cards as
   notifications you answer from the shade, starts a make from the phone, lists what was made and
   fetches one screenshot on demand, over your own network with a pinned
