@@ -16,7 +16,7 @@ permission-gated and undoable.
 | ![Maker](docs/screens/fresh-run/03-pomodoro-made-by-the-2B-model.png) | ![App menu](docs/screens/latest/05-app-menu.png) |
 | The maker after building a pomodoro timer on a fresh disk (2B model, CPU) | The application menu |
 
-Automatic screenshots from the latest release: [docs/screens/latest](docs/screens/latest). Phone pairing and replies, captured in the VM with an Android emulator: [docs/screens/phone](docs/screens/phone). A fresh-disk run of a downloaded release as a new user: [docs/screens/fresh-run](docs/screens/fresh-run). Release notes: [docs/releases/0.2.md](docs/releases/0.2.md). Preview renderings: [docs/screens/preview](docs/screens/preview).
+Automatic screenshots from the latest release: [docs/screens/latest](docs/screens/latest). Phone pairing and replies, captured in the VM with an Android emulator: [docs/screens/phone](docs/screens/phone). A fresh-disk run of a downloaded release as a new user: [docs/screens/fresh-run](docs/screens/fresh-run). Chat and the plan card, captured on 0.2.153 in the VM: [docs/screens/brief](docs/screens/brief). Release notes: [docs/releases/0.2.md](docs/releases/0.2.md). Preview renderings: [docs/screens/preview](docs/screens/preview).
 
 <p align="center"><img src="docs/screens/latest/04-desktop.png" width="49%" alt="Genesis desktop, captured from the latest release"> <img src="docs/screens/latest/03-first-run.png" width="49%" alt="Genesis first run, captured from the latest release"></p>
 **How to use it: [HOW-TO-USE.md](HOW-TO-USE.md)** (the user guide, with pictures). What changed: [docs/releases/0.2.md](docs/releases/0.2.md) for people, [Releases](../../releases) for every build (notes generated from the commits).

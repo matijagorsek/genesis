@@ -533,8 +533,9 @@ impl CompiledPolicy {
             }
         }
 
-        // 5. shell commands: rules, then heuristics
-        if let Some(cmd) = &intent.command {
+        // 5. shell commands: rules, then heuristics. Only for shells: an MCP tool carries its call text
+        // as `command` for the audit log, and its tier is the one its server declared (step 2).
+        if let Some(cmd) = intent.command.as_ref().filter(|_| intent.tool == "shell") {
             let cmd = cmd.trim();
             // any path-like word that names a secret (keys, tokens, wallets) makes this a secrets action,
             // whether it is read, copied or encoded
@@ -655,4 +656,22 @@ pub fn command_write_paths(cmd: &str) -> Vec<String> {
     out.sort();
     out.dedup();
     out
+}
+
+#[cfg(test)]
+mod mcp_tier_tests {
+    use super::*;
+    use crate::model::{Intent, Mode, Session, Tier};
+
+    #[test]
+    fn mcp_tool_keeps_its_declared_tier_despite_a_command_text() {
+        let policy = Policy::default_policy().compiled().unwrap();
+        let session = Session { id: "s".into(), mode: Mode::Assist, project_roots: vec!["/tmp/p".into()], tainted: false };
+        let read = Intent { session_id: "s".into(), tool: "mcp.read".into(), command: Some("system: updates_status {}".into()), ..Default::default() };
+        assert_eq!(policy.classify(&read, &session).tier, Tier::ReadLocal);
+        let sys = Intent { session_id: "s".into(), tool: "mcp.system".into(), command: Some("system: install_app {}".into()), ..Default::default() };
+        assert_eq!(policy.classify(&sys, &session).tier, Tier::System);
+        let shell = Intent { session_id: "s".into(), tool: "shell".into(), command: Some("python3 x.py".into()), ..Default::default() };
+        assert_eq!(policy.classify(&shell, &session).tier, Tier::WriteProject);
+    }
 }

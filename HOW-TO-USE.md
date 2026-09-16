@@ -48,6 +48,8 @@ how long the current one has run. It is working, not stuck.
 
 ### The card before it starts
 
+![The plan card: steps and the Proceed, Edit, do-it-myself buttons](docs/screens/brief/02-plan-card.png)
+
 In Ask and Trusted modes a card appears before anything runs: what the job will touch (the project
 folder, the network, installing software, files outside the project) and the steps Genesis intends
 to take. Proceed, edit the request, or do it yourself. Untick "Show this card" to skip it; Hands-off
@@ -103,6 +105,8 @@ that; the others use the always-loaded small model, so the first suggestion afte
 seconds on CPU-only machines and is quick once the file is warm. Nothing leaves the computer.
 
 ## Chat
+
+![Chat with Genesis: a question about the machine answered through the system tools](docs/screens/brief/01-chat.png)
 
 Not everything is a thing to build. **Chat with Genesis** in the app menu (or the Chat button in the
 maker) is an ordinary conversation that stays on this machine: ask what you wrote about a trip, what a

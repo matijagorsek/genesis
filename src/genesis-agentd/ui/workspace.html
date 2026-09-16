@@ -251,10 +251,10 @@ body.listening header{box-shadow:inset 0 -2px 0 var(--accent)}body.listening tex
   let planOn=true;try{planOn=localStorage.getItem('genesis.plan')!=='0'}catch(e){}
   $('#planAlways').checked=planOn;$('#planAlways').addEventListener('change',()=>{planOn=$('#planAlways').checked;try{localStorage.setItem('genesis.plan',planOn?'1':'0')}catch(e){}});
   function chip(on,label,title){const c=document.createElement('span');c.className='chip'+(on?' on':'');c.textContent=label;c.title=title;return c}
-  async function showPlan(sid,text){const card=$('#plan');$('#planChips').innerHTML='';$('#planSteps').innerHTML='<li class="muted">thinking about the steps…</li>';card.hidden=false;
+  async function showPlan(sid,text){const card=$('#plan');$('#planChips').innerHTML='';$('#planSteps').innerHTML='<li class="muted">thinking about the steps…</li>';card.hidden=false;card.scrollIntoView({block:'start'});
     const p=await api('/api/sessions/'+sid+'/plan',{text});if(p.error){card.hidden=true;return true}
     const t=p.touches||{};const ch=$('#planChips');ch.appendChild(chip(true,'Files in '+(p.project||'').split('/').pop(),'the project folder'));ch.appendChild(chip(!!t.network,t.network?'Will use the network':'No network','internet access'));ch.appendChild(chip(!!t.install,t.install?'Will install software':'Installs nothing','packages or apps'));ch.appendChild(chip(!!t.outside_project,t.outside_project?'Touches files outside the project':'Stays in the project','files elsewhere or settings'));
-    $('#planSteps').innerHTML=(p.steps||[]).map(s=>'<li>'+esc(s)+'</li>').join('');localise(card);
+    $('#planSteps').innerHTML=(p.steps||[]).map(s=>'<li>'+esc(s)+'</li>').join('');localise(card);card.scrollIntoView({block:'start'});
     return await new Promise(res=>{const done=v=>{card.hidden=true;$('#planGo').onclick=$('#planEdit').onclick=$('#planNo').onclick=null;res(v)};$('#planGo').onclick=()=>done(true);$('#planEdit').onclick=()=>{done(false);$('#ask').focus()};$('#planNo').onclick=()=>done(false)})}
   async function make(text){if(!text.trim())return;const r=await api('/api/sessions',{mode:$('#mode').value,project:$('#project').value});if(r.error){alert(r.error);return}
     if(planOn&&$('#mode').value!=='autonomous'){const ok=await showPlan(r.id,text.trim());if(!ok)return}

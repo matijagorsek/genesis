@@ -3,6 +3,7 @@
 Derived from the decision log (`docs/decisions.md`); one line per decision, newest first. Versions are 0.2.N on the stable channel; 0.1.N before 2026-09-15.
 
 ## 2026-09-16
+- Verified on 0.2.153 in the VM with captures; MCP calls keep their declared tier (decision 103)
 - German and Slovenian for the first-run wizard and Babel's welcome (done, decision 102)
 - First evaluation numbers (1 of 3 on the tiny pack); the agent stops a small model that loops on writing (decision 101)
 - Prompt templates in chat; printers, wifi diagnosis, power, Bluetooth and audio in the system tools; licence tiers enforced; speculative decoding via a draft model role (built, decisions 97 to 100)
