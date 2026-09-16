@@ -1,0 +1,141 @@
+<title>Genesis Wow Plan</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root{--bg:#f4f6f9;--panel:#ffffff;--line:#d9dfe7;--ink:#0f1720;--muted:#5a6675;--accent:#0f9d8a;--accent-ink:#0b6e61;--second:#6d5ce6;--warn:#b7791f;--ok:#1c8a4a;--code:#eef2f6}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0d1117;--panel:#141a22;--line:#233040;--ink:#e6edf3;--muted:#8b98a8;--accent:#2dd4bf;--accent-ink:#2dd4bf;--second:#a394ff;--warn:#f0b04a;--ok:#4ade80;--code:#0b0f14}}
+  :root[data-theme="dark"]{--bg:#0d1117;--panel:#141a22;--line:#233040;--ink:#e6edf3;--muted:#8b98a8;--accent:#2dd4bf;--accent-ink:#2dd4bf;--second:#a394ff;--warn:#f0b04a;--ok:#4ade80;--code:#0b0f14}
+  body{background:var(--bg);color:var(--ink);font:15px/1.6 Inter,system-ui,sans-serif;margin:0}
+  main{max-width:78ch;margin:0 auto;padding:40px 20px 80px}
+  h1{font-size:34px;line-height:1.15;font-weight:700;letter-spacing:-.01em;margin:0 0 6px;text-wrap:balance}
+  .kicker{color:var(--accent-ink);font-weight:600;text-transform:uppercase;letter-spacing:.08em;font-size:12px}
+  .lede{font-size:18px;color:var(--muted);margin:10px 0 28px;text-wrap:balance}
+  h2{font-size:22px;margin:44px 0 10px;letter-spacing:-.01em}
+  h3{font-size:16px;margin:24px 0 6px}
+  p{margin:8px 0}
+  .box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:14px 0}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:14px 0}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .stat b{display:block;font-size:26px;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+  .stat span{color:var(--muted);font-size:13px}
+  .wrap{overflow-x:auto;margin:14px 0;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+  table{border-collapse:collapse;width:100%;font-size:14px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+  tr:last-child td{border-bottom:0}
+  .pill{display:inline-block;font-size:12px;padding:1px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+  .pill.ok{border-color:var(--ok);color:var(--ok)} .pill.part{border-color:var(--warn);color:var(--warn)} .pill.no{border-color:var(--second);color:var(--second)}
+  .eff{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted)}
+  code,.mono{font-family:'IBM Plex Mono',monospace;font-size:13px;background:var(--code);padding:1px 5px;border-radius:5px}
+  ol.steps li{margin:8px 0}
+  .moment{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:12px;padding:14px 18px;margin:12px 0}
+  .moment h3{margin:0 0 4px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+  .moment .why{color:var(--muted)}
+  .moment .how{margin-top:6px}
+  .small{color:var(--muted);font-size:13px}
+  a{color:var(--accent-ink)}
+  @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+<main>
+<div class="kicker">Genesis · plan · 16 September 2026</div>
+<h1>What would make someone say "wait, what?" now</h1>
+<p class="lede">Three days in, every line of the original brief and the design plan is built or deliberately declined. This is the next plan: what is still missing, what is weak, and the ten moments that would make Genesis remarkable rather than complete.</p>
+
+<div class="grid">
+  <div class="stat"><b>106</b><span>decisions in the log, every one verified in a VM or on a phone</span></div>
+  <div class="stat"><b>4 / 10</b><span>makes passed on the tiny pack, before today's guards</span></div>
+  <div class="stat"><b>0</b><span>installs on a real GPU machine, so the packs above 8 GB are unproven</span></div>
+  <div class="stat"><b>90</b><span>self-check lines green on the image running in the VM</span></div>
+</div>
+
+<h2>1 · Where it stands, honestly</h2>
+<div class="wrap"><table>
+<tr><th>Area</th><th>State</th><th>What is true today</th></tr>
+<tr><td>The brief's list</td><td><span class="pill ok">closed</span></td><td>Several models routed by task, completion in Babel, chat with memory and documents, the administrator tools, MCP, the Ollama door, licence tiers, speculative decoding. Image generation is the one item left out on purpose.</td></tr>
+<tr><td>The ten rules</td><td><span class="pill part">8 of 10</span></td><td>Rule 4 (modes on the status bar, one key to cycle, per-app always/never) is a selector on the start page. Rule 8 (voice: Esc stops speech, risky spoken intents confirm, wake word) is push-to-talk only.</td></tr>
+<tr><td>Small-model reliability</td><td><span class="pill part">4 of 10</span></td><td>The evaluation exists and the first guards are in. Passing makes take 30 to 240 seconds; failures burn 20 minutes. This number is what CPU-only users feel.</td></tr>
+<tr><td>Real hardware</td><td><span class="pill no">none</span></td><td>Every claim is from CPU virtual machines and one phone. Vulkan on AMD and Intel, the NVIDIA flavour, the ISO installer, suspend, Wi-Fi: unproven.</td></tr>
+<tr><td>First run</td><td><span class="pill part">slow</span></td><td>The wizard is good, but the first make waits for a 2.6 GB download. On a slow connection the first "wow" is twenty minutes away.</td></tr>
+<tr><td>Voice out</td><td><span class="pill part">English only</span></td><td>Piper with one voice; no replies in German or Slovenian, though the interface speaks both.</td></tr>
+<tr><td>The phone app</td><td><span class="pill part">cable</span></td><td>Works on a real phone, signed, but only installs by cable. No store listing, no APK on the release page.</td></tr>
+</table></div>
+
+<h2>2 · What can be improved (already there, not yet great)</h2>
+<div class="box">
+<ol class="steps">
+<li><b>The first ten minutes.</b> Start the desktop before the download finishes, run the first make on the small model the moment its 1.2 GB lands, and make the wizard's last step a live make rather than three offers. Target: first thing made within ten minutes on a 50 Mbit line.</li>
+<li><b>The maker on small models.</b> The evaluation is the yardstick. Next levers: a shorter compact script per template, a "run first, then edit" order, and the model choosing from three canned plans instead of free planning. Target: 7 of 10 on the tiny pack.</li>
+<li><b>Rule 4, finished.</b> The mode on the status widget and in the palette header, <code>Meta+Shift+M</code> cycles it, and per-app always/never in Settings backed by the policy overlay that already exists.</li>
+<li><b>Rule 8, finished.</b> Esc stops speech everywhere, a spoken "install" or "delete" shows a visual confirm before it runs, and a wake word as an opt-in with a visible mic.</li>
+<li><b>Voice replies in German and Slovenian.</b> Piper has voices for both; the packs are data. One evening.</li>
+<li><b>Proactive cards, wider.</b> Today: failed runs, calendar files, staged updates, uncommitted repos, phone pairing. Add: a document changed by someone else, a photo folder with no album, a laptop battery habit, a printer offline.</li>
+<li><b>Settings, shorter.</b> Fourteen sections is a lot. Group into four: Machine, Genesis, Phone, Advanced.</li>
+<li><b>The phone app on the release page and a store.</b> The signing key into repository secrets, an APK on every release, then F-Droid.</li>
+</ol>
+</div>
+
+<h2>3 · Ten moments that would make people say "wait, what?"</h2>
+<p class="small">Ranked by how hard they land divided by effort. S is a day, M a week, L more. "Ground" says what already exists to build on; none of these starts from nothing.</p>
+
+<div class="moment"><h3>1. Show me, then do it <span class="eff">L · ground: ask about the screen, browser control, the permission tiers</span></h3>
+<div class="why">Copilot Vision could look; nothing on Linux can look and then act, locally, with a permission card.</div>
+<div class="how">Press <code>Meta+Shift+A</code>, drag over any window, say "fill this form with my address" or "put these numbers into a spreadsheet". The vision model reads the region, the agent drives the app through AT-SPI (the accessibility tree Orca already sees), every action a plain verb on a card. The browser tools become the general case.</div></div>
+
+<div class="moment"><h3>2. The morning card <span class="eff">M · ground: proactive cards, the system tools, the chat</span></h3>
+<div class="why">Proactive beats a chat window; one card that is right every morning is the habit that keeps a desktop.</div>
+<div class="how">First login of the day: one card in the maker and on the phone. "Update waiting, applies at restart. Two things you made yesterday were never installed. Battery habit: you charge at 8%. Wi-Fi at the kitchen table is weak." Every line from a local tool, every line with a one-click action.</div></div>
+
+<div class="moment"><h3>3. Say it, it happens <span class="eff">M · ground: hold-to-talk, whisper, Piper, the palette</span></h3>
+<div class="why">Push-to-talk is a demo; a wake word that is visibly off by default and visibly on when you choose is a daily thing.</div>
+<div class="how">"Genesis, dark mode." "Genesis, what did I write about Lisbon?" Wake word on device (openWakeWord, CPU), a mic badge in the tray whenever it listens, Esc stops any reply, and a spoken request that would install or delete shows a card before it runs. Replies in the desktop's language.</div></div>
+
+<div class="moment"><h3>4. Fix my computer <span class="eff">S · ground: the sixteen system tools, the chat</span></h3>
+<div class="why">Every other assistant explains; this one has the tools and the permission cards to act.</div>
+<div class="how">"My Wi-Fi is slow" gives the diagnosis in one sentence and a button: "Reconnect", "Forget and rejoin", "Use the cable". "The printer does not print": find it, set it up, print a test page. "My battery drains": the top three processes and an offer to switch the power profile. Ship as chat templates with the tools behind them.</div></div>
+
+<div class="moment"><h3>5. Make it while I sleep <span class="eff">M · ground: the maker's API, recipes, the evaluation harness</span></h3>
+<div class="why">A slow CPU machine can still build a lot overnight; nobody offers a queue.</div>
+<div class="how">Queue five makes or a recipe in the evening; the maker runs them one by one on the small model with the plan card pre-answered, snapshots everything, and the morning card says what worked. On a laptop, only on mains.</div></div>
+
+<div class="moment"><h3>6. One picture <span class="eff">L · ground: the pack format, the router, the gallery</span></h3>
+<div class="why">The first time a made app appears in the menu with an icon nobody drew, people take a screenshot.</div>
+<div class="how">A "picture" pack role (Z-Image-Turbo, Apache 2.0, 8 steps, fits 8 GB) behind a small stable-diffusion.cpp service; the maker generates an icon and a wallpaper for every app it installs, and the chat can make an image on request. GPU packs only, off on CPU.</div></div>
+
+<div class="moment"><h3>7. Phone and desktop, one thing <span class="eff">M · ground: the companion app, KDE Connect, sessions</span></h3>
+<div class="why">Continuity is what people miss most from the platforms they left.</div>
+<div class="how">Start a make on the phone on the bus, see the steps, answer a card; at the desk the same session is open in the maker. "Send this to my phone" in the palette for any text, link or file; "open this on the desktop" from the phone. Already half there through sessions and the share endpoint.</div></div>
+
+<div class="moment"><h3>8. Time machine <span class="eff">M · ground: genesis-txd snapshots, the undo history</span></h3>
+<div class="why">Undo exists; seeing it is what makes people trust Hands-off mode.</div>
+<div class="how">A timeline of every job with before-and-after diffs of the files it touched, a scrubber to any point, and "restore just this file". The audit chain is already there; this is the view.</div></div>
+
+<div class="moment"><h3>9. Babel, inline <span class="eff">M · ground: the Babel extension, the maker sessions, completion</span></h3>
+<div class="why">Completion is table stakes; "select, describe, see the diff" is what makes an editor feel like a colleague.</div>
+<div class="how"><code>Ctrl+I</code> on a selection: a one-line field, the maker rewrites just that range, the diff appears inline, Tab keeps it, Esc drops it. Then "explain the error" on any diagnostic. Runs on the coder model where there is one.</div></div>
+
+<div class="moment"><h3>10. The sixty-second demo <span class="eff">S · ground: everything</span></h3>
+<div class="why">The distros people install are the ones whose video they saw. There is no video yet.</div>
+<div class="how">A "Show me Genesis" entry in the menu that runs a scripted minute: pull the cable (network badge stays green), say "a checklist app", watch the steps, install it, ask about the screen, undo. Also the script for the launch video, recorded from the same entry so it is never staged.</div></div>
+
+<h2>4 · Order of work</h2>
+<div class="wrap"><table>
+<tr><th>Phase</th><th>Deliverable</th><th>Effort</th><th>Proof</th></tr>
+<tr><td><b>G · Reliable</b></td><td>First-ten-minutes first run; the maker to 7 of 10 on the tiny pack; rule 4 finished; voice in three languages; Esc and spoken confirms (rule 8)</td><td class="eff">2 weeks</td><td>The weekly evaluation and the canary; a fresh-disk run timed on a throttled connection</td></tr>
+<tr><td><b>H · Daily</b></td><td>Fix my computer (4); the morning card (2); Time machine (8); Settings regrouped</td><td class="eff">2 weeks</td><td>Screen captures from CI; a week of the founder's own use logged in the decision log</td></tr>
+<tr><td><b>I · Continuity</b></td><td>Phone and desktop, one thing (7); APK on releases and F-Droid; make it while I sleep (5)</td><td class="eff">2 weeks</td><td>The phone-check page redone on a real phone; a queued night in the VM</td></tr>
+<tr><td><b>J · Wow</b></td><td>Say it, it happens (3); Babel inline (9); the sixty-second demo (10) and the launch video</td><td class="eff">3 weeks</td><td>The demo entry recorded unedited; a screen-reader run of the wake-word flow</td></tr>
+<tr><td><b>K · Sight and pictures</b></td><td>Show me, then do it (1); One picture (6)</td><td class="eff">4 weeks, GPU needed</td><td>Only after real GPU hardware reports exist; both are useless on CPU</td></tr>
+</table></div>
+<p><b>The gate that stays in front of all of it:</b> a real machine with a GPU. Phases G to J run on what we have; K does not start without hardware reports. Every phase ships behind the canary gate and adds its lines to the self-check, as everything so far has.</p>
+
+<h2>5 · What "done" means, in numbers</h2>
+<div class="grid">
+  <div class="stat"><b>&lt; 10 min</b><span>from first boot to the first thing made, on a 50 Mbit line, CPU only</span></div>
+  <div class="stat"><b>7 / 10</b><span>makes on the tiny pack in the weekly evaluation, three weeks running</span></div>
+  <div class="stat"><b>60 s</b><span>the demo entry, unedited, showing six moments</span></div>
+  <div class="stat"><b>3</b><span>hardware reports from machines we do not own, one with an NVIDIA GPU</span></div>
+</div>
+
+<h2>6 · What we still do not do</h2>
+<p>No always-on capture, no AI button on every surface, no cloud fallback by default, no features announced before they run. The wake word is off until chosen and visibly on when it listens. "Show me, then do it" acts only on the region you drew, only after the card. A timer must still be a timer.</p>
+<p class="small">Sources: the brief (decision 10), the design plan (33), the security and improvement reviews (70, 75), the two assessments of 16 September and the first evaluation (101, 106). All in <a href="decisions.md">decisions.md</a>.</p>
+</main>

@@ -2,7 +2,8 @@
 
 What Genesis is: a complete desktop that can build things for you, with the AI on your own machine.
 What it is not: a chat app with a window manager. The order below is the order we believe in; dates
-are not promises. The decision log (`docs/decisions.md`) records what actually happened and why.
+are not promises. The detailed next plan, with the ten moments and phases G to K, is
+[docs/genesis-wow-plan.html](docs/genesis-wow-plan.html). The decision log (`docs/decisions.md`) records what actually happened and why.
 
 ## Now (0.2, shipping on the stable channel)
 
