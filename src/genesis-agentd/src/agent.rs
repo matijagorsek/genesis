@@ -334,6 +334,7 @@ impl Agent {
                     }
                     r
                 }
+                Err(_) if self.shared.stopped() => return self.finish_stopped(), // Stop during the model wait is not a problem
                 Err(e) => {
                     self.shared.push(Event::Error { text: e.to_string() });
                     self.shared.set_state("error");
