@@ -56,6 +56,14 @@ pub fn gpus_linux(sysfs: &Path) -> Vec<Gpu> {
             _ => GpuVendor::Other,
         };
         let mut vram_mb = read_trim(&dev.join("mem_info_vram_total")).and_then(|s| s.parse::<u64>().ok()).map(|b| b / (1024 * 1024)).unwrap_or(0);
+        // Intel discrete cards (Arc) have no mem_info_vram_total; with resizable BAR, which they need
+        // anyway, the largest PCI memory region is the card's memory. Integrated GPUs have no such region.
+        if vram_mb == 0 && gv == GpuVendor::Intel {
+            if let Some(text) = read_trim(&dev.join("resource")) {
+                let largest = text.lines().filter_map(|l| { let mut it = l.split_whitespace(); let a = u64::from_str_radix(it.next()?.trim_start_matches("0x"), 16).ok()?; let b = u64::from_str_radix(it.next()?.trim_start_matches("0x"), 16).ok()?; if b > a { Some(b - a + 1) } else { None } }).max().unwrap_or(0);
+                if largest >= 2 * 1024 * 1024 * 1024 { vram_mb = largest / (1024 * 1024); }
+            }
+        }
         let mut gname = String::new();
         if gv == GpuVendor::Nvidia {
             if let Some((n, v)) = nvidia_smi() {
@@ -70,7 +78,8 @@ pub fn gpus_linux(sysfs: &Path) -> Vec<Gpu> {
         }
         let compute_ready = match gv {
             GpuVendor::Nvidia => driver == "nvidia",
-            GpuVendor::Amd => driver == "amdgpu" && Path::new("/dev/kfd").exists(),
+            // Vulkan is the backend here, so amdgpu alone is enough (/dev/kfd is ROCm's device, not needed)
+            GpuVendor::Amd => driver == "amdgpu",
             GpuVendor::Intel => driver == "i915" || driver == "xe",
             _ => false,
         };

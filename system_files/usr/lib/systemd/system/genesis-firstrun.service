@@ -8,6 +8,9 @@ ConditionPathExists=!/var/lib/genesis/first-run-done
 [Service]
 Environment=GENESIS_PACKS_STATE=/var/lib/genesis/packs
 Type=simple
+# look at the hardware again now that the desktop and the GPU driver are up: the boot-time probe runs
+# once and can be too early for the driver (the recommended pack depends on it)
+ExecStartPre=-/usr/bin/genesis-probe --write --models-dir /var/lib/genesis
 ExecStart=/usr/bin/genesis-firstrun
 Restart=on-failure
 RestartSec=3

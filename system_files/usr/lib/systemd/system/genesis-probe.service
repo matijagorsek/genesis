@@ -2,6 +2,8 @@
 Description=Genesis hardware probe (writes /etc/genesis/profile.json on first boot and after hardware changes)
 Documentation=https://github.com/matijagorsek/genesis
 DefaultDependencies=no
+# the GPU driver must be bound before the probe looks: wait for udev to settle (the probe runs once)
+Wants=systemd-udev-settle.service
 After=local-fs.target systemd-udev-settle.service
 Before=display-manager.service genesis-router.service
 ConditionPathExists=!/etc/genesis/profile.json

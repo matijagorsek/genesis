@@ -106,7 +106,9 @@ int main(int argc, char **argv) {
             }
         });
     }
-    if (kiosk) win->showFullScreen(); else win->show();
+    // first run is maximized, not fullscreen: the panel stays reachable, because on a laptop the first
+    // thing the wizard needs is Wi-Fi and the network tray must not sit behind it (audit, 17 Sep)
+    if (kiosk && firstRun) win->showMaximized(); else if (kiosk) win->showFullScreen(); else win->show();
 
     // first-run: close automatically once setup is complete
     if (firstRun) {

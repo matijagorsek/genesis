@@ -30,9 +30,11 @@ ReadWritePaths=/var/lib/genesis /var/cache/genesis /run/genesis
 PrivateTmp=yes
 NoNewPrivileges=yes
 DevicePolicy=closed
-DeviceAllow=/dev/dri rw
-DeviceAllow=/dev/kfd rw
-DeviceAllow=char-nvidia rw
+# device classes, not paths: a directory such as /dev/dri is not a device node and systemd ignores it,
+# which left the render node closed and the models on the CPU (found by audit, confirmed in a VM, 17 Sep)
+DeviceAllow=char-drm rw
+DeviceAllow=char-kfd rw
+DeviceAllow=char-nvidia* rw
 RuntimeDirectory=genesis
 StateDirectory=genesis
 CacheDirectory=genesis

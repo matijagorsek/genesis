@@ -1,9 +1,10 @@
-# bootc-image-builder config for Genesis. Used for anaconda-iso, qcow2 and raw outputs.
+# bootc-image-builder config for the qcow2 TEST DISKS only (boot tests, the dev VM, the canary, the evaluation).
+# The installer ISO uses config-iso.toml, which has no default account and no SSH gate.
 # Docs: https://github.com/osbuild/bootc-image-builder
 
 # Hostname comes from the image (bootc kargs.d: systemd.hostname=genesis); the builder rejects a hostname customization for qcow2.
 
-# Test user for boot tests and first alpha. The first-run wizard replaces this in Phase 1.
+# Test user for the boot tests. Never in the ISO.
 [[customizations.user]]
 name = "genesis"
 password = "genesis"

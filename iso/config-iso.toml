@@ -1,0 +1,6 @@
+# bootc-image-builder config for the INSTALLER ISO, the thing real people install.
+# No user block: Anaconda then makes creating your own account mandatory. No genesis.devssh argument:
+# sshd stays off. The test account and the SSH gate live in config.toml, which is for the qcow2 test
+# disks only (found by audit on 17 Sep: both had been shipping in the ISO).
+[customizations.kernel]
+append = "console=tty0"

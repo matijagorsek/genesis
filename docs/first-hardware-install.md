@@ -6,10 +6,15 @@ minutes of notes here answer more open questions than a week of CI. Paste the re
 
 ## Before
 
-- Download the ISO from the [download page](https://matijagorsek.github.io/genesis/) (NVIDIA card: the
-  NVIDIA flavour) and write it to a USB stick (Fedora Media Writer, or `dd`).
+- Download the ISO from the [download page](https://matijagorsek.github.io/genesis/) and write it to a
+  USB stick (Fedora Media Writer, or `dd`). There is one ISO. With an NVIDIA card you install it, and
+  then switch to the NVIDIA flavour (last section).
 - Note the machine: model, CPU, RAM, GPU and its memory, Wi-Fi chip if you know it.
-- Secure Boot: leave it as it is and note whether it was on.
+- Secure Boot: note whether it is on. The kernel is signed with the Universal Blue key, which a fresh
+  machine does not know. If the first boot stops with a signature error, turn Secure Boot off in the
+  firmware for now and note it; enrolling the key (`ujust enroll-secure-boot-key`, password
+  `universalblue`, confirm at the next boot) is the proper way and needed for the NVIDIA driver.
+- The installer asks you to create your own account. There is no default account on an installed machine.
 
 ## Install
 
@@ -36,7 +41,7 @@ Open **Settings, On this machine** after the first reply: it shows tokens per se
 |---|---|---|
 | Tokens per second, small model | Settings, On this machine | |
 | Tokens per second, coder model (GPU packs) | same, after a make | |
-| Is the GPU used | `genesis-image-check` prints the Vulkan device; `nvidia-smi` or `radeontop` during a make | |
+| Is the GPU used | `journalctl -u genesis-router \| grep -iE "vulkan|offloaded"` shows the device and "offloaded N/N layers"; `sudo genesis-image-check` says whether the model service can open the GPU | |
 | Self-check | `sudo genesis-image-check` in Konsole | ok count, every FAIL line |
 
 ## The desktop basics
@@ -53,10 +58,25 @@ and volume keys · external monitor · the touchpad gestures · day/night with `
 - Babel: type in a Python file and wait for a suggestion; `Ctrl+I` on a selection.
 - Pair the phone (Settings, Phone app) if it is at hand.
 
+## No network at first boot
+
+The wizard is a maximized window; the panel with the network icon stays visible at the bottom. Connect
+to Wi-Fi there first: the wizard says so when the machine is offline.
+
+## NVIDIA
+
+After the install, in Konsole:
+
+    sudo bootc switch ghcr.io/matijagorsek/genesis:stable-nvidia
+    systemctl reboot
+
+Then enrol the Secure Boot key if Secure Boot is on (see above), and open "Set up models" again so the
+pack is chosen with the driver loaded. This switch has never been done on real hardware: note every step.
+
 ## If something breaks
 
 - A black screen at boot: add `nomodeset` at the boot menu (press `e`), note that it was needed.
-- The wizard recommends the wrong pack: note the GPU line from `/run/genesis/profile.json`.
+- The wizard recommends the wrong pack: note the GPU lines from `/etc/genesis/profile.json`.
 - The model service does not start: `systemctl status genesis-router` and the last lines of
   `journalctl -u genesis-router`.
 - Anything else: `sudo genesis-image-check > check.txt` and attach it.

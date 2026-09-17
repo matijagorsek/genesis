@@ -9,6 +9,25 @@ grep '^PRETTY_NAME' /usr/lib/os-release
 for b in llama-server llama-swap ramalama bwrap distrobox bootc vulkaninfo genesis-permd genesis-probe genesis-firstrun genesis-agentd genesis-txd genesis-krunner genesis-ask btrfs rsync firefox okular gwenview kcalc plasma-discover dolphin konsole kate; do command -v "$b" >/dev/null && ok "binary $b" || fail "binary $b"; done
 for u in genesis-router.service; do [ -f "/usr/lib/systemd/system/$u" ] && ok "unit $u" || fail "unit $u"; done
 [ -L /etc/systemd/system/multi-user.target.wants/genesis-router.service ] && ok "router service enabled" || fail "router service not enabled"
+# the model service must be able to open the GPU from inside its sandbox (a closed render node means CPU only, silently)
+grep -q "^DeviceAllow=char-drm" /usr/lib/systemd/system/genesis-router.service && ! grep -q "^DeviceAllow=/dev/dri" /usr/lib/systemd/system/genesis-router.service && ok "router device allow-list uses device classes (char-drm)" || fail "router unit allows /dev/dri by path: systemd ignores it and the GPU stays closed"
+node=$(ls /dev/dri/renderD* 2>/dev/null | head -1)
+if [ -n "$node" ] && [ "$(id -u)" = 0 ]; then
+  if systemd-run --quiet --wait --pipe -p User=genesis-ai -p "SupplementaryGroups=video render" -p DevicePolicy=closed -p "DeviceAllow=char-drm rw" python3 -c "import os;os.open('$node',os.O_RDWR)" >/dev/null 2>&1; then ok "the model service user can open the GPU ($node) inside the sandbox"
+  else fail "genesis-ai cannot open $node inside the sandbox: models would run on the CPU"; fi
+fi
+# a machine installed from the ISO must not carry the test account's password or the SSH gate
+if ! grep -q "genesis.devssh=1" /proc/cmdline 2>/dev/null; then
+  ok "not a test disk: the SSH gate is off"
+  if [ "$(id -u)" = 0 ] && getent passwd genesis >/dev/null && python3 - <<'PYEOF' 2>/dev/null
+import ctypes, ctypes.util, sys
+h = next((l.split(":")[1] for l in open("/etc/shadow") if l.startswith("genesis:")), "")
+lib = ctypes.CDLL(ctypes.util.find_library("crypt") or "libcrypt.so.2"); lib.crypt.restype = ctypes.c_char_p
+r = lib.crypt(b"genesis", h.encode()) if h.startswith("$") else None
+sys.exit(0 if r and r.decode() == h else 1)
+PYEOF
+  then fail "the account genesis still has the test password: change it now (passwd genesis)"; fi
+fi
 [ -x /usr/bin/genesis-ollama ] && [ -L /etc/systemd/system/multi-user.target.wants/genesis-ollama.service ] && ok "Ollama-compatible door (genesis-ollama on 127.0.0.1:11434)" || fail "genesis-ollama missing or not enabled"
 [ -x /usr/bin/genesis-mode ] && grep -q "org.genesis.mode.desktop" /etc/xdg/kglobalshortcutsrc && [ -f /usr/share/applications/org.genesis.mode.desktop ] && ok "mode key (genesis-mode, Meta+Shift+M)" || fail "genesis-mode or its shortcut missing"
 [ -x /usr/bin/genesis-demo ] && [ -f /usr/share/applications/org.genesis.demo.desktop ] && grep -q "org.genesis.talk.desktop" /etc/xdg/kglobalshortcutsrc && ok "demo entry and talk key (Meta+Shift+V)" || fail "demo entry or talk key missing"
