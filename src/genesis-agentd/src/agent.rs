@@ -490,7 +490,9 @@ impl Agent {
     fn snapshot_before(&mut self, intent: &Intent, tier: Tier) -> Result<()> {
         let Some(store) = self.tx_store.as_ref() else { return Ok(()) };
         if self.tx.is_none() {
-            let tx = store.begin(&self.session_id, "agentd")?;
+            let mut tx = store.begin(&self.session_id, "agentd")?;
+            // what was asked, so the undo history reads as a list of requests, not of ids
+            let _ = store.note(&mut tx, &format!("asked: {}", self.last_prompt.chars().take(120).collect::<String>()));
             self.shared.info.lock().unwrap().transaction = Some(tx.id.clone());
             self.shared.push(Event::Snapshot { tx: tx.id.clone(), detail: "transaction opened".into() });
             self.tx = Some(tx);

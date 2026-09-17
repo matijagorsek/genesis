@@ -455,6 +455,16 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
         }
         (Method::Post, ["api", "queue", "clear-done"]) => { let mut q = queue::load(); q.done.clear(); queue::save(&q); json_response(&q, 200) }
         (Method::Post, ["api", "queue", id, "delete"]) => { let mut q = queue::load(); q.items.retain(|i| i.id != *id); queue::save(&q); json_response(&q, 200) }
+        (Method::Post, ["api", "pick"]) => {
+            let kind = serde_json::from_str::<serde_json::Value>(&body).ok().and_then(|v| v.get("kind").and_then(|k| k.as_str()).map(|s| s.to_string())).unwrap_or_else(|| "file".into());
+            let home = std::env::var("HOME").unwrap_or_else(|_| "/".into());
+            let arg = if kind == "folder" { "--getexistingdirectory" } else { "--getopenfilename" };
+            match std::process::Command::new("kdialog").args([arg, &home]).output() {
+                Ok(o) if o.status.success() => json_response(&serde_json::json!({"path": String::from_utf8_lossy(&o.stdout).trim()}), 200),
+                Ok(_) => json_response(&serde_json::json!({"path": ""}), 200),
+                Err(e) => json_response(&serde_json::json!({"error": format!("no file dialog: {}", e)}), 500),
+            }
+        }
         (Method::Get, ["api", "mcp"]) => json_response(&mcp::status(), 200),
         (Method::Post, ["api", "mcp", "reload"]) => { mcp::reload(); json_response(&mcp::status(), 200) }
         (Method::Get, ["api", "recipes"]) => json_response(&recipes(), 200),
@@ -816,7 +826,11 @@ fn system_overview(d: &Arc<Daemon>) -> serde_json::Value {
     let router = d.endpoint.trim_end_matches("/v1").to_string();
     let running = ureq::get(&format!("{}/running", router)).timeout(std::time::Duration::from_secs(2)).call().ok().and_then(|r| r.into_json::<serde_json::Value>().ok());
     let history: Vec<serde_json::Value> = Store::open(default_store()).ok().and_then(|s| s.list().ok()).unwrap_or_default().into_iter().rev().take(30)
-        .map(|t| serde_json::json!({"id": t.id, "started_at": t.started_at, "finished_at": t.finished_at, "status": format!("{:?}", t.status).to_lowercase(), "changes": t.entries.len()})).collect();
+        .map(|t| {
+            // what the person asked for, when the job left a note of it, so the list is readable
+            let asked = t.entries.iter().find_map(|e| if let genesis_txd::Entry::Note { text } = e { text.strip_prefix("asked: ").map(|s| s.to_string()) } else { None }).unwrap_or_default();
+            serde_json::json!({"id": t.id, "asked": asked, "started_at": t.started_at, "finished_at": t.finished_at, "status": format!("{:?}", t.status).to_lowercase(), "changes": t.entries.len()})
+        }).collect();
     serde_json::json!({
         "profile": profile, "setup": setup, "models_on_disk": on_disk, "router": {"endpoint": d.endpoint, "running": running},
         "voice": {"input": voice::available(), "output": voice::speech_available()},
