@@ -76,15 +76,20 @@ Before anything that changes your machine outside the project, a card appears wi
 "Genesis wants to install a package", "wants to write to your Documents". Choose:
 
 - **Allow once**
-- **Allow for this project**
 - **Not now**
+
+For something you always want allowed (or never), add a rule in Settings, "Always and never".
 
 Some things it never does, whatever you answer: read your keys and passwords, wipe disks, change the
 base system. Those are refused by the rules, not by the model.
 
-**How much on its own:** Settings > "How much Genesis may do on its own". *Assist* asks before every
-change. *Auto edit* (default) edits the project freely and asks for the rest. *Hands-off* also handles
-installs and user settings on its own; things that touch the system still ask.
+**How much on its own:** Settings > "How much Genesis may do on its own". *Ask* asks before every
+change. *Trusted* (default) edits the project freely and asks for the rest. *Hands-off* also handles
+installs and user settings on its own; things that touch the system still ask. `Meta+Shift+M` cycles
+the three from anywhere.
+
+**Stop.** While a job runs, the Stop button next to Send ends it within a second: the model wait, a
+running command or a waiting card. What was made so far is kept; Undo takes it back.
 
 ## Undo
 
@@ -154,7 +159,9 @@ tool; "Got it" puts it away until tomorrow. The phone app shows the same card.
 
 <p align="center"><img src="docs/screens/more/02-screen-region-asked.png" width="88%" alt="A screen region handed to "What is on my screen"; the local model described it in seven seconds"></p>
 
-- **Meta+Space**, type a question instead of a request; the answer appears in the same window.
+- **Meta+Space** is one door for both: a request to make something ("a timer", "rename my photos")
+  opens the maker; a question ("why is my Wi-Fi slow", "translate this") is answered in chat, where it
+  is kept. `Ctrl+Enter` sends anything to the maker; **Make it** in chat hands a text over.
 - **Select text** in any app, press Meta+Shift+Space: ask about the selection.
 - **Meta+Shift+A**: select a region of the screen and ask what it is; the answer arrives as a
   notification and is copied to the clipboard.
@@ -260,7 +267,7 @@ with the recipe, as one archive.
 <p align="center"><img src="docs/screens/more/03-settings.png" width="88%" alt="Genesis Settings: updates, this machine, models, and the rest"></p>
 
 Genesis fetches updates in the background and stages them; nothing restarts on its own. The dock's
-status widget and Settings > Updates say when one is ready; **Apply at next restart** is a click, and
+status widget and Settings > Updates say when one is ready; it applies the next time you restart, and
 every update can be rolled back from the boot menu.
 
 ## Day and night
@@ -274,7 +281,7 @@ The first-run wizard, the maker, chat, the palette, Genesis Settings and Babel's
 language of your desktop: German and Slovenian are complete, English is the source. Anything not yet translated stays in English rather than
 disappearing. To help with another language, see CONTRIBUTING.md.
 
-A screen reader works with all of Genesis: turn it on in System Settings, Accessibility, Screen Reader
+A screen reader works with the Genesis pages (every control is named; checked once with Orca, not yet by a daily screen-reader user): turn it on in System Settings, Accessibility, Screen Reader
 (Orca), and every button in the maker, the palette and Settings reads its purpose, including which
 project a "Continue" or "Open in Babel" button belongs to. The dictation field says what it wants,
 and the mic button says "Hold to talk".

@@ -45,9 +45,12 @@ body.listening .wrap{box-shadow:inset 0 0 0 2px var(--accent),inset 0 0 40px rgb
     box.querySelectorAll('input').forEach(i=>i.addEventListener('keydown',async e=>{if(e.key==='Enter'&&i.value.trim()){e.preventDefault();const t=i.value.trim();i.disabled=true;await fetch('/api/phone/reply',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({device:i.dataset.d,id:i.dataset.i,text:t})});i.value='';i.placeholder='Sent';setTimeout(phoneNotes,1500)}}))}catch(e){}}
   phoneNotes();setInterval(phoneNotes,10000);
   const STARTERS=['a checklist app that saves to a file','a pomodoro timer with a bell','rename the photos in a folder by date taken','a simple website for a club','a word-count tool for text files'];
-  STARTERS.forEach(t=>{const b=document.createElement('button');b.className='starter';b.setAttribute('role','listitem');b.textContent=tr(t);b.addEventListener('click',()=>go(t));$('#starters').appendChild(b)});
-  function go(text){text=(text||'').trim();if(!text&&!selection)return;const prompt=selection?(text||'Help me with this')+'\n\nSelected text:\n'+selection:text;location.href='/?prompt='+encodeURIComponent(prompt)}
-  q.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();go(q.value)}if(e.key==='Escape'){location.hash='close'}});
+  STARTERS.forEach(t=>{const b=document.createElement('button');b.className='starter';b.setAttribute('role','listitem');b.textContent=tr(t);b.addEventListener('click',()=>go(t,true));$('#starters').appendChild(b)});
+  // asking and making are different doors: a request to make something opens the maker, anything else
+  // (a question, "summarise this", "translate") is answered in chat, where it is kept. Ctrl+Enter forces the maker.
+  const MAKE=/^\s*(make|build|create|write|generate|scaffold|code|program|fix|add|change|install|rename|convert|sort|organi[sz]e|resize|merge|split|bau|baue|erstelle|mach|mache|schreib|programmier|naredi|ustvari|zgradi|napiši|napisi|sprogramiraj)\b|\b(app|tool|script|website|web ?page|game|widget|timer|calculator|converter|skript|werkzeug|webseite|spiel|aplikacij|orodje|skripta|spletna stran|igra)\b/i;
+  function go(text,forceMake){text=(text||'').trim();if(!text&&!selection)return;const prompt=selection?(text||'Help me with this')+'\n\nSelected text:\n'+selection:text;const make=forceMake||(!selection&&MAKE.test(text));location.href=(make?'/?prompt=':'/chat?prompt=')+encodeURIComponent(prompt)}
+  q.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();go(q.value,e.ctrlKey)}if(e.key==='Escape'){location.hash='close'}});
   document.addEventListener('keydown',e=>{if(e.key==='Escape')location.hash='close'});
   // hold to talk: 16 kHz WAV recorded here, transcribed by whisper.cpp on this machine
   function wavEncode(chunks, rate){let n=0;for(const c of chunks)n+=c.length;const ratio=rate/16000,len=Math.floor(n/ratio);const pcm=new Int16Array(len);let all=new Float32Array(n),o=0;for(const c of chunks){all.set(c,o);o+=c.length}

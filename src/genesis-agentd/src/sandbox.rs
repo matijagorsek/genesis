@@ -57,7 +57,7 @@ pub fn bwrap_args(project: &Path, allow_network: bool) -> Vec<String> {
     a
 }
 
-pub fn run_shell(project: &Path, command: &str, allow_network: bool, timeout: Duration) -> Result<ShellResult> {
+pub fn run_shell(project: &Path, command: &str, allow_network: bool, timeout: Duration, stop: Option<&std::sync::atomic::AtomicBool>) -> Result<ShellResult> {
     let sandboxed = bwrap_available();
     let mut cmd = if sandboxed {
         let mut c = Command::new("bwrap");
@@ -79,7 +79,7 @@ pub fn run_shell(project: &Path, command: &str, allow_network: bool, timeout: Du
         if child.try_wait()?.is_some() {
             break;
         }
-        if start.elapsed() > timeout {
+        if start.elapsed() > timeout || stop.map(|s| s.load(std::sync::atomic::Ordering::SeqCst)).unwrap_or(false) {
             let _ = child.kill();
             timed_out = true;
             break;

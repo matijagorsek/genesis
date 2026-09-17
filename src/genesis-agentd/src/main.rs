@@ -92,7 +92,7 @@ struct Daemon {
 }
 
 fn new_shared(id: &str, mode: Mode, project: &str, model: &str) -> Arc<Shared> {
-    Arc::new(Shared { info: Mutex::new(SessionInfo { id: id.into(), mode, project: project.into(), model: model.into(), state: "idle".into(), events: vec![], pending: vec![], transaction: None, preview_url: None, active_project: None, network_uses: vec![] }), answers: Mutex::new(VecDeque::new()), cv: Condvar::new() })
+    Arc::new(Shared { stop: std::sync::atomic::AtomicBool::new(false), info: Mutex::new(SessionInfo { id: id.into(), mode, project: project.into(), model: model.into(), state: "idle".into(), events: vec![], pending: vec![], transaction: None, preview_url: None, active_project: None, network_uses: vec![] }), answers: Mutex::new(VecDeque::new()), cv: Condvar::new() })
 }
 
 fn parse_mode(s: &str) -> Result<Mode> {
@@ -546,6 +546,14 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
             Some((shared, _)) => json_response(&*shared.info.lock().unwrap(), 200),
             None => json_response(&serde_json::json!({"error": "no such session"}), 404),
         },
+        (Method::Post, ["api", "sessions", id, "stop"]) => {
+            // the Stop button: the loop ends at its next checkpoint (at most a quarter of a second while it
+            // waits for the model, at once for a permission card or a running command)
+            match d.sessions.lock().unwrap().get(*id).cloned() {
+                Some((shared, _)) => { shared.stop.store(true, std::sync::atomic::Ordering::SeqCst); shared.cv.notify_all(); json_response(&serde_json::json!({"stopping": true}), 202) }
+                None => json_response(&serde_json::json!({"error": "no such session"}), 404),
+            }
+        }
         (Method::Post, ["api", "sessions", id, "prompt"]) => {
             let entry = d.sessions.lock().unwrap().get(*id).cloned();
             match (entry, serde_json::from_str::<PromptReq>(&body)) {

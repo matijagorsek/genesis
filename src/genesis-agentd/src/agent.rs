@@ -133,6 +133,8 @@ pub struct PendingPrompt {
 
 /// Shared between the running loop and the API: events, pending prompts and their answers.
 pub struct Shared {
+    /// Set by the Stop button: the agent loop, a waiting permission card and a running command all end.
+    pub stop: std::sync::atomic::AtomicBool,
     pub info: Mutex<SessionInfo>,
     pub answers: Mutex<VecDeque<(String, bool)>>,
     pub cv: Condvar,
@@ -155,13 +157,14 @@ impl Shared {
                 return Some(allowed);
             }
             let now = std::time::Instant::now();
-            if now >= deadline {
+            if now >= deadline || self.stopped() {
                 return None;
             }
-            let (guard, _) = self.cv.wait_timeout(q, deadline - now).unwrap();
+            let (guard, _) = self.cv.wait_timeout(q, (deadline - now).min(Duration::from_millis(300))).unwrap();
             q = guard;
         }
     }
+    pub fn stopped(&self) -> bool { self.stop.load(std::sync::atomic::Ordering::SeqCst) }
     pub fn resolve(&self, request_id: &str, allowed: bool) {
         self.answers.lock().unwrap().push_back((request_id.to_string(), allowed));
         self.info.lock().unwrap().pending.retain(|p| p.request_id != request_id);
@@ -262,8 +265,31 @@ impl Agent {
         json!({"steps": steps, "touches": touches, "project": self.project.display().to_string()})
     }
 
+    /// The model call on a helper thread, so Stop ends the wait at once (the request itself runs out in
+    /// the background; its answer is dropped).
+    fn chat_or_stop(&self, tools: &Value) -> Result<crate::llm::Reply> {
+        let client = Client { endpoint: self.client.endpoint.clone(), model: self.client.model.clone(), api_key: self.client.api_key.clone() };
+        let (msgs, tools) = (self.messages.clone(), tools.clone());
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || { let _ = tx.send(client.chat(&msgs, &tools, 0.2)); });
+        loop {
+            match rx.recv_timeout(Duration::from_millis(250)) {
+                Ok(r) => return r,
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => if self.shared.stopped() { return Err(anyhow!("stopped")); },
+                Err(_) => return Err(anyhow!("the model call ended without an answer")),
+            }
+        }
+    }
+
+    fn finish_stopped(&mut self) -> Result<String> {
+        self.shared.push(Event::Assistant { text: "Stopped. What was made so far is kept; Undo takes it back.".into() });
+        self.shared.set_state("done");
+        Ok("stopped".into())
+    }
+
     /// Run one user prompt to completion (or until a tool call is denied and the model gives up).
     pub fn run(&mut self, text: &str) -> Result<String> {
+        self.shared.stop.store(false, std::sync::atomic::Ordering::SeqCst);
         self.shared.push(Event::UserPrompt { text: text.into() });
         self.shared.set_state("running");
         self.last_prompt = text.to_string();
@@ -280,8 +306,9 @@ impl Agent {
         tools.as_array_mut().unwrap().extend(crate::mcp::tool_schemas());
         let mut final_text = String::new();
         for turn in 0..self.max_turns {
+            if self.shared.stopped() { return self.finish_stopped(); }
             let started = Instant::now();
-            let reply = match self.client.chat(&self.messages, &tools, 0.2) {
+            let reply = match self.chat_or_stop(&tools) {
                 Ok(r) => {
                     let secs = started.elapsed().as_secs_f64();
                     if let Some(tok) = r.usage.as_ref().and_then(|u| u.get("completion_tokens")).and_then(|t| t.as_u64()) {
@@ -358,6 +385,7 @@ impl Agent {
                 }
                 self.shared.push(Event::ToolResult { id: call.id.clone(), ok, summary: text.chars().take(200).collect() });
                 self.messages.push(Message::tool(&call.id, &call.function.name, text));
+                if self.shared.stopped() { return self.finish_stopped(); }
             }
         }
         self.shared.push(Event::Error { text: "turn limit reached".into() });
@@ -578,7 +606,7 @@ impl Agent {
             }
             "shell" => {
                 let net = args.get("needs_network").and_then(|v| v.as_bool()).unwrap_or(false);
-                let r = sandbox::run_shell(&self.project, &s("command"), net, Duration::from_secs(300))?;
+                let r = sandbox::run_shell(&self.project, &s("command"), net, Duration::from_secs(300), Some(&self.shared.stop))?;
                 let mut out = format!("exit={}{}{}\n", r.exit_code, if r.timed_out { " (timed out)" } else { "" }, if r.sandboxed { "" } else { " [unsandboxed dev mode]" });
                 if !r.stdout.is_empty() { out.push_str("stdout:\n"); out.push_str(&r.stdout); out.push('\n'); }
                 if !r.stderr.is_empty() { out.push_str("stderr:\n"); out.push_str(&r.stderr); out.push('\n'); }
