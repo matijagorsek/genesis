@@ -205,11 +205,12 @@ fn handle(app: &Arc<App>, mut req: Request) -> Result<bool> {
                                 let _ = std::process::Command::new("systemctl").args(["restart", "genesis-router.service"]).status();
                                 Ok(())
                             });
-                            let fast_files = files.iter().filter(|f| f.role == "fast").count();
-                            let seen = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+                            // the model file itself is enough to start; the vision projector (mmproj) joins at the
+                            // final render. Waiting for both meant a dropped projector download left no model at all.
+                            files.sort_by_key(|f| (order(&f.role), f.filename.to_lowercase().contains("mmproj")));
                             let render_early = render.clone();
                             let on_file: Box<dyn Fn(&packs::PlannedFile) + Send> = Box::new(move |f| {
-                                if f.role == "fast" && seen.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1 == fast_files {
+                                if f.role == "fast" && !f.filename.to_lowercase().contains("mmproj") {
                                     match render_early() { Ok(()) => tracing::info!("small model on disk: router up before the rest of the pack"), Err(e) => tracing::warn!(%e, "early router start failed") }
                                 }
                             });

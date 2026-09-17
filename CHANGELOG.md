@@ -3,6 +3,7 @@
 Derived from the decision log (`docs/decisions.md`); one line per decision, newest first. Versions are 0.2.N on the stable channel; 0.1.N before 2026-09-15.
 
 ## 2026-09-17
+- Pack downloads resume after a dropped connection; the small model starts without waiting for its vision file (decision 125)
 - Evaluation 6 of 10 showed three causes; a clean run now ends the job, old output is trimmed to fit the context, old sessions free their previews (decision 124)
 - File pickers instead of typed paths; undo history by what was asked; on-page error messages (decision 123)
 - GET routes closed by default; CI parses every script and page; llama.cpp checksummed; nightly canary that opens an issue; release pruning (manual); one design system; distinct icons (decision 122)

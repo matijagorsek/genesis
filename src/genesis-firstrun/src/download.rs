@@ -65,7 +65,13 @@ pub fn start_with(shared: Shared, pack_id: String, files: Vec<PlannedFile>, on_f
                 Some((u, t)) => { shared.lock().unwrap().current = Some(format!("{} (from GHCR)", f.filename)); (u, Some(t)) }
                 None => (f.url.clone(), None),
             };
-            let res = fetch_with(&url, auth.as_deref(), dest, &shared, done_bytes);
+            let mut res = fetch_with(&url, auth.as_deref(), dest, &shared, done_bytes);
+            for attempt in 1..=2 {
+                if res.is_ok() { break; }
+                shared.lock().unwrap().current = Some(format!("{} (connection dropped, resuming, try {})", f.filename, attempt + 1));
+                std::thread::sleep(std::time::Duration::from_secs(10));
+                res = fetch_with(&url, auth.as_deref(), dest, &shared, done_bytes);
+            }
             if let Err(e) = res {
                 let mut p = shared.lock().unwrap();
                 p.state = "error".into();
@@ -130,7 +136,9 @@ fn ghcr_blob(sha256: &str) -> Option<(String, String)> {
 fn fetch_with(url: &str, bearer: Option<&str>, dest: &Path, shared: &Shared, base_done: u64) -> Result<()> {
     let part = dest.with_extension(format!("{}.part", dest.extension().map(|e| e.to_string_lossy().to_string()).unwrap_or_default()));
     let mut cmd = Command::new("curl");
-    cmd.args(["-fL", "--retry", "5", "--retry-delay", "5", "-C", "-", "--silent", "--show-error"]);
+    // HTTP/1.1 on purpose: a long transfer over HTTP/2 ended with "stream was not closed cleanly" twenty
+    // minutes into a pack (evaluation, 17 Sep), which curl does not retry; --retry-all-errors resumes (-C -)
+    cmd.args(["-fL", "--http1.1", "--retry", "8", "--retry-delay", "5", "--retry-all-errors", "-C", "-", "--silent", "--show-error"]);
     if let Some(t) = bearer { cmd.arg("-H").arg(format!("Authorization: Bearer {}", t)); }
     let mut child = cmd
         .arg("-o")
