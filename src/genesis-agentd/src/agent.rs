@@ -194,6 +194,10 @@ pub struct Agent {
     /// 34 writes and no run in one make), so after a while they are told to run and finish.
     pub writes_since_run: usize,
     pub nudged_writes: bool,
+    /// The file written last and how often in a row without a run in between (the dice roller in the
+    /// evaluation rewrote one file 25 times); the fourth such write is refused until the program ran.
+    pub last_write: String,
+    pub same_file_streak: usize,
     /// Project directory the maker tools currently target (set by scaffold).
     pub active_project: Option<PathBuf>,
     /// "make" (the maker, default) or "chat" (the assistant: chat prompt, read-only tools, the user's MCP tools).
@@ -214,7 +218,7 @@ fn resolve_path(project: &Path, p: &str) -> PathBuf {
 
 impl Agent {
     pub fn new(client: Client, broker: Arc<Mutex<Broker>>, session_id: String, project: PathBuf, shared: Arc<Shared>) -> Self {
-        Agent { client, broker, session_id, project, shared, max_turns: 40, prompt_timeout: Duration::from_secs(600), messages: vec![Message::system(SYSTEM_PROMPT)], tx_store: None, tx: None, previews: maker::Previews::default(), active_project: None, browser: None, last_prompt: String::new(), scaffolded: false, edited_after_scaffold: false, nudged: false, writes_since_run: 0, nudged_writes: false, kind: "make".into() }
+        Agent { client, broker, session_id, project, shared, max_turns: 40, prompt_timeout: Duration::from_secs(600), messages: vec![Message::system(SYSTEM_PROMPT)], tx_store: None, tx: None, previews: maker::Previews::default(), active_project: None, browser: None, last_prompt: String::new(), scaffolded: false, edited_after_scaffold: false, nudged: false, writes_since_run: 0, nudged_writes: false, last_write: String::new(), same_file_streak: 0, kind: "make".into() }
     }
 
     /// The plan card: what the job will touch and the steps, before anything runs. One short model call
@@ -255,7 +259,7 @@ impl Agent {
         self.shared.push(Event::UserPrompt { text: text.into() });
         self.shared.set_state("running");
         self.last_prompt = text.to_string();
-        self.scaffolded = false; self.edited_after_scaffold = false; self.nudged = false; self.writes_since_run = 0; self.nudged_writes = false;
+        self.scaffolded = false; self.edited_after_scaffold = false; self.nudged = false; self.writes_since_run = 0; self.nudged_writes = false; self.last_write.clear(); self.same_file_streak = 0;
         let compact = compact_model(&self.client.model);
         let chat = self.kind == "chat";
         if chat { if self.messages.first().map(|m| m.content.as_deref() != Some(SYSTEM_PROMPT_CHAT)).unwrap_or(true) { self.messages[0] = Message::system(SYSTEM_PROMPT_CHAT); } }
@@ -318,12 +322,26 @@ impl Agent {
             for call in calls {
                 let args: Value = serde_json::from_str(&call.function.arguments).unwrap_or(json!({}));
                 self.shared.push(Event::ToolCall { id: call.id.clone(), name: call.function.name.clone(), args: args.clone() });
-                match call.function.name.as_str() { "write_file" | "edit_file" => self.writes_since_run += 1, "preview_start" | "shell" => self.writes_since_run = 0, _ => {} }
-                let result = self.execute(&call.id, &call.function.name, &args);
-                let (ok, text) = match result {
+                let is_write = matches!(call.function.name.as_str(), "write_file" | "edit_file");
+                let is_run = matches!(call.function.name.as_str(), "preview_start" | "shell");
+                if is_write {
+                    self.writes_since_run += 1;
+                    let path = args.get("path").and_then(|p| p.as_str()).unwrap_or("").to_string();
+                    if path == self.last_write { self.same_file_streak += 1 } else { self.last_write = path; self.same_file_streak = 1 }
+                }
+                if is_run { self.writes_since_run = 0; self.same_file_streak = 0; }
+                // the fourth rewrite of one file with no run in between is refused: run it, read the output, then change it
+                let result = if !chat && is_write && self.same_file_streak >= 4 {
+                    Ok(format!("not written: you have changed {} three times in a row without running it. Run the program now (preview_start, or shell) and read what it prints; write again only to fix what that run shows.", self.last_write))
+                } else { self.execute(&call.id, &call.function.name, &args) };
+                let (ok, mut text) = match result {
                     Ok(t) => (true, t),
                     Err(e) => (false, format!("ERROR: {}", e)),
                 };
+                // a clean run after changes is the finish line: say so, small models otherwise keep polishing
+                if !chat && is_run && ok && self.edited_after_scaffold && !["Traceback", "Error", "error:", "FAILED", "exit=1", "exit=2"].iter().any(|k| text.contains(k)) {
+                    text.push_str("\n[It ran without an error. If it does what the user asked, stop changing files and reply with the summary now.]");
+                }
                 self.shared.push(Event::ToolResult { id: call.id.clone(), ok, summary: text.chars().take(200).collect() });
                 self.messages.push(Message::tool(&call.id, &call.function.name, text));
             }

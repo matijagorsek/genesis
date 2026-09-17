@@ -2,6 +2,9 @@
 
 Derived from the decision log (`docs/decisions.md`); one line per decision, newest first. Versions are 0.2.N on the stable channel; 0.1.N before 2026-09-15.
 
+## 2026-09-17
+- The maker refuses a fourth rewrite of one file without a run, and a clean run marks the finish (built, decision 116)
+
 ## 2026-09-16
 - The one-minute demo entry ran end to end in the VM; share to desktop verified (decisions 114, 115)
 - Evaluation on 0.2.164: 8 of 10 makes on the tiny pack, small model serving 81 s after the pack choice (decision 113)
