@@ -1,4 +1,4 @@
-# Genesis defaults: Meta+Space opens the workspace. Users can change this in System Settings > Shortcuts.
+# Genesis defaults: Meta+Space opens the palette (one door: makes go to the maker, questions to chat). Users can change this in System Settings > Shortcuts.
 [services][org.genesis.palette.desktop]
 _launch=Meta+Space
 

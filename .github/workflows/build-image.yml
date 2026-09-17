@@ -47,6 +47,28 @@ jobs:
         run: |
           cargo install cargo-audit --locked --quiet 2>/dev/null || true
           cd src && cargo audit --deny warnings || echo "::warning::cargo audit reported advisories; see the log"
+      - name: Scripts and pages parse (shell, Python, the JavaScript inside the HTML pages)
+        run: |
+          set -e
+          export PYTHONDONTWRITEBYTECODE=1 PYTHONPYCACHEPREFIX=/tmp/pyc
+          for f in system_files/usr/bin/*; do
+            [ -f "$f" ] || continue
+            case "$(head -1 "$f")" in
+              *python*) python3 -m py_compile "$f" ;;
+              *bash*|*/sh*) bash -n "$f" ;;
+            esac
+          done
+          python3 -m py_compile prototype/eval-makes.py
+          for page in src/genesis-agentd/ui/*.html src/genesis-firstrun/ui/index.html; do
+            python3 - "$page" > /tmp/page.js <<'PY'
+          import re, sys
+          print("\n".join(re.findall(r"<script>([\s\S]*?)</script>", open(sys.argv[1]).read())))
+          PY
+            node --check /tmp/page.js || { echo "::error::JavaScript in $page does not parse"; exit 1; }
+          done
+          node --check system_files/usr/share/genesis/babel/extension/extension.js
+          for j in packs/*.json templates/*/genesis.json system_files/usr/share/genesis/*.json system_files/usr/share/genesis/mcp/*.json; do python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$j"; done
+
       - name: Policy file is in sync with the binary
         run: |
           cd src && cargo run -q --release -p genesis-permd -- --audit /tmp/a.jsonl policy dump > /tmp/policy.toml

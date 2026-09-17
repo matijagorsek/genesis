@@ -1,0 +1,41 @@
+name: prune-releases
+
+# Every build publishes a release with about 15 GB of disk images; nothing removed them, and there were
+# 122 after a week. This keeps the newest KEEP releases and every release whose tag does not look like a
+# rolling build (v0.2.NNN). It deletes nothing unless run by hand with dry_run set to false: removing
+# releases cannot be undone, so that decision stays with a person.
+
+on:
+  workflow_dispatch:
+    inputs:
+      keep:
+        description: 'how many of the newest rolling releases to keep'
+        default: '15'
+      dry_run:
+        description: 'true = only list what would be deleted'
+        default: 'true'
+
+permissions:
+  contents: write
+
+jobs:
+  prune:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: List, and delete when asked to
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KEEP: ${{ github.event.inputs.keep }}
+          DRY: ${{ github.event.inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          gh release list --repo ${{ github.repository }} --limit 1000 --json tagName,publishedAt \
+            --jq '[.[]|select(.tagName|test("^v0\\.[0-9]+\\.[0-9]+$"))]|sort_by(.publishedAt)|reverse|.[].tagName' > all.txt
+          total=$(wc -l < all.txt); tail -n +$((KEEP + 1)) all.txt > old.txt || true
+          echo "rolling releases: $total, keeping the newest $KEEP, candidates to delete: $(wc -l < old.txt)"
+          head -5 old.txt; echo "..."; tail -3 old.txt
+          if [ "$DRY" != "false" ]; then echo "dry run: nothing deleted"; exit 0; fi
+          while read -r tag; do
+            [ -n "$tag" ] || continue
+            gh release delete "$tag" --repo ${{ github.repository }} --yes --cleanup-tag && echo "deleted $tag"
+          done < old.txt

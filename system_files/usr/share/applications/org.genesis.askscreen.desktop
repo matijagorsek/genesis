@@ -7,3 +7,4 @@ Icon=genesis
 Terminal=false
 Categories=Utility;
 Keywords=screen;vision;region;question;
+NoDisplay=true

@@ -234,8 +234,7 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
     }
     // GETs that hand out a secret (the phone pairing payload carries the companion's bearer token) need
     // the token like every state-changing call; the status widget's reads (health, sessions) stay open
-    let secret_get = matches!(path.as_slice(), ["api", "companion"] | ["api", "backup"] | ["api", "policy", ..]);
-    if (method != Method::Get || secret_get) && header(&req, "X-Genesis-Token") != Some(d.token.as_str()) {
+    if (method != Method::Get || !open_get(&path)) && header(&req, "X-Genesis-Token") != Some(d.token.as_str()) {
         return req.respond(json_response(&serde_json::json!({"error": "unauthorized: missing Genesis token"}), 401)).map_err(|e| anyhow!(e));
     }
     let limit: usize = match path.as_slice() { ["api", "vision"] => 32 << 20, ["api", "transcribe"] => 16 << 20, _ => 1 << 20 };
@@ -1062,6 +1061,14 @@ fn page_token<'a>(d: &'a Daemon, req: &Request) -> &'a str {
     if header(req, "X-Genesis-Token").map(|t| t == d.token).unwrap_or(false) { &d.token } else { "" }
 }
 
+/// Deny by default: a GET needs the token unless it is one of these. The pages themselves (they carry no
+/// token on a bare GET), and the three reads the dock widget makes without one. Every new route is closed
+/// until someone adds it here on purpose.
+fn open_get(path: &[&str]) -> bool {
+    matches!(path, [""] | ["index.html"] | ["workspace"] | ["palette"] | ["chat"] | ["settings"] | ["favicon.ico"]
+        | ["api", "health"] | ["api", "system"] | ["api", "sessions"] | ["api", "sessions", _])
+}
+
 fn same_origin(req: &Request, listen: &str) -> bool {
     let host_ok = header(req, "Host").map(|h| h == listen).unwrap_or(false);
     let origin_ok = match header(req, "Origin") { None => true, Some(o) => o == format!("http://{}", listen) };
@@ -1163,6 +1170,14 @@ fn url_decode(s: &str) -> String {
 
 #[cfg(test)]
 mod query_tests {
+    #[test]
+    fn gets_are_closed_unless_listed() {
+        for open in [vec![""], vec!["palette"], vec!["api", "health"], vec!["api", "sessions"], vec!["api", "sessions", "abc"]] { assert!(super::open_get(&open), "{:?} should be open", open); }
+        for closed in [vec!["api", "companion"], vec!["api", "backup"], vec!["api", "policy", "rules"], vec!["api", "chats"], vec!["api", "chats", "x"], vec!["api", "queue"], vec!["api", "history", "t", "changes"], vec!["api", "mcp"], vec!["api", "activity"], vec!["api", "index"], vec!["api", "made"], vec!["api", "notices"], vec!["api", "phone"], vec!["api", "anything-new"]] {
+            assert!(!super::open_get(&closed), "{:?} must need the token", closed);
+        }
+    }
+
     #[test]
     fn decodes() { assert_eq!(super::url_decode("trip+to%20Lisbon%C3%A9%"), "trip to Lisboné%"); }
 }

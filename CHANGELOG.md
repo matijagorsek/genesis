@@ -3,6 +3,7 @@
 Derived from the decision log (`docs/decisions.md`); one line per decision, newest first. Versions are 0.2.N on the stable channel; 0.1.N before 2026-09-15.
 
 ## 2026-09-17
+- GET routes closed by default; CI parses every script and page; llama.cpp checksummed; nightly canary that opens an issue; release pruning (manual); one design system; distinct icons (decision 122)
 - A Stop button; the palette answers questions in chat and makes in the maker; the guide matches the screens; plain words instead of internals (decision 121)
 - Third evaluation 8 of 10; the maker now runs the program itself after a third rewrite without a run (decision 119)
 - Security audit of the new code: the agent cannot reach its own token or policy, broken rules cannot stop the daemon, documents read in chat make the network ask (decision 118)

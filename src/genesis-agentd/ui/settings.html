@@ -1,7 +1,7 @@
 <!doctype html>
-<html><head><meta charset="utf-8"><title>Genesis settings</title>
+<html lang="en"><head><meta charset="utf-8"><title>Genesis settings</title>
 <style>
-:root{--bg:#0b0f14;--panel:#161d27;--panel-2:#1d2631;--line:#232c37;--ink:#e6ebf1;--ink-2:#a9b4c1;--ink-3:#8894a3;--accent:#5fb5bd;--good:#6ccf94;--warn:#e0a84a;--bad:#e16060;--mono:ui-monospace,Menlo,monospace}
+:root{--bg:#10161e;--panel:#161d27;--panel-2:#1d2631;--ink:#e6ebf1;--ink-2:#a9b4c1;--ink-3:#8894a3;--muted:#8b98a8;--line:#232c37;--accent:#5fb5bd;--accent-ink:#08181a;--good:#6ccf94;--warn:#e0a84a;--bad:#ef7b7b;--second:#8b7cf6;--mono:ui-monospace,Menlo,Consolas,monospace}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-size:14px}
 header{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel)}header b{font-size:15px}header .sp{flex:1}
 button,select{font:inherit;color:var(--ink);background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer}button.primary{background:var(--accent);border-color:var(--accent);color:#08181a;font-weight:600}
@@ -16,6 +16,9 @@ table{width:100%;border-collapse:collapse;font-size:13px}td,th{text-align:left;p
   .diff{font-family:'IBM Plex Mono',monospace;font-size:12px;line-height:1.35;max-height:320px;overflow:auto;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px;white-space:pre-wrap}
   .diff .add{color:#4ade80} .diff .del{color:#f87171} .diff .ctx{color:var(--muted)}
   .file{margin:6px 0}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:8px 0}
+  .warn{color:var(--warn)}
 </style></head><body>
 <header><b>Genesis settings</b><span class="muted">Everything here is read from this computer.</span><span class="sp"></span><button id="back">Back to the maker</button></header>
 <main>

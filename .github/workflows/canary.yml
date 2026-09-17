@@ -1,6 +1,6 @@
 name: canary
 
-# Once a week: does a machine installed a while ago still update cleanly to today's image, and does
+# Every night: does a machine installed a while ago still update cleanly to today's image, and does
 # today's image still tell the first-run story? Takes a release from about a week back, boots it under
 # KVM, switches it to the stable channel, reboots, and checks what came up. Nothing is published; the
 # serial logs are attached as artifacts. A red canary means "look before the next release", not a
@@ -8,7 +8,7 @@ name: canary
 
 on:
   schedule:
-    - cron: '45 5 * * 3'
+    - cron: '45 5 * * *'
   workflow_dispatch:
     inputs:
       releases_back:
@@ -17,6 +17,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 jobs:
   upgrade-from-old:
@@ -92,3 +93,21 @@ jobs:
         with:
           name: canary-serial
           path: canary-serial.log
+      # A red canary holds the stable tag (see build-image.yml), and used to tell nobody. Now it opens an
+      # issue, or adds to the open one; a green canary closes it.
+      - name: Tell someone when the canary is red
+        if: failure() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          n=$(gh issue list --repo ${{ github.repository }} --state open --search "canary is red in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$n" ]; then gh issue comment "$n" --repo ${{ github.repository }} --body "Still red: $url"
+          else gh issue create --repo ${{ github.repository }} --title "The canary is red: the stable tag is held" --body "The nightly upgrade canary failed, so builds publish versioned tags only and installed machines stop getting updates until it is green again. Run: $url"; fi
+      - name: Close the alert when the canary is green again
+        if: success() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          n=$(gh issue list --repo ${{ github.repository }} --state open --search "canary is red in:title" --json number --jq '.[0].number // empty')
+          [ -z "$n" ] || gh issue close "$n" --repo ${{ github.repository }} --comment "Green again: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

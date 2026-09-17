@@ -128,12 +128,15 @@ COPY --from=whisperbuild /out/ /
 # Fedora's llama-cpp package is not used: it is months behind upstream, has no Vulkan backend, and pulls
 # the entire ROCm stack (+2.5 GB) into the image. CUDA/ROCm builds come via ramalama containers instead.
 ARG LLAMA_CPP_BUILD=b10901
+# the binary that reads every model file: checked like the other downloads (bump together with the build)
+ARG LLAMA_CPP_SHA256=77e5f9e724a5fd4c56a2f20483cf6b24db90c45583fab9703944a40d26b259e5
 COPY --from=llamabuild /out/ /
 RUN set -eux; \
     mkdir -p /usr/lib/genesis/llama.cpp; \
     if [ "${TARGETARCH:-amd64}" != arm64 ]; then \
-      curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 "https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_CPP_BUILD}/llama-${LLAMA_CPP_BUILD}-bin-ubuntu-vulkan-x64.tar.gz" \
-        | tar -xz -C /usr/lib/genesis/llama.cpp --strip-components=1; \
+      curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 -o /tmp/llama.tgz "https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_CPP_BUILD}/llama-${LLAMA_CPP_BUILD}-bin-ubuntu-vulkan-x64.tar.gz"; \
+      echo "${LLAMA_CPP_SHA256}  /tmp/llama.tgz" | sha256sum -c -; \
+      tar -xzf /tmp/llama.tgz -C /usr/lib/genesis/llama.cpp --strip-components=1; rm -f /tmp/llama.tgz; \
     fi; \
     for b in llama-server llama-cli llama-bench llama-embedding llama-quantize llama-mtmd-cli; do \
       [ -x "/usr/lib/genesis/llama.cpp/$b" ] || continue; \
