@@ -104,6 +104,9 @@ pub enum Event {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct SessionInfo {
+    /// Order of creation within this daemon (old finished sessions give up their previews first).
+    #[serde(default)]
+    pub seq: u64,
     pub id: String,
     pub mode: Mode,
     pub project: String,
@@ -281,6 +284,20 @@ impl Agent {
         }
     }
 
+    /// The small model has a 16k-token window; a long job overflowed it (a 400 from the model service
+    /// ended a make in the evaluation). Older tool output and file contents are cut to a line once the
+    /// conversation passes about 9k tokens; the last eight messages stay whole.
+    fn trim_context(&mut self) {
+        let total: usize = self.messages.iter().map(|m| m.content.as_deref().map(|c| c.len()).unwrap_or(0) + m.tool_calls.as_ref().map(|t| serde_json::to_string(t).map(|s| s.len()).unwrap_or(0)).unwrap_or(0)).sum();
+        if total < 36_000 { return; }
+        let keep_from = self.messages.len().saturating_sub(8);
+        for (i, m) in self.messages.iter_mut().enumerate() {
+            if i == 0 || i >= keep_from { continue; }
+            if m.role == "tool" { if let Some(c) = m.content.as_mut() { if c.len() > 300 { *c = format!("{}… [earlier output trimmed]", cut_at_char(c, 200)); } } }
+            if m.role == "assistant" { if let Some(calls) = m.tool_calls.as_mut() { for call in calls.iter_mut() { if call.function.arguments.len() > 400 { call.function.arguments = "{\"note\":\"earlier arguments trimmed\"}".into(); } } } }
+        }
+    }
+
     fn finish_stopped(&mut self) -> Result<String> {
         self.shared.push(Event::Assistant { text: "Stopped. What was made so far is kept; Undo takes it back.".into() });
         self.shared.set_state("done");
@@ -307,6 +324,7 @@ impl Agent {
         let mut final_text = String::new();
         for turn in 0..self.max_turns {
             if self.shared.stopped() { return self.finish_stopped(); }
+            self.trim_context();
             let started = Instant::now();
             let reply = match self.chat_or_stop(&tools) {
                 Ok(r) => {
@@ -371,8 +389,23 @@ impl Agent {
                 let result = if !chat && is_write && self.same_file_streak >= 3 {
                     let wrote = self.execute(&call.id, &call.function.name, &args);
                     let ran = self.execute(&call.id, "preview_start", &json!({}));
-                    self.writes_since_run = 0; self.same_file_streak = 0;
+                    self.same_file_streak = 0; // writes_since_run keeps counting: the hard stop still guards a model that never settles
                     let out = match ran { Ok(t) => t, Err(e) => format!("ERROR: {}", e) };
+                    // The evaluation showed the model keeps editing even with a clean run in front of it
+                    // (36 edits to a working word counter). So a clean run here is the end of the job:
+                    // Genesis says what was made and stops, instead of arguing with a 2B model.
+                    let clean = wrote.is_ok() && !["Traceback", "Error", "error:", "ERROR", "FAILED", "exit=1", "exit=2", "SyntaxError"].iter().any(|k| out.contains(k));
+                    if clean {
+                        self.shared.push(Event::ToolResult { id: call.id.clone(), ok: true, summary: out.chars().take(200).collect() });
+                        let url = self.shared.info.lock().unwrap().preview_url.clone();
+                        let text = format!("It is made and it runs without errors{}. Tell me what to change, or press Install to put it in your app menu.", url.map(|u| format!(" (preview: {})", u)).unwrap_or_default());
+                        self.shared.push(Event::Assistant { text: text.clone() });
+                        let _ = self.commit();
+                        if let Some(p) = self.active_project.clone() { maker::record_recipe(&p, None, &self.last_prompt.clone()); }
+                        self.shared.push(Event::Done { turns: turn + 1 });
+                        self.shared.set_state("done");
+                        return Ok(text);
+                    }
                     wrote.map(|w| format!("{}\n[You changed this file three times without running it, so Genesis ran it for you. Output:]\n{}\n[If this shows no error and does what the user asked, reply with the summary now. Otherwise fix only what this output shows.]", w, out.chars().take(1500).collect::<String>()))
                 } else { self.execute(&call.id, &call.function.name, &args) };
                 let (ok, mut text) = match result {

@@ -92,7 +92,7 @@ struct Daemon {
 }
 
 fn new_shared(id: &str, mode: Mode, project: &str, model: &str) -> Arc<Shared> {
-    Arc::new(Shared { stop: std::sync::atomic::AtomicBool::new(false), info: Mutex::new(SessionInfo { id: id.into(), mode, project: project.into(), model: model.into(), state: "idle".into(), events: vec![], pending: vec![], transaction: None, preview_url: None, active_project: None, network_uses: vec![] }), answers: Mutex::new(VecDeque::new()), cv: Condvar::new() })
+    Arc::new(Shared { stop: std::sync::atomic::AtomicBool::new(false), info: Mutex::new(SessionInfo { seq: SESSION_SEQ.fetch_add(1, std::sync::atomic::Ordering::SeqCst), id: id.into(), mode, project: project.into(), model: model.into(), state: "idle".into(), events: vec![], pending: vec![], transaction: None, preview_url: None, active_project: None, network_uses: vec![] }), answers: Mutex::new(VecDeque::new()), cv: Condvar::new() })
 }
 
 fn parse_mode(s: &str) -> Result<Mode> {
@@ -533,7 +533,7 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
             let list: Vec<serde_json::Value> = d.sessions.lock().unwrap().values().map(|(s, _)| { let i = s.info.lock().unwrap(); serde_json::json!({"id": i.id, "mode": i.mode, "project": i.project, "state": i.state, "transaction": i.transaction}) }).collect();
             json_response(&list, 200)
         }
-        (Method::Post, ["api", "sessions"]) => match serde_json::from_str::<NewSession>(&body) {
+        (Method::Post, ["api", "sessions"]) => { release_old_sessions(d); match serde_json::from_str::<NewSession>(&body) {
             Ok(n) => match (parse_mode(&n.mode), std::fs::canonicalize(if n.project.trim().is_empty() { default_project() } else { n.project.clone() })) {
                 (Ok(mode), Ok(project)) => {
                     let id = uuid::Uuid::new_v4().to_string();
@@ -550,7 +550,7 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
                 (_, Err(e)) => json_response(&serde_json::json!({"error": format!("project: {}", e)}), 400),
             },
             Err(_) => json_response(&serde_json::json!({"error": "expected {mode, project}"}), 400),
-        },
+        } },
         (Method::Get, ["api", "sessions", id]) => match d.sessions.lock().unwrap().get(*id) {
             Some((shared, _)) => json_response(&*shared.info.lock().unwrap(), 200),
             None => json_response(&serde_json::json!({"error": "no such session"}), 404),
@@ -894,6 +894,28 @@ fn run_queued(d: &Arc<Daemon>, item: &queue::Item) -> Result<()> {
     if q.items.is_empty() { q.start_now = false; }
     queue::save(&q);
     Ok(())
+}
+
+/// Finished sessions keep their steps (the list and the page still show them) but give up their agent:
+/// the preview servers and the headless browser behind it. Only the three most recent finished ones keep
+/// a live preview. Ten makes in a row otherwise pile up processes until the model service is killed
+/// for memory, which is what the evaluation of 17 Sep ran into.
+static SESSION_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+
+fn release_old_sessions(d: &Arc<Daemon>) {
+    let sessions = d.sessions.lock().unwrap();
+    let mut finished: Vec<(u64, &String)> = sessions.iter().filter_map(|(id, (shared, _))| {
+        let i = shared.info.lock().unwrap();
+        if i.state == "done" || i.state == "error" { Some((i.seq, id)) } else { None }
+    }).collect();
+    if finished.len() <= 3 { return; }
+    finished.sort_by_key(|(seq, _)| *seq); // oldest first
+    let n = finished.len() - 3;
+    for (_, id) in finished.into_iter().take(n) {
+        if let Some((shared, slot)) = sessions.get(id) {
+            if let Ok(mut g) = slot.try_lock() { if g.take().is_some() { shared.info.lock().unwrap().preview_url = None; } }
+        }
+    }
 }
 
 /// The user's always/never command rules (Settings > Always and never): kept as JSON, rendered into
