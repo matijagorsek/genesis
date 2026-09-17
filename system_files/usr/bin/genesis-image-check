@@ -11,8 +11,9 @@ for u in genesis-router.service; do [ -f "/usr/lib/systemd/system/$u" ] && ok "u
 [ -L /etc/systemd/system/multi-user.target.wants/genesis-router.service ] && ok "router service enabled" || fail "router service not enabled"
 # the model service must be able to open the GPU from inside its sandbox (a closed render node means CPU only, silently)
 grep -q "^DeviceAllow=char-drm" /usr/lib/systemd/system/genesis-router.service && ! grep -q "^DeviceAllow=/dev/dri" /usr/lib/systemd/system/genesis-router.service && ok "router device allow-list uses device classes (char-drm)" || fail "router unit allows /dev/dri by path: systemd ignores it and the GPU stays closed"
-node=$(ls /dev/dri/renderD* 2>/dev/null | head -1)
-if [ -n "$node" ] && [ "$(id -u)" = 0 ]; then
+node=$( (ls /dev/dri/renderD* 2>/dev/null || true) | head -1)
+# only on a booted system: the image build runs this script in a container, without systemd or a GPU
+if [ -n "$node" ] && [ "$(id -u)" = 0 ] && [ -d /run/systemd/system ]; then
   if systemd-run --quiet --wait --pipe -p User=genesis-ai -p "SupplementaryGroups=video render" -p DevicePolicy=closed -p "DeviceAllow=char-drm rw" python3 -c "import os;os.open('$node',os.O_RDWR)" >/dev/null 2>&1; then ok "the model service user can open the GPU ($node) inside the sandbox"
   else fail "genesis-ai cannot open $node inside the sandbox: models would run on the CPU"; fi
 fi
