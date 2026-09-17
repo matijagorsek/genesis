@@ -16,6 +16,9 @@
 #include <QWebEngineSettings>
 #include <QWebEngineView>
 #include <QWebEnginePage>
+#include <QWebEngineUrlRequestInterceptor>
+#include <QWebEngineUrlRequestInfo>
+#include <QStandardPaths>
 #if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
 #include <QWebEnginePermission>
 #endif
@@ -24,6 +27,28 @@
 #include <QIcon>
 #include <QScreen>
 #include <QGuiApplication>
+
+// The maker's pages get their API token from this window, never from the daemon on a bare GET: a
+// sandboxed shell with network access shares the loopback interface and could otherwise fetch the page,
+// read the token out of it and answer its own permission cards. The token file lives under
+// XDG_RUNTIME_DIR, which the sandbox does not see (it has a tmpfs over /run).
+class TokenInterceptor : public QWebEngineUrlRequestInterceptor {
+public:
+    explicit TokenInterceptor(QByteArray t, QObject *parent) : QWebEngineUrlRequestInterceptor(parent), token(std::move(t)) {}
+    void interceptRequest(QWebEngineUrlRequestInfo &info) override {
+        const QUrl u = info.requestUrl();
+        if (!token.isEmpty() && u.host() == "127.0.0.1" && u.port() == 11520) info.setHttpHeader("X-Genesis-Token", token);
+    }
+private:
+    QByteArray token;
+};
+
+static QByteArray agentdToken() {
+    QString dir = qEnvironmentVariable("XDG_RUNTIME_DIR");
+    if (dir.isEmpty()) dir = QStandardPaths::writableLocation(QStandardPaths::RuntimeLocation);
+    QFile f(dir + "/genesis/agentd.token");
+    return f.open(QIODevice::ReadOnly) ? f.readAll().trimmed() : QByteArray();
+}
 
 static bool reachable(const QString &url) {
     QProcess p;
@@ -81,6 +106,7 @@ int main(int argc, char **argv) {
         view->page()->setFeaturePermission(o, f, (f == QWebEnginePage::MediaAudioCapture && o.host() == "127.0.0.1") ? QWebEnginePage::PermissionGrantedByUser : QWebEnginePage::PermissionDeniedByUser);
     });
 #endif
+    view->page()->profile()->setUrlRequestInterceptor(new TokenInterceptor(agentdToken(), win));
     view->load(QUrl(url));
     win->setCentralWidget(view);
     // a comfortable window, not a screen-filling one: 78% of the screen, capped, centered

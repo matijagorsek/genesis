@@ -75,16 +75,19 @@ def search_apps(a):
     code, out = run(["flatpak", "search", "--columns=application,name,description", q], timeout=180)
     return out or f"nothing on Flathub matches {q!r}"
 
+# an application id, never an option: "--all" as an id would have removed every app behind one card
+APP_ID = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]{2,120}$")
+
 def install_app(a):
     app = (a.get("app_id") or "").strip()
-    if not app or " " in app: return "give a Flatpak application id like org.videolan.VLC (use search_apps first)"
-    code, out = run(["flatpak", "install", "--user", "--noninteractive", "-y", "flathub", app], timeout=1800)
+    if not APP_ID.match(app): return "give a Flatpak application id like org.videolan.VLC (use search_apps first)"
+    code, out = run(["flatpak", "install", "--user", "--noninteractive", "-y", "flathub", "--", app], timeout=1800)
     return ("installed " + app if code == 0 else "install failed:\n" + out)
 
 def remove_app(a):
     app = (a.get("app_id") or "").strip()
-    if not app or " " in app: return "give the Flatpak application id (see installed_apps)"
-    code, out = run(["flatpak", "uninstall", "--user", "--noninteractive", "-y", app], timeout=600)
+    if not APP_ID.match(app): return "give the Flatpak application id (see installed_apps)"
+    code, out = run(["flatpak", "uninstall", "--user", "--noninteractive", "-y", "--", app], timeout=600)
     return ("removed " + app if code == 0 else "remove failed:\n" + out)
 
 def set_theme(a):

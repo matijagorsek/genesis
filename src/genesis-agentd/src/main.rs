@@ -104,7 +104,14 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     let mut sources = default_policy_sources();
     sources.extend(cli.policy.iter().cloned());
-    let policy = Policy::load(&sources)?;
+    let policy = match Policy::load(&sources) {
+        Ok(p) => p,
+        Err(e) => {
+            tracing::error!(%e, "the policy did not load with the user's overlay; starting with the image's policy only");
+            let system_only: Vec<std::path::PathBuf> = sources.iter().filter(|p| !genesis_permd::policy::home_dir().map(|h| p.starts_with(&h)).unwrap_or(false)).cloned().collect();
+            Policy::load(&system_only)?
+        }
+    };
     let audit = cli.audit.clone().unwrap_or_else(default_audit_path);
     let broker = Arc::new(Mutex::new(Broker::new(policy, &audit)?));
 
@@ -225,7 +232,10 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
     if !same_origin(&req, &d.listen) {
         return req.respond(json_response(&serde_json::json!({"error": "forbidden: not a Genesis origin"}), 403)).map_err(|e| anyhow!(e));
     }
-    if method != Method::Get && header(&req, "X-Genesis-Token") != Some(d.token.as_str()) {
+    // GETs that hand out a secret (the phone pairing payload carries the companion's bearer token) need
+    // the token like every state-changing call; the status widget's reads (health, sessions) stay open
+    let secret_get = matches!(path.as_slice(), ["api", "companion"] | ["api", "backup"] | ["api", "policy", ..]);
+    if (method != Method::Get || secret_get) && header(&req, "X-Genesis-Token") != Some(d.token.as_str()) {
         return req.respond(json_response(&serde_json::json!({"error": "unauthorized: missing Genesis token"}), 401)).map_err(|e| anyhow!(e));
     }
     let limit: usize = match path.as_slice() { ["api", "vision"] => 32 << 20, ["api", "transcribe"] => 16 << 20, _ => 1 << 20 };
@@ -254,11 +264,11 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
         return req.respond(resp).map_err(|e| anyhow!(e));
     }
     let resp = match (method, path.as_slice()) {
-        (Method::Get, [""]) | (Method::Get, ["index.html"]) | (Method::Get, ["workspace"]) => Response::from_string(WORKSPACE_HTML.replace("__GENESIS_TOKEN__", &d.token)).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
+        (Method::Get, [""]) | (Method::Get, ["index.html"]) | (Method::Get, ["workspace"]) => Response::from_string(WORKSPACE_HTML.replace("__GENESIS_TOKEN__", page_token(d, &req))).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
         (Method::Get, ["api", "health"]) => json_response(&serde_json::json!({"ok": true, "endpoint": d.endpoint, "router_ok": router_ok(&d.endpoint), "model": served_model(&d.endpoint, &d.model), "sandbox": sandbox::bwrap_available(), "voice": voice::available(), "speech": voice::speech_available(), "default_project": default_project(), "default_mode": read_user_settings().get("default_mode").and_then(|m| m.as_str()).unwrap_or("auto_edit")}), 200),
         (Method::Get, ["api", "templates"]) => json_response(&maker::list_templates(), 200),
-        (Method::Get, ["palette"]) => Response::from_string(PALETTE_HTML.replace("__GENESIS_TOKEN__", &d.token)).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
-        (Method::Get, ["chat"]) => Response::from_string(CHAT_HTML.replace("__GENESIS_TOKEN__", &d.token)).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
+        (Method::Get, ["palette"]) => Response::from_string(PALETTE_HTML.replace("__GENESIS_TOKEN__", page_token(d, &req))).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
+        (Method::Get, ["chat"]) => Response::from_string(CHAT_HTML.replace("__GENESIS_TOKEN__", page_token(d, &req))).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
         (Method::Get, ["api", "chat-templates"]) => json_response(&chat::templates(), 200),
         (Method::Post, ["api", "chat-templates"]) => match serde_json::from_str::<serde_json::Value>(&body) {
             Ok(v) => match chat::save_template(v.get("title").and_then(|t| t.as_str()).unwrap_or(""), v.get("text").and_then(|t| t.as_str()).unwrap_or("")) {
@@ -319,7 +329,7 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
             (None, _) => json_response(&serde_json::json!({"error": "no such chat"}), 404),
             (_, Err(_)) => json_response(&serde_json::json!({"error": "expected {text, attachments?}"}), 400),
         },
-        (Method::Get, ["settings"]) => Response::from_string(SETTINGS_HTML.replace("__GENESIS_TOKEN__", &d.token)).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
+        (Method::Get, ["settings"]) => Response::from_string(SETTINGS_HTML.replace("__GENESIS_TOKEN__", page_token(d, &req))).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
         (Method::Get, ["api", "system"]) => json_response(&system_overview(d), 200),
         (Method::Post, ["api", "system", "theme"]) => {
             let want = serde_json::from_str::<serde_json::Value>(&body).ok().and_then(|v| v.get("theme").and_then(|m| m.as_str()).map(|s| s.to_string())).unwrap_or_else(|| "toggle".into());
@@ -876,6 +886,15 @@ fn user_rules() -> Vec<serde_json::Value> {
 fn save_user_rules(d: &Arc<Daemon>, rules: &[serde_json::Value]) -> Result<()> {
     let dir = user_rules_path().parent().map(|p| p.to_path_buf()).unwrap_or_default();
     std::fs::create_dir_all(&dir)?;
+    // a pattern is plain printable text with * as the only special character: anything else could write
+    // a policy file that no longer parses, and a daemon that cannot load its policy does not start
+    for r in rules {
+        let pat = r.get("pattern").and_then(|x| x.as_str()).unwrap_or("");
+        if pat.is_empty() || pat.chars().any(|c| c.is_control() || matches!(c, '[' | ']' | '{' | '}' | '\\' | '"')) || !pat.is_ascii() {
+            return Err(anyhow!("a pattern is plain text with * as the wildcard; brackets, braces, quotes and backslashes are not allowed"));
+        }
+    }
+    let (old_json, old_toml) = (std::fs::read(user_rules_path()).ok(), std::fs::read(dir.join("policy.toml")).ok());
     std::fs::write(user_rules_path(), serde_json::to_string_pretty(rules)?)?;
     let mut toml = String::from("# Written by Genesis Settings (Always and never). Edit there, not here.\n\n");
     for r in rules {
@@ -885,8 +904,13 @@ fn save_user_rules(d: &Arc<Daemon>, rules: &[serde_json::Value]) -> Result<()> {
         toml.push_str(&format!("[[commands]]\nid = {:?}\npatterns = [{:?}]\ntier = {:?}\nreason = {:?}\n\n", id, pattern, tier, reason));
     }
     std::fs::write(dir.join("policy.toml"), toml)?;
-    let policy = genesis_permd::Policy::load(&genesis_permd::default_policy_sources())?;
-    d.broker.lock().unwrap().reload_policy(policy)?;
+    let loaded = genesis_permd::Policy::load(&genesis_permd::default_policy_sources()).and_then(|p| d.broker.lock().unwrap().reload_policy(p));
+    if let Err(e) = loaded {
+        // put back what was there: a bad rule must never survive to the next start
+        match old_json { Some(b) => { let _ = std::fs::write(user_rules_path(), b); } None => { let _ = std::fs::remove_file(user_rules_path()); } }
+        match old_toml { Some(b) => { let _ = std::fs::write(dir.join("policy.toml"), b); } None => { let _ = std::fs::remove_file(dir.join("policy.toml")); } }
+        return Err(anyhow!("that rule does not load, nothing was changed: {}", e));
+    }
     Ok(())
 }
 
@@ -1023,6 +1047,13 @@ fn header<'a>(req: &'a Request, name: &'static str) -> Option<&'a str> {
     req.headers().iter().find(|h| h.field.equiv(name)).map(|h| h.value.as_str())
 }
 /// Same origin only: Host is ours; Origin, when a browser sends one, is ours; Sec-Fetch-Site is not cross-site.
+/// The token goes into a page only when the request already proves it knows the token (the Genesis
+/// window adds the header from the runtime directory). A bare GET, which a sandboxed shell with network
+/// access can make over the shared loopback, gets a page that cannot change anything.
+fn page_token<'a>(d: &'a Daemon, req: &Request) -> &'a str {
+    if header(req, "X-Genesis-Token").map(|t| t == d.token).unwrap_or(false) { &d.token } else { "" }
+}
+
 fn same_origin(req: &Request, listen: &str) -> bool {
     let host_ok = header(req, "Host").map(|h| h == listen).unwrap_or(false);
     let origin_ok = match header(req, "Origin") { None => true, Some(o) => o == format!("http://{}", listen) };

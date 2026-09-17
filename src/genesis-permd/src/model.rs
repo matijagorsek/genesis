@@ -159,6 +159,10 @@ pub struct Session {
     pub project_roots: Vec<String>,
     /// Once the session has read untrusted content (web page, downloaded file), W2 and above prompt regardless of mode.
     pub tainted: bool,
+    /// Once the session has read the user's own documents (outside the project), going online asks
+    /// first: what was read must not leave the machine on the word of a hostile file.
+    #[serde(default)]
+    pub holds_private: bool,
 }
 
 impl Session {
@@ -168,6 +172,7 @@ impl Session {
             mode,
             project_roots,
             tainted: false,
+            holds_private: false,
         }
     }
 }

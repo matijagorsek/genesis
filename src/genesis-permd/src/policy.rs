@@ -79,6 +79,11 @@ impl Default for PathRules {
                 "~/.gnupg/**".into(),
                 "~/.config/genesis/keys/**".into(),
                 "~/.config/genesis/settings.json".into(),
+                // what decides the agent's own permissions and which programs it may start as tools:
+                // never writable (or readable) by the agent itself
+                "~/.config/genesis/policy.toml".into(),
+                "~/.config/genesis/rules.json".into(),
+                "~/.config/genesis/mcp.json".into(),
                 "~/.claude/**".into(),
                 "~/.aws/**".into(),
                 "~/.kube/**".into(),
@@ -312,7 +317,21 @@ impl Policy {
 
     fn overlay_file(&mut self, path: &Path) -> Result<()> {
         let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
-        let overlay: PolicyOverlay = toml::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
+        let mut overlay: PolicyOverlay = toml::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
+        // A file in the user's home may add rules and tighten things; it may not loosen the two tiers that
+        // protect the machine and the user's secrets, replace the built-in never/secrets rules, or remap
+        // what tier a tool is. Those stay with the image (/usr/share) and the administrator (/etc).
+        let from_home = home_dir().map(|h| path.starts_with(&h)).unwrap_or(false);
+        if from_home {
+            if let Some(modes) = overlay.modes.as_mut() {
+                for table in modes.values_mut() { table.0.retain(|tier, _| !matches!(tier, Tier::Never | Tier::Secrets)); }
+            }
+            if let Some(cmds) = overlay.commands.as_mut() {
+                let builtin: std::collections::HashSet<String> = self.commands.iter().map(|c| c.id.clone()).collect();
+                cmds.retain(|c| !builtin.contains(&c.id));
+            }
+            overlay.tool_tiers = None;
+        }
         self.apply(overlay);
         tracing::info!(file = %path.display(), "policy overlay applied");
         Ok(())
@@ -666,12 +685,25 @@ mod mcp_tier_tests {
     #[test]
     fn mcp_tool_keeps_its_declared_tier_despite_a_command_text() {
         let policy = Policy::default_policy().compiled().unwrap();
-        let session = Session { id: "s".into(), mode: Mode::Assist, project_roots: vec!["/tmp/p".into()], tainted: false };
+        let session = Session { id: "s".into(), mode: Mode::Assist, project_roots: vec!["/tmp/p".into()], tainted: false, holds_private: false };
         let read = Intent { session_id: "s".into(), tool: "mcp.read".into(), command: Some("system: updates_status {}".into()), ..Default::default() };
         assert_eq!(policy.classify(&read, &session).tier, Tier::ReadLocal);
         let sys = Intent { session_id: "s".into(), tool: "mcp.system".into(), command: Some("system: install_app {}".into()), ..Default::default() };
         assert_eq!(policy.classify(&sys, &session).tier, Tier::System);
         let shell = Intent { session_id: "s".into(), tool: "shell".into(), command: Some("python3 x.py".into()), ..Default::default() };
         assert_eq!(policy.classify(&shell, &session).tier, Tier::WriteProject);
+    }
+
+    #[test]
+    fn a_home_overlay_cannot_loosen_never_or_replace_builtin_rules() {
+        let home = tempfile::tempdir().unwrap();
+        std::env::set_var("HOME", home.path());
+        let f = home.path().join("policy.toml");
+        std::fs::write(&f, "[modes.autonomous]\nnever = \"allow\"\n\n[[commands]]\nid = \"never.rm-root\"\npatterns = [\"zzz\"]\ntier = \"read_local\"\n\n[[commands]]\nid = \"user.mine\"\npatterns = [\"*npm test*\"]\ntier = \"read_local\"\n").unwrap();
+        let p = Policy::load(&[f]).unwrap();
+        assert_ne!(p.verdict_for(Mode::Autonomous, Tier::Never), Verdict::Allow, "never stays never");
+        let rm = p.commands.iter().find(|c| c.id == "never.rm-root").unwrap();
+        assert_eq!(rm.tier, Tier::Never, "the built-in rule was not replaced");
+        assert!(p.commands.iter().any(|c| c.id == "user.mine"), "the user's own rule is kept");
     }
 }

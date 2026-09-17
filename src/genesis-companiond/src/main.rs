@@ -180,7 +180,7 @@ fn handle(req: &mut Request, pairing: &Pairing, agentd: &str) -> Response<std::i
                 let ok = spawn_detached("xdg-open", &[&text]);
                 json(&serde_json::json!({"ok": ok, "opened": "browser"}), 200)
             } else {
-                let url = format!("http://127.0.0.1:11520/?prompt={}", urlencode(&text));
+                let url = format!("http://127.0.0.1:11520/?draft={}", urlencode(&text));
                 let ok = spawn_detached("genesis-window", &[&url]);
                 json(&serde_json::json!({"ok": ok, "opened": "palette"}), 200)
             }

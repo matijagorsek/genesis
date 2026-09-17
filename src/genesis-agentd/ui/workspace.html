@@ -311,7 +311,7 @@ body.listening header{box-shadow:inset 0 -2px 0 var(--accent)}body.listening tex
   const STARTERS=['a checklist app that saves to a file','a pomodoro timer with a bell','a script that renames photos in a folder by date taken','a simple website for a club with three pages','a word-count tool for text files'];
   (function(){const el=document.getElementById('starters');STARTERS.forEach(t=>{const b=document.createElement('button');b.className='starter';b.textContent=tr(t);b.addEventListener('click',()=>{$('#ask').value=t;make(t)});el.appendChild(b)})})();
   fetch('/api/claude').then(r=>r.json()).then(c=>{window.__claude=!!c.installed}).catch(()=>{});
-  health().then(async()=>{await templates();await recent();await made();await noticesLoad();localise();if(q.get('project'))$('#project').value=q.get('project');if(q.get('prompt')){make(q.get('prompt'))}});
+  health().then(async()=>{await templates();await recent();await made();await noticesLoad();localise();if(q.get('project'))$('#project').value=q.get('project');if(q.get('prompt')){make(q.get('prompt'))}else if(q.get('draft')){/* text that came from outside (the phone's share): shown, never run on its own */$('#ask').value=q.get('draft');$('#ask').focus()}});
   localise();
 })();
 </script>

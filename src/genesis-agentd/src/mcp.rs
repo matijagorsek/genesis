@@ -244,7 +244,13 @@ pub fn tier_of(server: &str, tool: &str) -> String {
     let r = registry().lock().unwrap();
     r.live.get(server).and_then(|l| l.tools.iter().find(|t| t.name == tool)).map(|t| t.tier.clone())
         .or_else(|| r.configs.get(server).map(|(c, _)| c.tiers.get(tool).cloned().unwrap_or_else(|| c.tier.clone())))
-        .unwrap_or_else(|| "write".into())
+        .map(|t| known_tier(&t))
+        .unwrap_or_else(|| "system".into())
+}
+
+/// A tier the broker knows, or "system" (asks in every mode): a typo in a config must not fail open.
+fn known_tier(t: &str) -> String {
+    match t.trim().to_lowercase().as_str() { k @ ("read" | "network" | "write" | "system" | "never") => k.to_string(), _ => "system".into() }
 }
 
 /// Call a tool; the text content of the result, joined.
@@ -265,7 +271,7 @@ pub fn call(server: &str, tool: &str, args: &Value) -> Result<String> {
     }).collect::<Vec<_>>().join("\n")).unwrap_or_default();
     if text.is_empty() { text = res.get("structuredContent").map(|s| s.to_string()).unwrap_or_else(|| "(no output)".into()); }
     if res.get("isError").and_then(|e| e.as_bool()).unwrap_or(false) { return Err(anyhow!("{}", text)); }
-    if text.len() > 60_000 { text.truncate(60_000); text.push_str("\n…[truncated]"); }
+    if text.len() > 60_000 { let n = crate::agent::cut_at_char(&text, 60_000).len(); text.truncate(n); text.push_str("\n…[truncated]"); }
     Ok(text)
 }
 

@@ -211,6 +211,14 @@ fn maker_entry(project: &Path) -> String {
         .unwrap_or_else(|| "app.py".into())
 }
 
+/// The first `max` bytes of a string, cut back to a character boundary (a byte slice panics inside a
+/// multi-byte character, which any German or Slovenian document over the limit would hit).
+pub(crate) fn cut_at_char(s: &str, max: usize) -> &str {
+    if s.len() <= max { return s; }
+    let mut i = max; while !s.is_char_boundary(i) { i -= 1; }
+    &s[..i]
+}
+
 fn resolve_path(project: &Path, p: &str) -> PathBuf {
     let path = Path::new(p);
     if path.is_absolute() { path.to_path_buf() } else { project.join(path) }
@@ -571,6 +579,7 @@ impl Agent {
                 Ok(out)
             }
             "search_files" => {
+                let _ = self.broker.lock().unwrap().mark_private(&self.session_id);
                 let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(8).clamp(1, 20).to_string();
                 let out = std::process::Command::new("/usr/bin/genesis-index").args(["search", &s("query"), "--json", "-n", &limit]).output()
                     .map_err(|e| anyhow!("genesis-index: {}", e))?;
@@ -579,6 +588,7 @@ impl Agent {
                 Ok(hits.iter().map(|h| format!("{}\n    {}", h["path"].as_str().unwrap_or(""), h["snippet"].as_str().unwrap_or(""))).collect::<Vec<_>>().join("\n"))
             }
             "read_document" => {
+                let _ = self.broker.lock().unwrap().mark_private(&self.session_id);
                 let p = resolve_path(&self.project, &s("path"));
                 if !p.is_file() { return Err(anyhow!("{}: no such file", p.display())); }
                 let lower = p.display().to_string().to_lowercase();
@@ -593,7 +603,7 @@ impl Agent {
                     if text.trim().is_empty() { return Ok(format!("{}: no text could be read from it", p.display())); }
                     text = format!("[text read from the image by the local vision model]\n{}", text);
                 }
-                Ok(if text.len() > 60_000 { format!("{}\n…[truncated, {} characters total]", &text[..60_000], text.len()) } else { text })
+                Ok(if text.len() > 60_000 { format!("{}\n…[truncated, {} characters total]", cut_at_char(&text, 60_000), text.len()) } else { text })
             }
             "read_file" | "write_file" | "edit_file" | "list_dir" if s("path").trim().is_empty() => {
                 Err(anyhow!("{} needs a path: give the file name, for example {}", name, self.active_project.as_ref().unwrap_or(&self.project).join("app.py").display()))
@@ -605,7 +615,7 @@ impl Agent {
             "read_file" => {
                 let p = resolve_path(&self.project, &s("path"));
                 let text = std::fs::read_to_string(&p).map_err(|e| anyhow!("{}: {}", p.display(), e))?;
-                Ok(if text.len() > 60_000 { format!("{}\n…[truncated, {} bytes total]", &text[..60_000], text.len()) } else { text })
+                Ok(if text.len() > 60_000 { format!("{}\n…[truncated, {} bytes total]", cut_at_char(&text, 60_000), text.len()) } else { text })
             }
             "write_file" => {
                 let p = resolve_path(&self.project, &s("path"));
