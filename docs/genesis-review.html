@@ -1,0 +1,103 @@
+<title>Genesis Review</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root{--bg:#f4f6f9;--panel:#ffffff;--line:#d9dfe7;--ink:#0f1720;--muted:#5a6675;--accent-ink:#0b6e61;--second:#6d5ce6;--warn:#b7791f;--ok:#1c8a4a;--bad:#b42318;--code:#eef2f6}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0d1117;--panel:#141a22;--line:#233040;--ink:#e6edf3;--muted:#8b98a8;--accent-ink:#2dd4bf;--second:#a394ff;--warn:#f0b04a;--ok:#4ade80;--bad:#f87171;--code:#0b0f14}}
+  :root[data-theme="dark"]{--bg:#0d1117;--panel:#141a22;--line:#233040;--ink:#e6edf3;--muted:#8b98a8;--accent-ink:#2dd4bf;--second:#a394ff;--warn:#f0b04a;--ok:#4ade80;--bad:#f87171;--code:#0b0f14}
+  body{background:var(--bg);color:var(--ink);font:15px/1.6 Inter,system-ui,sans-serif;margin:0}
+  main{max-width:80ch;margin:0 auto;padding:40px 20px 80px}
+  .kicker{color:var(--accent-ink);font-weight:600;text-transform:uppercase;letter-spacing:.08em;font-size:12px}
+  h1{font-size:32px;line-height:1.15;margin:4px 0 8px;letter-spacing:-.01em;text-wrap:balance}
+  .lede{font-size:17px;color:var(--muted);margin:0 0 24px;text-wrap:balance}
+  h2{font-size:21px;margin:44px 0 10px;letter-spacing:-.01em}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:14px 0}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .stat b{display:block;font-size:24px;font-variant-numeric:tabular-nums}
+  .stat span{color:var(--muted);font-size:13px}
+  .item{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:12px;padding:12px 16px;margin:10px 0}
+  .item.good{border-left-color:var(--ok)} .item.bad{border-left-color:var(--bad)} .item.miss{border-left-color:var(--warn)} .item.wow{border-left-color:var(--second)}
+  .item h3{font-size:15.5px;margin:0 0 3px;display:flex;gap:8px;flex-wrap:wrap;align-items:baseline}
+  .item p{margin:3px 0;color:var(--ink)}
+  .ev{color:var(--muted);font-size:13px}
+  .pill{font-size:12px;padding:1px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted);white-space:nowrap;font-weight:500}
+  code{font-family:'IBM Plex Mono',monospace;font-size:13px;background:var(--code);padding:1px 5px;border-radius:5px}
+  .wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--panel);margin:12px 0}
+  table{border-collapse:collapse;width:100%;font-size:14px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  tr:last-child td{border-bottom:0}
+  .small{color:var(--muted);font-size:13px}
+</style>
+<main>
+<div class="kicker">Genesis · review · 17 September 2026</div>
+<h1>What is good, what is bad, what is missing, and what would be new</h1>
+<p class="lede">Two independent reads of the repository, one as a first-time user looking at the real screens, one as an engineer looking at how it is built. Every claim below was checked against the code or the release list before it went on this page.</p>
+
+<div class="grid">
+  <div class="stat"><b>7,852</b><span>lines of Rust, 62 tests; zero tests for Python, JS, Kotlin, C++</span></div>
+  <div class="stat"><b>63</b><span>HTTP routes in one 1,160-line file, none with a route test</span></div>
+  <div class="stat"><b>122</b><span>releases at about 15 GB each; nothing prunes them</span></div>
+  <div class="stat"><b>13 / 6</b><span>desktop entries and global shortcuts Genesis adds</span></div>
+  <div class="stat"><b>8 / 10</b><span>makes on the 2B model, three runs in a row</span></div>
+  <div class="stat"><b>0</b><span>ways to stop a running job</span></div>
+</div>
+
+<h2>1 · Good: what a user would really notice</h2>
+<div class="item good"><h3>Permission cards in plain verbs, with the safe button focused</h3><p>"Genesis wants to install software", Allow once / Not now, as a proper alert dialog, the same card on the phone. Neither Copilot nor any Ollama front end does this.</p></div>
+<div class="item good"><h3>The plan card and the inspectable undo</h3><p>Four chips for what a job will touch before it runs; afterwards a per-file diff with "Restore just this file". No desktop assistant on Windows or macOS shows you what it changed.</p></div>
+<div class="item good"><h3>It is honest about the hardware</h3><p>The small-model warning, "still working, 40 s, not waiting on anything", measured tokens per second in Settings, a live "no network used" badge that matches the dock widget.</p></div>
+<div class="item good"><h3>Spoken risky words need Enter; text from the phone is a draft</h3><p>Two cheap, correct safety decisions that most voice products skip.</p></div>
+<div class="item good"><h3>The broker is the best-tested code, and CI is real</h3><p>24 broker tests, the policy dumped and diffed on every build, a serial-console boot test, a weekly upgrade canary, a scored ten-make evaluation, signed images, base images pinned by digest. The decision log records failures as plainly as successes.</p></div>
+
+<h2>2 · Bad: what would embarrass us in front of a reviewer</h2>
+<div class="item bad"><h3>There is no Stop button <span class="pill">fix first</span></h3><p>A make can run for six minutes and the daemon has no stop, cancel or interrupt anywhere. This is the first complaint of the first day.</p></div>
+<div class="item bad"><h3>The guide promises things the screens do not have</h3><p>"Allow for this project" (only Allow once exists), modes called Assist / Auto edit (the UI says Ask / Trusted / Hands-off), an "Apply at next restart" click (no such button), cloud keys "configure later in Settings" (no place to enter them), a "session summary" that does not exist.</p></div>
+<div class="item bad"><h3>The palette turns every question into a build job</h3><p>The guide says the answer appears in the same window; the code always redirects to the maker. "What is the capital of…" gets a plan card and a project folder. Nothing routes between asking and making.</p></div>
+<div class="item bad"><h3>Two design systems, one undefined colour</h3><p>Chat has its own palette, font and button style; the maker and Settings use another; backgrounds differ page to page; the maker uses <code>--muted</code> without defining it, and Settings uses three classes that have no CSS.</p></div>
+<div class="item bad"><h3>Too many doors, all with the same icon</h3><p>13 desktop entries, 6 global shortcuts, 3 more in Babel, one in the terminal; four identical ring icons in the dock. The maker start page stacks fifteen blocks; a gallery card has seven buttons.</p></div>
+<div class="item bad"><h3>Jargon and raw internals on screen</h3><p><code>sandbox: bubblewrap</code>, "MCP", "server", "tier", "Role", <code>/var/lib/genesis/models</code>, <code>running · auto_edit</code>, tool calls as raw JSON, undo history listed by job id instead of by what was asked.</p></div>
+<div class="item bad"><h3>Paths typed by hand on a desktop OS; native alert boxes for errors</h3><p>Files to search, backup restore and chat attachments are text fields for an absolute path. Errors are <code>alert()</code>, a bare "Failed", or a "‼" chip. Chat's microphone posts a different audio format than the other pages.</p></div>
+<div class="item bad"><h3>Every push ships to users, and CI is the only test bed</h3><p>A push to main moves the tag installed machines update to, gated only by a weekly canary. About 90 human commits in three days, three of the last nine builds red, each failure found after a 90-minute wait. A red canary holds the stable tag silently; a green one from six days ago vouches for today.</p></div>
+<div class="item bad"><h3>The UI is 160 KB of untested one-line JavaScript</h3><p>The maker page has a line 10,056 characters long. No lint, no syntax check in CI, no diffable history. The 2 tests for the 709-line policy file and the 1 test for the agent loop are in the same category: the most intricate behaviour is the least tested.</p></div>
+<div class="item bad"><h3>Security is still one token on loopback</h3><p>Yesterday's audit closed the holes it found, but the structure invites the next one: 25 GET routes with a hand-kept list of which need the token, a shell that shares the loopback when it has network, an unauthenticated Ollama door, tools that run as the user. Moving the APIs to Unix sockets under the runtime directory removes that whole class at once.</p></div>
+
+<h2>3 · Missing: what a normal person expects in the first week</h2>
+<div class="wrap"><table>
+<tr><th>Missing</th><th>Why it bites</th><th>Effort</th></tr>
+<tr><td>Stop, and a view of what is running</td><td>The widget counts all sessions, not the active ones</td><td>S</td></tr>
+<tr><td>Model management</td><td>No way to switch or delete a pack, see disk use, or know which model answered; the small-model note points to a Settings page that cannot install packs</td><td>M</td></tr>
+<tr><td>Feedback on a bad answer</td><td>No retry, no "try the bigger model", no copy button in chat, no thumbs-down that lands anywhere</td><td>S</td></tr>
+<tr><td>Onboarding after first run</td><td>Six shortcuts nobody is taught; the guide is a file in a repository, not in the app</td><td>S</td></tr>
+<tr><td>Off switches</td><td>Morning card, proactive notices, phone watcher, the demo: none can be turned off or given quiet hours</td><td>S</td></tr>
+<tr><td>What changed in this update</td><td>Settings shows a build date, no notes, no restart or rollback button</td><td>S</td></tr>
+<tr><td>What is stored, and delete it</td><td>Chats, the index, the audit log, voice audio: nowhere explained after the wizard, no "delete my chats"</td><td>S</td></tr>
+<tr><td>Project lifecycle</td><td>Made here cannot delete, rename, uninstall from the menu or show in the file manager</td><td>S</td></tr>
+<tr><td>File pickers and drag and drop</td><td>Including "Ask Genesis about this file" in Dolphin's right-click menu</td><td>S</td></tr>
+<tr><td>A light theme for the Genesis pages</td><td>Day / night exists for the desktop; the five Genesis pages are dark only</td><td>M</td></tr>
+<tr><td>Release pruning, a staging channel, local image builds</td><td>1.5 to 2 TB of release assets and growing by ten a day; no way to test an image before users get it</td><td>M</td></tr>
+</table></div>
+
+<h2>4 · New: ten "wait, what?" ideas not in the current plan</h2>
+<p class="small">Each builds on code that exists, fits a small local model, and shows in fifteen seconds. Most exploit being the operating system, which an app cannot.</p>
+<div class="item wow"><h3>1. Right-click a file, "Make a tool for this" <span class="pill">S</span></h3><p>A CSV becomes a viewer, a photo folder a gallery. A Dolphin service menu plus the draft and project parameters the maker already takes. Keep it to five file types so the 2B model stays in its depth.</p></div>
+<div class="item wow"><h3>2. "Undo the last ten minutes" in the panel <span class="pill">S</span></h3><p>The time machine leaves Settings and becomes a button in the dock widget: what changed, thumbnails of the diffs, one click back. Undo as an OS feature.</p></div>
+<div class="item wow"><h3>3. Pull-the-cable proof <span class="pill">S</span></h3><p>One click takes the network down for sixty seconds while a make runs, a big "offline" badge, then restores it. The privacy claim, demonstrated. Restoring must be bulletproof.</p></div>
+<div class="item wow"><h3>4. Terminal rescue <span class="pill">S</span></h3><p>A command fails in Konsole and a dim line offers "Ctrl+G: explain and fix"; the fix lands as an editable command. Only on non-zero exits.</p></div>
+<div class="item wow"><h3>5. Clipboard transforms <span class="pill">M</span></h3><p>Select text anywhere, Meta+Shift+Space, five chips: fix grammar, shorter, to German, to Slovenian, to checklist. The result replaces the selection. Uses the no-tools session Babel's Ctrl+I already uses.</p></div>
+<div class="item wow"><h3>6. A made app gets its own key and window <span class="pill">S</span></h3><p>After Install, pick a Meta key; the app opens in a native-looking Genesis window. Fifteen seconds from sentence to shortcut.</p></div>
+<div class="item wow"><h3>7. A desktop widget from one sentence <span class="pill">M</span></h3><p>"Battery and my next calendar entry on the desktop" becomes a web plasmoid fed by the system tools.</p></div>
+<div class="item wow"><h3>8. Screenshot to app <span class="pill">S</span></h3><p>Meta+Shift+A over any app, "make me something like this"; the vision description seeds the maker. Framed as "inspired by", because a likeness from a 2B model will be loose.</p></div>
+<div class="item wow"><h3>9. The phone as microphone and remote <span class="pill">M</span></h3><p>Hold to talk on the phone; the desktop maker opens and builds while you watch.</p></div>
+<div class="item wow"><h3>10. The morning card, spoken <span class="pill">S</span></h3><p>At the first login of the day, in your language. Needs the off switch from section 3, which it then also delivers.</p></div>
+
+<h2>5 · The order I would take it in</h2>
+<div class="wrap"><table>
+<tr><th>Week</th><th>Work</th><th>Why first</th></tr>
+<tr><td><b>1 · Trust the basics</b></td><td>Stop button and a running view; the guide made true to the screens; the palette answers questions in place and only makes when asked to make; one design system across the five pages; off switches</td><td>These are what a first user and a first reviewer hit in the first hour</td></tr>
+<tr><td><b>2 · Stop shipping blind</b></td><td>A <code>testing</code> tag with promotion to <code>stable</code>; the canary opens an issue when red and runs daily; release pruning; JS out of the HTML with a syntax check; deny-by-default for GET routes with a test over all 63; checksum for llama.cpp; local image builds working again</td><td>Three red builds in nine and a user channel that moves on every push is the largest risk in the project</td></tr>
+<tr><td><b>3 · First-week gaps</b></td><td>Model management, retry and feedback in chat, file pickers and the Dolphin menu, what is stored and delete it, update notes, project lifecycle</td><td>Daily-driver expectations</td></tr>
+<tr><td><b>4 · New wow</b></td><td>Ideas 1 to 4 and 6 (all small), then 5 and 8</td><td>Small, visual, and each reuses something that exists</td></tr>
+<tr><td><b>Structural</b></td><td>Unix sockets instead of loopback TCP for agentd, permd and the wizard</td><td>Removes a class of security bugs instead of the next instance</td></tr>
+</table></div>
+<p class="small">Still first in line before any of this: the install on real hardware, which the fixes of 17 September (decisions 117 to 119) were made for. Sources: two read-only reviews on 17 September, verified against the repository; the numbers are from <code>wc</code>, <code>grep</code>, <code>git log</code> and the release list.</p>
+</main>
