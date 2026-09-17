@@ -20,7 +20,7 @@ Automatic screenshots from the latest release: [docs/screens/latest](docs/screen
 
 <p align="center"><img src="docs/screens/latest/04-desktop.png" width="49%" alt="Genesis desktop, captured from the latest release"> <img src="docs/screens/latest/03-first-run.png" width="49%" alt="Genesis first run, captured from the latest release"></p>
 **How to use it: [HOW-TO-USE.md](HOW-TO-USE.md)** (the user guide, with pictures). What changed: [docs/releases/0.2.md](docs/releases/0.2.md) for people, [Releases](../../releases) for every build (notes generated from the commits).
-Design brief: [docs/genesis-brief.html](docs/genesis-brief.html) · Design plan: [docs/genesis-design-plan.html](docs/genesis-design-plan.html) · What next, the wow plan: [docs/genesis-wow-plan.html](docs/genesis-wow-plan.html)
+Design brief: [docs/genesis-brief.html](docs/genesis-brief.html) · Design plan: [docs/genesis-design-plan.html](docs/genesis-design-plan.html) · What next, the wow plan: [docs/genesis-wow-plan.html](docs/genesis-wow-plan.html) · First install on real hardware: [docs/first-hardware-install.md](docs/first-hardware-install.md)
 · Decision log: [docs/decisions.md](docs/decisions.md) · Walkthrough: [docs/genesis-walkthrough.html](docs/genesis-walkthrough.html).
 
 ## Phases, so far
