@@ -338,9 +338,15 @@ impl Agent {
                     if path == self.last_write { self.same_file_streak += 1 } else { self.last_write = path; self.same_file_streak = 1 }
                 }
                 if is_run { self.writes_since_run = 0; self.same_file_streak = 0; }
-                // the fourth rewrite of one file with no run in between is refused: run it, read the output, then change it
-                let result = if !chat && is_write && self.same_file_streak >= 4 {
-                    Ok(format!("not written: you have changed {} three times in a row without running it. Run the program now (preview_start, or shell) and read what it prints; write again only to fix what that run shows.", self.last_write))
+                // The third rewrite of one file with no run in between: the evaluation showed a 2B model ignores
+                // being told to run it (and ignores a refused write), so Genesis runs the program itself and
+                // puts the output in front of the model. The decision is taken away, not argued about.
+                let result = if !chat && is_write && self.same_file_streak >= 3 {
+                    let wrote = self.execute(&call.id, &call.function.name, &args);
+                    let ran = self.execute(&call.id, "preview_start", &json!({}));
+                    self.writes_since_run = 0; self.same_file_streak = 0;
+                    let out = match ran { Ok(t) => t, Err(e) => format!("ERROR: {}", e) };
+                    wrote.map(|w| format!("{}\n[You changed this file three times without running it, so Genesis ran it for you. Output:]\n{}\n[If this shows no error and does what the user asked, reply with the summary now. Otherwise fix only what this output shows.]", w, out.chars().take(1500).collect::<String>()))
                 } else { self.execute(&call.id, &call.function.name, &args) };
                 let (ok, mut text) = match result {
                     Ok(t) => (true, t),
