@@ -2,6 +2,9 @@
 
 Derived from the decision log (`docs/decisions.md`); one line per decision, newest first. Versions are 0.2.N on the stable channel; 0.1.N before 2026-09-15.
 
+## 2026-09-18
+- A testing channel on every build; stable moves only when the nightly canary is green; old releases pruned (decision 127)
+
 ## 2026-09-17
 - Evaluation 9 of 10 on the tiny pack, model serving 23 s after the pack choice; a repeated clean run now ends the job (decision 126)
 - Pack downloads resume after a dropped connection; the small model starts without waiting for its vision file (decision 125)

@@ -1,6 +1,6 @@
 name: canary
 
-# Every night: does a machine installed a while ago still update cleanly to today's image, and does
+# Every night, and this is what moves the stable channel: does a machine installed a while ago still update cleanly to today's image, and does
 # today's image still tell the first-run story? Takes a release from about a week back, boots it under
 # KVM, switches it to the stable channel, reboots, and checks what came up. Nothing is published; the
 # serial logs are attached as artifacts. A red canary means "look before the next release", not a
@@ -14,10 +14,14 @@ on:
       releases_back:
         description: 'how many releases back to start from'
         default: '5'
+      promote:
+        description: 'true = move the stable tags to testing when this run is green'
+        default: 'false'
 
 permissions:
   contents: read
   issues: write
+  packages: write
 
 jobs:
   upgrade-from-old:
@@ -43,11 +47,11 @@ jobs:
           cd ..; rm -rf old; qemu-img info old.qcow2 | head -3 || true
       - name: KVM and firmware
         run: |
-          sudo apt-get update -q && sudo apt-get install -y -q qemu-system-x86 qemu-utils ovmf sshpass
+          sudo apt-get update -q && sudo apt-get install -y -q qemu-system-x86 qemu-utils ovmf sshpass skopeo podman
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm; sudo chmod 0666 /dev/kvm || true
           qemu-img resize old.qcow2 +16G
-      - name: Boot the old release, switch to the stable channel, reboot, check
+      - name: Boot the old release, switch to the testing channel, reboot, check
         run: |
           set -o pipefail
           FW=/usr/share/ovmf/OVMF.fd; [ -f "$FW" ] || FW=/usr/share/OVMF/OVMF.fd
@@ -70,7 +74,7 @@ jobs:
           wait_ssh || exit 1
           before=$(vm 'grep --color=never ^IMAGE_VERSION= /etc/os-release'); echo "before: $before"
           timeout 1500 sshpass -p genesis ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR genesis@127.0.0.1 \
-            'echo genesis | sudo -S bootc switch ghcr.io/matijagorsek/genesis:stable 2>&1 | tail -3; sudo bootc upgrade 2>&1 | tail -5' || { echo "the switch did not finish"; exit 1; }
+            'echo genesis | sudo -S bootc switch ghcr.io/matijagorsek/genesis:testing 2>&1 | tail -3; sudo bootc upgrade 2>&1 | tail -5' || { echo "the switch did not finish"; exit 1; }
           vm 'echo genesis | sudo -S systemctl reboot' || true
           sleep 30; wait_ssh || exit 1
           after=$(vm 'grep --color=never ^IMAGE_VERSION= /etc/os-release'); echo "after: $after"
@@ -95,6 +99,17 @@ jobs:
           path: canary-serial.log
       # A red canary holds the stable tag (see build-image.yml), and used to tell nobody. Now it opens an
       # issue, or adds to the open one; a green canary closes it.
+      # Promotion: the machine that upgraded to :testing came up, the wizard answered, the self-check ran.
+      # The same digest becomes :stable for every flavour (the arm64 and NVIDIA images are the same commit
+      # and not canary-tested: the x86 image is the proxy). Retagging keeps the cosign signature valid,
+      # because it is attached to the digest.
+      - name: Promote testing to stable
+        if: success() && (github.event_name == 'schedule' || github.event.inputs.promote == 'true')
+        run: |
+          echo "${{ github.token }}" | sudo podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+          for suffix in "" -arm64 -nvidia; do
+            sudo skopeo copy --all "docker://ghcr.io/${{ github.repository }}:testing$suffix" "docker://ghcr.io/${{ github.repository }}:stable$suffix" && echo "stable$suffix now = testing$suffix"
+          done
       - name: Tell someone when the canary is red
         if: failure() && github.event_name == 'schedule'
         env:

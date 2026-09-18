@@ -266,7 +266,9 @@ with the recipe, as one archive.
 
 <p align="center"><img src="docs/screens/more/03-settings.png" width="88%" alt="Genesis Settings: updates, this machine, models, and the rest"></p>
 
-Genesis fetches updates in the background and stages them; nothing restarts on its own. The dock's
+Genesis fetches updates in the background and stages them; nothing restarts on its own. Your machine
+follows the `stable` channel, which only moves after a nightly test upgraded a machine to the new image
+and found it good; `sudo bootc switch ghcr.io/matijagorsek/genesis:testing` follows every build instead. The dock's
 status widget and Settings > Updates say when one is ready; it applies the next time you restart, and
 every update can be rolled back from the boot menu.
 

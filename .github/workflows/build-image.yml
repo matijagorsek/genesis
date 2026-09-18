@@ -97,15 +97,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           echo "tag=0.2.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
-          # The canary gate: the stable tags (what installed machines update to) only move when the last
-          # completed weekly canary was green. A red canary still builds, tests and releases the versioned
-          # tag, so nothing is lost; it just does not reach anyone's machine until someone looked.
-          last=$(gh run list --workflow canary.yml --status completed --limit 1 --json conclusion --jq '.[0].conclusion' 2>/dev/null || echo "")
-          if [ "$last" = "failure" ] && [ "${{ github.event.inputs.ignore_canary }}" != "true" ]; then
-            echo "stable_ok=false" >> "$GITHUB_OUTPUT"; echo "::warning::the last canary was red: the stable tags stay where they are (re-run with ignore_canary=true to move them)"
-          else
-            echo "stable_ok=true" >> "$GITHUB_OUTPUT"; echo "canary gate: last canary '$last', stable tags move"
-          fi
+          # Channels: every build pushes :testing (and the versioned tag). :stable, which installed machines
+          # follow, moves only when the nightly canary has upgraded a machine to :testing and found it good
+          # (canary.yml promotes). A push to main therefore never reaches anyone's machine unseen.
+          echo "stable_ok=false" >> "$GITHUB_OUTPUT"
 
       - name: Free runner disk
         run: |
@@ -163,7 +158,7 @@ jobs:
       - name: Push
         if: github.event_name != 'pull_request'
         run: |
-          if [ "${{ steps.meta.outputs.stable_ok }}" = "true" ]; then sudo podman push $IMAGE:stable; else echo "stable tag held (canary gate)"; fi
+          sudo podman tag $IMAGE:stable $IMAGE:testing && sudo podman push $IMAGE:testing
           sudo podman push $IMAGE:0.1
           sudo podman push $IMAGE:${{ steps.meta.outputs.tag }}
 
@@ -367,7 +362,7 @@ jobs:
 
       - name: Push
         run: |
-          if [ "${{ needs.image.outputs.stable_ok }}" = "true" ]; then sudo podman push $IMAGE:stable-arm64; else echo "stable tag held (canary gate)"; fi
+          sudo podman tag $IMAGE:stable-arm64 $IMAGE:testing-arm64 && sudo podman push $IMAGE:testing-arm64
           sudo podman push $IMAGE:0.1-arm64
           sudo podman push $IMAGE:${{ needs.image.outputs.tag }}-arm64
 
@@ -458,7 +453,7 @@ jobs:
         run: sudo podman run --rm $IMAGE:stable-nvidia genesis-image-check
       - name: Push
         run: |
-          if [ "${{ needs.image.outputs.stable_ok }}" = "true" ]; then sudo podman push $IMAGE:stable-nvidia; else echo "stable tag held (canary gate)"; fi
+          sudo podman tag $IMAGE:stable-nvidia $IMAGE:testing-nvidia && sudo podman push $IMAGE:testing-nvidia
           sudo podman push $IMAGE:0.1-nvidia
           sudo podman push $IMAGE:${{ needs.image.outputs.tag }}-nvidia
       - name: Sign the image (sigstore, keyless)
