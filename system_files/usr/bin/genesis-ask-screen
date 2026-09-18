@@ -15,18 +15,12 @@ fi
 [ -n "$question" ] || question="What is this? Answer briefly."
 notify-send -a Genesis -t 4000 "Ask about the screen" "Looking…"
 resp=$(python3 - "$shot" "$question" <<'PY'
-import base64, json, os, sys, urllib.request
+import base64, sys
+sys.path.insert(0, "/usr/lib/genesis")
+import genesis_local
 img = base64.b64encode(open(sys.argv[1], "rb").read()).decode()
-body = json.dumps({"question": sys.argv[2], "image_png_b64": img}).encode()
-tok = ""
 try:
-    tok = open(os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "genesis", "agentd.token")).read().strip()
-except OSError:
-    pass
-req = urllib.request.Request("http://127.0.0.1:11520/api/vision", data=body, headers={"content-type": "application/json", "X-Genesis-Token": tok})
-try:
-    with urllib.request.urlopen(req, timeout=240) as r:
-        d = json.load(r)
+    d = genesis_local.call("POST", "/api/vision", {"question": sys.argv[2], "image_png_b64": img}, timeout=240)
     print(d.get("answer") or d.get("error") or "no answer")
 except Exception as e:
     print(f"Genesis could not answer: {e}")

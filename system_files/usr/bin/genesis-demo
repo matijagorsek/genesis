@@ -8,31 +8,32 @@
 #   5. undo, one click away
 set -u
 tok=$(cat "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/genesis/agentd.token" 2>/dev/null || true)
-api=http://127.0.0.1:11520
+sock="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/genesis/agentd.sock"
+if [ -S "$sock" ]; then C=(curl --unix-socket "$sock"); api=http://localhost; else C=(curl); api=http://127.0.0.1:11520; fi
 say() { notify-send -a Genesis -i genesis -t 6000 "$1" "$2" 2>/dev/null; echo "== $1: $2"; }
-curl -s -m 5 -H "X-Genesis-Token: $tok" "$api/api/health" | grep -q '"router_ok":true' || { say "Genesis" "The local models are not running yet. Open Set up models first."; exit 1; }
+"${C[@]}" -s -m 5 -H "X-Genesis-Token: $tok" "$api/api/health" | grep -q '"router_ok":true' || { say "Genesis" "The local models are not running yet. Open Set up models first."; exit 1; }
 say "1 · On this machine" "Watch the badge in the dock: model loaded, no network used. Pull the cable if you like."
 sleep 4
 say "2 · One sentence" "Genesis makes a checklist app that saves to a file. Every step shows as it happens."
 proj="$HOME/Projects/demo-checklist"; rm -rf "$proj"; mkdir -p "$proj"
-sid=$(curl -s -m 10 -H "X-Genesis-Token: $tok" -H "Content-Type: application/json" -d "{\"mode\":\"auto_edit\",\"project\":\"$proj\"}" "$api/api/sessions" | python3 -c 'import sys,json;print(json.load(sys.stdin)["id"])')
+sid=$("${C[@]}" -s -m 10 -H "X-Genesis-Token: $tok" -H "Content-Type: application/json" -d "{\"mode\":\"auto_edit\",\"project\":\"$proj\"}" "$api/api/sessions" | python3 -c 'import sys,json;print(json.load(sys.stdin)["id"])')
 [ -n "$sid" ] || { say "Genesis" "Could not start a session; is the maker running?"; exit 1; }
 genesis-window "http://127.0.0.1:11520/?session=$sid" >/dev/null 2>&1 &
 sleep 2
-curl -s -o /dev/null -m 10 -H "X-Genesis-Token: $tok" -H "Content-Type: application/json" -d '{"text":"a checklist app that saves to a file"}' "$api/api/sessions/$sid/prompt"
+"${C[@]}" -s -o /dev/null -m 10 -H "X-Genesis-Token: $tok" -H "Content-Type: application/json" -d '{"text":"a checklist app that saves to a file"}' "$api/api/sessions/$sid/prompt"
 for i in $(seq 1 240); do
-  st=$(curl -s -m 5 -H "X-Genesis-Token: $tok" "$api/api/sessions/$sid" | python3 -c 'import sys,json;d=json.load(sys.stdin);print(d["state"]);[print(p["request_id"]) for p in d.get("pending",[])]' 2>/dev/null)
+  st=$("${C[@]}" -s -m 5 -H "X-Genesis-Token: $tok" "$api/api/sessions/$sid" | python3 -c 'import sys,json;d=json.load(sys.stdin);print(d["state"]);[print(p["request_id"]) for p in d.get("pending",[])]' 2>/dev/null)
   state=$(echo "$st" | head -1)
-  for rid in $(echo "$st" | tail -n +2); do curl -s -o /dev/null -m 5 -H "X-Genesis-Token: $tok" -H "Content-Type: application/json" -d '{"allow":true}' "$api/api/prompts/$rid"; say "A card" "Genesis asked before doing this. The demo allows it for you; normally that click is yours."; done
+  for rid in $(echo "$st" | tail -n +2); do "${C[@]}" -s -o /dev/null -m 5 -H "X-Genesis-Token: $tok" -H "Content-Type: application/json" -d '{"allow":true}' "$api/api/prompts/$rid"; say "A card" "Genesis asked before doing this. The demo allows it for you; normally that click is yours."; done
   case "$state" in done|error) break;; esac
   sleep 3
 done
 if [ "$state" != "done" ]; then say "Genesis" "The make did not finish this time; the steps stay on screen."; exit 1; fi
 say "3 · In your menu" "Installed as an app, like any other program."
-curl -s -o /dev/null -m 10 -H "X-Genesis-Token: $tok" -H "Content-Type: application/json" -d '{"text":"Install this project as an app named Demo checklist using the install_app tool."}' "$api/api/sessions/$sid/prompt"
+"${C[@]}" -s -o /dev/null -m 10 -H "X-Genesis-Token: $tok" -H "Content-Type: application/json" -d '{"text":"Install this project as an app named Demo checklist using the install_app tool."}' "$api/api/sessions/$sid/prompt"
 for i in $(seq 1 20); do
-  st=$(curl -s -m 5 -H "X-Genesis-Token: $tok" "$api/api/sessions/$sid" | python3 -c 'import sys,json;d=json.load(sys.stdin);print(d["state"]);[print(p["request_id"]) for p in d.get("pending",[])]' 2>/dev/null)
-  for rid in $(echo "$st" | tail -n +2); do curl -s -o /dev/null -m 5 -H "X-Genesis-Token: $tok" -H "Content-Type: application/json" -d '{"allow":true}' "$api/api/prompts/$rid"; say "A card" "Installing an app changes your menu, so Genesis asked. The demo allows it for you."; done
+  st=$("${C[@]}" -s -m 5 -H "X-Genesis-Token: $tok" "$api/api/sessions/$sid" | python3 -c 'import sys,json;d=json.load(sys.stdin);print(d["state"]);[print(p["request_id"]) for p in d.get("pending",[])]' 2>/dev/null)
+  for rid in $(echo "$st" | tail -n +2); do "${C[@]}" -s -o /dev/null -m 5 -H "X-Genesis-Token: $tok" -H "Content-Type: application/json" -d '{"allow":true}' "$api/api/prompts/$rid"; say "A card" "Installing an app changes your menu, so Genesis asked. The demo allows it for you."; done
   case "$(echo "$st" | head -1)" in done|error) break;; esac
   sleep 3
 done

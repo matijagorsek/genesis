@@ -33,6 +33,11 @@ fi
 [ -x /usr/bin/genesis-mode ] && grep -q "org.genesis.mode.desktop" /etc/xdg/kglobalshortcutsrc && [ -f /usr/share/applications/org.genesis.mode.desktop ] && ok "mode key (genesis-mode, Meta+Shift+M)" || fail "genesis-mode or its shortcut missing"
 [ -x /usr/bin/kdialog ] && ok "file dialog for the pages (kdialog)" || fail "kdialog missing: Choose… buttons cannot open a dialog"
 [ -x /usr/bin/genesis-file-action ] && [ -f /usr/share/kio/servicemenus/genesis-make.desktop ] && ok "right-click a file: make a tool, or ask about it" || fail "file manager menu missing"
+# the door local programs use: a 0600 socket in the runtime directory, which a sandboxed command cannot see
+if [ -n "${XDG_RUNTIME_DIR:-}" ] && [ -S "$XDG_RUNTIME_DIR/genesis/agentd.sock" ]; then
+  [ "$(stat -c %a "$XDG_RUNTIME_DIR/genesis/agentd.sock")" = 600 ] && ok "maker socket for local programs (0600)" || fail "the maker socket is not 0600"
+fi
+[ -f /usr/lib/genesis/genesis_local.py ] && grep -q "unix-socket\|agentd.sock" /usr/bin/genesis-mode && ok "local tools prefer the socket over the port" || fail "local tools still only use the port"
 [ -s /usr/share/genesis/release-notes.md ] && ok "release notes in the image (Settings, Updates)" || fail "release notes missing"
 [ -x /usr/bin/genesis-demo ] && [ -f /usr/share/applications/org.genesis.demo.desktop ] && grep -q "org.genesis.talk.desktop" /etc/xdg/kglobalshortcutsrc && ok "demo entry and talk key (Meta+Shift+V)" || fail "demo entry or talk key missing"
 grep -q "def send" /usr/bin/genesis-phone && ok "phone hand-off (genesis-phone send)" || fail "genesis-phone send missing"

@@ -23,6 +23,11 @@ BUS = ["busctl", "--user", "--json=short"]
 DAEMON = ["org.kde.kdeconnect", "/modules/kdeconnect", "org.kde.kdeconnect.daemon"]
 ENDPOINT = os.environ.get("GENESIS_ENDPOINT", "http://127.0.0.1:8080/v1")
 AGENTD = os.environ.get("GENESIS_AGENTD", "http://127.0.0.1:11520")
+sys.path.insert(0, "/usr/lib/genesis")
+try:
+    import genesis_local  # the unix socket when it is there
+except ImportError:
+    genesis_local = None
 
 
 def agentd_token():
@@ -211,6 +216,10 @@ def ask_model(text):
 
 
 def start_make(text):
+    if genesis_local is not None and os.path.exists(genesis_local.socket_path()):
+        sid = genesis_local.call("POST", "/api/sessions", {"mode": "assist", "project": ""}, timeout=15).get("id")
+        genesis_local.call("POST", f"/api/sessions/{sid}/prompt", {"text": text}, timeout=15)
+        return sid
     hdr = {"content-type": "application/json", "X-Genesis-Token": agentd_token()}
     req = urllib.request.Request(AGENTD + "/api/sessions", data=json.dumps({"mode": "assist", "project": ""}).encode(), headers=hdr)
     with urllib.request.urlopen(req, timeout=15) as r:

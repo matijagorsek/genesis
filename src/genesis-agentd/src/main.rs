@@ -185,6 +185,29 @@ fn main() -> Result<()> {
                     if let Err(e) = run_queued(&d, &item) { tracing::warn!(%e, "queued make failed to start"); }
                 });
             }
+            // A second door on a Unix socket in the runtime directory, mode 0600: the local programs and
+            // scripts use it instead of the loopback port (curl --unix-socket), and a sandboxed command
+            // cannot reach it at all, because the sandbox puts a tmpfs over /run. The port stays for the
+            // pages, because a browser cannot speak a Unix socket.
+            if let Some(sock) = socket_path() {
+                let _ = std::fs::remove_file(&sock);
+                if let Some(dir) = sock.parent() { let _ = std::fs::create_dir_all(dir); }
+                match Server::http_unix(&sock) {
+                    Ok(unix_server) => {
+                        #[cfg(unix)]
+                        { use std::os::unix::fs::PermissionsExt; let _ = std::fs::set_permissions(&sock, std::fs::Permissions::from_mode(0o600)); }
+                        tracing::info!(socket = %sock.display(), "genesis-agentd also serving on a unix socket");
+                        let d = d.clone();
+                        std::thread::spawn(move || {
+                            for req in unix_server.incoming_requests() {
+                                let d = d.clone();
+                                std::thread::spawn(move || { let _ = handle(&d, req); });
+                            }
+                        });
+                    }
+                    Err(e) => tracing::warn!(%e, "no unix socket; the loopback port is the only door"),
+                }
+            }
             for req in server.incoming_requests() {
                 let d = d.clone();
                 std::thread::spawn(move || { let _ = handle(&d, req); });
@@ -239,7 +262,11 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
     // The front door: only our own pages (same origin) and local programs holding the token may talk to
     // this daemon. A web page open in a browser cannot: cross-site requests carry Origin / Sec-Fetch-Site,
     // and a rebound DNS name fails the Host check.
-    if !same_origin(&req, &d.listen) {
+    // Requests over the Unix socket come from a program on this machine that could open a 0600 file in the
+    // user's runtime directory; no browser can reach it, so the Host and Origin checks (which exist for
+    // browsers) do not apply. The token is still required, exactly as over the port.
+    let over_socket = req.remote_addr().is_none();
+    if !over_socket && !same_origin(&req, &d.listen) {
         return req.respond(json_response(&serde_json::json!({"error": "forbidden: not a Genesis origin"}), 403)).map_err(|e| anyhow!(e));
     }
     // GETs that hand out a secret (the phone pairing payload carries the companion's bearer token) need
@@ -1350,6 +1377,11 @@ fn page_token<'a>(d: &'a Daemon, req: &Request) -> &'a str {
 fn open_get(path: &[&str]) -> bool {
     matches!(path, [""] | ["index.html"] | ["workspace"] | ["palette"] | ["chat"] | ["settings"] | ["favicon.ico"]
         | ["api", "health"] | ["api", "system"] | ["api", "sessions"] | ["api", "sessions", _])
+}
+
+/// $XDG_RUNTIME_DIR/genesis/agentd.sock: the door for local programs, which the sandbox cannot see.
+fn socket_path() -> Option<std::path::PathBuf> {
+    std::env::var("XDG_RUNTIME_DIR").ok().map(|r| std::path::PathBuf::from(r).join("genesis").join("agentd.sock"))
 }
 
 fn same_origin(req: &Request, listen: &str) -> bool {
