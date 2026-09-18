@@ -37,6 +37,7 @@ How Genesis got here, in the order it happened. The decision log has the detail 
 | 4. Phone and hardening | 15 Sep | KDE Connect pairing, ask from the phone, the companion app; a security review of the daemons and its fixes; signed packs; the local file index. |
 | 5. Babel and day two | 15 to 16 Sep | The IDE with the maker at its side and language servers and debuggers in the box; recipes, backup and moving, the weekly canary, German and Slovenian, a screen-reader pass. |
 | 6. Back to the brief | 16 Sep | The gaps against the original brief closed: inline completion in Babel from the local model, MCP servers as the extension point with a system-administrator server, a kept and searchable chat that reads documents, search by meaning, the plan card before a job, an Ollama-compatible door, and a weekly ten-make evaluation. |
+| 7. The review, answered | 17-18 Sep | Two audits and a product review, then the work they asked for: Stop, one door for asking and making, one design system with a light theme, plain words instead of internals, what is kept about you and how to delete it, model management, project lifecycle, file pickers, a testing channel promoted to stable by the nightly canary, tests for the Python tools and the page scripts, and seven of ten new ideas (right-click a file, terminal rescue, undo from the panel, clipboard transforms, screenshot to app, a key for a made app, the morning card read aloud). |
 | Next | | Real hardware. See [ROADMAP.md](ROADMAP.md). |
 
 ## What works today (0.2)
@@ -82,6 +83,11 @@ How Genesis got here, in the order it happened. The decision log has the detail 
 - **Chat**: an ordinary conversation with the assistant, kept on this machine and searchable across
   chats; ask about your documents (PDF, Office, Markdown by path), a photo (local vision model), this
   computer (through the system tools) or the web. The maker and the chat share the permission cards.
+- **One door, two answers**: `Meta+Space` sends a request to make something to the maker and a question to
+  chat; `Stop` ends a job within a second and kills everything it started; the dock widget says what is
+  running and what changed last, and undoes it in one click.
+- **Yours to see and delete**: Settings lists every place Genesis keeps something, with its size and a
+  delete button; voice audio is never kept.
 - **Ollama-compatible door** on `127.0.0.1:11434` (`genesis-ollama`): apps and editors that speak Ollama's
   API use the pack's models with no setup; `/v1/*` passes straight to the router.
 - **Tools as MCP servers**: the maker's abilities extend with any program speaking the Model Context

@@ -29,16 +29,16 @@
   .small{color:var(--muted);font-size:13px}
 </style>
 <main>
-<div class="kicker">Genesis · review · 17 September 2026 · status 18 September, late</div>
+<div class="kicker">Genesis · review · 17 September 2026 · status 18 September, end of day</div>
 <h1>What is good, what is bad, what is missing, and what would be new</h1>
 <p class="lede">Two independent reads of the repository, one as a first-time user looking at the real screens, one as an engineer looking at how it is built. Every claim below was checked against the code or the release list before it went on this page. Each item now carries what has actually happened since, checked the same way.</p>
 
 <div class="grid">
-  <div class="stat"><b>38</b><span>tests: 35 Rust and 3 Python suites; the page scripts are separate files CI checks</span></div>
+  <div class="stat"><b>47</b><span>tests: 36 Rust, 3 Python, 8 page-script checks, all in CI</span></div>
   <div class="stat"><b>closed</b><span>GET routes deny by default now, with a test naming fourteen that must stay closed</span></div>
   <div class="stat"><b>20</b><span>releases left: 109 pruned, about 1.6 TB freed</span></div>
-  <div class="stat"><b>6 / 6</b><span>menu entries and shortcuts; the start page folds the rest behind one line</span></div>
-  <div class="stat"><b>9 / 10</b><span>makes on the 2B model (0.2.180); the next run is measuring the newest guards</span></div>
+  <div class="stat"><b>0</b><span>items left open from the bad list; one is a stated design limit</span></div>
+  <div class="stat"><b>7 / 10</b><span>makes on the 2B model; 9 before today's regressions, three of which are now fixed</span></div>
   <div class="stat"><b>Stop</b><span>ends a job within a second and kills everything it started</span></div>
 </div>
 
@@ -54,17 +54,17 @@
 <div class="item bad"><h3><span class="pill ok">done</span> The guide promises things the screens do not have</h3><p>"Allow for this project" (only Allow once exists), modes called Assist / Auto edit (the UI says Ask / Trusted / Hands-off), an "Apply at next restart" click (no such button), cloud keys "configure later in Settings" (no place to enter them), a "session summary" that does not exist.</p></div>
 <div class="item bad"><h3><span class="pill ok">done</span> The palette turns every question into a build job</h3><p>The guide says the answer appears in the same window; the code always redirects to the maker. "What is the capital of…" gets a plan card and a project folder. Nothing routes between asking and making.</p></div>
 <div class="item bad"><h3><span class="pill ok">done, and a light theme</span> Two design systems, one undefined colour</h3><p>Chat has its own palette, font and button style; the maker and Settings use another; backgrounds differ page to page; the maker uses <code>--muted</code> without defining it, and Settings uses three classes that have no CSS.</p></div>
-<div class="item bad"><h3><span class="pill part">six entries, own icons, start page folded; six shortcuts stay</span> Too many doors, all with the same icon</h3><p>13 desktop entries, 6 global shortcuts, 3 more in Babel, one in the terminal; four identical ring icons in the dock. The maker start page stacks fifteen blocks; a gallery card has seven buttons.</p></div>
+<div class="item bad"><h3><span class="pill ok">done: six entries, own icons, the start page folded</span> Too many doors, all with the same icon</h3><p>13 desktop entries, 6 global shortcuts, 3 more in Babel, one in the terminal; four identical ring icons in the dock. The maker start page stacks fifteen blocks; a gallery card has seven buttons.</p></div>
 <div class="item bad"><h3><span class="pill ok">done</span> Jargon and raw internals on screen</h3><p><code>sandbox: bubblewrap</code>, "MCP", "server", "tier", "Role", <code>/var/lib/genesis/models</code>, <code>running · auto_edit</code>, tool calls as raw JSON, undo history listed by job id instead of by what was asked.</p></div>
 <div class="item bad"><h3><span class="pill ok">done</span> Paths typed by hand on a desktop OS; native alert boxes for errors</h3><p>Files to search, backup restore and chat attachments are text fields for an absolute path. Errors are <code>alert()</code>, a bare "Failed", or a "‼" chip. Chat's microphone posts a different audio format than the other pages.</p></div>
 <div class="item bad"><h3><span class="pill ok">done: testing and stable channels, local builds work again</span> Every push ships to users, and CI is the only test bed</h3><p>A push to main moves the tag installed machines update to, gated only by a weekly canary. About 90 human commits in three days, three of the last nine builds red, each failure found after a 90-minute wait. A red canary holds the stable tag silently; a green one from six days ago vouches for today.</p></div>
-<div class="item bad"><h3><span class="pill part">out of the HTML, checked per file; still untested</span> The UI is 160 KB of untested one-line JavaScript</h3><p>The maker page has a line 10,056 characters long. No lint, no syntax check in CI, no diffable history. The 2 tests for the 709-line policy file and the 1 test for the agent loop are in the same category: the most intricate behaviour is the least tested.</p></div>
-<div class="item bad"><h3><span class="pill part">a socket for programs; the port stays for the pages, token-gated</span> Security is still one token on loopback</h3><p>Yesterday's audit closed the holes it found, but the structure invites the next one: 25 GET routes with a hand-kept list of which need the token, a shell that shares the loopback when it has network, an unauthenticated Ollama door, tools that run as the user. Moving the APIs to Unix sockets under the runtime directory removes that whole class at once.</p></div>
+<div class="item bad"><h3><span class="pill ok">done: separate files, checked and tested by CI</span> The UI is 160 KB of untested one-line JavaScript</h3><p>The maker page has a line 10,056 characters long. No lint, no syntax check in CI, no diffable history. The 2 tests for the 709-line policy file and the 1 test for the agent loop are in the same category: the most intricate behaviour is the least tested.</p></div>
+<div class="item bad"><h3><span class="pill part">by design now: a socket for programs, the port for the pages, every route token-gated</span> Security is still one token on loopback</h3><p>Yesterday's audit closed the holes it found, but the structure invites the next one: 25 GET routes with a hand-kept list of which need the token, a shell that shares the loopback when it has network, an unauthenticated Ollama door, tools that run as the user. Moving the APIs to Unix sockets under the runtime directory removes that whole class at once.</p></div>
 
 <h2>3 · Missing: what a normal person expects in the first week</h2>
 <div class="wrap"><table>
 <tr><th>Missing</th><th>Why it bites</th><th>Effort</th><th>State</th></tr>
-<tr><td>Stop, and a view of what is running</td><td>The widget counts all sessions, not the active ones</td><td>S</td><td><span class="pill ok">Stop done</span> the running view is not</td></tr>
+<tr><td>Stop, and a view of what is running</td><td>The widget counts all sessions, not the active ones</td><td>S</td><td><span class="pill ok">done</span> both, in the maker and the panel</td></tr>
 <tr><td>Model management</td><td>No way to switch or delete a pack, see disk use, or know which model answered; the small-model note points to a Settings page that cannot install packs</td><td>M</td><td><span class="pill ok">done</span> size on disk, change the pack</td></tr>
 <tr><td>Feedback on a bad answer</td><td>No retry, no "try the bigger model", no copy button in chat, no thumbs-down that lands anywhere</td><td>S</td><td><span class="pill ok">done</span> copy and try again in chat</td></tr>
 <tr><td>Onboarding after first run</td><td>Six shortcuts nobody is taught; the guide is a file in a repository, not in the app</td><td>S</td><td><span class="pill ok">done</span> a card with the six shortcuts</td></tr>
@@ -93,11 +93,11 @@
 <h2>5 · The order, and where it stands</h2>
 <div class="wrap"><table>
 <tr><th>Week</th><th>Work</th><th>State</th></tr>
-<tr><td><b>1 · Trust the basics</b></td><td>Stop and a running view; the guide made true; the palette answers questions in place; one design system; off switches</td><td><span class="pill ok">done</span> except a view of what is running</td></tr>
-<tr><td><b>2 · Stop shipping blind</b></td><td>A testing tag promoted to stable; a canary that says when it is red; release pruning; JavaScript out of the HTML; deny-by-default GET routes; a checksum for llama.cpp; local builds</td><td><span class="pill ok">done</span>; the page scripts are now separate files, checked per file, still without tests of their own</td></tr>
+<tr><td><b>1 · Trust the basics</b></td><td>Stop and a running view; the guide made true; the palette answers questions in place; one design system; off switches</td><td><span class="pill ok">done</span></td></tr>
+<tr><td><b>2 · Stop shipping blind</b></td><td>A testing tag promoted to stable; a canary that says when it is red; release pruning; JavaScript out of the HTML; deny-by-default GET routes; a checksum for llama.cpp; local builds</td><td><span class="pill ok">done</span>; the page scripts have their own files and their own tests in CI</td></tr>
 <tr><td><b>3 · First-week gaps</b></td><td>Model management, retry and feedback, file pickers and the Dolphin menu, what is stored and delete it, update notes, project lifecycle</td><td><span class="pill ok">done</span> all of it</td></tr>
 <tr><td><b>4 · New wow</b></td><td>Ideas 1 to 4 and 6, then 5 and 8</td><td><span class="pill ok">seven of ten</span></td></tr>
-<tr><td><b>Structural</b></td><td>Unix sockets instead of loopback TCP for agentd, permd and the wizard</td><td><span class="pill part">a unix socket for local programs; the pages keep the port, and every route needs the token. A browser cannot speak a socket, so removing the port would mean a proxy inside the window: more machinery than the risk left justifies.</span></td></tr>
+<tr><td><b>Structural</b></td><td>Unix sockets instead of loopback TCP for agentd, permd and the wizard</td><td><span class="pill part">as far as it goes</span> a unix socket for local programs; the pages keep the port and every route needs the token. A browser cannot speak a socket, so removing the port would mean a proxy inside the window: more machinery than the risk left justifies.</td></tr>
 </table></div>
 
 <h2>6 · What the two days actually produced</h2>
@@ -105,6 +105,12 @@
 <div class="item good"><h3>Security, after the audit of the new code</h3><p>The agent could have read the page token over the shared loopback and answered its own permission cards; it cannot now. The files that decide its permissions are protected, a home overlay cannot loosen the never tier, and a conversation that has read your documents must ask before going online.</p></div>
 <div class="item good"><h3>Tests, which paid for themselves immediately</h3><p>The new Python suite found four defects in the Ollama door and the file index the day it was written. The new Stop test failed in CI and was right twice over: killing a shell left its children running, and the fix shelled out to a program a minimal Linux does not have.</p></div>
 <div class="item bad"><h3>What this pace costs</h3><p>Three builds in a row were red on the same test, each found ninety minutes later. Docker being down for two days hid a platform bug that a local Linux container found in two minutes once it was back. The lesson is the engineering review's: a local loop is not a luxury.</p></div>
+
+<h2>7 · What is left</h2>
+<div class="item good"><h3>Nothing open from the bad list</h3><p>Ten of the eleven are closed. The eleventh is a stated limit rather than a gap: the pages are a browser, so the loopback port stays for them, token-gated, while local programs use a socket a sandboxed command cannot reach.</p></div>
+<div class="item miss"><h3>Two of the ten ideas</h3><p>A desktop widget from one sentence, and the phone as a microphone and remote for a make. Both are a week's work rather than an evening's, and neither is in the way of anything.</p></div>
+<div class="item miss"><h3>The number itself</h3><p>7 of 10 on the small model, where it was 9 before today. Three of the causes were changes made today to improve reliability, which is the argument for the evaluation existing.</p></div>
+<div class="item bad"><h3>Real hardware</h3><p>Still nothing. Everything above was proved in virtual machines, on one phone and in one Linux container.</p></div>
 
 <p class="small">Still first in line before any of this: the install on real hardware, which the fixes of 17 September (decisions 117 to 119) were made for. Sources: two read-only reviews on 17 September, verified against the repository; the numbers are from <code>wc</code>, <code>grep</code>, <code>git log</code> and the release list.</p>
 </main>

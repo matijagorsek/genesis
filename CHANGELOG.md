@@ -3,6 +3,7 @@
 Derived from the decision log (`docs/decisions.md`); one line per decision, newest first. Versions are 0.2.N on the stable channel; 0.1.N before 2026-09-15.
 
 ## 2026-09-18
+- A view of what is running, in the maker and the panel; tests for the page scripts (decision 141)
 - The project manifest is merged rather than refused; previews are killed as a group; the model client retries once after a restart (decision 140)
 - Evaluation back to 7 of 10; a job that already ran cleanly ends as done, and only the newest preview stays alive (decision 139)
 - Evaluation fell to 5 of 10: a call that keeps failing now ends the job, the project manifest is accepted when it parses, and small models no longer carry the system tools (decision 138)
