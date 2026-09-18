@@ -3,6 +3,7 @@
 Derived from the decision log (`docs/decisions.md`); one line per decision, newest first. Versions are 0.2.N on the stable channel; 0.1.N before 2026-09-15.
 
 ## 2026-09-18
+- Tests for the Python tools (four defects fixed), the agent guards covered, MCP timeout, OCR timeout, queue cleanup, kdialog, a changeable hostname (decision 128)
 - A testing channel on every build; stable moves only when the nightly canary is green; old releases pruned (decision 127)
 
 ## 2026-09-17

@@ -12,13 +12,21 @@ pub fn read_text(endpoint: &str, path: &Path) -> Result<String> {
     if lower.ends_with(".pdf") {
         let dir = tempfile_dir()?;
         let prefix = dir.join("page");
-        let st = std::process::Command::new("pdftoppm").args(["-png", "-r", "110", "-f", "1", "-l", &MAX_PAGES.to_string(), &path.display().to_string(), &prefix.display().to_string()]).status().map_err(|e| anyhow!("pdftoppm: {}", e))?;
-        if !st.success() { return Err(anyhow!("could not render {}", path.display())); }
-        let mut pages: Vec<_> = std::fs::read_dir(&dir)?.filter_map(|e| e.ok().map(|e| e.path())).filter(|p| p.extension().map(|x| x == "png").unwrap_or(false)).collect();
+        // a hostile or broken PDF must not hang the session: two minutes, then the render is killed
+        let mut child = std::process::Command::new("pdftoppm").args(["-png", "-r", "110", "-f", "1", "-l", &MAX_PAGES.to_string(), &path.display().to_string(), &prefix.display().to_string()])
+            .spawn().map_err(|e| { let _ = std::fs::remove_dir_all(&dir); anyhow!("pdftoppm: {}", e) })?;
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
+        let st = loop {
+            match child.try_wait() { Ok(Some(st)) => break st, Ok(None) => {}, Err(e) => { let _ = std::fs::remove_dir_all(&dir); return Err(anyhow!("pdftoppm: {}", e)); } }
+            if std::time::Instant::now() > deadline { let _ = child.kill(); let _ = std::fs::remove_dir_all(&dir); return Err(anyhow!("{}: rendering took too long", path.display())); }
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        };
+        if !st.success() { let _ = std::fs::remove_dir_all(&dir); return Err(anyhow!("could not render {}", path.display())); }
+        let mut pages: Vec<_> = std::fs::read_dir(&dir).map_err(|e| { let _ = std::fs::remove_dir_all(&dir); e })?.filter_map(|e| e.ok().map(|e| e.path())).filter(|p| p.extension().map(|x| x == "png").unwrap_or(false)).collect();
         pages.sort();
         let mut out = String::new();
         for (i, page) in pages.iter().enumerate() {
-            let t = transcribe(endpoint, page)?;
+            let t = match transcribe(endpoint, page) { Ok(t) => t, Err(e) => { let _ = std::fs::remove_dir_all(&dir); return Err(e); } };
             if !t.trim().is_empty() { out.push_str(&format!("--- page {} ---\n{}\n", i + 1, t.trim())); }
         }
         let _ = std::fs::remove_dir_all(&dir);

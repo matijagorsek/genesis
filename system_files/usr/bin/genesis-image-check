@@ -38,7 +38,7 @@ grep -q "def send" /usr/bin/genesis-phone && ok "phone hand-off (genesis-phone s
 [ -f /usr/lib/tmpfiles.d/genesis.conf ] && ok "tmpfiles" || fail "tmpfiles"
 [ -d /etc/genesis ] && ok "/etc/genesis" || fail "/etc/genesis"
 [ -f /usr/share/genesis/policy.d/00-default.toml ] && ok "default policy" || fail "default policy"
-[ -f /usr/lib/bootc/kargs.d/10-genesis.toml ] && ok "kargs.d hostname" || fail "kargs.d hostname"
+[ -f /etc/hostname ] && ! grep -q "systemd.hostname" /usr/lib/bootc/kargs.d/10-genesis.toml && ok "hostname from /etc/hostname (changeable)" || fail "the hostname is forced by a kernel argument"
 [ -d /usr/share/genesis/packs ] && [ "$(ls /usr/share/genesis/packs/*.json 2>/dev/null | wc -l)" -ge 7 ] && ok "packs shipped" || fail "packs shipped"
 [ -L /etc/systemd/system/multi-user.target.wants/genesis-probe.service ] && ok "probe first-boot service enabled" || fail "probe service not enabled"
 [ -L /etc/systemd/system/multi-user.target.wants/genesis-firstrun.service ] && ok "first-run service enabled" || fail "first-run service not enabled"

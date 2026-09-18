@@ -258,7 +258,9 @@ pub fn call(server: &str, tool: &str, args: &Value) -> Result<String> {
     let mut r = registry().lock().unwrap();
     ensure_started(&mut r, server)?;
     let live = r.live.get_mut(server).unwrap();
-    let res = match live.request("tools/call", json!({"name": tool, "arguments": args}), Duration::from_secs(300)) {
+    // as long as the slowest tool may take: installing an app is allowed 1800 s in the system server, and a
+    // shorter timeout here killed the server mid-install and left the package manager running (audit, 17 Sep)
+    let res = match live.request("tools/call", json!({"name": tool, "arguments": args}), Duration::from_secs(1900)) {
         Ok(v) => v,
         Err(e) => { r.live.remove(server); return Err(anyhow!("{} ({} restarts next time)", e, server)); }
     };

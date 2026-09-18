@@ -938,7 +938,18 @@ pub(crate) fn served_model_for(endpoint: &str, wanted: &str, kind: &str) -> Stri
 /// morning card. Runs on the runner thread; the agent itself runs on its own thread so prompts can be
 /// answered while it waits.
 fn run_queued(d: &Arc<Daemon>, item: &queue::Item) -> Result<()> {
-    let project = if item.project.trim().is_empty() { std::fs::canonicalize(default_project())? } else { std::fs::canonicalize(&item.project)? };
+    let project = match if item.project.trim().is_empty() { std::fs::canonicalize(default_project()) } else { std::fs::canonicalize(&item.project) } {
+        Ok(p) => p,
+        Err(e) => {
+            // the folder is gone: say so once in the morning card and drop the item, instead of warning every minute
+            let mut q = queue::load();
+            q.items.retain(|i| i.id != item.id);
+            q.done.push(queue::Done { id: item.id.clone(), text: item.text.clone(), state: format!("could not start: {}", e), at: queue::now(), summary: String::new(), project: item.project.clone() });
+            if q.items.is_empty() { q.start_now = false; }
+            queue::save(&q);
+            return Ok(());
+        }
+    };
     let id = uuid::Uuid::new_v4().to_string();
     let mode = Mode::AutoEdit;
     d.broker.lock().unwrap().open_session(&id, mode, vec![project.display().to_string()], "queue")?;
@@ -955,7 +966,9 @@ fn run_queued(d: &Arc<Daemon>, item: &queue::Item) -> Result<()> {
         std::thread::sleep(std::time::Duration::from_secs(5));
         let (state, pending): (String, Vec<String>) = { let i = shared.info.lock().unwrap(); (i.state.clone(), i.pending.iter().map(|p| p.request_id.clone()).collect()) };
         for p in pending { shared.resolve(&p, false); }
-        if state == "done" || state == "error" || started.elapsed() > std::time::Duration::from_secs(1800) { break; }
+        if state == "done" || state == "error" { break; }
+        if started.elapsed() > std::time::Duration::from_secs(1800) { shared.stop.store(true, std::sync::atomic::Ordering::SeqCst); shared.cv.notify_all(); } // half an hour is enough; Stop ends it
+        if started.elapsed() > std::time::Duration::from_secs(1900) { break; }
     }
     let _ = worker.join();
     let (state, summary) = { let i = shared.info.lock().unwrap(); (i.state.clone(), i.events.iter().rev().find_map(|e| if let Event::Assistant { text } = e { Some(text.chars().take(200).collect::<String>()) } else { None }).unwrap_or_default()) };

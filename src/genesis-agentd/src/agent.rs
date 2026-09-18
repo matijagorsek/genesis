@@ -421,6 +421,11 @@ impl Agent {
                     Ok(t) => (true, t),
                     Err(e) => (false, format!("ERROR: {}", e)),
                 };
+                // a write that failed or changed nothing is not progress and must not count towards the guards
+                if is_write && (!ok || text.starts_with("unchanged") || text.starts_with("not written")) {
+                    self.writes_since_run = self.writes_since_run.saturating_sub(1);
+                    self.same_file_streak = self.same_file_streak.saturating_sub(1);
+                }
                 // the same run a third time in a row, clean, after changes: the thing is made; Genesis ends the job
                 if !chat && is_run && ok && self.same_run_streak >= 3 && self.edited_after_scaffold && !["Traceback", "Error", "error:", "ERROR", "FAILED", "exit=1", "exit=2", "SyntaxError"].iter().any(|k| text.contains(k)) {
                     self.shared.push(Event::ToolResult { id: call.id.clone(), ok, summary: text.chars().take(200).collect() });
