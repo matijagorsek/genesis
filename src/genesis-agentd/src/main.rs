@@ -856,6 +856,58 @@ mod tests {
         let last = agent.messages.last().unwrap().content.as_deref().unwrap();
         assert_eq!(last.len(), 5_000, "the newest messages stay whole");
     }
+
+    #[test]
+    fn a_write_that_changes_nothing_does_not_count_towards_the_guards() {
+        let proj = script_project();
+        // the model writes the same content six times: "unchanged" is not progress, so Genesis does not
+        // take over after three, and the turn limit is not spent on a loop either
+        let same = serde_json::json!({"path":"app.py","content":"print('v0')\n"});
+        let mut script: Vec<_> = (0..6).map(|_| tool_call("write_file", same.clone())).collect();
+        script.push(serde_json::json!({"role":"assistant","content":"nothing to change"}));
+        let ep = fake_llm(script);
+        let (mut agent, shared) = setup(proj.path(), Mode::AutoEdit, ep);
+        let out = agent.run("a script").unwrap();
+        assert_eq!(out, "nothing to change");
+        let runs = shared.info.lock().unwrap().events.iter().filter(|e| matches!(e, Event::ToolCall { name, .. } if name == "preview_start")).count();
+        assert_eq!(runs, 0, "unchanged writes must not trigger the forced run");
+    }
+
+    #[test]
+    fn a_queued_make_whose_folder_is_gone_is_dropped_with_a_reason() {
+        let state = tempfile::tempdir().unwrap();
+        std::env::set_var("XDG_STATE_HOME", state.path());
+        let item = queue::Item { id: "q1".into(), text: "a timer".into(), project: "/nonexistent/folder".into(), added: queue::now() };
+        let mut q = queue::load(); q.items.push(item.clone()); q.start_now = true; queue::save(&q);
+        super::drop_queued(&item, "could not start: no such folder");
+        let after = queue::load();
+        assert!(after.items.is_empty(), "the item is gone, not retried");
+        assert!(!after.start_now, "an empty queue stops asking to start");
+        assert_eq!(after.done.len(), 1);
+        assert!(after.done[0].state.contains("could not start"), "the morning card says why");
+    }
+
+    #[test]
+    fn ocr_removes_its_temp_directory_when_a_pdf_cannot_be_rendered() {
+        let dir = tempfile::tempdir().unwrap();
+        let bad = dir.path().join("broken.pdf");
+        std::fs::write(&bad, b"not a pdf at all").unwrap();
+        let base = std::env::var("XDG_RUNTIME_DIR").map(std::path::PathBuf::from).unwrap_or_else(|_| std::env::temp_dir());
+        let count = || std::fs::read_dir(&base).map(|rd| rd.filter_map(|e| e.ok()).filter(|e| e.file_name().to_string_lossy().starts_with("genesis-ocr-")).count()).unwrap_or(0);
+        let before = count();
+        let r = crate::ocr::read_text("http://127.0.0.1:1", &bad);
+        assert!(r.is_err(), "a broken PDF is an error, not an empty answer");
+        assert_eq!(count(), before, "no temp directory is left behind");
+    }
+
+    #[test]
+    fn an_mcp_call_may_last_longer_than_the_slowest_tool() {
+        // the system server allows 1800 s for a Flatpak install; a shorter call timeout killed the server
+        let src = include_str!("mcp.rs");
+        let call = src.split("pub fn call(").nth(1).unwrap();
+        let secs: u64 = call.split("Duration::from_secs(").nth(1).unwrap().split(')').next().unwrap().parse().unwrap();
+        assert!(secs > 1800, "an MCP call times out after {} s, before an install can finish", secs);
+    }
 }
 
 
@@ -937,18 +989,20 @@ pub(crate) fn served_model_for(endpoint: &str, wanted: &str, kind: &str) -> Stri
 /// permission prompt answered "not now" so it stays inside the project, the outcome recorded for the
 /// morning card. Runs on the runner thread; the agent itself runs on its own thread so prompts can be
 /// answered while it waits.
+/// Take an item off the queue with a reason the morning card can read. A folder the user deleted must be
+/// reported once, not retried every minute for ever.
+fn drop_queued(item: &queue::Item, state: &str) {
+    let mut q = queue::load();
+    q.items.retain(|i| i.id != item.id);
+    q.done.push(queue::Done { id: item.id.clone(), text: item.text.clone(), state: state.into(), at: queue::now(), summary: String::new(), project: item.project.clone() });
+    if q.items.is_empty() { q.start_now = false; }
+    queue::save(&q);
+}
+
 fn run_queued(d: &Arc<Daemon>, item: &queue::Item) -> Result<()> {
     let project = match if item.project.trim().is_empty() { std::fs::canonicalize(default_project()) } else { std::fs::canonicalize(&item.project) } {
         Ok(p) => p,
-        Err(e) => {
-            // the folder is gone: say so once in the morning card and drop the item, instead of warning every minute
-            let mut q = queue::load();
-            q.items.retain(|i| i.id != item.id);
-            q.done.push(queue::Done { id: item.id.clone(), text: item.text.clone(), state: format!("could not start: {}", e), at: queue::now(), summary: String::new(), project: item.project.clone() });
-            if q.items.is_empty() { q.start_now = false; }
-            queue::save(&q);
-            return Ok(());
-        }
+        Err(e) => { drop_queued(item, &format!("could not start: {}", e)); return Ok(()); }
     };
     let id = uuid::Uuid::new_v4().to_string();
     let mode = Mode::AutoEdit;
