@@ -587,6 +587,7 @@ dependencies = [
  "genesis-permd",
  "genesis-txd",
  "headless_chrome",
+ "libc",
  "serde",
  "serde_json",
  "tempfile",

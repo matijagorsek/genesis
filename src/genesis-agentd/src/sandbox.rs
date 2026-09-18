@@ -111,13 +111,15 @@ pub fn run_shell(project: &Path, command: &str, allow_network: bool, timeout: Du
 }
 
 /// Kill the whole process group of a command Genesis started: the shell and everything it started.
+/// The syscall, not the `kill` program: on a minimal Linux `kill` is only a shell builtin and there is
+/// no /bin/kill, so the group survived and its open pipe blocked the read (found in CI, 18 Sep).
 fn kill_group(pid: u32) {
     #[cfg(unix)]
-    {
-        for sig in ["-TERM", "-KILL"] {
-            let _ = Command::new("/bin/kill").args([sig, &format!("-{}", pid)]).stdout(Stdio::null()).stderr(Stdio::null()).status();
-            std::thread::sleep(Duration::from_millis(150));
-        }
+    unsafe {
+        let pgid = -(pid as i32);
+        libc::kill(pgid, libc::SIGTERM);
+        std::thread::sleep(Duration::from_millis(200));
+        libc::kill(pgid, libc::SIGKILL);
     }
 }
 

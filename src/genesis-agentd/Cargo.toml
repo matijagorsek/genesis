@@ -25,5 +25,7 @@ headless_chrome = "1.0.22"
 genesis-permd = { path = "../genesis-permd" }
 genesis-txd = { path = "../genesis-txd" }
 
+libc = "0.2"
+
 [dev-dependencies]
 tempfile = "3"
