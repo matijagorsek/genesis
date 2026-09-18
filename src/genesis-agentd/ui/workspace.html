@@ -99,6 +99,8 @@ body.listening header{box-shadow:inset 0 -2px 0 var(--accent)}body.listening tex
   .mmore button{margin:4px 4px 0 0}
   .firstrun{width:min(760px,100%);margin:10px 0;padding:12px 16px;border:1px solid var(--accent);border-radius:12px;background:var(--panel)}
   .firstrun ul{margin:8px 0 10px 18px;padding:0;line-height:1.7}
+  .running{width:min(760px,100%);margin:8px 0;padding:8px 14px;border:1px solid var(--warn);border-radius:10px;font-size:13.5px;display:flex;gap:10px;align-items:center}
+  .running b{font-weight:600}
 </style>
 </head>
 <body>
@@ -125,7 +127,8 @@ body.listening header{box-shadow:inset 0 -2px 0 var(--accent)}body.listening tex
     <label>Folder <input type="text" id="project" size="30"></label>
   </div>
   <div class="plan" id="plan" hidden role="dialog" aria-label="Plan"><b>Before anything runs</b><div class="chips" id="planChips"></div><ol id="planSteps"></ol><div class="row"><button id="planGo" class="primary">Proceed</button><button id="planEdit">Edit the request</button><button id="planNo">I'll do it myself</button><label class="muted" style="margin-left:auto"><input type="checkbox" id="planAlways" checked> Show this card</label></div></div>
-  <div class="firstrun" id="tour" hidden><b>Six things worth knowing</b><ul>
+  <div class="running" id="runningNow" hidden></div>
+<div class="firstrun" id="tour" hidden><b>Six things worth knowing</b><ul>
   <li><span class="mono">Meta+Space</span> anywhere: ask a question or say what to make.</li>
   <li><span class="mono">Meta+Shift+V</span>: say it out loud; it sends when you pause.</li>
   <li><span class="mono">Meta+Shift+A</span>: drag over anything on screen and ask about it.</li>

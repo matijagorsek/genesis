@@ -19,12 +19,15 @@ PlasmoidItem {
     property bool voice: false
     property var netDomains: []
     property int jobs: 0
+    property int running: 0
+    property string runningWhat: ""
+    property string runningId: ""
     property string staged: ""
 
     Plasmoid.icon: "genesis"
     Plasmoid.status: PlasmaCore.Types.ActiveStatus
     toolTipMainText: alive ? "Genesis · on this machine" : "Genesis · starting"
-    toolTipSubText: alive ? ("Model " + model + (netDomains.length ? " · network used: " + netDomains.join(", ") : " · no network used") + (staged ? " · update ready, restart to apply" : "")) : "The local agent service is not running yet"
+    toolTipSubText: alive ? ((running > 0 ? running + " running · " : "") + "Model " + model + (netDomains.length ? " · network used: " + netDomains.join(", ") : " · no network used") + (staged ? " · update ready, restart to apply" : "")) : "The local agent service is not running yet"
 
     function get(path, cb) {
         var x = new XMLHttpRequest()
@@ -47,9 +50,15 @@ PlasmoidItem {
         })
         get("/api/sessions", function(list) {
             if (!list) return
-            var d = {}; var n = 0
-            for (var i = 0; i < list.length; i++) { n++; var nu = list[i].network_uses || []; for (var j = 0; j < nu.length; j++) d[nu[j]] = true }
-            jobs = n; netDomains = Object.keys(d).map(function(k) { return k === "*" ? "a command" : k })
+            var d = {}; var n = 0; var act = 0; var what = ""; var id = ""
+            for (var i = 0; i < list.length; i++) {
+                n++
+                var st = list[i].state || ""
+                if (st === "running" || st === "waiting") { act++; if (id === "") { id = list[i].id; what = (list[i].project || "").split("/").pop() + (st === "waiting" ? " · waiting for you" : "") } }
+                var nu = list[i].network_uses || []; for (var j = 0; j < nu.length; j++) d[nu[j]] = true
+            }
+            jobs = n; running = act; runningWhat = what; runningId = id
+            netDomains = Object.keys(d).map(function(k) { return k === "*" ? "a command" : k })
         })
     }
     Timer { interval: 20000; running: true; repeat: true; triggeredOnStart: true; onTriggered: root.refresh() }
@@ -57,6 +66,12 @@ PlasmoidItem {
     P5Support.DataSource { id: modeRunner; engine: "executable"; onNewData: function(source, data) { disconnectSource(source); root.refresh() } }
 
     // Undo from the panel: the same call the maker's toast makes, with the token from the runtime directory.
+    // Stop what is running, from the panel, without opening anything
+    function stopRunning() {
+        if (runningId === "") return
+        modeRunner.connectSource("sh -lc 'curl -s -X POST -H \"X-Genesis-Token: $(cat $XDG_RUNTIME_DIR/genesis/agentd.token)\" http://127.0.0.1:11520/api/sessions/" + runningId + "/stop'")
+    }
+
     function undoLast() {
         if (lastJobId === "") return
         modeRunner.connectSource("sh -lc 'curl -s -X POST -H \"X-Genesis-Token: $(cat $XDG_RUNTIME_DIR/genesis/agentd.token)\" http://127.0.0.1:11520/api/history/" + lastJobId + "/undo'")
@@ -89,6 +104,11 @@ PlasmoidItem {
         PC.Label { visible: root.alive; text: (root.sandbox ? "Commands run in a sandbox. " : "") + (root.voice ? "Voice input ready." : ""); Layout.fillWidth: true; wrapMode: Text.Wrap; opacity: 0.8 }
         PC.Label { visible: root.staged !== ""; text: "A Genesis update built " + root.staged + " is ready. It applies when you restart."; color: Kirigami.Theme.positiveTextColor; Layout.fillWidth: true; wrapMode: Text.Wrap }
         PC.Label { text: "Nothing you type or say leaves this computer."; opacity: 0.7; Layout.fillWidth: true; wrapMode: Text.Wrap }
+        RowLayout { visible: root.alive && root.running > 0; Layout.fillWidth: true
+            PC.Label { text: root.running + (root.running === 1 ? " job running: " : " jobs running: ") + root.runningWhat; Layout.fillWidth: true; wrapMode: Text.Wrap }
+            PC.Button { text: "Stop"; icon.name: "process-stop"; onClicked: root.stopRunning() }
+        }
+        PC.Label { visible: root.alive && root.running === 0; text: "Nothing running."; opacity: 0.8; Layout.fillWidth: true }
         PC.Label { visible: root.alive && root.lastJob !== ""; text: "Last change: " + root.lastJob; Layout.fillWidth: true; wrapMode: Text.Wrap; opacity: 0.9 }
         RowLayout { visible: root.alive && root.lastJobId !== ""; Layout.fillWidth: true
             PC.Button { text: "Undo the last job"; icon.name: "edit-undo"; onClicked: { root.undoLast(); root.expanded = false } }
