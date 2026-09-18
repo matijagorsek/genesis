@@ -131,7 +131,10 @@ impl Previews {
         let port = if t.dev.port > 0 { free_port(t.dev.port) } else { 0 };
         let cmd = t.dev.cmd.replace("{port}", &port.to_string()).replace("{name}", &name);
         let log = std::fs::File::create(project.join(".genesis-preview.log"))?;
-        let child = Command::new("/bin/sh").args(["-lc", &cmd]).current_dir(project).stdin(Stdio::null()).stdout(Stdio::from(log.try_clone()?)).stderr(Stdio::from(log)).spawn().with_context(|| format!("starting {}", cmd))?;
+        let mut command = Command::new("/bin/sh");
+        #[cfg(unix)]
+        { use std::os::unix::process::CommandExt; command.process_group(0); }  // so the whole server, children included, can be stopped
+        let child = command.args(["-lc", &cmd]).current_dir(project).stdin(Stdio::null()).stdout(Stdio::from(log.try_clone()?)).stderr(Stdio::from(log)).spawn().with_context(|| format!("starting {}", cmd))?;
         let url = if port > 0 { Some(format!("http://127.0.0.1:{}/", port)) } else { None };
         // give servers a moment; if the process already died, report the log
         std::thread::sleep(std::time::Duration::from_millis(900));
@@ -168,9 +171,23 @@ impl Previews {
 impl Drop for Previews {
     fn drop(&mut self) {
         for (_, p) in self.running.iter_mut() {
-            let _ = p.child.kill();
+            kill_preview(p);
         }
     }
+}
+
+/// Stop a preview and everything it started. A dev server that forks (or a shell that runs one) survived
+/// a plain kill, and ten of them starved the model service until it was killed for memory.
+fn kill_preview(p: &mut Preview) {
+    #[cfg(unix)]
+    unsafe {
+        let pgid = -(p.child.id() as i32);
+        libc::kill(pgid, libc::SIGTERM);
+        std::thread::sleep(std::time::Duration::from_millis(150));
+        libc::kill(pgid, libc::SIGKILL);
+    }
+    let _ = p.child.kill();
+    let _ = p.child.wait();
 }
 
 fn free_port(preferred: u16) -> u16 {

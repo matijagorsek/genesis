@@ -747,12 +747,28 @@ impl Agent {
                 // (37 times in one evaluation make), so: take the write when it still parses and keeps the
                 // fields Genesis needs, and otherwise keep what was there and say what is missing.
                 let p = resolve_path(&self.project, &s("path"));
+                let old: Value = std::fs::read_to_string(&p).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or(json!({}));
                 match serde_json::from_str::<Value>(&s("content")) {
-                    Ok(v) if v.get("id").is_some() && v.get("dev").is_some() && v.get("entry").is_some() => {
-                        std::fs::write(&p, s("content")).map_err(|e| anyhow!("{}: {}", p.display(), e))?;
-                        Ok(format!("wrote {} (the project manifest; it still parses)", p.display()))
+                    Ok(Value::Object(mut new_obj)) => {
+                        // keep what Genesis needs to run the thing, take everything else the model wrote:
+                        // a refusal only made a small model write the same file again (evaluation, 18 Sep)
+                        for k in ["id", "dev", "run", "entry"] {
+                            let ours = old.get(k).cloned();
+                            let theirs = new_obj.get(k).cloned();
+                            let keep = match (k, theirs) {
+                                ("dev", Some(v)) if v.get("cmd").is_some() => Some(v),
+                                ("run", Some(v)) if v.get("cmd").is_some() => Some(v),
+                                ("id", Some(v)) if v.is_string() => Some(v),
+                                ("entry", Some(v)) if v.is_string() => Some(v),
+                                _ => ours,
+                            };
+                            match keep { Some(v) => { new_obj.insert(k.to_string(), v); } None => { new_obj.remove(k); } }
+                        }
+                        let merged = Value::Object(new_obj);
+                        std::fs::write(&p, serde_json::to_string_pretty(&merged)?).map_err(|e| anyhow!("{}: {}", p.display(), e))?;
+                        Ok(format!("wrote {} (the project manifest; how the program is run was kept as it was)", p.display()))
                     }
-                    _ => Ok(format!("not written: {} must stay a JSON object with id, dev and entry, and Genesis keeps the old one. Change the program files instead; the entry file is {}.", p.display(), self.active_project.as_ref().unwrap_or(&self.project).join(maker_entry(self.active_project.as_ref().unwrap_or(&self.project))).display())),
+                    _ => Ok(format!("not written: {} has to be a JSON object, so Genesis kept the old one. Change the program files instead; the entry file is {}.", p.display(), self.active_project.as_ref().unwrap_or(&self.project).join(maker_entry(self.active_project.as_ref().unwrap_or(&self.project))).display())),
                 }
             }
             "edit_file" if resolve_path(&self.project, &s("path")).file_name().map(|f| f == "genesis.json").unwrap_or(false) => {

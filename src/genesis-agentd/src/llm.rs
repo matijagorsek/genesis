@@ -76,7 +76,19 @@ pub struct Reply {
 }
 
 impl Client {
+    /// One retry when the model service is not there for a moment: it swaps models, and can be restarted
+    /// under us (the evaluation lost two makes to a restart). A second refusal is reported as before.
     pub fn chat(&self, messages: &[Message], tools: &Value, temperature: f64) -> Result<Reply> {
+        match self.chat_once(messages, tools, temperature) {
+            Err(e) if e.to_string().contains("Connection Failed") || e.to_string().contains("Unexpected EOF") || e.to_string().contains("connection refused") => {
+                std::thread::sleep(std::time::Duration::from_secs(5));
+                self.chat_once(messages, tools, temperature)
+            }
+            other => other,
+        }
+    }
+
+    fn chat_once(&self, messages: &[Message], tools: &Value, temperature: f64) -> Result<Reply> {
         let body = serde_json::json!({
             "model": self.model,
             "messages": messages,

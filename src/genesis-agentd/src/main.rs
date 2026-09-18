@@ -961,18 +961,22 @@ mod tests {
     }
 
     #[test]
-    fn the_project_manifest_is_taken_when_it_parses_and_kept_when_it_does_not() {
+    fn a_write_to_the_project_manifest_keeps_how_the_program_runs() {
         let proj = script_project();
-        let good = serde_json::json!({"path":"genesis.json","content":"{\"id\":\"python-script\",\"name\":\"s\",\"dev\":{\"cmd\":\"python3 app.py\",\"port\":0},\"entry\":\"app.py\"}"});
-        let bad = serde_json::json!({"path":"genesis.json","content":"{ not json"});
-        let ep = fake_llm(vec![tool_call("write_file", good), tool_call("write_file", bad), serde_json::json!({"role":"assistant","content":"done"})]);
+        // what a small model actually writes: a package-manifest shape with no idea how Genesis runs things
+        let theirs = serde_json::json!({"path":"genesis.json","content":"{\"name\":\"checklist\",\"version\":\"1.0\",\"description\":\"a checklist\"}"});
+        let broken = serde_json::json!({"path":"genesis.json","content":"{ not json"});
+        let ep = fake_llm(vec![tool_call("write_file", theirs), tool_call("write_file", broken), serde_json::json!({"role":"assistant","content":"done"})]);
         let (mut agent, shared) = setup(proj.path(), Mode::AutoEdit, ep);
         assert_eq!(agent.run("change how it runs").unwrap(), "done");
         let ev = shared.info.lock().unwrap().events.clone();
         let results: Vec<String> = ev.iter().filter_map(|e| if let Event::ToolResult { summary, .. } = e { Some(summary.clone()) } else { None }).collect();
-        assert!(results[0].contains("still parses"), "a valid manifest is taken: {:?}", results);
-        assert!(results[1].starts_with("not written"), "a broken one is refused: {:?}", results);
-        assert!(std::fs::read_to_string(proj.path().join("genesis.json")).unwrap().contains("python3 app.py"), "the old manifest survives");
+        assert!(results[0].starts_with("wrote"), "their fields are taken, not refused: {:?}", results);
+        assert!(results[1].starts_with("not written"), "something that is not JSON is refused: {:?}", results);
+        let m: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(proj.path().join("genesis.json")).unwrap()).unwrap();
+        assert_eq!(m["name"], "checklist", "what the model wrote is kept");
+        assert_eq!(m["dev"]["cmd"], "python3 app.py", "how the program runs is kept");
+        assert_eq!(m["entry"], "app.py");
     }
 
     #[test]
