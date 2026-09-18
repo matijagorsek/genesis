@@ -785,6 +785,77 @@ mod tests {
         let ev = shared.info.lock().unwrap().events.clone();
         assert!(ev.iter().any(|e| matches!(e, Event::ToolResult { ok: true, summary, .. } if summary.contains("a.txt"))));
     }
+
+    /// A project with a genesis.json whose dev command just runs the script (no server), so previews return output.
+    fn script_project() -> tempfile::TempDir {
+        let proj = tempfile::tempdir().unwrap();
+        std::fs::write(proj.path().join("genesis.json"), r#"{"id":"python-script","name":"s","dev":{"cmd":"python3 app.py","port":0},"entry":"app.py"}"#).unwrap();
+        std::fs::write(proj.path().join("app.py"), "print('v0')\n").unwrap();
+        proj
+    }
+
+    #[test]
+    fn third_rewrite_without_a_run_makes_genesis_run_it_and_finish() {
+        let proj = script_project();
+        // the model rewrites app.py forever; Genesis runs it after the third rewrite, sees a clean run, and ends the job
+        let mut script = Vec::new();
+        for i in 0..8 { script.push(tool_call("write_file", serde_json::json!({"path":"app.py","content":format!("print('v{}')\n", i + 1)}))); }
+        let ep = fake_llm(script);
+        let (mut agent, shared) = setup(proj.path(), Mode::AutoEdit, ep);
+        agent.edited_after_scaffold = true;
+        let out = agent.run("a script").unwrap();
+        assert!(out.contains("It is made and it runs"), "got: {}", out);
+        let calls = shared.info.lock().unwrap().events.iter().filter(|e| matches!(e, Event::ToolCall { name, .. } if name == "write_file")).count();
+        assert_eq!(calls, 3, "three rewrites, then Genesis took over");
+        assert_eq!(shared.info.lock().unwrap().state, "done");
+    }
+
+    #[test]
+    fn the_same_clean_run_three_times_ends_the_job() {
+        let proj = script_project();
+        let mut script = vec![tool_call("write_file", serde_json::json!({"path":"app.py","content":"print('ok')\n"}))];
+        for _ in 0..8 { script.push(tool_call("preview_start", serde_json::json!({}))); }
+        let ep = fake_llm(script);
+        let (mut agent, shared) = setup(proj.path(), Mode::AutoEdit, ep);
+        let out = agent.run("a script").unwrap();
+        assert!(out.contains("It is made and it runs"), "got: {}", out);
+        let runs = shared.info.lock().unwrap().events.iter().filter(|e| matches!(e, Event::ToolCall { name, .. } if name == "preview_start")).count();
+        assert_eq!(runs, 3);
+    }
+
+    #[test]
+    fn stop_ends_the_loop_cleanly() {
+        let proj = tempfile::tempdir().unwrap();
+        // a long-running command, then more work that must never happen: Stop kills the command and ends the loop
+        let mut script = vec![tool_call("shell", serde_json::json!({"command":"sleep 30"}))];
+        for i in 0..5 { script.push(tool_call("write_file", serde_json::json!({"path":format!("f{}.txt", i),"content":"x"}))); }
+        let ep = fake_llm(script);
+        let (mut agent, shared) = setup(proj.path(), Mode::AutoEdit, ep);
+        let s2 = shared.clone();
+        std::thread::spawn(move || { std::thread::sleep(std::time::Duration::from_millis(700)); s2.stop.store(true, std::sync::atomic::Ordering::SeqCst); s2.cv.notify_all(); });
+        let t0 = std::time::Instant::now();
+        let out = agent.run("wait then write").unwrap();
+        assert_eq!(out, "stopped");
+        assert!(t0.elapsed() < std::time::Duration::from_secs(10), "the sleep was killed, not waited out");
+        assert_eq!(shared.info.lock().unwrap().state, "done");
+        assert!(!proj.path().join("f0.txt").exists(), "nothing after the stop ran");
+    }
+
+    #[test]
+    fn old_tool_output_is_trimmed_to_fit_the_context() {
+        let proj = tempfile::tempdir().unwrap();
+        let ep = fake_llm(vec![]);
+        let (mut agent, _shared) = setup(proj.path(), Mode::AutoEdit, ep);
+        for i in 0..12 { agent.messages.push(crate::llm::Message::tool(&format!("c{}", i), "read_file", "x".repeat(5_000))); }
+        let before: usize = agent.messages.iter().map(|m| m.content.as_deref().map(|c| c.len()).unwrap_or(0)).sum();
+        agent.trim_context();
+        let after: usize = agent.messages.iter().map(|m| m.content.as_deref().map(|c| c.len()).unwrap_or(0)).sum();
+        assert!(before > 36_000 && after < before, "before {} after {}", before, after);
+        let trimmed = agent.messages.iter().filter(|m| m.content.as_deref().map(|c| c.contains("[earlier output trimmed]")).unwrap_or(false)).count();
+        assert_eq!(trimmed, 4, "everything but the newest eight is cut");
+        let last = agent.messages.last().unwrap().content.as_deref().unwrap();
+        assert_eq!(last.len(), 5_000, "the newest messages stay whole");
+    }
 }
 
 

@@ -31,6 +31,7 @@ PYEOF
 fi
 [ -x /usr/bin/genesis-ollama ] && [ -L /etc/systemd/system/multi-user.target.wants/genesis-ollama.service ] && ok "Ollama-compatible door (genesis-ollama on 127.0.0.1:11434)" || fail "genesis-ollama missing or not enabled"
 [ -x /usr/bin/genesis-mode ] && grep -q "org.genesis.mode.desktop" /etc/xdg/kglobalshortcutsrc && [ -f /usr/share/applications/org.genesis.mode.desktop ] && ok "mode key (genesis-mode, Meta+Shift+M)" || fail "genesis-mode or its shortcut missing"
+[ -x /usr/bin/kdialog ] && ok "file dialog for the pages (kdialog)" || fail "kdialog missing: Choose… buttons cannot open a dialog"
 [ -x /usr/bin/genesis-demo ] && [ -f /usr/share/applications/org.genesis.demo.desktop ] && grep -q "org.genesis.talk.desktop" /etc/xdg/kglobalshortcutsrc && ok "demo entry and talk key (Meta+Shift+V)" || fail "demo entry or talk key missing"
 grep -q "def send" /usr/bin/genesis-phone && ok "phone hand-off (genesis-phone send)" || fail "genesis-phone send missing"
 [ -f /usr/lib/sysusers.d/genesis.conf ] && ok "sysusers" || fail "sysusers"

@@ -88,6 +88,12 @@ def unpack_vec(b, dim):
 def embed_missing(c, limit=400):
     """Embed chunks that have no vector yet, a few hundred per run so the timer never blocks long."""
     rows = c.execute("select ch.path, ch.ord, ch.text from chunks ch left join vectors v on v.path=ch.path and v.ord=ch.ord where v.path is null limit ?", (limit,)).fetchall()
+    if not rows:
+        # everything is embedded; drop vectors of a size this model no longer produces (a pack change)
+        probe = embed(["x"], timeout=60)
+        if probe:
+            c.execute("delete from vectors where dim<>?", (len(probe[0]),)); c.commit()
+            rows = c.execute("select ch.path, ch.ord, ch.text from chunks ch left join vectors v on v.path=ch.path and v.ord=ch.ord where v.path is null limit ?", (limit,)).fetchall()
     done = 0
     for i in range(0, len(rows), 16):
         batch = rows[i:i + 16]
@@ -104,7 +110,8 @@ def vector_search(c, query, n):
     if not qv:
         return []
     q = qv[0]
-    rows = c.execute("select path, ord, dim, vec from vectors").fetchall()
+    # only vectors of this model's size: after a pack change the old ones are useless (and would raise)
+    rows = c.execute("select path, ord, dim, vec from vectors where dim=?", (len(q),)).fetchall()
     if not rows:
         return []
     if np is not None:
@@ -280,7 +287,10 @@ def main(argv):
     elif cmd == "remove" and len(argv) > 2:
         conf = load_conf(); f = os.path.abspath(os.path.expanduser(argv[2]))
         conf["folders"] = [x for x in conf["folders"] if x != f]; save_conf(conf)
-        c = db(); c.execute("delete from chunks where path in (select path from files where folder=?)", (f,)); c.execute("delete from files where folder=?", (f,)); c.commit()
+        c = db()
+        c.execute("delete from chunks where path in (select path from files where folder=?)", (f,))
+        c.execute("delete from vectors where path in (select path from files where folder=?)", (f,))  # or an opted-out folder still answers meaning searches
+        c.execute("delete from files where folder=?", (f,)); c.commit()
         print(json.dumps(status()))
     elif cmd == "update":
         print(json.dumps(update()))

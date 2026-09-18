@@ -51,6 +51,7 @@ def sse_chunks(resp):
 
 class H(BaseHTTPRequestHandler):
     server_version = "genesis-ollama/0.2"
+    protocol_version = "HTTP/1.1"  # chunked bodies are ignored by HTTP/1.0 clients
 
     def log_message(self, *a):
         pass
@@ -69,6 +70,16 @@ class H(BaseHTTPRequestHandler):
     def _ndjson_end(self):
         self.wfile.write(b"0\r\n\r\n"); self.wfile.flush()
 
+    def _local(self):
+        """Refuse what a web page sends: a cross-site Origin, or a Host that is not this service (DNS rebinding)."""
+        host = (self.headers.get("Host") or "").split(":")[0]
+        if host not in ("127.0.0.1", "localhost", "[::1]", "::1", ""):
+            self._json({"error": "forbidden: unexpected Host"}, 403); return False
+        origin = self.headers.get("Origin")
+        if origin and not origin.startswith(("http://127.0.0.1", "http://localhost", "http://[::1]")):
+            self._json({"error": "forbidden: a web page cannot use the local model service"}, 403); return False
+        return True
+
     def _body(self):
         n = int(self.headers.get("Content-Length", 0) or 0)
         try:
@@ -80,6 +91,7 @@ class H(BaseHTTPRequestHandler):
         self.send_response(200); self.end_headers()
 
     def do_GET(self):
+        if not self._local(): return
         if self.path == "/" or self.path == "":
             b = b"Ollama is running (Genesis)"; self.send_response(200); self.send_header("Content-Type", "text/plain"); self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b)
         elif self.path == "/api/version":
@@ -94,6 +106,7 @@ class H(BaseHTTPRequestHandler):
             self._json({"error": "not found"}, 404)
 
     def do_POST(self):
+        if not self._local(): return
         if self.path.startswith("/v1/"):
             return self._proxy("POST")
         body = self._body()
@@ -133,7 +146,7 @@ class H(BaseHTTPRequestHandler):
             return self._json({"error": e.read().decode("utf-8", "ignore")[:400]}, e.code)
         except Exception as e:
             return self._json({"error": f"the model service did not answer: {e}"}, 502)
-        t0 = time.time(); full = []; tool_calls = []
+        t0 = time.time(); full = []; tool_calls = {}
         if stream:
             self._ndjson_start()
         with resp:
@@ -141,8 +154,14 @@ class H(BaseHTTPRequestHandler):
                 choice = (ch.get("choices") or [{}])[0]
                 delta = choice.get("delta") or {}
                 piece = delta.get("content") or ""
+                # arguments arrive in fragments that share an index: join them, do not make a call per fragment
                 for tc in delta.get("tool_calls") or []:
-                    tool_calls.append(tc)
+                    i = tc.get("index", 0)
+                    cur = tool_calls.setdefault(i, {"id": tc.get("id"), "function": {"name": "", "arguments": ""}})
+                    fn = tc.get("function") or {}
+                    if fn.get("name"): cur["function"]["name"] = fn["name"]
+                    if fn.get("arguments"): cur["function"]["arguments"] += fn["arguments"]
+                    if tc.get("id"): cur["id"] = tc["id"]
                 if piece:
                     full.append(piece)
                     if stream:
@@ -155,7 +174,7 @@ class H(BaseHTTPRequestHandler):
         if chat:
             m = {"role": "assistant", "content": "" if stream else text}
             if tool_calls:
-                m["tool_calls"] = [{"function": {"name": (tc.get("function") or {}).get("name", ""), "arguments": _args((tc.get("function") or {}).get("arguments", "{}"))}} for tc in tool_calls]
+                m["tool_calls"] = [{"function": {"name": tc["function"]["name"], "arguments": _args(tc["function"]["arguments"] or "{}")}} for _, tc in sorted(tool_calls.items())]
             final["message"] = m
         else:
             final["response"] = "" if stream else text

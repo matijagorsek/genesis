@@ -160,7 +160,7 @@ RUN set -eux; \
       rsms-inter-fonts ibm-plex-mono-fonts papirus-icon-theme papirus-icon-theme-dark papirus-icon-theme-light ocean-sound-theme \
       chromium firefox okular gwenview kcalc plasma-discover plasma-discover-flatpak haruna elisa kcharselect kfind \
       kdeconnect-kde kwalletmanager5 partitionmanager rsync python3-pytest ffmpeg-free qrencode rust-analyzer clang-tools-extra lldb delve \
-      cloud-utils-growpart python3-numpy; \
+      cloud-utils-growpart python3-numpy kdialog; \
     [ -e /usr/bin/growpart ] || ln -s ../sbin/growpart /usr/bin/growpart; \
     dnf5 clean all
 

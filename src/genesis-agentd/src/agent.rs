@@ -291,7 +291,7 @@ impl Agent {
     /// The small model has a 16k-token window; a long job overflowed it (a 400 from the model service
     /// ended a make in the evaluation). Older tool output and file contents are cut to a line once the
     /// conversation passes about 9k tokens; the last eight messages stay whole.
-    fn trim_context(&mut self) {
+    pub(crate) fn trim_context(&mut self) {
         let total: usize = self.messages.iter().map(|m| m.content.as_deref().map(|c| c.len()).unwrap_or(0) + m.tool_calls.as_ref().map(|t| serde_json::to_string(t).map(|s| s.len()).unwrap_or(0)).unwrap_or(0)).sum();
         if total < 36_000 { return; }
         let keep_from = self.messages.len().saturating_sub(8);

@@ -69,6 +69,11 @@ jobs:
           node --check system_files/usr/share/genesis/babel/extension/extension.js
           for j in packs/*.json templates/*/genesis.json system_files/usr/share/genesis/*.json system_files/usr/share/genesis/mcp/*.json; do python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$j"; done
 
+      - name: Python tool tests (index, Ollama shim, system server)
+        run: |
+          python3 -m pip install -q pytest
+          python3 -m pytest -q tests/python
+
       - name: Policy file is in sync with the binary
         run: |
           cd src && cargo run -q --release -p genesis-permd -- --audit /tmp/a.jsonl policy dump > /tmp/policy.toml
