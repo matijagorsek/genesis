@@ -59,6 +59,7 @@ jobs:
             esac
           done
           python3 -m py_compile prototype/eval-makes.py
+          python3 -c "import yaml,glob,sys; [yaml.safe_load(open(f)) for f in glob.glob('.github/workflows/*.yml')]" || { echo "::error::a workflow file does not parse"; exit 1; }
           for js in src/genesis-agentd/ui/*.js; do node --check "$js" || { echo "::error::$js does not parse"; exit 1; }; done
           python3 -c 'import re,sys; print("\n".join(re.findall(r"<script>([\s\S]*?)</script>", open("src/genesis-firstrun/ui/index.html").read())))' > /tmp/page.js
           node --check /tmp/page.js || { echo "::error::the wizard JavaScript does not parse"; exit 1; }
