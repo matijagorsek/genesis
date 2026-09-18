@@ -8,6 +8,18 @@ Genesis is a normal desktop first. Everything below is optional and lives behind
 (the Windows or Command key, plus Space). Nothing here needs an account, and nothing leaves the machine
 unless you choose it.
 
+## Right-click a file
+
+In the file manager, right-click any file or folder: **Genesis > Make a tool for this** opens the maker
+with a request that fits it (a table viewer for a spreadsheet, a renamer for a folder of photos, an error
+list for a log); **Ask Genesis about this** opens chat with the file attached. Neither runs on its own.
+
+## When a command fails
+
+In the terminal, a failed command leaves one dim line: *that failed · Ctrl+G: explain and fix*. Press
+`Ctrl+G` and Genesis runs it once more to see the error, then puts the command that fixes it on your
+prompt. Press Enter to run it, or edit it first.
+
 ## Show me Genesis
 
 "Show me Genesis" in the app menu is a one-minute tour on the real maker: a make from one sentence,

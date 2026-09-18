@@ -1,0 +1,55 @@
+#!/usr/bin/python3
+"""Right-click a file in the file manager: make a tool for it, or ask about it.
+
+  genesis-file-action make <path>   the maker opens with a request that fits this kind of file
+  genesis-file-action ask  <path>   chat opens with the file attached
+
+Nothing runs on its own: the text lands in the box and waits for you.
+"""
+import os, subprocess, sys, urllib.parse
+
+# what a small local model can actually do well with each kind of file
+BY_KIND = {
+    ".csv": "a small viewer for {name}: read the file, show it as a sortable table, and say how many rows it has",
+    ".tsv": "a small viewer for {name}: read the file, show it as a sortable table",
+    ".json": "a viewer for {name}: show the structure as a collapsible tree",
+    ".log": "a tool that reads {name} and shows the errors and warnings, newest first",
+    ".txt": "a tool that reads {name} and summarises it: lines, words, and the ten most common words",
+    ".md": "a page that renders {name} as formatted text in the browser",
+    "dir-photos": "a tool for the folder {name}: rename the photos by the date they were taken, with a preview before anything is renamed",
+    "dir": "a tool for the folder {name}: list what is in it by type and size, and find the biggest files",
+}
+PHOTO = {".jpg", ".jpeg", ".png", ".heic", ".webp", ".raw", ".cr2", ".nef"}
+
+
+def request_for(path):
+    name = os.path.basename(path.rstrip("/")) or path
+    if os.path.isdir(path):
+        try:
+            photos = sum(1 for f in os.listdir(path) if os.path.splitext(f)[1].lower() in PHOTO)
+        except OSError:
+            photos = 0
+        key = "dir-photos" if photos >= 3 else "dir"
+        return BY_KIND[key].format(name=name)
+    ext = os.path.splitext(name)[1].lower()
+    if ext in PHOTO:
+        return f"a small gallery for the folder that holds {name}, with the photos side by side"
+    return BY_KIND.get(ext, "a small tool that opens {name} and shows what is in it").format(name=name)
+
+
+def main(argv):
+    if len(argv) < 3:
+        print(__doc__.strip()); return 2
+    action, path = argv[1], os.path.abspath(argv[2])
+    if action == "make":
+        project = os.path.dirname(path) if os.path.isfile(path) else path
+        url = "http://127.0.0.1:11520/?draft={}&project={}".format(
+            urllib.parse.quote(request_for(path)), urllib.parse.quote(project))
+    else:
+        url = "http://127.0.0.1:11520/chat?attach={}".format(urllib.parse.quote(path))
+    subprocess.Popen(["genesis-window", url])
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

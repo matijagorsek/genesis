@@ -13,6 +13,8 @@ PlasmoidItem {
     property bool alive: false
     property string model: ""
     property string mode: ""
+    property string lastJob: ""
+    property string lastJobId: ""
     property bool sandbox: false
     property bool voice: false
     property var netDomains: []
@@ -35,6 +37,14 @@ PlasmoidItem {
             model = h.model || ""; sandbox = !!h.sandbox; voice = !!h.voice; mode = h.default_mode || ""
         })
         get("/api/system", function(sy) { staged = (sy && sy.os && sy.os.staged) ? (sy.os.staged_built || "").substring(0, 10) : "" })
+        // the last job that changed something outside its project, so undo is one click away from the panel
+        get("/api/system", function(sy) {
+            var h = (sy && sy.history) ? sy.history : []
+            var last = null
+            for (var i = 0; i < h.length; i++) { if (/committed|kept|done/i.test(h[i].status || "")) { last = h[i]; break } }
+            lastJob = last ? ((last.asked || "a job") + " · " + (last.changes || 0) + " changes") : ""
+            lastJobId = last ? last.id : ""
+        })
         get("/api/sessions", function(list) {
             if (!list) return
             var d = {}; var n = 0
@@ -45,6 +55,12 @@ PlasmoidItem {
     Timer { interval: 20000; running: true; repeat: true; triggeredOnStart: true; onTriggered: root.refresh() }
     // Meta+Shift+M does the same from the keyboard; both go through genesis-mode
     P5Support.DataSource { id: modeRunner; engine: "executable"; onNewData: function(source, data) { disconnectSource(source); root.refresh() } }
+
+    // Undo from the panel: the same call the maker's toast makes, with the token from the runtime directory.
+    function undoLast() {
+        if (lastJobId === "") return
+        modeRunner.connectSource("sh -lc 'curl -s -X POST -H \"X-Genesis-Token: $(cat $XDG_RUNTIME_DIR/genesis/agentd.token)\" http://127.0.0.1:11520/api/history/" + lastJobId + "/undo'")
+    }
 
     P5Support.DataSource { id: exec; engine: "executable"; onNewData: function(source) { disconnectSource(source) } }
     function openMaker() { exec.connectSource("genesis-window http://127.0.0.1:11520/") }
@@ -73,6 +89,11 @@ PlasmoidItem {
         PC.Label { visible: root.alive; text: (root.sandbox ? "Commands run in a sandbox. " : "") + (root.voice ? "Voice input ready." : ""); Layout.fillWidth: true; wrapMode: Text.Wrap; opacity: 0.8 }
         PC.Label { visible: root.staged !== ""; text: "A Genesis update built " + root.staged + " is ready. It applies when you restart."; color: Kirigami.Theme.positiveTextColor; Layout.fillWidth: true; wrapMode: Text.Wrap }
         PC.Label { text: "Nothing you type or say leaves this computer."; opacity: 0.7; Layout.fillWidth: true; wrapMode: Text.Wrap }
+        PC.Label { visible: root.alive && root.lastJob !== ""; text: "Last change: " + root.lastJob; Layout.fillWidth: true; wrapMode: Text.Wrap; opacity: 0.9 }
+        RowLayout { visible: root.alive && root.lastJobId !== ""; Layout.fillWidth: true
+            PC.Button { text: "Undo the last job"; icon.name: "edit-undo"; onClicked: { root.undoLast(); root.expanded = false } }
+            PC.Button { text: "See what changed"; icon.name: "document-edit"; onClicked: { modeRunner.connectSource("genesis-window http://127.0.0.1:11520/settings#sec-undo"); root.expanded = false } }
+        }
         PC.Button { text: "Open Genesis"; icon.name: "genesis"; onClicked: { root.openMaker(); root.expanded = false } }
     }
 }

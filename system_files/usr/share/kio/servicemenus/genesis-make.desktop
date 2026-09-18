@@ -1,0 +1,17 @@
+[Desktop Entry]
+Type=Service
+ServiceTypes=KonqPopupMenu/Plugin
+MimeType=application/octet-stream;text/plain;text/csv;application/json;inode/directory;image/jpeg;image/png;application/pdf;
+Actions=genesisMake;genesisAsk;
+X-KDE-Priority=TopLevel
+X-KDE-Submenu=Genesis
+
+[Desktop Action genesisMake]
+Name=Make a tool for this
+Icon=genesis
+Exec=/usr/bin/genesis-file-action make %F
+
+[Desktop Action genesisAsk]
+Name=Ask Genesis about this
+Icon=genesis-chat
+Exec=/usr/bin/genesis-file-action ask %F

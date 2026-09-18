@@ -17,6 +17,9 @@ struct Cli {
     /// Print the command only, never run it
     #[arg(long)]
     print: bool,
+    /// A command that just failed: explain it in one line and print the command that fixes it
+    #[arg(long)]
+    fix: bool,
     /// Run without asking (still refuses commands the policy never allows)
     #[arg(short = 'y', long)]
     yes: bool,
@@ -34,12 +37,14 @@ const SYSTEM: &str = "You turn a request into exactly one shell command line for
 Reply with the command only: no explanation, no code fences, no leading $. Prefer safe, common tools. \
 If the request cannot be done with a command, reply with a comment starting with # explaining why in one line.";
 
-fn ask_model(cli: &Cli, question: &str) -> Result<String> {
+fn ask_model(cli: &Cli, question: &str) -> Result<String> { ask_model_mode(cli, question, cli.fix) }
+
+fn ask_model_mode(cli: &Cli, question: &str, fix: bool) -> Result<String> {
     let cwd = std::env::current_dir().map(|p| p.display().to_string()).unwrap_or_default();
     let body = serde_json::json!({
         "model": cli.model, "temperature": 0.1, "max_tokens": 200,
         "messages": [
-            {"role": "system", "content": SYSTEM},
+            {"role": "system", "content": if fix { FIX } else { SYSTEM }},
             {"role": "user", "content": format!("Current directory: {}\nRequest: {}", cwd, question)}
         ]
     });
@@ -86,6 +91,10 @@ fn describe(tier: Tier) -> &'static str {
     }
 }
 
+/// The rescue prompt: the user's last command failed, so run it again to see the error and answer with
+/// the command that fixes it, or a `#` line when the fix is not a command.
+const FIX: &str = "A command the user just ran failed. Answer with ONE shell command that fixes the cause and then does what they wanted, on Fedora with dnf, flatpak and toolbox. No explanation, no markdown. If nothing can be fixed by a command, answer with a single line starting with # that says in plain words what is wrong.";
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
     let question = cli.words.join(" ").trim().to_string();
@@ -93,12 +102,20 @@ fn main() -> Result<()> {
         eprintln!("usage: genesis-ask <what you want, in plain words>   (or: ask ...; or type it and press Ctrl+G)");
         std::process::exit(2);
     }
-    if !cli.print { eprint!("\x1b[2mthinking on this machine…\x1b[0m\r"); }
+    if !cli.print && !cli.fix { eprint!("\x1b[2mthinking on this machine…\x1b[0m\r"); }
+    // rescue: run the failed command once more, capture what it says, and hand that to the model
+    let question = if cli.fix {
+        eprint!("\x1b[2mlooking at what went wrong…\x1b[0m\r");
+        let out = std::process::Command::new("/bin/sh").args(["-lc", &question]).output().ok();
+        let err = out.map(|o| format!("{}{}", String::from_utf8_lossy(&o.stderr), String::from_utf8_lossy(&o.stdout))).unwrap_or_default();
+        format!("The command was: {}\nIt failed with:\n{}", question, err.chars().take(1500).collect::<String>())
+    } else { question };
     let cmd = ask_model(&cli, &question)?;
+    if cli.fix { eprint!("\x1b[2K"); }
     if !cli.print { eprint!("\x1b[2K"); }
     if cmd.is_empty() { return Err(anyhow!("the model gave no command")); }
-    if cli.print {
-        if cmd.starts_with('#') { std::process::exit(1); }
+    if cli.print || cli.fix {
+        if cmd.starts_with('#') { eprintln!("\x1b[2m{}\x1b[0m", cmd.trim_start_matches('#').trim()); std::process::exit(1); }
         println!("{}", cmd);
         return Ok(());
     }
