@@ -115,6 +115,8 @@ RUN set -eux; if [ "$FLAVOUR" = fedora ]; then \
 
 # ---- Genesis files: units, sysusers, tmpfiles, policy, /etc/genesis defaults ---------------
 COPY system_files/ /
+# the release notes people read in Settings > Updates come from the repository's own notes
+COPY docs/releases/0.2.md /usr/share/genesis/release-notes.md
 COPY packs/ /usr/share/genesis/packs/
 COPY templates/ /usr/share/genesis/templates/
 COPY --from=daemons /out/ /

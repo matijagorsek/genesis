@@ -465,6 +465,24 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
                 Err(e) => json_response(&serde_json::json!({"error": format!("no file dialog: {}", e)}), 500),
             }
         }
+        // What Genesis keeps about you, with its size, and one way to delete each kind.
+        // The switches for everything that can speak without being asked.
+        (Method::Post, ["api", "settings"]) => match serde_json::from_str::<serde_json::Value>(&body) {
+            Ok(v) => { write_user_settings(&v); json_response(&read_user_settings(), 200) }
+            Err(_) => json_response(&serde_json::json!({"error": "expected a settings object"}), 400),
+        },
+        // What changed in this version and in the one waiting: the notes ship in the image.
+        (Method::Get, ["api", "release-notes"]) => {
+            let notes = std::fs::read_to_string("/usr/share/genesis/release-notes.md").unwrap_or_default();
+            json_response(&serde_json::json!({"notes": notes.chars().take(20_000).collect::<String>()}), 200)
+        }
+        // "Choose a different pack": reopens the model wizard (it asks for the password itself).
+        (Method::Post, ["api", "models", "setup"]) => match std::process::Command::new("/usr/bin/genesis-setup-models").spawn() {
+            Ok(mut c) => { std::thread::spawn(move || { let _ = c.wait(); }); json_response(&serde_json::json!({"started": true}), 202) }
+            Err(e) => json_response(&serde_json::json!({"error": e.to_string()}), 500),
+        },
+        (Method::Get, ["api", "data"]) => json_response(&stored_data(), 200),
+        (Method::Post, ["api", "data", kind, "delete"]) => json_response(&delete_stored(kind), 200),
         (Method::Get, ["api", "mcp"]) => json_response(&mcp::status(), 200),
         (Method::Post, ["api", "mcp", "reload"]) => { mcp::reload(); json_response(&mcp::status(), 200) }
         (Method::Get, ["api", "recipes"]) => json_response(&recipes(), 200),
@@ -529,6 +547,15 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
             }
         }
         (Method::Get, ["api", "made"]) => json_response(&maker::made_here(std::path::Path::new(&default_project())), 200),
+        // A thing you made can be renamed, taken out of the app menu, shown in the file manager, or deleted.
+        (Method::Post, ["api", "made", "manage"]) => {
+            let v: serde_json::Value = serde_json::from_str(&body).unwrap_or(serde_json::Value::Null);
+            let (action, path) = (v.get("action").and_then(|a| a.as_str()).unwrap_or(""), v.get("path").and_then(|p| p.as_str()).unwrap_or(""));
+            match maker::manage_made(action, path, v.get("name").and_then(|n| n.as_str()).unwrap_or("")) {
+                Ok(m) => json_response(&serde_json::json!({"ok": true, "message": m}), 200),
+                Err(e) => json_response(&serde_json::json!({"error": e.to_string()}), 400),
+            }
+        }
         (Method::Get, ["api", "sessions"]) => {
             let list: Vec<serde_json::Value> = d.sessions.lock().unwrap().values().map(|(s, _)| { let i = s.info.lock().unwrap(); serde_json::json!({"id": i.id, "mode": i.mode, "project": i.project, "state": i.state, "transaction": i.transaction}) }).collect();
             json_response(&list, 200)
@@ -1053,6 +1080,58 @@ fn release_old_sessions(d: &Arc<Daemon>) {
         if let Some((shared, slot)) = sessions.get(id) {
             if let Ok(mut g) = slot.try_lock() { if g.take().is_some() { shared.info.lock().unwrap().preview_url = None; } }
         }
+    }
+}
+
+/// Every place Genesis keeps something of yours, what is in it and how big it is. The paths are real and
+/// shown, so nothing about this has to be taken on trust.
+fn stored_data() -> serde_json::Value {
+    fn size(p: &std::path::Path) -> u64 {
+        if p.is_file() { return std::fs::metadata(p).map(|m| m.len()).unwrap_or(0); }
+        std::fs::read_dir(p).map(|rd| rd.flatten().map(|e| { let q = e.path(); if q.is_dir() { size(&q) } else { std::fs::metadata(&q).map(|m| m.len()).unwrap_or(0) } }).sum()).unwrap_or(0)
+    }
+    let home = std::env::var("HOME").unwrap_or_default();
+    let data = std::path::PathBuf::from(format!("{}/.local/share/genesis", home));
+    let state = std::path::PathBuf::from(format!("{}/.local/state/genesis", home));
+    let chats = chat::dir();
+    let index = data.join("index.sqlite");
+    let audit = default_audit_path();
+    let tx = default_store();
+    let n_chats = std::fs::read_dir(&chats).map(|rd| rd.flatten().filter(|e| e.path().extension().map(|x| x == "json").unwrap_or(false)).count()).unwrap_or(0);
+    let idx: serde_json::Value = run_json("/usr/bin/genesis-index", &["status"]);
+    serde_json::json!({
+        "kinds": [
+            {"id": "chats", "what": "Your conversations with Genesis", "detail": format!("{} chats", n_chats), "path": chats.display().to_string(), "bytes": size(&chats)},
+            {"id": "index", "what": "The search index of the folders you opted in", "detail": format!("{} files, {} passages", idx.get("files").and_then(|v| v.as_u64()).unwrap_or(0), idx.get("chunks").and_then(|v| v.as_u64()).unwrap_or(0)), "path": index.display().to_string(), "bytes": size(&index)},
+            {"id": "activity", "what": "The record of what Genesis did and what you allowed", "detail": "one line per action", "path": audit.display().to_string(), "bytes": size(&audit)},
+            {"id": "snapshots", "what": "Snapshots kept so jobs can be undone", "detail": "older than a week can go", "path": tx.display().to_string(), "bytes": size(&tx)},
+            {"id": "queue", "what": "Makes queued for the night and their results", "detail": "", "path": state.join("queue.json").display().to_string(), "bytes": size(&state.join("queue.json"))}
+        ],
+        "note": "Nothing here has ever left this computer. Voice is not kept: what you say is turned into text and the audio is discarded."
+    })
+}
+
+/// Delete one kind of stored data. Snapshots older than a week only, so today's Undo still works.
+fn delete_stored(kind: &str) -> serde_json::Value {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let done = |what: &str| serde_json::json!({"ok": true, "message": what});
+    match kind {
+        "chats" => { let _ = std::fs::remove_dir_all(chat::dir()); done("your chats are gone") }
+        "index" => { let _ = std::process::Command::new("/usr/bin/genesis-index").arg("reset").status(); let _ = std::fs::remove_file(format!("{}/.local/share/genesis/index.sqlite", home)); done("the search index is gone; the folders you opted in are still listed and will be indexed again") }
+        "activity" => { let _ = std::fs::remove_file(default_audit_path()); done("the activity record is gone") }
+        "snapshots" => {
+            let mut n = 0;
+            if let Ok(st) = Store::open(default_store()) {
+                let week = time::OffsetDateTime::now_utc() - time::Duration::days(7);
+                let cutoff = week.format(&time::format_description::well_known::Rfc3339).unwrap_or_default();
+                for t in st.list().unwrap_or_default() {
+                    if t.started_at < cutoff { let _ = std::fs::remove_dir_all(default_store().join(&t.id)); n += 1; }
+                }
+            }
+            done(&format!("{} snapshots older than a week removed; newer jobs can still be undone", n))
+        }
+        "queue" => { let _ = std::fs::remove_file(format!("{}/.local/state/genesis/queue.json", home)); done("the queue and its results are gone") }
+        _ => serde_json::json!({"error": "unknown kind"}),
     }
 }
 

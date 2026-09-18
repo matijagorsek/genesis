@@ -337,9 +337,17 @@ pub fn morning_card(projects_dir: &Path) -> Option<Notice> {
     Some(Notice { kind: "morning".into(), title: "Good morning".into(), text: lines.join(" "), prompt: String::new(), project: String::new() })
 }
 
+/// A switch the user set in Settings: "cards" (the proactive notices), "morning" (the daily card).
+fn wants(kind: &str) -> bool {
+    let p = std::env::var("XDG_CONFIG_HOME").map(PathBuf::from).unwrap_or_else(|_| PathBuf::from(std::env::var("HOME").unwrap_or_default()).join(".config")).join("genesis").join("settings.json");
+    std::fs::read_to_string(p).ok().and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+        .and_then(|v| v.get(kind).and_then(|b| b.as_bool())).unwrap_or(true)
+}
+
 pub fn notices(projects_dir: &Path) -> Vec<Notice> {
     let mut out = Vec::new();
-    if let Some(m) = morning_card(projects_dir) { out.push(m); }
+    if !wants("cards") { return out; }
+    if wants("morning") { if let Some(m) = morning_card(projects_dir) { out.push(m); } }
     for m in made_here(projects_dir) {
         let log = Path::new(&m.path).join(".genesis-preview.log");
         if let Ok(text) = std::fs::read_to_string(&log) {
@@ -506,4 +514,55 @@ pub fn preview_command(project: &Path) -> Option<(String, bool)> {
             .map(|tt| norm(&tt.dev.cmd) == mine).unwrap_or(false)
     })).unwrap_or(false);
     Some((t.dev.cmd.replace("{port}", &t.dev.port.to_string()).replace("{name}", &name), trusted))
+}
+
+/// The life of a thing you made after it is made: rename it, take it out of the app menu, show it in the
+/// file manager, or delete it. Only inside the projects folder, and a delete goes to the trash, never
+/// straight to nothing.
+pub fn manage_made(action: &str, path: &str, name: &str) -> Result<String> {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let projects = std::fs::canonicalize(format!("{}/Projects", home)).unwrap_or_else(|_| PathBuf::from(format!("{}/Projects", home)));
+    let p = std::fs::canonicalize(path).map_err(|_| anyhow!("no such project"))?;
+    if !p.starts_with(&projects) { return Err(anyhow!("only things under Projects can be managed here")); }
+    match action {
+        "show" => { std::process::Command::new("xdg-open").arg(&p).spawn().map(|mut c| { std::thread::spawn(move || { let _ = c.wait(); }); })?; Ok(format!("opened {}", p.display())) }
+        "rename" => {
+            let clean: String = name.trim().chars().filter(|c| c.is_alphanumeric() || *c == '-' || *c == '_' || *c == ' ').collect();
+            if clean.is_empty() { return Err(anyhow!("give a name")); }
+            let dest = p.with_file_name(clean.replace(' ', "-"));
+            if dest.exists() { return Err(anyhow!("something with that name is already there")); }
+            std::fs::rename(&p, &dest)?;
+            Ok(format!("renamed to {}", dest.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default()))
+        }
+        "uninstall" => {
+            // the desktop entry the maker wrote for it, nothing else
+            let apps = PathBuf::from(format!("{}/.local/share/applications", home));
+            let stem = p.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+            let mut n = 0;
+            if let Ok(rd) = std::fs::read_dir(&apps) {
+                for e in rd.flatten() {
+                    let f = e.path();
+                    if f.extension().map(|x| x == "desktop").unwrap_or(false) {
+                        let text = std::fs::read_to_string(&f).unwrap_or_default();
+                        if text.contains(&p.display().to_string()) || f.file_name().map(|x| x.to_string_lossy().contains(&stem)).unwrap_or(false) {
+                            let _ = std::fs::remove_file(&f); n += 1;
+                        }
+                    }
+                }
+            }
+            let _ = std::process::Command::new("update-desktop-database").arg(&apps).status();
+            Ok(if n > 0 { format!("taken out of your app menu ({} entry)", n) } else { "it was not in your app menu".into() })
+        }
+        "delete" => {
+            // to the trash, so it can be brought back from the file manager
+            let trash = PathBuf::from(format!("{}/.local/share/Trash/files", home));
+            std::fs::create_dir_all(&trash)?;
+            let mut dest = trash.join(p.file_name().unwrap_or_default());
+            let mut i = 1;
+            while dest.exists() { dest = trash.join(format!("{}-{}", p.file_name().unwrap_or_default().to_string_lossy(), i)); i += 1; }
+            std::fs::rename(&p, &dest)?;
+            Ok(format!("moved to the trash; the file manager can bring it back"))
+        }
+        _ => Err(anyhow!("unknown action")),
+    }
 }

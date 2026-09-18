@@ -3,6 +3,7 @@
 
   folders                         JSON: the folders Genesis may search, with counts
   add <folder> | remove <folder>  opt a folder in or out (the index for a removed folder is dropped)
+  reset                           forget everything indexed (the opted-in folders stay)
   update                          index new and changed files in every opted-in folder (the timer runs this)
   search <query> [--json] [-n 8]  search by words (SQLite FTS5, bm25) and by meaning (embeddings from the
                                   local embed model, when the model service has one); JSON for the maker
@@ -291,6 +292,10 @@ def main(argv):
         c.execute("delete from chunks where path in (select path from files where folder=?)", (f,))
         c.execute("delete from vectors where path in (select path from files where folder=?)", (f,))  # or an opted-out folder still answers meaning searches
         c.execute("delete from files where folder=?", (f,)); c.commit()
+        print(json.dumps(status()))
+    elif cmd == "reset":
+        # forget everything indexed; the opted-in folders stay and are indexed again on the next run
+        c = db(); c.execute("delete from chunks"); c.execute("delete from vectors"); c.execute("delete from files"); c.commit()
         print(json.dumps(status()))
     elif cmd == "update":
         print(json.dumps(update()))

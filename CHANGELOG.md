@@ -3,6 +3,7 @@
 Derived from the decision log (`docs/decisions.md`); one line per decision, newest first. Versions are 0.2.N on the stable channel; 0.1.N before 2026-09-15.
 
 ## 2026-09-18
+- What is kept about you and how to delete it; switches for the cards; release notes; pack change; rename, uninstall and delete for things you made; copy and try again in chat; a shortcuts card on the first visit (decision 133)
 - Local image builds work again (arm64 natively on the Mac); kdialog and the changeable hostname verified in a built image (decision 130)
 - Stop and the command timeout now kill everything the command started; large output no longer stalls a command (decision 129)
 - Tests for the Python tools (four defects fixed), the agent guards covered, MCP timeout, OCR timeout, queue cleanup, kdialog, a changeable hostname (decision 128)
