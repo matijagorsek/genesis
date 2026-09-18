@@ -566,3 +566,38 @@ pub fn manage_made(action: &str, path: &str, name: &str) -> Result<String> {
         _ => Err(anyhow!("unknown action")),
     }
 }
+
+/// Give a thing you made its own key (Meta+Alt+<letter>), the way the Genesis surfaces have one. Writes
+/// the user's own shortcut file, which KDE reads; it never touches the system defaults.
+pub fn set_shortcut(project: &Path, key: &str) -> Result<String> {
+    let name = project.file_name().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+    let entry = format!("genesis-{}.desktop", name);
+    let home = std::env::var("HOME").unwrap_or_default();
+    if !Path::new(&home).join(".local/share/applications").join(&entry).is_file() {
+        return Err(anyhow!("install it as an app first, then it can have a key"));
+    }
+    let k = key.trim();
+    let ok = k.len() == 1 && k.chars().all(|c| c.is_ascii_alphanumeric());
+    if !ok { return Err(anyhow!("choose a single letter or digit")); }
+    let combo = format!("Meta+Alt+{}", k.to_uppercase());
+    let conf = Path::new(&home).join(".config").join("kglobalshortcutsrc");
+    let text = std::fs::read_to_string(&conf).unwrap_or_default();
+    if text.contains(&format!("_launch={}", combo)) && !text.contains(&format!("[services][{}]", entry)) {
+        return Err(anyhow!("{} is already used by something else", combo));
+    }
+    let mut kept: Vec<String> = Vec::new();
+    let mut skip = false;
+    for line in text.lines() {
+        if line.starts_with("[services][") { skip = line == format!("[services][{}]", entry); }
+        if !skip { kept.push(line.to_string()); }
+    }
+    kept.push(format!("[services][{}]", entry));
+    kept.push(format!("_launch={}", combo));
+    kept.push(String::new());
+    if let Some(d) = conf.parent() { std::fs::create_dir_all(d)?; }
+    std::fs::write(&conf, kept.join("\n"))?;
+    // KDE reads the file at login; ask it to reload now so the key works at once
+    let _ = std::process::Command::new("kquitapp6").arg("kglobalacceld").status();
+    let _ = std::process::Command::new("systemctl").args(["--user", "restart", "plasma-kglobalacceld.service"]).status();
+    Ok(format!("{} opens it now", combo))
+}

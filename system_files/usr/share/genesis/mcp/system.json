@@ -13,7 +13,8 @@
         "power_profile": "write",
         "wifi_diagnose": "network",
         "wifi_reconnect": "write",
-        "print_test_page": "write"
+        "print_test_page": "write",
+        "offline_proof": "system"
       }
     }
   }

@@ -33,4 +33,10 @@ except Exception as e:
 PY
 )
 printf '%s' "$resp" | wl-copy 2>/dev/null || true
-notify-send -a Genesis -t 0 "Ask about the screen" "$resp"
+# "Make something like this": the description seeds the maker, where it waits in the box
+act=$(notify-send -a Genesis -t 0 --action=make="Make something like this" --action=copy="Copied" "Ask about the screen" "$resp" 2>/dev/null) || {
+  notify-send -a Genesis -t 0 "Ask about the screen" "$resp"; exit 0; }
+if [ "$act" = "make" ]; then
+  draft="a page that looks like this: $resp"
+  genesis-window "http://127.0.0.1:11520/?draft=$(python3 -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.argv[1][:1200]))' "$draft")" &
+fi

@@ -3,6 +3,7 @@
 Derived from the decision log (`docs/decisions.md`); one line per decision, newest first. Versions are 0.2.N on the stable channel; 0.1.N before 2026-09-15.
 
 ## 2026-09-18
+- Clipboard transforms in the palette, make-something-like-this from a screen region, a key for a made app, the morning card read aloud, an offline proof (decision 135)
 - Right-click a file to make a tool for it or ask about it; terminal rescue after a failed command; undo the last job from the panel (decision 134)
 - What is kept about you and how to delete it; switches for the cards; release notes; pack change; rename, uninstall and delete for things you made; copy and try again in chat; a shortcuts card on the first visit (decision 133)
 - Local image builds work again (arm64 natively on the Mac); kdialog and the changeable hostname verified in a built image (decision 130)

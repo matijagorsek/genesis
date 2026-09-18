@@ -481,6 +481,18 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
             Ok(mut c) => { std::thread::spawn(move || { let _ = c.wait(); }); json_response(&serde_json::json!({"started": true}), 202) }
             Err(e) => json_response(&serde_json::json!({"error": e.to_string()}), 500),
         },
+        // Clipboard transforms: one short model call on the selected text, no tools, nothing kept.
+        (Method::Post, ["api", "transform"]) => {
+            let v: serde_json::Value = serde_json::from_str(&body).unwrap_or(serde_json::Value::Null);
+            let (instr, text) = (v.get("instruction").and_then(|i| i.as_str()).unwrap_or(""), v.get("text").and_then(|t| t.as_str()).unwrap_or(""));
+            if text.trim().is_empty() { return Ok(req.respond(json_response(&serde_json::json!({"error": "nothing selected"}), 400))?); }
+            let client = Client { endpoint: d.endpoint.clone(), model: served_model_for(&d.endpoint, &d.model, "chat"), api_key: "local".into() };
+            let msgs = vec![llm::Message::system(instr.to_string()), llm::Message::user(agent::cut_at_char(text, 8000).to_string())];
+            match client.chat(&msgs, &serde_json::json!([]), 0.2) {
+                Ok(r) => json_response(&serde_json::json!({"text": r.message.content.unwrap_or_default().trim()}), 200),
+                Err(e) => json_response(&serde_json::json!({"error": format!("the model did not answer: {}", e)}), 502),
+            }
+        }
         (Method::Get, ["api", "data"]) => json_response(&stored_data(), 200),
         (Method::Post, ["api", "data", kind, "delete"]) => json_response(&delete_stored(kind), 200),
         (Method::Get, ["api", "mcp"]) => json_response(&mcp::status(), 200),
@@ -548,6 +560,14 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
         }
         (Method::Get, ["api", "made"]) => json_response(&maker::made_here(std::path::Path::new(&default_project())), 200),
         // A thing you made can be renamed, taken out of the app menu, shown in the file manager, or deleted.
+        (Method::Post, ["api", "made", "shortcut"]) => {
+            let v: serde_json::Value = serde_json::from_str(&body).unwrap_or(serde_json::Value::Null);
+            let (path, key) = (v.get("path").and_then(|p| p.as_str()).unwrap_or(""), v.get("key").and_then(|k| k.as_str()).unwrap_or(""));
+            match maker::set_shortcut(std::path::Path::new(path), key) {
+                Ok(m) => json_response(&serde_json::json!({"ok": true, "message": m}), 200),
+                Err(e) => json_response(&serde_json::json!({"error": e.to_string()}), 400),
+            }
+        }
         (Method::Post, ["api", "made", "manage"]) => {
             let v: serde_json::Value = serde_json::from_str(&body).unwrap_or(serde_json::Value::Null);
             let (action, path) = (v.get("action").and_then(|a| a.as_str()).unwrap_or(""), v.get("path").and_then(|p| p.as_str()).unwrap_or(""));

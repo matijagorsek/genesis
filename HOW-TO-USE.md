@@ -8,6 +8,17 @@ Genesis is a normal desktop first. Everything below is optional and lives behind
 (the Windows or Command key, plus Space). Nothing here needs an account, and nothing leaves the machine
 unless you choose it.
 
+## Turn a selection into something else
+
+Select text anywhere, press `Meta+Shift+Space`, and five chips appear: fix the grammar, shorter, to
+German, to Slovenian, as a checklist. One click and the result is on your clipboard, ready to paste
+back. Nothing is kept.
+
+## Prove it is local
+
+Ask Genesis to "go offline for a minute and prove it": the network goes down, the badge says so, a make
+still works, and the connection comes back on its own.
+
 ## Right-click a file
 
 In the file manager, right-click any file or folder: **Genesis > Make a tool for this** opens the maker
@@ -176,7 +187,8 @@ tool; "Got it" puts it away until tomorrow. The phone app shows the same card.
   is kept. `Ctrl+Enter` sends anything to the maker; **Make it** in chat hands a text over.
 - **Select text** in any app, press Meta+Shift+Space: ask about the selection.
 - **Meta+Shift+A**: select a region of the screen and ask what it is; the answer arrives as a
-  notification and is copied to the clipboard.
+  notification and is copied to the clipboard. The notification also offers **Make something like this**,
+  which seeds the maker with what was seen.
 - **Terminal:** `ask how do I find large files` answers in the shell; Ctrl+G turns the line you typed
   into a command.
 - **Your files:** Settings > "Files Genesis may search", add a folder (Documents, Notes). Then "what did I

@@ -8,7 +8,7 @@ what polkit already lets a desktop user do (Flatpak installs go to the user's ow
 
 It is also the worked example for writing your own server: ~120 lines, no framework.
 """
-import json, os, re, shutil, subprocess, sys
+import json, os, re, shlex, shutil, subprocess, sys
 
 def run(cmd, timeout=120):
     try:
@@ -133,6 +133,21 @@ def wifi_diagnose(_):
         except (IndexError, ValueError): pass
     return "\n".join(lines)
 
+def offline_proof(a):
+    """Take every network connection down for a minute, then bring it back: the local claim, demonstrated.
+    Always restores, even if this process is killed (the restore is scheduled first, with `at`-less nohup)."""
+    secs = max(10, min(int(a.get("seconds") or 60), 300))
+    code, before = run(["nmcli", "-t", "-f", "NAME", "connection", "show", "--active"], timeout=20)
+    names = [n for n in before.splitlines() if n.strip()]
+    if not names:
+        return "nothing is connected: this computer is already offline"
+    # the restore runs on its own, so the network comes back even if Genesis stops here
+    restore = "; ".join(["sleep %d" % secs] + ["nmcli connection up id %s" % shlex.quote(n) for n in names])
+    subprocess.Popen(["setsid", "sh", "-c", restore], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    for n in names:
+        run(["nmcli", "connection", "down", "id", n], timeout=20)
+    return f"offline for {secs} seconds ({', '.join(names)} will come back on their own). Everything you do now runs on this computer."
+
 def wifi_reconnect(_):
     """The first fix for a flaky Wi-Fi: drop and re-establish the current wireless connection."""
     _, dev = run(["nmcli", "-t", "-f", "DEVICE,TYPE,STATE", "device"])
@@ -189,6 +204,7 @@ TOOLS = [
     ("printer_setup", "Add a printer by URI through CUPS and make it the default (a system change: asks first).", {"type": "object", "properties": {"name": {"type": "string"}, "uri": {"type": "string", "description": "e.g. ipp://192.168.1.50/ipp/print"}}, "required": ["name", "uri"]}, printer_setup),
     ("wifi_diagnose", "Why the network is slow or down: connection, gateway, internet by address, DNS, signal.", {"type": "object", "properties": {}}, wifi_diagnose),
     ("wifi_reconnect", "Drop and re-establish the Wi-Fi connection (the first fix to try; asks first).", {"type": "object", "properties": {}}, wifi_reconnect),
+    ("offline_proof", "Take the network down for a minute and bring it back on its own, to show that Genesis works without it (asks first).", {"type": "object", "properties": {"seconds": {"type": "integer"}}}, offline_proof),
     ("print_test_page", "Print a test page on a printer (the default one when no name is given; asks first).", {"type": "object", "properties": {"printer": {"type": "string"}}}, print_test_page),
     ("power_profile", "Show or set the power profile: balanced, performance or power-saver.", {"type": "object", "properties": {"profile": {"type": "string"}}}, power_profile),
     ("bluetooth_status", "The Bluetooth adapter and connected devices.", {"type": "object", "properties": {}}, bluetooth_status),
