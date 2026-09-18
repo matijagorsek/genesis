@@ -211,6 +211,9 @@ pub struct Agent {
     /// not progress, and a 2B model does not read the refusal (37 refused writes in one evaluation make).
     pub last_failure: String,
     pub failure_streak: usize,
+    /// True once the program has run without an error: after that, a model that keeps fiddling is finished,
+    /// not broken, and the job ends as done.
+    pub ran_clean: bool,
     pub same_file_streak: usize,
     /// Project directory the maker tools currently target (set by scaffold).
     pub active_project: Option<PathBuf>,
@@ -240,7 +243,7 @@ fn resolve_path(project: &Path, p: &str) -> PathBuf {
 
 impl Agent {
     pub fn new(client: Client, broker: Arc<Mutex<Broker>>, session_id: String, project: PathBuf, shared: Arc<Shared>) -> Self {
-        Agent { client, broker, session_id, project, shared, max_turns: 40, prompt_timeout: Duration::from_secs(600), messages: vec![Message::system(SYSTEM_PROMPT)], tx_store: None, tx: None, previews: maker::Previews::default(), active_project: None, browser: None, last_prompt: String::new(), scaffolded: false, edited_after_scaffold: false, nudged: false, writes_since_run: 0, nudged_writes: false, last_write: String::new(), last_run: String::new(), same_run_streak: 0, last_failure: String::new(), failure_streak: 0, same_file_streak: 0, kind: "make".into() }
+        Agent { client, broker, session_id, project, shared, max_turns: 40, prompt_timeout: Duration::from_secs(600), messages: vec![Message::system(SYSTEM_PROMPT)], tx_store: None, tx: None, previews: maker::Previews::default(), active_project: None, browser: None, last_prompt: String::new(), scaffolded: false, edited_after_scaffold: false, nudged: false, writes_since_run: 0, nudged_writes: false, last_write: String::new(), last_run: String::new(), same_run_streak: 0, last_failure: String::new(), failure_streak: 0, ran_clean: false, same_file_streak: 0, kind: "make".into() }
     }
 
     /// The plan card: what the job will touch and the steps, before anything runs. One short model call
@@ -318,7 +321,7 @@ impl Agent {
         self.shared.push(Event::UserPrompt { text: text.into() });
         self.shared.set_state("running");
         self.last_prompt = text.to_string();
-        self.scaffolded = false; self.edited_after_scaffold = false; self.nudged = false; self.writes_since_run = 0; self.nudged_writes = false; self.last_write.clear(); self.same_file_streak = 0; self.last_run.clear(); self.same_run_streak = 0; self.last_failure.clear(); self.failure_streak = 0;
+        self.scaffolded = false; self.edited_after_scaffold = false; self.nudged = false; self.writes_since_run = 0; self.nudged_writes = false; self.last_write.clear(); self.same_file_streak = 0; self.last_run.clear(); self.same_run_streak = 0; self.last_failure.clear(); self.failure_streak = 0; self.ran_clean = false;
         let compact = compact_model(&self.client.model);
         let chat = self.kind == "chat";
         if chat { if self.messages.first().map(|m| m.content.as_deref() != Some(SYSTEM_PROMPT_CHAT)).unwrap_or(true) { self.messages[0] = Message::system(SYSTEM_PROMPT_CHAT); } }
@@ -440,6 +443,19 @@ impl Agent {
                 if failure.is_empty() { self.failure_streak = 0; self.last_failure.clear(); }
                 else if failure == self.last_failure { self.failure_streak += 1; }
                 else { self.last_failure = failure; self.failure_streak = 1; }
+                // it already ran without an error and the model is now going in circles: that is the end of
+                // a finished job, not a failure (the evaluation stopped a working word counter as an error)
+                if !chat && self.ran_clean && (self.failure_streak >= 2 || self.same_run_streak >= 2) {
+                    self.shared.push(Event::ToolResult { id: call.id.clone(), ok, summary: text.chars().take(200).collect() });
+                    let url = self.shared.info.lock().unwrap().preview_url.clone();
+                    let done = format!("It is made and it runs without errors{}. Tell me what to change, or press Install to put it in your app menu.", url.map(|u| format!(" (preview: {})", u)).unwrap_or_default());
+                    self.shared.push(Event::Assistant { text: done.clone() });
+                    let _ = self.commit();
+                    if let Some(p) = self.active_project.clone() { maker::record_recipe(&p, None, &self.last_prompt.clone()); }
+                    self.shared.push(Event::Done { turns: turn + 1 });
+                    self.shared.set_state("done");
+                    return Ok(done);
+                }
                 if !chat && self.failure_streak >= 4 {
                     self.shared.push(Event::ToolResult { id: call.id.clone(), ok, summary: text.chars().take(200).collect() });
                     let msg = format!("That same call has failed four times in a row: {}. Genesis stopped the job here; what was made so far is kept, and Undo takes it back.", self.last_failure.chars().take(160).collect::<String>());
@@ -461,6 +477,7 @@ impl Agent {
                 }
                 // a clean run after changes is the finish line: say so, small models otherwise keep polishing
                 if !chat && is_run && ok && self.edited_after_scaffold && !["Traceback", "Error", "error:", "FAILED", "exit=1", "exit=2"].iter().any(|k| text.contains(k)) {
+                    self.ran_clean = true;
                     text.push_str("\n[It ran without an error. If it does what the user asked, stop changing files and reply with the summary now.]");
                 }
                 self.shared.push(Event::ToolResult { id: call.id.clone(), ok, summary: text.chars().take(200).collect() });

@@ -9,7 +9,7 @@ A make counts as passed when the session ends in "done", at least one file was w
 and no tool call ended in an error the model did not recover from. Permission prompts are answered
 "allow" (this is a throw-away VM). Output: JSON with one row per make, and a Markdown table on stdout.
 """
-import json, os, sys, time, urllib.request
+import json, os, subprocess, sys, time, urllib.request
 
 AGENTD = os.environ.get("GENESIS_AGENTD", "http://127.0.0.1:11520")
 TOKEN = ""
@@ -77,6 +77,19 @@ def one(name, prompt, timeout):
     row["errors"] += ["session: " + e.get("text", "")[:160] for e in ev if e["kind"] == "error"][:3]
     row["summary"] = next((e["text"] for e in reversed(ev) if e["kind"] == "assistant"), "")[:200].replace("\n", " ")
     row["seconds"] = int(time.time() - t0)
+    # what the machine had left when this make ended: the two failures that say "the model service is gone"
+    # need this to be answerable without guessing
+    try:
+        mem = {l.split(":")[0]: int(l.split()[1]) for l in open("/proc/meminfo") if l.startswith(("MemTotal", "MemAvailable"))}
+        row["mem_available_mb"] = mem.get("MemAvailable", 0) // 1024
+    except OSError:
+        row["mem_available_mb"] = 0
+    try:
+        ps = subprocess.run(["ps", "-eo", "comm"], capture_output=True, text=True, timeout=10).stdout.lower()
+        row["python_servers"] = ps.count("python3")
+        row["router_alive"] = "llama-server" in ps or "llama-swap" in ps
+    except Exception:
+        pass
     row["passed"] = row["state"] == "done" and row["writes"] > 0
     return row
 
@@ -99,10 +112,11 @@ def main(argv):
     result = {"model": health.get("model"), "at": time.strftime("%Y-%m-%dT%H:%M:%S"), "passed": passed, "total": len(rows), "makes": rows}
     json.dump(result, open(out, "w"), indent=1)
     print(f"## Ten makes on `{health.get('model')}`: **{passed}/{len(rows)} passed**\n")
-    print("| make | result | files written | turns | tool errors | preview | time |")
-    print("|---|---|---|---|---|---|---|")
+    print("| make | result | files written | turns | tool errors | preview | time | memory left |")
+    print("|---|---|---|---|---|---|---|---|")
     for r in rows:
-        print(f"| {r['name']} | {'pass' if r.get('passed') else r['state']} | {r['writes']} | {r['turns']} | {r['tool_errors']} | {'yes' if r['preview'] else 'no'} | {r['seconds']}s |")
+        mem = f"{r.get('mem_available_mb', 0)} MB" + ("" if r.get("router_alive", True) else " · model service gone")
+        print(f"| {r['name']} | {'pass' if r.get('passed') else r['state']} | {r['writes']} | {r['turns']} | {r['tool_errors']} | {'yes' if r['preview'] else 'no'} | {r['seconds']}s | {mem} |")
     return 0
 
 

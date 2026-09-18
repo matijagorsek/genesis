@@ -895,7 +895,7 @@ mod tests {
     }
 
     #[test]
-    fn the_same_clean_run_three_times_ends_the_job() {
+    fn a_repeated_clean_run_ends_the_job() {
         let proj = script_project();
         let mut script = vec![tool_call("write_file", serde_json::json!({"path":"app.py","content":"print('ok')\n"}))];
         for _ in 0..8 { script.push(tool_call("preview_start", serde_json::json!({}))); }
@@ -903,8 +903,9 @@ mod tests {
         let (mut agent, shared) = setup(proj.path(), Mode::AutoEdit, ep);
         let out = agent.run("a script").unwrap();
         assert!(out.contains("It is made and it runs"), "got: {}", out);
+        // the second identical run after a clean one is enough: the thing works and the model is circling
         let runs = shared.info.lock().unwrap().events.iter().filter(|e| matches!(e, Event::ToolCall { name, .. } if name == "preview_start")).count();
-        assert_eq!(runs, 3);
+        assert_eq!(runs, 2);
     }
 
     #[test]
@@ -1137,7 +1138,8 @@ fn run_queued(d: &Arc<Daemon>, item: &queue::Item) -> Result<()> {
 
 /// Finished sessions keep their steps (the list and the page still show them) but give up their agent:
 /// the preview servers and the headless browser behind it. Only the three most recent finished ones keep
-/// a live preview. Ten makes in a row otherwise pile up processes until the model service is killed
+/// a live preview (the newest one only: ten makes in a row otherwise pile up dev servers until the model
+/// service is killed for memory, which the evaluation hit twice)
 /// for memory, which is what the evaluation of 17 Sep ran into.
 static SESSION_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
 
@@ -1147,9 +1149,9 @@ fn release_old_sessions(d: &Arc<Daemon>) {
         let i = shared.info.lock().unwrap();
         if i.state == "done" || i.state == "error" { Some((i.seq, id)) } else { None }
     }).collect();
-    if finished.len() <= 3 { return; }
+    if finished.len() <= 1 { return; }
     finished.sort_by_key(|(seq, _)| *seq); // oldest first
-    let n = finished.len() - 3;
+    let n = finished.len() - 1;
     for (_, id) in finished.into_iter().take(n) {
         if let Some((shared, slot)) = sessions.get(id) {
             if let Ok(mut g) = slot.try_lock() { if g.take().is_some() { shared.info.lock().unwrap().preview_url = None; } }
