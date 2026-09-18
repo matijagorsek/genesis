@@ -3,7 +3,7 @@
 
 use anyhow::Result;
 use std::path::Path;
-use std::process::{Command, Output, Stdio};
+use std::process::{Command, Stdio};
 use std::time::Duration;
 
 pub struct ShellResult {
@@ -72,7 +72,18 @@ pub fn run_shell(project: &Path, command: &str, allow_network: bool, timeout: Du
         c
     };
     cmd.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    // its own process group: killing the shell alone leaves `npm install` or a server running, and its
+    // still-open pipe then blocks the read below (a `sleep 30` outlived Stop by the full 30 s in CI)
+    #[cfg(unix)]
+    { use std::os::unix::process::CommandExt; cmd.process_group(0); }
     let mut child = cmd.spawn()?;
+    let pid = child.id();
+    // the pipes are drained while the command runs: a command printing more than a pipe buffer would
+    // otherwise stall until the timeout, whatever the loop below decides
+    let (mut out_pipe, mut err_pipe) = (child.stdout.take(), child.stderr.take());
+    let reader = |mut p: Option<std::process::ChildStdout>| std::thread::spawn(move || { let mut v = Vec::new(); if let Some(r) = p.as_mut() { use std::io::Read; let _ = r.take(4 << 20).read_to_end(&mut v); } v });
+    let out_t = reader(out_pipe.take());
+    let err_t = std::thread::spawn(move || { let mut v = Vec::new(); if let Some(r) = err_pipe.as_mut() { use std::io::Read; let _ = r.take(1 << 20).read_to_end(&mut v); } v });
     let start = std::time::Instant::now();
     let mut timed_out = false;
     loop {
@@ -80,13 +91,16 @@ pub fn run_shell(project: &Path, command: &str, allow_network: bool, timeout: Du
             break;
         }
         if start.elapsed() > timeout || stop.map(|s| s.load(std::sync::atomic::Ordering::SeqCst)).unwrap_or(false) {
+            kill_group(pid);
             let _ = child.kill();
             timed_out = true;
             break;
         }
         std::thread::sleep(Duration::from_millis(100));
     }
-    let Output { status, stdout, stderr } = child.wait_with_output()?;
+    let status = child.wait()?;
+    let stdout = out_t.join().unwrap_or_default();
+    let stderr = err_t.join().unwrap_or_default();
     Ok(ShellResult {
         exit_code: status.code().unwrap_or(-1),
         stdout: truncate(String::from_utf8_lossy(&stdout).to_string(), 16_000),
@@ -96,6 +110,17 @@ pub fn run_shell(project: &Path, command: &str, allow_network: bool, timeout: Du
     })
 }
 
+/// Kill the whole process group of a command Genesis started: the shell and everything it started.
+fn kill_group(pid: u32) {
+    #[cfg(unix)]
+    {
+        for sig in ["-TERM", "-KILL"] {
+            let _ = Command::new("/bin/kill").args([sig, &format!("-{}", pid)]).stdout(Stdio::null()).stderr(Stdio::null()).status();
+            std::thread::sleep(Duration::from_millis(150));
+        }
+    }
+}
+
 fn truncate(s: String, max: usize) -> String {
     if s.len() <= max {
         s
@@ -103,5 +128,35 @@ fn truncate(s: String, max: usize) -> String {
         let mut t: String = s.chars().take(max).collect();
         t.push_str("\n…[truncated]");
         t
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stop_kills_the_command_and_everything_it_started() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let dir = tempfile::tempdir().unwrap();
+        let stop = std::sync::Arc::new(AtomicBool::new(false));
+        let s2 = stop.clone();
+        std::thread::spawn(move || { std::thread::sleep(Duration::from_millis(300)); s2.store(true, Ordering::SeqCst); });
+        let t0 = std::time::Instant::now();
+        // the shell starts a child and waits for it: killing the shell alone would leave the sleep running
+        // and its open pipe would block the read for the full 40 s
+        let r = run_shell(dir.path(), "sleep 40 & wait", false, Duration::from_secs(120), Some(&stop)).unwrap();
+        assert!(t0.elapsed() < Duration::from_secs(10), "took {:?}", t0.elapsed());
+        assert!(r.timed_out);
+    }
+
+    #[test]
+    fn a_command_that_prints_a_lot_does_not_stall() {
+        let dir = tempfile::tempdir().unwrap();
+        let t0 = std::time::Instant::now();
+        let r = run_shell(dir.path(), "head -c 400000 /dev/zero | tr '\\0' 'x'", false, Duration::from_secs(30), None).unwrap();
+        assert!(!r.timed_out, "more output than a pipe buffer must not hit the timeout");
+        assert!(t0.elapsed() < Duration::from_secs(10));
+        assert!(r.stdout.len() >= 16_000 - 100);
     }
 }
