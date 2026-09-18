@@ -36,10 +36,20 @@ use std::path::PathBuf;
 use std::sync::{Arc, Condvar, Mutex};
 use tiny_http::{Header, Method, Request, Response, Server};
 
+// Each page is markup plus its own .js file, so the script can be diffed, checked and linted on its own;
+// the daemon puts them back together when it serves the page.
 const WORKSPACE_HTML: &str = include_str!("../ui/workspace.html");
 const SETTINGS_HTML: &str = include_str!("../ui/settings.html");
 const PALETTE_HTML: &str = include_str!("../ui/palette.html");
 const CHAT_HTML: &str = include_str!("../ui/chat.html");
+const WORKSPACE_JS: &str = include_str!("../ui/workspace.js");
+const SETTINGS_JS: &str = include_str!("../ui/settings.js");
+const PALETTE_JS: &str = include_str!("../ui/palette.js");
+const CHAT_JS: &str = include_str!("../ui/chat.js");
+
+fn page(html: &str, js: &str, token: &str) -> String {
+    html.replace("__GENESIS_JS__", js).replace("__GENESIS_TOKEN__", token)
+}
 
 #[derive(Parser)]
 #[command(name = "genesis-agentd", version, about = "Genesis agent daemon")]
@@ -263,11 +273,11 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
         return req.respond(resp).map_err(|e| anyhow!(e));
     }
     let resp = match (method, path.as_slice()) {
-        (Method::Get, [""]) | (Method::Get, ["index.html"]) | (Method::Get, ["workspace"]) => Response::from_string(WORKSPACE_HTML.replace("__GENESIS_TOKEN__", page_token(d, &req))).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
+        (Method::Get, [""]) | (Method::Get, ["index.html"]) | (Method::Get, ["workspace"]) => Response::from_string(page(WORKSPACE_HTML, WORKSPACE_JS, page_token(d, &req))).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
         (Method::Get, ["api", "health"]) => json_response(&serde_json::json!({"ok": true, "endpoint": d.endpoint, "router_ok": router_ok(&d.endpoint), "model": served_model(&d.endpoint, &d.model), "sandbox": sandbox::bwrap_available(), "voice": voice::available(), "speech": voice::speech_available(), "default_project": default_project(), "default_mode": read_user_settings().get("default_mode").and_then(|m| m.as_str()).unwrap_or("auto_edit")}), 200),
         (Method::Get, ["api", "templates"]) => json_response(&maker::list_templates(), 200),
-        (Method::Get, ["palette"]) => Response::from_string(PALETTE_HTML.replace("__GENESIS_TOKEN__", page_token(d, &req))).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
-        (Method::Get, ["chat"]) => Response::from_string(CHAT_HTML.replace("__GENESIS_TOKEN__", page_token(d, &req))).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
+        (Method::Get, ["palette"]) => Response::from_string(page(PALETTE_HTML, PALETTE_JS, page_token(d, &req))).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
+        (Method::Get, ["chat"]) => Response::from_string(page(CHAT_HTML, CHAT_JS, page_token(d, &req))).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
         (Method::Get, ["api", "chat-templates"]) => json_response(&chat::templates(), 200),
         (Method::Post, ["api", "chat-templates"]) => match serde_json::from_str::<serde_json::Value>(&body) {
             Ok(v) => match chat::save_template(v.get("title").and_then(|t| t.as_str()).unwrap_or(""), v.get("text").and_then(|t| t.as_str()).unwrap_or("")) {
@@ -328,7 +338,7 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
             (None, _) => json_response(&serde_json::json!({"error": "no such chat"}), 404),
             (_, Err(_)) => json_response(&serde_json::json!({"error": "expected {text, attachments?}"}), 400),
         },
-        (Method::Get, ["settings"]) => Response::from_string(SETTINGS_HTML.replace("__GENESIS_TOKEN__", page_token(d, &req))).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
+        (Method::Get, ["settings"]) => Response::from_string(page(SETTINGS_HTML, SETTINGS_JS, page_token(d, &req))).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
         (Method::Get, ["api", "system"]) => json_response(&system_overview(d), 200),
         (Method::Post, ["api", "system", "theme"]) => {
             let want = serde_json::from_str::<serde_json::Value>(&body).ok().and_then(|v| v.get("theme").and_then(|m| m.as_str()).map(|s| s.to_string())).unwrap_or_else(|| "toggle".into());
