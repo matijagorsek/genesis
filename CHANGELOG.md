@@ -3,6 +3,7 @@
 Derived from the decision log (`docs/decisions.md`); one line per decision, newest first. Versions are 0.2.N on the stable channel; 0.1.N before 2026-09-15.
 
 ## 2026-09-18
+- Evaluation fell to 5 of 10: a call that keeps failing now ends the job, the project manifest is accepted when it parses, and small models no longer carry the system tools (decision 138)
 - A Unix socket for local programs; the loopback port stays for the pages and needs the token for everything (decision 136)
 - Clipboard transforms in the palette, make-something-like-this from a screen region, a key for a made app, the morning card read aloud, an offline proof (decision 135)
 - Right-click a file to make a tool for it or ask about it; terminal rescue after a failed command; undo the last job from the panel (decision 134)

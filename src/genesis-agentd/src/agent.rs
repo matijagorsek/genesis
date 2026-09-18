@@ -207,6 +207,10 @@ pub struct Agent {
     /// over and over, 36 times in one evaluation make, is done and does not know it).
     pub last_run: String,
     pub same_run_streak: usize,
+    /// The same tool failing the same way over and over: a refused write or an edit that never matches is
+    /// not progress, and a 2B model does not read the refusal (37 refused writes in one evaluation make).
+    pub last_failure: String,
+    pub failure_streak: usize,
     pub same_file_streak: usize,
     /// Project directory the maker tools currently target (set by scaffold).
     pub active_project: Option<PathBuf>,
@@ -236,7 +240,7 @@ fn resolve_path(project: &Path, p: &str) -> PathBuf {
 
 impl Agent {
     pub fn new(client: Client, broker: Arc<Mutex<Broker>>, session_id: String, project: PathBuf, shared: Arc<Shared>) -> Self {
-        Agent { client, broker, session_id, project, shared, max_turns: 40, prompt_timeout: Duration::from_secs(600), messages: vec![Message::system(SYSTEM_PROMPT)], tx_store: None, tx: None, previews: maker::Previews::default(), active_project: None, browser: None, last_prompt: String::new(), scaffolded: false, edited_after_scaffold: false, nudged: false, writes_since_run: 0, nudged_writes: false, last_write: String::new(), last_run: String::new(), same_run_streak: 0, same_file_streak: 0, kind: "make".into() }
+        Agent { client, broker, session_id, project, shared, max_turns: 40, prompt_timeout: Duration::from_secs(600), messages: vec![Message::system(SYSTEM_PROMPT)], tx_store: None, tx: None, previews: maker::Previews::default(), active_project: None, browser: None, last_prompt: String::new(), scaffolded: false, edited_after_scaffold: false, nudged: false, writes_since_run: 0, nudged_writes: false, last_write: String::new(), last_run: String::new(), same_run_streak: 0, last_failure: String::new(), failure_streak: 0, same_file_streak: 0, kind: "make".into() }
     }
 
     /// The plan card: what the job will touch and the steps, before anything runs. One short model call
@@ -314,7 +318,7 @@ impl Agent {
         self.shared.push(Event::UserPrompt { text: text.into() });
         self.shared.set_state("running");
         self.last_prompt = text.to_string();
-        self.scaffolded = false; self.edited_after_scaffold = false; self.nudged = false; self.writes_since_run = 0; self.nudged_writes = false; self.last_write.clear(); self.same_file_streak = 0; self.last_run.clear(); self.same_run_streak = 0;
+        self.scaffolded = false; self.edited_after_scaffold = false; self.nudged = false; self.writes_since_run = 0; self.nudged_writes = false; self.last_write.clear(); self.same_file_streak = 0; self.last_run.clear(); self.same_run_streak = 0; self.last_failure.clear(); self.failure_streak = 0;
         let compact = compact_model(&self.client.model);
         let chat = self.kind == "chat";
         if chat { if self.messages.first().map(|m| m.content.as_deref() != Some(SYSTEM_PROMPT_CHAT)).unwrap_or(true) { self.messages[0] = Message::system(SYSTEM_PROMPT_CHAT); } }
@@ -324,7 +328,12 @@ impl Agent {
         // the user's MCP tools join every tool set: they are few, plainly described, and the way a small
         // model answers "is an update waiting?" or "install VLC" on a CPU-only machine
         let mut tools = if chat { tool_schemas_chat() } else if compact { tool_schemas_compact() } else { tool_schemas() };
-        tools.as_array_mut().unwrap().extend(crate::mcp::tool_schemas());
+        // A small model gets the maker's own tools only: the system server's nineteen schemas cost about
+        // nine hundred tokens of a sixteen-thousand-token window on every single request, and a 2B model
+        // does not need printers or Bluetooth to build a checklist. Chat and the bigger models keep them.
+        if !compact || chat {
+            tools.as_array_mut().unwrap().extend(crate::mcp::tool_schemas());
+        }
         let mut final_text = String::new();
         for turn in 0..self.max_turns {
             if self.shared.stopped() { return self.finish_stopped(); }
@@ -425,6 +434,18 @@ impl Agent {
                 if is_write && (!ok || text.starts_with("unchanged") || text.starts_with("not written")) {
                     self.writes_since_run = self.writes_since_run.saturating_sub(1);
                     self.same_file_streak = self.same_file_streak.saturating_sub(1);
+                }
+                // …but a call that keeps failing the same way is its own kind of stuck
+                let failure = if ok && !text.starts_with("unchanged") && !text.starts_with("not written") { String::new() } else { format!("{} {}", call.function.name, text.chars().take(80).collect::<String>()) };
+                if failure.is_empty() { self.failure_streak = 0; self.last_failure.clear(); }
+                else if failure == self.last_failure { self.failure_streak += 1; }
+                else { self.last_failure = failure; self.failure_streak = 1; }
+                if !chat && self.failure_streak >= 4 {
+                    self.shared.push(Event::ToolResult { id: call.id.clone(), ok, summary: text.chars().take(200).collect() });
+                    let msg = format!("That same call has failed four times in a row: {}. Genesis stopped the job here; what was made so far is kept, and Undo takes it back.", self.last_failure.chars().take(160).collect::<String>());
+                    self.shared.push(Event::Error { text: msg.clone() });
+                    self.shared.set_state("error");
+                    return Err(anyhow!(msg));
                 }
                 // the same run a third time in a row, clean, after changes: the thing is made; Genesis ends the job
                 if !chat && is_run && ok && self.same_run_streak >= 3 && self.edited_after_scaffold && !["Traceback", "Error", "error:", "ERROR", "FAILED", "exit=1", "exit=2", "SyntaxError"].iter().any(|k| text.contains(k)) {
@@ -703,9 +724,22 @@ impl Agent {
             "read_file" | "write_file" | "edit_file" | "list_dir" if s("path").trim().is_empty() => {
                 Err(anyhow!("{} needs a path: give the file name, for example {}", name, self.active_project.as_ref().unwrap_or(&self.project).join("app.py").display()))
             }
-            "write_file" | "edit_file" if resolve_path(&self.project, &s("path")).file_name().map(|f| f == "genesis.json").unwrap_or(false) => {
-                // the project manifest is Genesis's own: a broken one takes the preview down (seen in the evaluation)
-                Err(anyhow!("genesis.json is managed by Genesis and must not be edited; change the program files instead (the entry file is {})", self.active_project.as_ref().unwrap_or(&self.project).join(maker_entry(self.active_project.as_ref().unwrap_or(&self.project))).display()))
+            "write_file" if resolve_path(&self.project, &s("path")).file_name().map(|f| f == "genesis.json").unwrap_or(false) => {
+                // The project manifest decides how the thing is run, so a broken one takes the preview down.
+                // A refusal used to be the answer, but a small model reads it and writes the same file again
+                // (37 times in one evaluation make), so: take the write when it still parses and keeps the
+                // fields Genesis needs, and otherwise keep what was there and say what is missing.
+                let p = resolve_path(&self.project, &s("path"));
+                match serde_json::from_str::<Value>(&s("content")) {
+                    Ok(v) if v.get("id").is_some() && v.get("dev").is_some() && v.get("entry").is_some() => {
+                        std::fs::write(&p, s("content")).map_err(|e| anyhow!("{}: {}", p.display(), e))?;
+                        Ok(format!("wrote {} (the project manifest; it still parses)", p.display()))
+                    }
+                    _ => Ok(format!("not written: {} must stay a JSON object with id, dev and entry, and Genesis keeps the old one. Change the program files instead; the entry file is {}.", p.display(), self.active_project.as_ref().unwrap_or(&self.project).join(maker_entry(self.active_project.as_ref().unwrap_or(&self.project))).display())),
+                }
+            }
+            "edit_file" if resolve_path(&self.project, &s("path")).file_name().map(|f| f == "genesis.json").unwrap_or(false) => {
+                Ok(format!("not written: the project manifest is changed by writing it whole, not by editing lines. Change the program files instead; the entry file is {}.", self.active_project.as_ref().unwrap_or(&self.project).join(maker_entry(self.active_project.as_ref().unwrap_or(&self.project))).display()))
             }
             "read_file" => {
                 let p = resolve_path(&self.project, &s("path"));

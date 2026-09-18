@@ -947,14 +947,31 @@ mod tests {
         // the model writes the same content six times: "unchanged" is not progress, so Genesis does not
         // take over after three, and the turn limit is not spent on a loop either
         let same = serde_json::json!({"path":"app.py","content":"print('v0')\n"});
-        let mut script: Vec<_> = (0..6).map(|_| tool_call("write_file", same.clone())).collect();
-        script.push(serde_json::json!({"role":"assistant","content":"nothing to change"}));
+        let script: Vec<_> = (0..8).map(|_| tool_call("write_file", same.clone())).collect();
         let ep = fake_llm(script);
         let (mut agent, shared) = setup(proj.path(), Mode::AutoEdit, ep);
-        let out = agent.run("a script").unwrap();
-        assert_eq!(out, "nothing to change");
-        let runs = shared.info.lock().unwrap().events.iter().filter(|e| matches!(e, Event::ToolCall { name, .. } if name == "preview_start")).count();
-        assert_eq!(runs, 0, "unchanged writes must not trigger the forced run");
+        let err = agent.run("a script").unwrap_err().to_string();
+        // writing the same bytes again is not progress, so it never counts as a change and never triggers
+        // the forced run; four of them in a row is stuck, and Genesis says so instead of looping
+        assert!(err.contains("failed four times in a row"), "got: {}", err);
+        let ev = shared.info.lock().unwrap().events.clone();
+        assert_eq!(ev.iter().filter(|e| matches!(e, Event::ToolCall { name, .. } if name == "preview_start")).count(), 0, "unchanged writes must not trigger the forced run");
+        assert!(ev.iter().filter(|e| matches!(e, Event::ToolCall { .. })).count() <= 4, "it stopped early, not after the whole script");
+    }
+
+    #[test]
+    fn the_project_manifest_is_taken_when_it_parses_and_kept_when_it_does_not() {
+        let proj = script_project();
+        let good = serde_json::json!({"path":"genesis.json","content":"{\"id\":\"python-script\",\"name\":\"s\",\"dev\":{\"cmd\":\"python3 app.py\",\"port\":0},\"entry\":\"app.py\"}"});
+        let bad = serde_json::json!({"path":"genesis.json","content":"{ not json"});
+        let ep = fake_llm(vec![tool_call("write_file", good), tool_call("write_file", bad), serde_json::json!({"role":"assistant","content":"done"})]);
+        let (mut agent, shared) = setup(proj.path(), Mode::AutoEdit, ep);
+        assert_eq!(agent.run("change how it runs").unwrap(), "done");
+        let ev = shared.info.lock().unwrap().events.clone();
+        let results: Vec<String> = ev.iter().filter_map(|e| if let Event::ToolResult { summary, .. } = e { Some(summary.clone()) } else { None }).collect();
+        assert!(results[0].contains("still parses"), "a valid manifest is taken: {:?}", results);
+        assert!(results[1].starts_with("not written"), "a broken one is refused: {:?}", results);
+        assert!(std::fs::read_to_string(proj.path().join("genesis.json")).unwrap().contains("python3 app.py"), "the old manifest survives");
     }
 
     #[test]
