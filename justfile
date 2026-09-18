@@ -60,6 +60,23 @@ du:
 # Build the Genesis OCI image (x86_64) with Docker
 image tag="genesis:0.1":
     docker buildx build -f Containerfile --platform linux/amd64 --build-arg BOOTC_LINT=skip --load -t {{tag}} .
+
+# The local loop on an Apple Silicon Mac: the arm64 flavour builds natively. (An amd64 build here runs
+# under emulation, where tar fails with "Function not implemented" while unpacking piper; CI builds
+# amd64 natively and is unaffected.)
+image-local tag="genesis:local-arm64":
+    docker buildx build -f Containerfile --platform linux/arm64 --build-arg BOOTC_LINT=skip \
+      --build-arg BASE=$(grep ^FEDORA_REF= .github/base-pins.env | cut -d= -f2-) \
+      --build-arg FLAVOUR=fedora --build-arg GENESIS_VERSION=0.1-local --load -t {{tag}} .
+    docker run --rm {{tag}} genesis-image-check
+
+# Read a file out of a built image. /etc/hostname and anything else Docker bind-mounts at run time can
+# only be seen this way, not with `docker run cat`.
+image-file tag="genesis:local-arm64" path="/etc/hostname":
+    #!/usr/bin/env bash
+    out=$(mktemp -d)
+    printf 'FROM scratch\nCOPY --from={{tag}} {{path}} /file\n' | docker buildx build -f - --output type=local,dest=$out . >/dev/null 2>&1
+    cat "$out/file"; rm -rf "$out"
     docker run --rm --platform linux/amd64 {{tag}} genesis-image-check
 
 # Build an installer ISO from the image (needs a Linux/Docker host with loop devices)
