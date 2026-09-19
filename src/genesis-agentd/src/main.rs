@@ -950,6 +950,19 @@ mod tests {
     }
 
     #[test]
+    fn a_small_model_is_shown_one_worked_example_and_the_scaffold_hands_back_the_file() {
+        let proj = tempfile::tempdir().unwrap();
+        let ep = fake_llm(vec![serde_json::json!({"role":"assistant","content":"ok"})]);
+        let (mut agent, _s) = setup(proj.path(), Mode::AutoEdit, ep);
+        agent.client.model = "qwen3-2b".into(); // a small model: the compact script and the example
+        let _ = agent.run("a timer");
+        let roles: Vec<&str> = agent.messages.iter().map(|m| m.role.as_str()).collect();
+        assert_eq!(roles[0], "system");
+        assert!(agent.messages.iter().any(|m| m.content.as_deref().map(|c| c.contains("random quote")).unwrap_or(false)), "the example is in front of it");
+        assert!(agent.messages.iter().any(|m| m.tool_calls.as_ref().map(|c| c[0].function.name == "write_file").unwrap_or(false)), "and it shows a whole file being written");
+    }
+
+    #[test]
     fn a_write_that_changes_nothing_does_not_count_towards_the_guards() {
         let proj = script_project();
         // the model writes the same content six times: "unchanged" is not progress, so Genesis does not

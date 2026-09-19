@@ -28,9 +28,31 @@ When the task is complete, reply with a short summary of what you did and how to
 /// Small models (the "fast"/tiny class) do better with fewer tools and a stricter, shorter script.
 pub const SYSTEM_PROMPT_COMPACT: &str = "You are Genesis, the maker built into this computer. Build exactly what the user asks, step by step, using tools. \
 Follow this script: 1) call scaffold with the closest template (web-static for anything with a page, python-cli for a command, python-script for a one-off, python-web for a page with saved data, python-api for a JSON API, gtk-app for a desktop window). \
-2) read_file the entry file. 3) write_file the entry file with the complete program that does what was asked (replace the template code, do not describe it). \
-4) call preview_start (or shell to run it once). 5) if the result shows an error, fix that one thing and run again; at most three fixes. 6) then reply with one short paragraph: what you made and how to use it. \
-Rules: never finish before step 3 changed a file; write the entry file once, completely, instead of many small edits; do not install packages; never edit genesis.json; keep everything in the project folder; do not explain the tools to the user.";
+2) write_file the entry file (the scaffold shows you its path and contents) with the complete program that does what was asked, replacing the template code. \
+3) call preview_start (or shell to run it once). 4) if the result shows an error, fix that one thing and run again; at most three fixes. 5) then reply with one short paragraph: what you made and how to use it. \
+Rules: never finish before step 2 changed a file; write the entry file once, completely, instead of many small edits; do not install packages; never edit genesis.json; keep everything in the project folder; do not explain the tools to the user.";
+
+/// One worked example, put in front of a small model before its own job. Instruction alone leaves a 2B
+/// model describing what it would do; a single demonstration of the whole shape — scaffold, one complete
+/// file, run it, say what it is — is worth more than another paragraph of rules. It sits in the cached
+/// part of the conversation, so it is paid for once per session, not per turn.
+pub fn worked_example() -> Vec<Message> {
+    let call = |name: &str, args: serde_json::Value| Message {
+        role: "assistant".into(), content: None, name: None, tool_call_id: None,
+        tool_calls: Some(vec![crate::llm::ToolCall { id: format!("ex-{}", name), kind: "function".into(),
+            function: crate::llm::FunctionCall { name: name.into(), arguments: args.to_string() } }]),
+    };
+    vec![
+        Message::user("a page that shows a random quote when you press a button"),
+        call("scaffold", json!({"name": "quotes", "template": "web-static"})),
+        Message::tool("ex-scaffold", "scaffold", "created /home/you/Projects/quotes from template web-static with files: index.html, style.css. The entry file is /home/you/Projects/quotes/index.html and it now contains:\n<!doctype html><html><body><h1>Hello</h1></body></html>\n\nWrite it again, whole, with the program that was asked for."),
+        call("write_file", json!({"path": "/home/you/Projects/quotes/index.html", "content": "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\"><title>Quotes</title>\n<style>body{font:18px system-ui;display:grid;place-items:center;height:100vh;margin:0}blockquote{max-width:30rem;text-align:center}</style>\n</head><body>\n<blockquote id=\"q\">Press the button.</blockquote>\n<button id=\"b\">Another quote</button>\n<script>\nconst QUOTES=[\"The obstacle is the way.\",\"Well begun is half done.\",\"Make it work, then make it right.\"];\ndocument.getElementById(\"b\").addEventListener(\"click\",()=>{\n  const q=QUOTES[Math.floor(Math.random()*QUOTES.length)];\n  document.getElementById(\"q\").textContent=q;\n});\n</script>\n</body></html>\n"})),
+        Message::tool("ex-write_file", "write_file", "wrote /home/you/Projects/quotes/index.html (612 bytes)"),
+        call("preview_start", json!({})),
+        Message::tool("ex-preview_start", "preview_start", "serving http://127.0.0.1:5300/"),
+        Message::assistant("A page with a quote and a button; press it for another one. It is running at http://127.0.0.1:5300/ and Install puts it in your app menu."),
+    ]
+}
 
 /// Chat: the assistant, not the maker. Reads and searches, uses the user's tools, never scaffolds.
 pub const SYSTEM_PROMPT_CHAT: &str = "You are Genesis, the assistant built into this computer; everything runs here, nothing leaves the machine. \
@@ -285,7 +307,8 @@ impl Agent {
         let client = Client { endpoint: self.client.endpoint.clone(), model: self.client.model.clone(), api_key: self.client.api_key.clone() };
         let (msgs, tools) = (self.messages.clone(), tools.clone());
         let (tx, rx) = std::sync::mpsc::channel();
-        std::thread::spawn(move || { let _ = tx.send(client.chat(&msgs, &tools, 0.2)); });
+        let choice = if self.kind == "make" && !self.edited_after_scaffold && !tools.as_array().map(|a| a.is_empty()).unwrap_or(true) { "required" } else { "auto" };
+        std::thread::spawn(move || { let _ = tx.send(client.chat_with(&msgs, &tools, 0.2, choice)); });
         loop {
             match rx.recv_timeout(Duration::from_millis(250)) {
                 Ok(r) => return r,
@@ -319,7 +342,18 @@ impl Agent {
         let compact = compact_model(&self.client.model);
         let chat = self.kind == "chat";
         if chat { if self.messages.first().map(|m| m.content.as_deref() != Some(SYSTEM_PROMPT_CHAT)).unwrap_or(true) { self.messages[0] = Message::system(SYSTEM_PROMPT_CHAT); } }
-        else if compact && self.messages.len() == 1 { self.messages[0] = Message::system(SYSTEM_PROMPT_COMPACT); }
+        else if compact && self.messages.len() == 1 {
+            self.messages[0] = Message::system(SYSTEM_PROMPT_COMPACT);
+            if std::env::var("GENESIS_NO_EXAMPLE").is_err() { self.messages.extend(worked_example()); }
+        }
+        // The plan card costs a model call and its steps were shown to the person and then thrown away.
+        // A small model follows its own plan better than a list of rules, so the steps go in as well.
+        if !chat && compact && self.messages.iter().all(|m| m.role != "user") {
+            let steps = self.plan(text).get("steps").and_then(|s| s.as_array()).map(|a| a.iter().filter_map(|x| x.as_str().map(|s| s.to_string())).collect::<Vec<_>>()).unwrap_or_default();
+            if !steps.is_empty() {
+                self.messages.push(Message::assistant(format!("My plan for this:\n{}", steps.iter().enumerate().map(|(i, s)| format!("{}. {}", i + 1, s)).collect::<Vec<_>>().join("\n"))));
+            }
+        }
         if chat { self.messages.push(Message::user(text.to_string())); }
         else { self.messages.push(Message::user(format!("Project directory: {}\n\nTask: {}", self.project.display(), text))); }
         // the user's MCP tools join every tool set: they are few, plainly described, and the way a small
@@ -657,7 +691,12 @@ impl Agent {
                 let mut files: Vec<String> = std::fs::read_dir(&dest)?.filter_map(|e| e.ok()).map(|e| e.file_name().to_string_lossy().to_string()).collect();
                 files.sort();
                 let entry = t.entry.replace("{name}", &s("name"));
-                Ok(format!("created {} from template {} with files: {}. Entry file (full path): {}. {} Edit the files by their full path; do not edit genesis.json. Preview: call preview_start (dev command: {}).", dest.display(), t.id, files.join(", "), dest.join(&entry).display(), t.hints, t.dev.cmd))
+                // hand back what the entry file contains: reading it back was a whole model call and a
+                // tool call (forty to ninety seconds on a small machine) for something already on disk
+                let entry_path = dest.join(&entry);
+                let body = std::fs::read_to_string(&entry_path).unwrap_or_default();
+                let shown = if body.len() > 4_000 { format!("{}\n… [the rest is in the file]", cut_at_char(&body, 4_000)) } else { body };
+                Ok(format!("created {} from template {} with files: {}. {} Edit the files by their full path; do not edit genesis.json. Preview: call preview_start (dev command: {}).\n\nThe entry file is {} and it now contains:\n{}\n\nWrite it again, whole, with the program that was asked for.", dest.display(), t.id, files.join(", "), t.hints, t.dev.cmd, entry_path.display(), shown))
             }
             "preview_start" => {
                 let p = self.target_project(args);

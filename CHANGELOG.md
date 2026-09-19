@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-09-19
+- The maker hands the model its file, insists on an action, shows it one worked example, and keeps its own plan (decision 145)
 - Template tests no longer fail a correct program; the conversation is no longer rewritten behind the model; the evaluation has a seed and checks correctness; the CPU pack gains the reranker and completion model (decision 143)
 - The pages follow the desktop's dark or light setting; an empty box above the start page is gone (decision 142)
 

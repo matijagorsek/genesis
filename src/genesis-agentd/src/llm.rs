@@ -89,11 +89,27 @@ impl Client {
     }
 
     fn chat_once(&self, messages: &[Message], tools: &Value, temperature: f64) -> Result<Reply> {
+        self.chat_once_with(messages, tools, temperature, "auto")
+    }
+
+    /// `tool_choice` is "required" while the job has produced nothing: a small model otherwise answers with
+    /// a description of what it would do, and the loop spends a turn telling it off.
+    pub fn chat_with(&self, messages: &[Message], tools: &Value, temperature: f64, tool_choice: &str) -> Result<Reply> {
+        match self.chat_once_with(messages, tools, temperature, tool_choice) {
+            Err(e) if e.to_string().contains("Connection Failed") || e.to_string().contains("Unexpected EOF") || e.to_string().contains("connection refused") => {
+                std::thread::sleep(std::time::Duration::from_secs(5));
+                self.chat_once_with(messages, tools, temperature, tool_choice)
+            }
+            other => other,
+        }
+    }
+
+    fn chat_once_with(&self, messages: &[Message], tools: &Value, temperature: f64, tool_choice: &str) -> Result<Reply> {
         let body = serde_json::json!({
             "model": self.model,
             "messages": messages,
             "tools": tools,
-            "tool_choice": "auto",
+            "tool_choice": tool_choice,
             "temperature": temperature,
             // a fixed seed unless the machine asks for otherwise: two runs of the same tree should be
             // comparable, or a change cannot be told apart from the sampler's mood
