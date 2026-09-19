@@ -918,6 +918,42 @@ mod tests {
     }
 
     #[test]
+    fn a_run_that_keeps_failing_ends_the_job_instead_of_running_to_the_timeout() {
+        let proj = script_project();
+        // The program is broken, so every run reports the same failure. The tool call itself SUCCEEDS —
+        // it ran the thing and reported a failing test — so the failure guard never sees it. In the
+        // evaluation this was eleven previews of a failing test, and a shell loop deleting its own work,
+        // both sitting there until the 25-minute timeout. Four runs with nothing changed in between ends it.
+        let mut script = vec![tool_call("write_file", serde_json::json!({"path":"app.py","content":"raise SystemExit('Traceback: boom')\n"}))];
+        for _ in 0..10 { script.push(tool_call("shell", serde_json::json!({"command":"python3 app.py"}))); }
+        let ep = fake_llm(script);
+        let (mut agent, shared) = setup(proj.path(), Mode::AutoEdit, ep);
+        let err = agent.run("a script").unwrap_err().to_string();
+        assert!(err.contains("without anything changing in between"), "got: {}", err);
+        let runs = shared.info.lock().unwrap().events.iter().filter(|e| matches!(e, Event::ToolCall { name, .. } if name == "shell")).count();
+        assert_eq!(runs, 4, "it stopped at the fourth run, not the tenth");
+    }
+
+    #[test]
+    fn changing_and_running_in_turns_does_not_escape_every_guard() {
+        let proj = script_project();
+        // A write resets the run counter and a run resets the write counters, so alternating the two slipped
+        // past all of them: 25 edits to a word counter that already worked. Once it has run clean and a dozen
+        // changes have been made, the thing is made.
+        let mut script = vec![];
+        for i in 0..20 {
+            script.push(tool_call("write_file", serde_json::json!({"path":"app.py","content":format!("print({})\n", i)})));
+            script.push(tool_call("preview_start", serde_json::json!({})));
+        }
+        let ep = fake_llm(script);
+        let (mut agent, shared) = setup(proj.path(), Mode::AutoEdit, ep);
+        let out = agent.run("a script").expect("a made program, not the turn limit");
+        assert!(out.contains("It is made and it runs"), "got: {}", out);
+        let writes = shared.info.lock().unwrap().events.iter().filter(|e| matches!(e, Event::ToolCall { name, .. } if name == "write_file")).count();
+        assert!(writes <= 13, "it stopped near the twelfth change, not after twenty: {}", writes);
+    }
+
+    #[test]
     fn stop_ends_the_loop_cleanly() {
         let proj = tempfile::tempdir().unwrap();
         // a long-running command, then more work that must never happen: Stop kills the command and ends the loop

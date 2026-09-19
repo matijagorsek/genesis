@@ -56,6 +56,11 @@ impl Drop for KeepAwake {
 /// model describing what it would do; a single demonstration of the whole shape — scaffold, one complete
 /// file, run it, say what it is — is worth more than another paragraph of rules. It sits in the cached
 /// part of the conversation, so it is paid for once per session, not per turn.
+/// Does a run's output look like it worked? The same keywords everywhere, so "clean" means one thing.
+fn run_was_clean(text: &str) -> bool {
+    !["Traceback", "Error", "error:", "FAILED", "exit=1", "exit=2"].iter().any(|k| text.contains(k))
+}
+
 pub fn worked_example() -> Vec<Message> {
     let call = |name: &str, args: serde_json::Value| Message {
         role: "assistant".into(), content: None, name: None, tool_call_id: None,
@@ -257,6 +262,14 @@ pub struct Agent {
     /// not broken, and the job ends as done.
     pub ran_clean: bool,
     pub same_file_streak: usize,
+    /// Runs (preview or shell) since anything last changed on disk. Running the same thing again without
+    /// changing anything cannot produce a different result: the evaluation saw eleven previews of a failing
+    /// test and a shell loop that deleted its own work, both to the 25-minute timeout, because a run that
+    /// keeps failing is not an error the failure guard can see — it succeeds and reports a failing test.
+    pub runs_since_write: usize,
+    /// Every write this job has made. The per-file and per-run streaks both reset on the other kind of call,
+    /// so alternating edit, run, edit, run slips past all of them (25 edits to a working word counter).
+    pub total_writes: usize,
     /// Project directory the maker tools currently target (set by scaffold).
     pub active_project: Option<PathBuf>,
     /// "make" (the maker, default) or "chat" (the assistant: chat prompt, read-only tools, the user's MCP tools).
@@ -285,7 +298,7 @@ fn resolve_path(project: &Path, p: &str) -> PathBuf {
 
 impl Agent {
     pub fn new(client: Client, broker: Arc<Mutex<Broker>>, session_id: String, project: PathBuf, shared: Arc<Shared>) -> Self {
-        Agent { client, broker, session_id, project, shared, max_turns: 40, prompt_timeout: Duration::from_secs(600), messages: vec![Message::system(SYSTEM_PROMPT)], tx_store: None, tx: None, previews: maker::Previews::default(), active_project: None, browser: None, last_prompt: String::new(), scaffolded: false, edited_after_scaffold: false, nudged: false, writes_since_run: 0, nudged_writes: false, last_write: String::new(), last_run: String::new(), same_run_streak: 0, last_failure: String::new(), failure_streak: 0, ran_clean: false, same_file_streak: 0, kind: "make".into() }
+        Agent { client, broker, session_id, project, shared, max_turns: 40, prompt_timeout: Duration::from_secs(600), messages: vec![Message::system(SYSTEM_PROMPT)], tx_store: None, tx: None, previews: maker::Previews::default(), active_project: None, browser: None, last_prompt: String::new(), scaffolded: false, edited_after_scaffold: false, nudged: false, writes_since_run: 0, nudged_writes: false, last_write: String::new(), last_run: String::new(), same_run_streak: 0, last_failure: String::new(), failure_streak: 0, ran_clean: false, same_file_streak: 0, runs_since_write: 0, total_writes: 0, kind: "make".into() }
     }
 
     /// The plan card: what the job will touch and the steps, before anything runs. One short model call
@@ -361,7 +374,7 @@ impl Agent {
         self.shared.push(Event::UserPrompt { text: text.into() });
         self.shared.set_state("running");
         self.last_prompt = text.to_string();
-        self.scaffolded = false; self.edited_after_scaffold = false; self.nudged = false; self.writes_since_run = 0; self.nudged_writes = false; self.last_write.clear(); self.same_file_streak = 0; self.last_run.clear(); self.same_run_streak = 0; self.last_failure.clear(); self.failure_streak = 0; self.ran_clean = false;
+        self.scaffolded = false; self.edited_after_scaffold = false; self.nudged = false; self.writes_since_run = 0; self.nudged_writes = false; self.last_write.clear(); self.same_file_streak = 0; self.last_run.clear(); self.same_run_streak = 0; self.last_failure.clear(); self.failure_streak = 0; self.ran_clean = false; self.runs_since_write = 0; self.total_writes = 0;
         let compact = compact_model(&self.client.model);
         let chat = self.kind == "chat";
         if chat { if self.messages.first().map(|m| m.content.as_deref() != Some(SYSTEM_PROMPT_CHAT)).unwrap_or(true) { self.messages[0] = Message::system(SYSTEM_PROMPT_CHAT); } }
@@ -450,7 +463,7 @@ impl Agent {
                     if path == self.last_write { self.same_file_streak += 1 } else { self.last_write = path; self.same_file_streak = 1 }
                 }
                 if is_run {
-                    self.writes_since_run = 0; self.same_file_streak = 0;
+                    self.writes_since_run = 0; self.same_file_streak = 0; self.runs_since_write += 1;
                     let sig = format!("{} {}", call.function.name, call.function.arguments);
                     if sig == self.last_run { self.same_run_streak += 1 } else { self.last_run = sig; self.same_run_streak = 1 }
                 } else if is_write { self.same_run_streak = 0; self.last_run.clear(); }
@@ -491,6 +504,9 @@ impl Agent {
                 if is_write && (!ok || text.starts_with("not written")) {
                     self.writes_since_run = self.writes_since_run.saturating_sub(1);
                     self.same_file_streak = self.same_file_streak.saturating_sub(1);
+                } else if is_write {
+                    self.runs_since_write = 0;  // something changed, so running again can say something new
+                    self.total_writes += 1;
                 }
                 // …but a call that keeps failing the same way is its own kind of stuck
                 let failure = if ok && !text.starts_with("not written") { String::new() } else { format!("{} {}", call.function.name, text.chars().take(80).collect::<String>()) };
@@ -500,6 +516,42 @@ impl Agent {
                 // it already ran without an error and the model is now going in circles: that is the end of
                 // a finished job, not a failure (the evaluation stopped a working word counter as an error)
                 if !chat && self.ran_clean && (self.failure_streak >= 2 || self.same_run_streak >= 2) {
+                    self.shared.push(Event::ToolResult { id: call.id.clone(), ok, summary: text.chars().take(200).collect() });
+                    let url = self.shared.info.lock().unwrap().preview_url.clone();
+                    let done = format!("It is made and it runs without errors{}. Tell me what to change, or press Install to put it in your app menu.", url.map(|u| format!(" (preview: {})", u)).unwrap_or_default());
+                    self.shared.push(Event::Assistant { text: done.clone() });
+                    let _ = self.commit();
+                    if let Some(p) = self.active_project.clone() { maker::record_recipe(&p, None, &self.last_prompt.clone()); }
+                    self.shared.push(Event::Done { turns: turn + 1 });
+                    self.shared.set_state("done");
+                    return Ok(done);
+                }
+                // Running the same program a fourth time with nothing changed in between cannot say anything
+                // new. A clean run means it is made; a run that keeps reporting a failing test is a job that
+                // is stuck, and a failing test is not an error the guard above can see — the tool call
+                // succeeded. Either way the job ends here instead of running to the 25-minute timeout.
+                if !chat && is_run && self.runs_since_write >= 4 {
+                    self.shared.push(Event::ToolResult { id: call.id.clone(), ok, summary: text.chars().take(200).collect() });
+                    // this run counts too: ran_clean is only set further down, after the guards
+                    if self.ran_clean || (ok && run_was_clean(&text)) {
+                        let url = self.shared.info.lock().unwrap().preview_url.clone();
+                        let done = format!("It is made and it runs without errors{}. Tell me what to change, or press Install to put it in your app menu.", url.map(|u| format!(" (preview: {})", u)).unwrap_or_default());
+                        self.shared.push(Event::Assistant { text: done.clone() });
+                        let _ = self.commit();
+                        if let Some(p) = self.active_project.clone() { maker::record_recipe(&p, None, &self.last_prompt.clone()); }
+                        self.shared.push(Event::Done { turns: turn + 1 });
+                        self.shared.set_state("done");
+                        return Ok(done);
+                    }
+                    let msg = format!("Genesis ran this four times without anything changing in between and it still does not work. What it made is kept, and Undo takes it back. The last run said: {}", text.chars().take(400).collect::<String>());
+                    self.shared.push(Event::Error { text: msg.clone() });
+                    self.shared.set_state("error");
+                    return Err(anyhow!(msg));
+                }
+                // Alternating a change and a run escapes every streak above, because each kind of call resets
+                // the other's counter. Once the program has run clean and a dozen changes have been made, the
+                // thing is made and the model is polishing: end it (the word counter took 25 edits this way).
+                if !chat && is_write && self.ran_clean && self.total_writes >= 12 {
                     self.shared.push(Event::ToolResult { id: call.id.clone(), ok, summary: text.chars().take(200).collect() });
                     let url = self.shared.info.lock().unwrap().preview_url.clone();
                     let done = format!("It is made and it runs without errors{}. Tell me what to change, or press Install to put it in your app menu.", url.map(|u| format!(" (preview: {})", u)).unwrap_or_default());
@@ -530,7 +582,7 @@ impl Agent {
                     return Ok(done);
                 }
                 // a clean run after changes is the finish line: say so, small models otherwise keep polishing
-                if !chat && is_run && ok && self.edited_after_scaffold && !["Traceback", "Error", "error:", "FAILED", "exit=1", "exit=2"].iter().any(|k| text.contains(k)) {
+                if !chat && is_run && ok && self.edited_after_scaffold && run_was_clean(&text) {
                     self.ran_clean = true;
                     text.push_str("\n[It ran without an error. If it does what the user asked, stop changing files and reply with the summary now.]");
                 }
