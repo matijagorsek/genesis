@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+# genesis-report: everything a hardware report needs, in one file, from one command.
+#
+#   genesis-report              # print it
+#   genesis-report > report.md  # attach that to issue #3
+#
+# It reads the machine's own facts: image version, hardware as the wizard saw it, which pack was chosen,
+# whether the models are actually on the GPU, how fast the small model answers, and the self-check. It
+# looks at nothing in your home folder and sends nothing anywhere — it prints, and you decide what to do
+# with it. Read it before you paste it; the hostname and your user name appear in the service lines.
+set -uo pipefail
+say(){ printf '\n## %s\n\n' "$1"; }
+code(){ printf '```\n'; cat; printf '```\n'; }
+
+printf '# Genesis hardware report\n\n_%s_\n' "$(date -Is)"
+
+say "Image"
+{ grep -E '^(PRETTY_NAME|IMAGE_VERSION|VERSION_ID)=' /usr/lib/os-release 2>/dev/null
+  echo "image: $(bootc status 2>/dev/null | awk '/^    image: /{print $2; exit}' || echo 'not readable without sudo')"
+  echo "kernel: $(uname -r)  ·  uptime:$(uptime | sed 's/.*up//;s/,.*load/, load/')"
+} | code
+
+say "The machine"
+{ cpu=$(lscpu 2>/dev/null | awk -F: '/^Model name/{gsub(/^[ \t]+/,"",$2); print $2; exit}')
+  case "${cpu:-}" in ""|"-") cpu=$(lscpu 2>/dev/null | awk -F: '/^Vendor ID/{gsub(/^[ \t]+/,"",$2); print $2; exit}');; esac
+  case "${cpu:-}" in ""|"-") cpu=$(grep -m1 'model name' /proc/cpuinfo 2>/dev/null | cut -d: -f2- | sed 's/^ *//');; esac
+  echo "CPU:    ${cpu:-unknown}  ($(nproc) threads)"
+  echo "Memory: $(awk '/MemTotal/{printf "%.1f GB total", $2/1048576}' /proc/meminfo), $(awk '/MemAvailable/{printf "%.1f GB free", $2/1048576}' /proc/meminfo)"
+  # / is a composefs overlay on a bootc image and reads as 43 MB, 100% full; /sysroot is the disk
+  echo "Disk:   $(df -h /sysroot 2>/dev/null | awk 'NR==2{print $2" total, "$4" free"}')  ·  models: $(df -h /var/lib/genesis 2>/dev/null | awk 'NR==2{print $4" free"}')"
+  gpu=$(lspci 2>/dev/null | grep -iE 'vga|3d|display' | cut -d: -f3- | sed 's/^ *//' | paste -sd'; ' -)
+  echo "GPU:    ${gpu:-lspci says nothing; what the probe saw is in the next section}"
+  echo "Secure Boot: $(mokutil --sb-state 2>/dev/null | head -1 || echo 'unknown, mokutil not installed')"
+} | code
+
+say "What the wizard saw, and what it chose"
+{ python3 -c '
+import json
+try: p = json.load(open("/etc/genesis/profile.json"))
+except Exception as e: print("no profile.json:", e); raise SystemExit
+print("recommended pack:", p.get("recommended_pack") or "none")
+print("budget: %d MB of %s   RAM: %d MB   unified memory: %s" % (p.get("budget_mb", 0), p.get("budget_kind", "?"), p.get("ram_mb", 0), p.get("unified_memory")))
+print("models volume: %d MB free, %d MB of it already model files" % (p.get("disk_free_mb", 0), p.get("models_present_mb", 0)))
+for g in p.get("gpus", []):
+    print("GPU: %s %s, %d MB, driver %s, usable for compute: %s" % (g.get("vendor"), g.get("name"), g.get("vram_mb", 0), g.get("driver"), g.get("compute_ready")))
+for f in p.get("packs", []):
+    print("  pack %-10s fits=%-6s %s" % (f.get("id"), f.get("fits"), f.get("why") or f.get("reason") or ""))
+for n in p.get("notes", []):
+    print("note:", n)
+' 2>&1
+  echo "roles with model files on disk: $(ls /var/lib/genesis/models 2>/dev/null | paste -sd' ' - || echo none)"
+  echo "models on disk:"; du -sh /var/lib/genesis/*/ 2>/dev/null | sed 's/^/  /' || echo "  none"
+} | code
+
+say "Is the GPU actually used"
+# a model that quietly runs on the CPU is the failure this section exists to catch
+{ grep -iE 'vulkan|rocm|cuda|offloaded|using device|buffer size' <(journalctl -u genesis-router --no-pager -n 400 2>/dev/null) | tail -14 || echo "no router log lines"
+  echo
+  echo "roles and how long they stay loaded (router.yaml):"
+  awk '/^  [a-z]+:$/{role=$1} /ttl:/{printf "    %-10s %s\n", role, $0}' /etc/genesis/router.yaml 2>/dev/null || echo "  no router.yaml"
+} | code
+
+say "How fast it answers"
+{ python3 - <<'PYX' 2>&1
+import json, time, urllib.request
+
+def get(url, body=None, timeout=300):
+    req = urllib.request.Request(url, data=json.dumps(body).encode() if body else None, headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return json.load(r)
+
+# only the roles this pack actually carries: asking for a coder the tiny pack has never had comes back
+# 404, which reads like a fault when it is a pack doing exactly what it says
+try:
+    roles = [m["id"] for m in get("http://127.0.0.1:8080/v1/models", timeout=30).get("data", [])]
+except Exception as e:
+    print("the model service is not answering:", str(e)[:100]); roles = []
+for role in [r for r in ("fast", "code", "chat") if r in roles]:
+    body = {"model": role, "messages": [{"role": "user", "content": "Write one sentence about the sea."}], "max_tokens": 120, "stream": False}
+    t0 = time.time()
+    try:
+        d = get("http://127.0.0.1:8080/v1/chat/completions", body)
+    except Exception as e:
+        print(f"{role}: did not answer ({str(e)[:80]})"); continue
+    dt = time.time() - t0
+    n = (d.get("usage") or {}).get("completion_tokens", 0)
+    print(f"{role}: {n} tokens in {dt:.1f} s = {n / dt:.1f} tokens/second" if n and dt else f"{role}: answered in {dt:.1f} s")
+if roles:
+    print("roles this pack serves:", ", ".join(roles))
+PYX
+} | code
+
+say "Services"
+{ systemctl is-active genesis-router 2>/dev/null | sed 's/^/genesis-router: /'
+  systemctl --user is-active genesis-agentd genesis-permd 2>/dev/null | paste -sd' ' - | sed 's/^/agentd permd: /'
+  echo; echo "anything that failed:"; systemctl --failed --no-pager --no-legend 2>/dev/null | sed 's/^/  /' | head -10
+} | code
+
+say "Self-check"
+{ if [ "$(id -u)" = 0 ]; then genesis-image-check 2>&1 | grep -vE '^  ok ' | head -40; echo "(ok lines hidden; $(genesis-image-check 2>/dev/null | grep -c '^  ok ') passed)"
+  else echo "run with sudo to include the self-check: sudo genesis-report"; fi
+} | code
+
+say "The desktop"
+cat <<'TXT'
+Tick what worked, cross what did not, and say what happened:
+
+- [ ] Wi-Fi  - [ ] Bluetooth  - [ ] sound out  - [ ] microphone
+- [ ] suspend and resume  - [ ] brightness and volume keys  - [ ] external monitor
+- [ ] `Meta+Space` and a first make  - [ ] `Meta+Shift+V` voice  - [ ] `Meta+Shift+A` ask the screen
+
+Minutes from the USB stick to the desktop: 
+Seconds from the pack being chosen to the first answer: 
+Anything that looked wrong: 
+TXT

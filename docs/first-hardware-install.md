@@ -40,6 +40,18 @@ minutes of notes here answer more open questions than a week of CI. Paste the re
 | Download | The small model first, then the rest | Seconds until "the maker is ready"; total minutes |
 | The first make (pick one of the three offers) | Steps, preview | Did it finish, how long |
 
+## One command, for the report
+
+When the desktop is up and the first make has run:
+
+    sudo genesis-report > report.md
+
+That collects the image version, the hardware as the wizard saw it, which pack it chose and why the
+others did not fit, whether the models are really on the GPU, how many tokens a second each model
+answers at, and the self-check. It reads nothing in your home folder and sends nothing anywhere: it
+prints, you read it, and you decide what to do with it. The end of the file has the desktop checklist
+to fill in by hand. Attach it to issue #3.
+
 ## The numbers that matter
 
 Open **Settings, On this machine** after the first reply: it shows tokens per second and the model.
