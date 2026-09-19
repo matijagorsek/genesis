@@ -119,7 +119,11 @@ impl Client {
         let url = format!("{}/chat/completions", self.endpoint.trim_end_matches('/'));
         let resp = ureq::post(&url)
             .set("Authorization", &format!("Bearer {}", self.api_key))
-            .timeout(std::time::Duration::from_secs(1800))
+            // Half an hour for one model call meant a job could sit there doing nothing for longer than
+            // anyone would wait, and longer than the evaluation's own patience: one make spent 25 minutes
+            // after seven writes without a single further tool call. A 2B model on a CPU answers a turn in
+            // seconds to a couple of minutes; five is generous, and a machine that needs more can say so.
+            .timeout(std::time::Duration::from_secs(std::env::var("GENESIS_LLM_TIMEOUT").ok().and_then(|v| v.parse().ok()).unwrap_or(300)))
             .send_json(body);
         let resp = match resp {
             Ok(r) => r,

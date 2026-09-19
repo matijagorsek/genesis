@@ -1014,6 +1014,21 @@ mod tests {
     }
 
     #[test]
+    fn consecutive_no_op_edits_end_with_a_sentence_about_the_program() {
+        let proj = script_project();
+        // Four no-op edits in a row tripped the generic "that same call has failed four times in a row",
+        // and what the person read was a tool error cut off mid-word. The no-op ending is more specific and
+        // now comes first, so they are told about their program instead.
+        let noop = serde_json::json!({"path":"app.py","old_text":"print('v0')","new_text":"print('v0')"});
+        let script: Vec<_> = (0..6).map(|_| tool_call("edit_file", noop.clone())).collect();
+        let ep = fake_llm(script);
+        let (mut agent, _s) = setup(proj.path(), Mode::AutoEdit, ep);
+        let err = agent.run("count the words").unwrap_err().to_string();
+        assert!(err.contains("wrote nothing new"), "got: {}", err);
+        assert!(!err.contains("failed four times"), "the generic ending must not win: {}", err);
+    }
+
+    #[test]
     fn stop_ends_the_loop_cleanly() {
         let proj = tempfile::tempdir().unwrap();
         // a long-running command, then more work that must never happen: Stop kills the command and ends the loop

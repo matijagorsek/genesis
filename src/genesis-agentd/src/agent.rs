@@ -557,12 +557,14 @@ impl Agent {
                 // Alternating a change and a run escapes every streak above, because each kind of call resets
                 // the other's counter. Once the program has run clean and a dozen changes have been made, the
                 // thing is made and the model is polishing: end it (the word counter took 25 edits this way).
-                // Five writes that changed nothing, however far apart. The failure streak catches these only
+                // Three writes that changed nothing, however far apart. The failure streak catches these only
                 // while they are consecutive, and a preview in between resets it, so the word counter made
                 // the same no-op edit over and over with a run between each pair and reached the turn limit
-                // twice in a row. A model that cannot produce a change is done either way: if the program
-                // has run clean it is made, and if it has not, say plainly that the change could not be made.
-                if !chat && is_write && self.noop_writes >= 5 {
+                // twice in a row. Three, not five, so that this ending wins over the generic "that call has
+                // failed four times" — the person is better served by a sentence about their program than by
+                // a truncated tool error. A model that cannot produce a change is done either way: if the
+                // program has run clean it is made, and if it has not, say so plainly.
+                if !chat && is_write && self.noop_writes >= 3 {
                     self.shared.push(Event::ToolResult { id: call.id.clone(), ok, summary: text.chars().take(200).collect() });
                     if self.ran_clean {
                         let url = self.shared.info.lock().unwrap().preview_url.clone();
@@ -574,7 +576,7 @@ impl Agent {
                         self.shared.set_state("done");
                         return Ok(done);
                     }
-                    let msg = "Genesis stopped this job: five changes in a row wrote nothing new, so the model is not getting anywhere. What was made is kept, and Undo takes it back. A shorter request, or a bigger model pack, is more likely to work.".to_string();
+                    let msg = "Genesis stopped this job: three changes in a row wrote nothing new, so it is not getting anywhere. What was made is kept, and Undo takes it back. A shorter request, or a bigger model pack, is more likely to work.".to_string();
                     self.shared.push(Event::Error { text: msg.clone() });
                     self.shared.set_state("error");
                     return Err(anyhow!(msg));
