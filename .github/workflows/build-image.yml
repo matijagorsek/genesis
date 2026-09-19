@@ -66,7 +66,9 @@ jobs:
           node --check /tmp/page.js || { echo "::error::the wizard JavaScript does not parse"; exit 1; }
           for page in src/genesis-agentd/ui/*.html; do grep -q "__GENESIS_JS__" "$page" || { echo "::error::$page lost its script placeholder"; exit 1; }; done
           node --check system_files/usr/share/genesis/babel/extension/extension.js
-          for j in packs/*.json templates/*/genesis.json system_files/usr/share/genesis/*.json system_files/usr/share/genesis/mcp/*.json; do python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$j"; done
+          for j in apps/*/static/*.js; do node --check "$j"; done
+          for p in apps/*/app.py; do python3 -c "import ast,sys; ast.parse(open(sys.argv[1]).read())" "$p"; done
+          for j in packs/*.json templates/*/genesis.json apps/*/genesis.json system_files/usr/share/genesis/*.json system_files/usr/share/genesis/mcp/*.json; do python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$j"; done
           # Every model a pack names must still exist. The CPU pack carried a repo that had become a 401,
           # and nothing noticed until someone chose that pack on a real machine and the whole download
           # failed on the first call. One HEAD per repo, deduplicated.

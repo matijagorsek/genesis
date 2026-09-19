@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Media</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+  <h1>Media</h1>
+  <nav>
+    <button id="tab-services" aria-selected="true">Services</button>
+    <button id="tab-iptv" aria-selected="false">IPTV</button>
+  </nav>
+</header>
+
+<main>
+  <section id="services">
+    <p class="note">Each one opens in its own window, all sharing one browser profile, so you log in once
+      per service and stay logged in. <b>There is no single sign-on between these companies</b> — each
+      authenticates separately, and no password is stored here. The ones that need DRM use Widevine, which
+      Firefox downloads itself if you allow it; Genesis ships none of it, which is also why these services
+      top out at 720p on Linux for everybody.</p>
+    <div class="tiles" id="tiles"></div>
+    <div class="msg bad" id="no-firefox" hidden>Firefox is not installed, and it is what handles the DRM
+      these services need.</div>
+  </section>
+
+  <section id="iptv" hidden>
+    <div id="iptv-setup">
+      <p class="note">Your own subscription. Genesis asks the provider you enter what your subscription
+        carries and hands the stream to the player already on this machine. Your details are kept in
+        <code>~/.config/genesis-media/iptv.json</code>, readable only by you, and are sent to that address
+        and nowhere else.</p>
+      <form id="iptv-form">
+        <label>Kind
+          <select id="kind">
+            <option value="xtream">Xtream Codes (address, username, password)</option>
+            <option value="m3u">M3U playlist address</option>
+          </select>
+        </label>
+        <div id="xtream-fields">
+          <label>Address <input id="host" placeholder="http://provider.example:8080" autocomplete="off"></label>
+          <label>Username <input id="username" autocomplete="off"></label>
+          <label>Password <input id="password" type="password" autocomplete="off"></label>
+        </div>
+        <label id="m3u-field" hidden>Playlist address <input id="m3u" placeholder="http://…/playlist.m3u" autocomplete="off"></label>
+        <div class="row">
+          <button class="go" type="submit">Save and load</button>
+          <button class="sec" type="button" id="forget" hidden>Forget these details</button>
+        </div>
+      </form>
+    </div>
+    <div id="iptv-msg"></div>
+    <input id="search" placeholder="Search channels" hidden>
+    <div id="channels"></div>
+  </section>
+</main>
+
+<script src="/app.js"></script>
+</body>
+</html>

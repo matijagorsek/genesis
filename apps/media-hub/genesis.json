@@ -1,0 +1,17 @@
+{
+  "id": "media-hub",
+  "name": "Media",
+  "description": "One window for the streaming services you pay for, and a player for your own IPTV subscription. Nothing is downloaded, nothing is re-streamed, and no DRM is bundled: each service opens in Firefox, which fetches Widevine itself if you let it.",
+  "entry": "app.py",
+  "dev": {
+    "cmd": "python3 app.py --port {port}",
+    "port": 5600,
+    "open": "http://127.0.0.1:{port}/"
+  },
+  "run": {
+    "cmd": "python3 app.py --port 5600",
+    "port": 5600,
+    "open": "http://127.0.0.1:5600/"
+  },
+  "hints": "Services are launched into one Firefox profile so every login is kept in one place. IPTV talks to the provider the user entered and hands the stream to Haruna."
+}
