@@ -196,7 +196,10 @@ fn handle(app: &Arc<App>, mut req: Request) -> Result<bool> {
                                 // the most memory any one GPU has to itself, and whether it shares the machine's
                                 let vram_mb = prof.get("gpus").and_then(|g| g.as_array()).map(|a| a.iter().filter(|g| g.get("compute_ready").and_then(|c| c.as_bool()).unwrap_or(false)).filter_map(|g| g.get("vram_mb").and_then(|v| v.as_u64())).max().unwrap_or(0)).unwrap_or(0);
                                 let unified = prof.get("unified_memory").and_then(|u| u.as_bool()).unwrap_or(false);
-                                let tuning = packs::tuning_for(cores, &gpus, compute, vram_mb, unified);
+                                // what this machine can hold at once, as the probe worked it out
+                                let budget_mb = prof.get("budget_mb").and_then(|b| b.as_u64()).unwrap_or(0);
+                                let mut tuning = packs::tuning_for(cores, &gpus, compute, vram_mb, unified);
+                                tuning.budget_mb = budget_mb;
                                 let yaml = packs::render_router_tuned(&models_dir, 10001, tuning)?;
                                 if let Some(d) = router_out.parent() {
                                     std::fs::create_dir_all(d)?;

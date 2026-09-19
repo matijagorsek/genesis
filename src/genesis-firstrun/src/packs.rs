@@ -168,7 +168,7 @@ pub fn plan(pack: &Pack, models_dir: &Path, lister: &dyn Fn(&str) -> Result<Vec<
 /// to offload layers to a GPU. Using every core for generation thrashes (measured 1.6 tok/s at 6 of 6
 /// threads vs 7 tok/s at 3 or 4), and a software Vulkan device (llvmpipe, virtio) is slower than the CPU.
 #[derive(Debug, Clone, Copy)]
-pub struct Tuning { pub threads: u32, pub ngl: u32 }
+pub struct Tuning { pub threads: u32, pub ngl: u32, pub budget_mb: u64 }
 
 /// `vram_mb` is the most memory any one usable GPU reports, and `unified` is true on machines where the
 /// GPU shares system RAM by design (Apple Silicon). Both matter: asking to be told only that a GPU exists
@@ -183,11 +183,11 @@ pub fn tuning_for(cores: u32, gpu_names: &[String], compute_ready: bool, vram_mb
     // 2 GB is the least that holds a small model and its cache; under that, offloading is slower at best
     // and a crash at worst. Unified memory has no separate pool to run out of, so it offloads regardless.
     let worth_offloading = real_gpu && (unified || vram_mb >= 2048);
-    Tuning { threads, ngl: if worth_offloading { 99 } else { 0 } }
+    Tuning { threads, ngl: if worth_offloading { 99 } else { 0 }, budget_mb: 0 }
 }
 
 pub fn render_router(models_dir: &Path, port_base: u16) -> Result<String> {
-    render_router_tuned(models_dir, port_base, Tuning { threads: 4, ngl: 99 })
+    render_router_tuned(models_dir, port_base, Tuning { threads: 4, ngl: 99, budget_mb: 0 })
 }
 
 pub fn render_router_tuned(models_dir: &Path, port_base: u16, t: Tuning) -> Result<String> {
@@ -257,12 +257,29 @@ pub fn render_router_tuned(models_dir: &Path, port_base: u16, t: Tuning) -> Resu
         y.push_str(&format!("  embed:\n    cmd: |\n      ${{server}} -m {} --embedding --pooling last -c 8192 -b {} -ub {}\n    aliases: [ \"genesis-embed\", \"text-embedding-3-small\" ]\n    ttl: {}\n\n", f, batch, batch, ttl));
         if t.ngl > 0 { hot.push("embed"); }
     }
+    // Can this machine hold the always-loaded models AND the biggest one at the same time? The pack fit
+    // only ever asked whether the LARGEST SINGLE model fits the budget, never the sum of what stays
+    // resident. On the first real laptop that meant the 4B assistant (3.3 GB) and the 1.5B completion
+    // model stayed loaded while the 9B coder (8.9 GB) came up beside them: 13.8 GB resident on a 15.5 GB
+    // machine, and it swapped. Measured from the files that are actually on this disk, not the sizes a
+    // pack claims, because a pack can be edited and a download can be partial.
+    let on_disk = |roles: &[&str]| -> u64 {
+        roles.iter().filter_map(|r| find(r, false)).filter_map(|f| std::fs::metadata(&f).ok()).map(|m| m.len()).sum::<u64>() / (1024 * 1024)
+    };
+    let hot_mb = on_disk(&hot);
+    let biggest_mb = big.iter().map(|r| on_disk(&[r])).max().unwrap_or(0);
+    // a fifth over the budget is where it starts costing more than it saves; under that, holding is better
+    let fits_together = t.budget_mb == 0 || hot_mb + biggest_mb <= t.budget_mb * 6 / 5;
     y.push_str("groups:\n");
     if !hot.is_empty() {
-        y.push_str(&format!("  hot:\n    swap: false\n    exclusive: false\n    persistent: true\n    members: [ {} ]\n", hot.join(", ")));
+        y.push_str(&format!("  hot:\n    swap: false\n    exclusive: false\n    persistent: {}\n    members: [ {} ]\n", fits_together, hot.join(", ")));
     }
     if !big.is_empty() {
-        y.push_str(&format!("  big:\n    swap: true\n    exclusive: false\n    members: [ {} ]\n", big.join(", ")));
+        // exclusive: loading a big model puts the small ones away first, instead of swapping the machine
+        y.push_str(&format!("  big:\n    swap: true\n    exclusive: {}\n    members: [ {} ]\n", !fits_together, big.join(", ")));
+    }
+    if !fits_together {
+        y.push_str(&format!("# {} MB of always-loaded models plus {} MB for the largest is more than this machine's {} MB budget,\n# so the big models take the small ones' place instead of sitting beside them.\n", hot_mb, biggest_mb, t.budget_mb));
     }
     Ok(y)
 }
@@ -288,6 +305,36 @@ mod tests {
     }
 
     #[test]
+    fn a_machine_that_cannot_hold_everything_at_once_does_not_try() {
+        use std::io::Write;
+        let dir = tempfile::tempdir().unwrap();
+        // the first real laptop's actual files: a 3.3 GB assistant always loaded, an 8.9 GB coder beside it
+        let write = |role: &str, mb: usize| {
+            std::fs::create_dir_all(dir.path().join(role)).unwrap();
+            let mut f = std::fs::File::create(dir.path().join(role).join("m.gguf")).unwrap();
+            f.write_all(&vec![0u8; mb * 1024 * 1024]).unwrap();
+        };
+        write("fast", 64);
+        write("code", 192);
+
+        // budget big enough for both: they sit beside each other and nothing is ever unloaded
+        let roomy = render_router_tuned(dir.path(), 10001, Tuning { threads: 4, ngl: 0, budget_mb: 1024 }).unwrap();
+        assert!(roomy.contains("persistent: true"), "{}", roomy);
+        assert!(roomy.contains("exclusive: false"), "{}", roomy);
+
+        // budget that fits the biggest model but not both: 13.8 GB resident on a 15.5 GB machine is how
+        // that went, and it swapped. The big model takes the small one's place instead.
+        let tight = render_router_tuned(dir.path(), 10001, Tuning { threads: 4, ngl: 0, budget_mb: 200 }).unwrap();
+        assert!(tight.contains("persistent: false"), "the small model does not stay loaded: {}", tight);
+        assert!(tight.contains("  big:\n    swap: true\n    exclusive: true"), "loading the coder puts it away: {}", tight);
+        assert!(tight.contains("is more than this machine"), "and the config says why: {}", tight);
+
+        // a machine that never reported a budget keeps the old behaviour rather than guessing
+        let unknown = render_router_tuned(dir.path(), 10001, Tuning { threads: 4, ngl: 0, budget_mb: 0 }).unwrap();
+        assert!(unknown.contains("persistent: true"), "{}", unknown);
+    }
+
+    #[test]
     fn a_machine_that_offloads_nothing_takes_the_gpu_devices_away() {
         let dir = tempfile::tempdir().unwrap();
         for (role, f) in [("fast", "a.gguf"), ("code", "b.gguf")] {
@@ -297,11 +344,11 @@ mod tests {
         // -ngl 0 says "put no layers on the GPU", not "there is no GPU": llama.cpp still puts its buffers
         // on one and moves every tensor across for every token. On the first real laptop that was 0.32
         // tokens a second against 7.55 with the devices removed.
-        let cpu = render_router_tuned(dir.path(), 10001, Tuning { threads: 4, ngl: 0 }).unwrap();
+        let cpu = render_router_tuned(dir.path(), 10001, Tuning { threads: 4, ngl: 0, budget_mb: 0 }).unwrap();
         assert!(cpu.contains("-ngl 0 -dev none"), "the small models: {}", cpu);
         assert_eq!(cpu.matches("-dev none").count(), 2, "both macros, small and big: {}", cpu);
         // and a machine with a real card must not be told to ignore it
-        let gpu = render_router_tuned(dir.path(), 10001, Tuning { threads: 4, ngl: 99 }).unwrap();
+        let gpu = render_router_tuned(dir.path(), 10001, Tuning { threads: 4, ngl: 99, budget_mb: 0 }).unwrap();
         assert!(!gpu.contains("-dev none"), "{}", gpu);
     }
 
@@ -353,9 +400,9 @@ mod tests {
     fn draft_model_enables_speculative_decoding_on_gpu() {
         let dir = tempfile::tempdir().unwrap();
         for (role, f) in [("code", "b.gguf"), ("draft", "d.gguf")] { std::fs::create_dir_all(dir.path().join(role)).unwrap(); std::fs::write(dir.path().join(role).join(f), b"x").unwrap(); }
-        let gpu = render_router_tuned(dir.path(), 10001, Tuning { threads: 4, ngl: 99 }).unwrap();
+        let gpu = render_router_tuned(dir.path(), 10001, Tuning { threads: 4, ngl: 99, budget_mb: 0 }).unwrap();
         assert!(gpu.contains("-md ") && gpu.contains("--draft-max 16"));
-        let cpu = render_router_tuned(dir.path(), 10001, Tuning { threads: 4, ngl: 0 }).unwrap();
+        let cpu = render_router_tuned(dir.path(), 10001, Tuning { threads: 4, ngl: 0, budget_mb: 0 }).unwrap();
         assert!(!cpu.contains("-md "), "no draft on CPU: it would slow generation down");
         // the big models leave -ngl to llama.cpp's fit on a GPU, and stay on the CPU explicitly without one
         assert!(gpu.contains("big: \"genesis-llama-server --port ${PORT} --host 127.0.0.1 -t 4"));
@@ -371,13 +418,13 @@ mod tests {
             std::fs::write(dir.path().join(role).join(f), b"x").unwrap();
         }
         // With a GPU, holding the embedding model costs nothing anyone notices and a search never waits.
-        let gpu = render_router_tuned(dir.path(), 10001, Tuning { threads: 4, ngl: 99 }).unwrap();
+        let gpu = render_router_tuned(dir.path(), 10001, Tuning { threads: 4, ngl: 99, budget_mb: 0 }).unwrap();
         assert!(gpu.contains("members: [ fast, fim, embed ]"), "all three stay resident: {}", gpu);
         assert!(gpu.contains("-b 8192 -ub 8192"));
 
         // Without one, embed cost 1.0 to 1.6 GB beside a 3.4 GB main model on packs meant for 4 to 8 GB
         // machines. It unloads when idle, and it is not in the group that never swaps out.
-        let cpu = render_router_tuned(dir.path(), 10001, Tuning { threads: 4, ngl: 0 }).unwrap();
+        let cpu = render_router_tuned(dir.path(), 10001, Tuning { threads: 4, ngl: 0, budget_mb: 0 }).unwrap();
         assert!(cpu.contains("members: [ fast ]"), "only the main model stays resident: {}", cpu);
         let embed = cpu.split("  embed:").nth(1).unwrap().split("\n\n").next().unwrap();
         assert!(embed.contains("ttl: 300"), "embed unloads when idle: {}", embed);
