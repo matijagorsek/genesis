@@ -52,7 +52,8 @@ How Genesis got here, in the order it happened. The decision log has the detail 
 | 7. The review, answered | 17-18 Sep | Two audits and a product review, then the work they asked for: Stop, one door for asking and making, one design system with a light theme, plain words instead of internals, what is kept about you and how to delete it, model management, project lifecycle, file pickers, a testing channel promoted to stable by the nightly canary, tests for the Python tools and the page scripts, and seven of ten new ideas (right-click a file, terminal rescue, undo from the panel, clipboard transforms, screenshot to app, a key for a made app, the morning card read aloud). |
 | 8. What the machine makes possible | 19 Sep | Two investigations into what else could be delivered found three faults in the week's own work first: a shipped template test no correct program could pass, a context trimmer that made the model re-read the conversation every turn, and an evaluation that scored completion rather than correctness with no fixed seed. Fixed, then built: read the selection aloud, write down what is said in any recording (with subtitles), undo an app install from the panel, a job that survives the lid, three questions the computer answers about itself, an honest "I could not find that", and four changes aimed at the small model. |
 | 9. Measuring honestly | 19 Sep | The evaluation made cheap enough to use, and four faults it then found. An answer takes twenty minutes instead of two and a half hours: the ten makes run on five machines at once, and the binary under test is built and dropped into the last release rather than waiting an hour for an image. What that bought: a correct program thrown away because writing a file that was already right counted as a failure; a job that could run its whole life against a failing test without anything changing; a single model call allowed thirty minutes, so a stalled job looked exactly like a slow one and sat frozen; and the embedding model held in RAM for the life of a session on packs meant for machines with 4 to 8 GB. None of the last three show up in the score, and two of them would have been felt by anyone on real hardware. |
-| Next | | Real hardware. See [ROADMAP.md](ROADMAP.md). |
+| 10. The first real machine | 19 Sep | An ASUS laptop with an i7-6700HQ, 16 GB and an Intel HD 530, and five faults no virtual machine could have shown. It installed with **no account and no way to log in**, because the installer was trusted to insist on one and does not; Genesis now asks for an account on the console before the login screen. The CPU pack was refused on a 16 GB machine **by five megabytes**, because a machine sold as 16 GB reports 15.5 and the slack was half a gigabyte. That pack could not be downloaded at all: a model repository had become a 401, and one dead repository fails the whole plan. Offloading asked only whether a GPU exists, never whether it has memory, so every layer went to an integrated chip and llama.cpp crashed. And `-ngl 0` turned out not to mean "there is no GPU": with the devices still registered, generation ran at **0.32 tokens a second against 7.55** with them removed. The laptop now answers at 6.83. Every virtual machine has a virtio device that the old check correctly skipped, so none of this code had ever run. |
+| Next | | Real hardware, more of it. See [ROADMAP.md](ROADMAP.md). |
 
 ## What works today (0.2)
 
@@ -76,6 +77,12 @@ How Genesis got here, in the order it happened. The decision log has the detail 
   boot watermark, login screen.
 - **Local models as an OS service**: llama.cpp (Vulkan) behind llama-swap on `127.0.0.1:8080`,
   one OpenAI-compatible endpoint; model packs per hardware tier (`packs/`), chosen at first run.
+  **How a model runs is measured, not guessed**: `genesis-pick-device` generates a few tokens with the
+  GPU devices taken away, then on each device the machine offers, and keeps the fastest arrangement that
+  did not crash — a crash or a hang is an answer too, and a device must be meaningfully faster to be
+  worth the memory it holds. Deciding from device names is what made the first real laptop twenty-one
+  times too slow. And because hardware does not keep its promises, a model that dies with a GPU error
+  starts again on the CPU instead of leaving no assistant at all.
   Routed by task: the maker takes the pack's coder, chat its chat model, search the embedder,
   photos the vision model, completion the small one; each falls back to the always-loaded small model.
 - **First-run wizard** (`genesis-firstrun`): detects GPU, RAM and disk (`genesis-probe`), shows every
@@ -255,6 +262,12 @@ own maker, palette and `ask` stay local.
 - **Claude is optional and separate.** Claude Code signs in with your account in the terminal; its credentials
   live in your home folder under `~/.claude`, Genesis never reads them, and they never touch this repository
   or the image. There are no API keys anywhere in Genesis.
+- **A machine with no account asks for one.** An installer that does not insist on an account leaves a
+  machine nobody can log into, which is how the first real install went. Before the login screen Genesis
+  asks for a name and a password on the console and makes an administrator. No default account and no
+  default password ship in the ISO; the prebuilt **qcow2 test disks** are a different thing and do carry
+  `genesis / genesis` with SSH on, which is why they are for trying Genesis in a VM and not for a machine
+  on a network you do not control.
 - **A closed front door.** The local daemons answer only their own pages and local helpers: same-origin
   checks plus a per-boot token, so a web page open in the browser cannot drive the maker; request
   bodies are capped and file opening is limited to what Genesis made. Reviewed adversarially (decision 70).

@@ -46,7 +46,7 @@ cat genesis-VERSION.iso.*.part &gt; genesis.iso</pre>
   install: the ISO carries the whole system, so the machine can be offline until the first boot.</p>
   <h2>Hardware</h2>
   <ul>
-    <li><b>Any x86_64 PC with an AMD or Intel GPU:</b> the standard image. Models run on the GPU through Vulkan.</li>
+    <li><b>Any x86_64 PC:</b> the standard image. At first run Genesis measures this machine — it generates a few tokens with the GPU set aside, then on each device the machine offers, and keeps whichever was fastest and did not crash. So a discrete AMD or Intel card is used through Vulkan, and an integrated chip that would be slower is not; there is no list of supported devices to be on.</li>
     <li><b>NVIDIA, Turing or newer</b> (GTX 16xx, RTX 20xx and later): install the standard image, then <code>sudo bootc switch ghcr.io/matijagorsek/genesis:stable-nvidia</code> and restart; that flavour carries NVIDIA's open kernel modules.</li>
     <li><b>NVIDIA, Maxwell or Pascal</b> (GTX 9xx, GTX 10xx): <b>do not switch to the NVIDIA flavour.</b> The open kernel modules do not support these cards; they need the proprietary driver, which Genesis does not ship. Use the standard image — the models will run on the CPU. A 2 or 4 GB card is below every GPU pack anyway.</li>
     <li><b>Your phone:</b> KDE Connect pairs the phone for notifications, files and "ask" from the share sheet. The Genesis app for Android (jobs, permission cards, a make from the phone, a screenshot) builds from the repository's <code>android/</code> folder; a store listing comes later.</li>
