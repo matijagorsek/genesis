@@ -190,6 +190,22 @@ mod tests {
     }
 
     #[test]
+    fn a_machine_sold_as_16gb_gets_the_pack_that_says_16gb() {
+        // What a real 16 GB laptop reports: 15867 MB, or 15.50 GiB. The firmware keeps some, and the rest
+        // is counted in GiB rather than the GB on the box. With half a gigabyte of slack the CPU pack was
+        // refused by five megabytes and a perfectly capable i7 with 16 GB was given the 2B model — found
+        // on the first install on real hardware, where the tests here all used round numbers no machine
+        // ever reports.
+        assert_eq!(rec("gpu=none,ram=15.5,disk=400").as_deref(), Some("cpu"));
+        assert_eq!(rec("gpu=none,ram=15.2,disk=400").as_deref(), Some("cpu"));
+        // 32 GB reports about 31.2 GiB and missed the 36 GB packs the same way
+        let r = rec("gpu=apple,ram=31.2,disk=400");
+        assert!(matches!(r.as_deref(), Some("mac-36") | Some("mac-36-q5")), "{:?}", r);
+        // and the slack must not reach down a whole tier: 8 GB is still the small pack
+        assert_eq!(rec("gpu=none,ram=7.7,disk=400").as_deref(), Some("tiny"));
+    }
+
+    #[test]
     fn apple_unified_36gb_gets_the_mac_pack() {
         let r = rec("gpu=apple,ram=36,disk=400");
         assert!(matches!(r.as_deref(), Some("mac-36") | Some("mac-36-q5")), "{:?}", r);

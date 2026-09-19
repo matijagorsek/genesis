@@ -62,7 +62,14 @@ pub fn evaluate(packs: &[PackFile], gpus: &[Gpu], ram_mb: u64, unified: bool, bu
             }
         }
         if let Some(min) = p.trigger.min_ram_gb {
-            if ram_gb + 0.5 < min {
+            // A machine sold as 16 GB reports about 15.5 GiB: the firmware keeps some, and the rest is
+            // counted in GiB rather than the GB on the box. With half a gigabyte of slack the CPU pack —
+            // the one whose description says "16 GB RAM" — was refused on a 16 GB laptop by five
+            // megabytes, and a 32 GB machine missed the 36 GB packs the same way. The slack has to be
+            // bigger than the gap between what is sold and what is counted, so: a gigabyte, or five per
+            // cent for the large packs, whichever is more.
+            let slack = (min * 0.05).max(1.0);
+            if ram_gb + slack < min {
                 reasons.push(format!("needs {:.0} GB RAM, have {:.0}", min, ram_gb));
             }
         }
