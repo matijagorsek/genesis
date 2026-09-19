@@ -51,6 +51,7 @@ How Genesis got here, in the order it happened. The decision log has the detail 
 | 6. Back to the brief | 16 Sep | The gaps against the original brief closed: inline completion in Babel from the local model, MCP servers as the extension point with a system-administrator server, a kept and searchable chat that reads documents, search by meaning, the plan card before a job, an Ollama-compatible door, and a weekly ten-make evaluation. |
 | 7. The review, answered | 17-18 Sep | Two audits and a product review, then the work they asked for: Stop, one door for asking and making, one design system with a light theme, plain words instead of internals, what is kept about you and how to delete it, model management, project lifecycle, file pickers, a testing channel promoted to stable by the nightly canary, tests for the Python tools and the page scripts, and seven of ten new ideas (right-click a file, terminal rescue, undo from the panel, clipboard transforms, screenshot to app, a key for a made app, the morning card read aloud). |
 | 8. What the machine makes possible | 19 Sep | Two investigations into what else could be delivered found three faults in the week's own work first: a shipped template test no correct program could pass, a context trimmer that made the model re-read the conversation every turn, and an evaluation that scored completion rather than correctness with no fixed seed. Fixed, then built: read the selection aloud, write down what is said in any recording (with subtitles), undo an app install from the panel, a job that survives the lid, three questions the computer answers about itself, an honest "I could not find that", and four changes aimed at the small model. |
+| 9. Measuring honestly | 19 Sep | The evaluation made cheap enough to use, and four faults it then found. An answer takes twenty minutes instead of two and a half hours: the ten makes run on five machines at once, and the binary under test is built and dropped into the last release rather than waiting an hour for an image. What that bought: a correct program thrown away because writing a file that was already right counted as a failure; a job that could run its whole life against a failing test without anything changing; a single model call allowed thirty minutes, so a stalled job looked exactly like a slow one and sat frozen; and the embedding model held in RAM for the life of a session on packs meant for machines with 4 to 8 GB. None of the last three show up in the score, and two of them would have been felt by anyone on real hardware. |
 | Next | | Real hardware. See [ROADMAP.md](ROADMAP.md). |
 
 ## What works today (0.2)
@@ -59,10 +60,15 @@ How Genesis got here, in the order it happened. The decision log has the detail 
   qcow2 disk and the ISO ([Releases](https://github.com/matijagorsek/genesis/releases)). A weekly canary boots a release from a week
   back and updates it to today's `testing` image; only a green canary moves `stable`, the channel installed
   machines follow, so no push reaches a user's machine unseen. `bootc switch …:testing` follows every build.
-  A weekly evaluation runs ten small makes on the tiny pack in a fresh VM and scores them, so a change
-  to the prompts or tools shows as a number ([eval.yml](.github/workflows/eval.yml)). It runs with a fixed
-  seed and scores two things apart: whether a make finished, and whether what it made is what was asked
-  for. 10 of 10 finished on 0.2.200; the first run under the stricter correctness check is pending.
+  An evaluation runs ten small makes on the tiny pack (the 2B model, CPU only) in fresh VMs and scores
+  them, so a change to the prompts or tools shows as a number ([eval.yml](.github/workflows/eval.yml)).
+  A fixed seed, and two things scored apart: whether a make **finished**, and whether what it made is
+  what was **asked for**. Best so far: **8 finished, 7 correct**. The ten makes are split over five
+  machines and the maker under test is built and dropped into the last release's VM, so an answer takes
+  about twenty minutes instead of two and a half hours; the weekly run boots the shipped image with the
+  shipped binary, because that is the only run that tests what a person would install. Every make also
+  records what was holding memory when it ended — that is how the embedding model was caught sitting in
+  RAM for the life of a session on the machines least able to spare it.
 - **Complete desktop**: KDE Plasma 6 with Firefox, Dolphin, Konsole, Kate, Okular, Gwenview, Haruna,
   Elisa, KCalc, Discover (Flatpak), Ark, Spectacle, System Monitor as RPMs; LibreOffice, Thunderbird,
   VLC, GIMP, Krita preinstalled as Flatpaks once online. Genesis identity: Genesis Dark colour scheme,
@@ -169,8 +175,13 @@ just boot iso/output/disk.qcow2        # QEMU, EFI; test user genesis / genesis
 qemu-img resize disk.qcow2 40G         # optional: room for a bigger model pack; the root grows on boot
 ```
 
-Or install from the ISO in a VM (UTM, virt-manager, VirtualBox) or on a spare machine. On an NVIDIA machine,
-switch to the NVIDIA flavour afterwards: `sudo bootc switch ghcr.io/matijagorsek/genesis:stable-nvidia`.
+Or install from the ISO in a VM (UTM, virt-manager, VirtualBox) or on a spare machine. The joined ISO is
+about 6.3 GB, so a **USB stick of 8 GB or more** is needed; the whole system is on it, and nothing is
+downloaded during the install. For the target disk, 64 GB is a sensible floor: the system is about 13 GB
+and bootc keeps the previous version so an upgrade can be rolled back, then the model pack is 3.8 GB for
+the tiny one up to 130 GB for a 48 GB card. On an NVIDIA machine, switch to the NVIDIA flavour afterwards:
+`sudo bootc switch ghcr.io/matijagorsek/genesis:stable-nvidia`. The first install on real hardware has a
+checklist: [docs/first-hardware-install.md](docs/first-hardware-install.md).
 
 **On an Apple Silicon Mac**, use the arm64 flavour, which runs natively under Apple's hypervisor at
 full speed, models included: download the `genesis-<version>-arm64.qcow2.zst.*.part` files, join them
