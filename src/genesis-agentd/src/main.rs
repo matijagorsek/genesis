@@ -993,6 +993,27 @@ mod tests {
     }
 
     #[test]
+    fn no_op_edits_with_a_run_between_them_do_not_reach_the_turn_limit() {
+        let proj = script_project();
+        // The word counter's actual shape, twice in a row: an edit whose old_text equals its new_text, then
+        // a preview, then the same again. Each no-op is counted as a failure, but the run between them
+        // resets the streak, so it ran to the turn limit with 25 edits. Counted for the whole job instead,
+        // five of them end it — and since the program ran clean, it ends as a made program.
+        let noop = serde_json::json!({"path":"app.py","old_text":"print('v0')","new_text":"print('v0')"});
+        let mut script = vec![tool_call("write_file", serde_json::json!({"path":"app.py","content":"print('v0')\n"}))];
+        for _ in 0..10 {
+            script.push(tool_call("edit_file", noop.clone()));
+            script.push(tool_call("preview_start", serde_json::json!({})));
+        }
+        let ep = fake_llm(script);
+        let (mut agent, shared) = setup(proj.path(), Mode::AutoEdit, ep);
+        let out = agent.run("count the words").expect("a made program, not the turn limit");
+        assert!(out.contains("It is made and it runs"), "got: {}", out);
+        let edits = shared.info.lock().unwrap().events.iter().filter(|e| matches!(e, Event::ToolCall { name, .. } if name == "edit_file")).count();
+        assert!(edits <= 6, "it stopped at the fifth no-op, not the tenth: {}", edits);
+    }
+
+    #[test]
     fn stop_ends_the_loop_cleanly() {
         let proj = tempfile::tempdir().unwrap();
         // a long-running command, then more work that must never happen: Stop kills the command and ends the loop

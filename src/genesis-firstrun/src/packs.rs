@@ -221,9 +221,10 @@ pub fn render_router_tuned(models_dir: &Path, port_base: u16, t: Tuning) -> Resu
         big.push("chat");
     }
     if let Some(f) = find("fim", false) {
-        // fill-in-the-middle for Babel's inline completion: small, always resident, short context
-        y.push_str(&format!("  fim:\n    cmd: |\n      ${{server}} -m {}\n      -c 4096 --temp 0.2 --top-p 0.9 --reasoning off\n    aliases: [ \"genesis-fim\" ]\n    ttl: 0\n\n", f));
-        hot.push("fim");
+        // fill-in-the-middle for Babel's inline completion: small, short context. Resident on a machine with
+        // a GPU, where holding it costs nothing anyone notices; on a CPU pack it unloads when idle (see embed)
+        y.push_str(&format!("  fim:\n    cmd: |\n      ${{server}} -m {}\n      -c 4096 --temp 0.2 --top-p 0.9 --reasoning off\n    aliases: [ \"genesis-fim\" ]\n    ttl: {}\n\n", f, if t.ngl == 0 { 300 } else { 0 }));
+        if t.ngl > 0 { hot.push("fim"); }
     }
     if let Some(f) = find("rerank", false) {
         // reranker for the file index: scores query/passage pairs (llama-server --reranking, /v1/rerank)
@@ -231,8 +232,15 @@ pub fn render_router_tuned(models_dir: &Path, port_base: u16, t: Tuning) -> Resu
         big.push("rerank");
     }
     if let Some(f) = find("embed", false) {
-        y.push_str(&format!("  embed:\n    cmd: |\n      ${{server}} -m {} --embedding --pooling last -c 8192 -b 8192 -ub 8192\n    aliases: [ \"genesis-embed\", \"text-embedding-3-small\" ]\n    ttl: 0\n\n", f));
-        hot.push("embed");
+        // The embedding model was resident for the life of the session on every machine, in a group that
+        // never swaps out. On a GPU that is the right trade: a search answers without a reload. Without one
+        // it cost between 1.0 and 1.6 GB alongside a 3.4 GB main model, on packs whose whole reason to exist
+        // is a machine with 4 to 8 GB of RAM — the evaluation found three makes running on under half the
+        // memory of the others for exactly this reason. On a CPU pack it now unloads five minutes after the
+        // last search, and indexes in smaller batches, which is the same memory again at the moment of use.
+        let (batch, ttl) = if t.ngl == 0 { (2048, 300) } else { (8192, 0) };
+        y.push_str(&format!("  embed:\n    cmd: |\n      ${{server}} -m {} --embedding --pooling last -c 8192 -b {} -ub {}\n    aliases: [ \"genesis-embed\", \"text-embedding-3-small\" ]\n    ttl: {}\n\n", f, batch, batch, ttl));
+        if t.ngl > 0 { hot.push("embed"); }
     }
     y.push_str("groups:\n");
     if !hot.is_empty() {
@@ -297,6 +305,32 @@ mod tests {
         assert!(gpu.contains("big: \"llama-server --port ${PORT} --host 127.0.0.1 -t 4"));
         assert!(cpu.contains("big: \"llama-server --port ${PORT} --host 127.0.0.1 -ngl 0 -t 4"));
         assert!(gpu.contains("${big} -m"));
+    }
+
+    #[test]
+    fn a_machine_without_a_gpu_does_not_hold_the_small_models_forever() {
+        let dir = tempfile::tempdir().unwrap();
+        for (role, f) in [("fast", "a.gguf"), ("embed", "e.gguf"), ("fim", "f.gguf")] {
+            std::fs::create_dir_all(dir.path().join(role)).unwrap();
+            std::fs::write(dir.path().join(role).join(f), b"x").unwrap();
+        }
+        // With a GPU, holding the embedding model costs nothing anyone notices and a search never waits.
+        let gpu = render_router_tuned(dir.path(), 10001, Tuning { threads: 4, ngl: 99 }).unwrap();
+        assert!(gpu.contains("members: [ fast, fim, embed ]"), "all three stay resident: {}", gpu);
+        assert!(gpu.contains("-b 8192 -ub 8192"));
+
+        // Without one, embed cost 1.0 to 1.6 GB beside a 3.4 GB main model on packs meant for 4 to 8 GB
+        // machines. It unloads when idle, and it is not in the group that never swaps out.
+        let cpu = render_router_tuned(dir.path(), 10001, Tuning { threads: 4, ngl: 0 }).unwrap();
+        assert!(cpu.contains("members: [ fast ]"), "only the main model stays resident: {}", cpu);
+        let embed = cpu.split("  embed:").nth(1).unwrap().split("\n\n").next().unwrap();
+        assert!(embed.contains("ttl: 300"), "embed unloads when idle: {}", embed);
+        assert!(embed.contains("-b 2048 -ub 2048"), "and indexes in smaller batches: {}", embed);
+        let fim = cpu.split("  fim:").nth(1).unwrap().split("\n\n").next().unwrap();
+        assert!(fim.contains("ttl: 300"), "the completion model too: {}", fim);
+        // the main model is still never unloaded: a reload in front of someone typing is the thing to avoid
+        let fast = cpu.split("  fast:").nth(1).unwrap().split("\n\n").next().unwrap();
+        assert!(fast.contains("ttl: 0"), "{}", fast);
     }
 
     #[test]

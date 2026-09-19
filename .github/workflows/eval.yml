@@ -40,11 +40,15 @@ jobs:
         with:
           workspaces: src
       # built on an older glibc than the image carries, which is the direction that works
-      - run: cargo build --release --manifest-path src/genesis-agentd/Cargo.toml
+      - run: |
+          cargo build --release --manifest-path src/genesis-agentd/Cargo.toml
+          cargo build --release --manifest-path src/genesis-firstrun/Cargo.toml
       - uses: actions/upload-artifact@v4
         with:
           name: agentd-binary
-          path: src/target/release/genesis-agentd
+          path: |
+            src/target/release/genesis-agentd
+            src/target/release/genesis-firstrun
           retention-days: 1
 
   plan:
@@ -117,6 +121,14 @@ jobs:
           vm 'grep --color=never ^IMAGE_VERSION= /etc/os-release'
           # the first-run wizard answers once its service is up; then the tiny pack through its own API
           # (the model files come from GHCR or Hugging Face)
+          # The wizard writes the router config when a pack is chosen, so the binary under test has to be in
+          # place before the choice, not after it. /usr is read-only on a bootc image; /etc is not, and a
+          # system drop-in there points the unit at the new binary without touching the image.
+          if [ -f newbin/genesis-firstrun ]; then
+            vm 'cat > /tmp/genesis-firstrun && chmod +x /tmp/genesis-firstrun' < newbin/genesis-firstrun
+            vm 'echo genesis | sudo -S sh -c "mkdir -p /etc/systemd/system/genesis-firstrun.service.d && install -m755 /tmp/genesis-firstrun /usr/local/bin/genesis-firstrun && printf \"[Service]\\nExecStart=\\nExecStart=/usr/local/bin/genesis-firstrun\\n\" > /etc/systemd/system/genesis-firstrun.service.d/under-test.conf && systemctl daemon-reload && systemctl restart genesis-firstrun"'
+            echo "the wizard under test is the build from this commit"
+          fi
           for i in $(seq 1 60); do vm 'curl -s -m 10 127.0.0.1:11510/api/state' | grep -q '"packs"' && break; sleep 5; done
           t_choose=$(date +%s)
           vm 'T=$(echo genesis | sudo -S cat /run/genesis/firstrun.token 2>/dev/null); curl -s -m 20 -H "X-Genesis-Token: $T" -H "Content-Type: application/json" -d "{\"pack\":\"tiny\",\"force\":true}" 127.0.0.1:11510/api/choose; echo'

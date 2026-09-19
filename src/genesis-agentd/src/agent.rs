@@ -270,6 +270,11 @@ pub struct Agent {
     /// Every write this job has made. The per-file and per-run streaks both reset on the other kind of call,
     /// so alternating edit, run, edit, run slips past all of them (25 edits to a working word counter).
     pub total_writes: usize,
+    /// Writes that changed nothing: an edit whose old_text equals its new_text, or a refused one. The
+    /// failure streak only counts these while they are consecutive, and a run in between resets it, so a
+    /// model alternating a no-op edit with a preview ran to the turn limit twice. These are counted for
+    /// the whole job instead.
+    pub noop_writes: usize,
     /// Project directory the maker tools currently target (set by scaffold).
     pub active_project: Option<PathBuf>,
     /// "make" (the maker, default) or "chat" (the assistant: chat prompt, read-only tools, the user's MCP tools).
@@ -298,7 +303,7 @@ fn resolve_path(project: &Path, p: &str) -> PathBuf {
 
 impl Agent {
     pub fn new(client: Client, broker: Arc<Mutex<Broker>>, session_id: String, project: PathBuf, shared: Arc<Shared>) -> Self {
-        Agent { client, broker, session_id, project, shared, max_turns: 40, prompt_timeout: Duration::from_secs(600), messages: vec![Message::system(SYSTEM_PROMPT)], tx_store: None, tx: None, previews: maker::Previews::default(), active_project: None, browser: None, last_prompt: String::new(), scaffolded: false, edited_after_scaffold: false, nudged: false, writes_since_run: 0, nudged_writes: false, last_write: String::new(), last_run: String::new(), same_run_streak: 0, last_failure: String::new(), failure_streak: 0, ran_clean: false, same_file_streak: 0, runs_since_write: 0, total_writes: 0, kind: "make".into() }
+        Agent { client, broker, session_id, project, shared, max_turns: 40, prompt_timeout: Duration::from_secs(600), messages: vec![Message::system(SYSTEM_PROMPT)], tx_store: None, tx: None, previews: maker::Previews::default(), active_project: None, browser: None, last_prompt: String::new(), scaffolded: false, edited_after_scaffold: false, nudged: false, writes_since_run: 0, nudged_writes: false, last_write: String::new(), last_run: String::new(), same_run_streak: 0, last_failure: String::new(), failure_streak: 0, ran_clean: false, same_file_streak: 0, runs_since_write: 0, total_writes: 0, noop_writes: 0, kind: "make".into() }
     }
 
     /// The plan card: what the job will touch and the steps, before anything runs. One short model call
@@ -374,7 +379,7 @@ impl Agent {
         self.shared.push(Event::UserPrompt { text: text.into() });
         self.shared.set_state("running");
         self.last_prompt = text.to_string();
-        self.scaffolded = false; self.edited_after_scaffold = false; self.nudged = false; self.writes_since_run = 0; self.nudged_writes = false; self.last_write.clear(); self.same_file_streak = 0; self.last_run.clear(); self.same_run_streak = 0; self.last_failure.clear(); self.failure_streak = 0; self.ran_clean = false; self.runs_since_write = 0; self.total_writes = 0;
+        self.scaffolded = false; self.edited_after_scaffold = false; self.nudged = false; self.writes_since_run = 0; self.nudged_writes = false; self.last_write.clear(); self.same_file_streak = 0; self.last_run.clear(); self.same_run_streak = 0; self.last_failure.clear(); self.failure_streak = 0; self.ran_clean = false; self.runs_since_write = 0; self.total_writes = 0; self.noop_writes = 0;
         let compact = compact_model(&self.client.model);
         let chat = self.kind == "chat";
         if chat { if self.messages.first().map(|m| m.content.as_deref() != Some(SYSTEM_PROMPT_CHAT)).unwrap_or(true) { self.messages[0] = Message::system(SYSTEM_PROMPT_CHAT); } }
@@ -504,6 +509,7 @@ impl Agent {
                 if is_write && (!ok || text.starts_with("not written")) {
                     self.writes_since_run = self.writes_since_run.saturating_sub(1);
                     self.same_file_streak = self.same_file_streak.saturating_sub(1);
+                    self.noop_writes += 1;
                 } else if is_write {
                     self.runs_since_write = 0;  // something changed, so running again can say something new
                     self.total_writes += 1;
@@ -551,6 +557,28 @@ impl Agent {
                 // Alternating a change and a run escapes every streak above, because each kind of call resets
                 // the other's counter. Once the program has run clean and a dozen changes have been made, the
                 // thing is made and the model is polishing: end it (the word counter took 25 edits this way).
+                // Five writes that changed nothing, however far apart. The failure streak catches these only
+                // while they are consecutive, and a preview in between resets it, so the word counter made
+                // the same no-op edit over and over with a run between each pair and reached the turn limit
+                // twice in a row. A model that cannot produce a change is done either way: if the program
+                // has run clean it is made, and if it has not, say plainly that the change could not be made.
+                if !chat && is_write && self.noop_writes >= 5 {
+                    self.shared.push(Event::ToolResult { id: call.id.clone(), ok, summary: text.chars().take(200).collect() });
+                    if self.ran_clean {
+                        let url = self.shared.info.lock().unwrap().preview_url.clone();
+                        let done = format!("It is made and it runs without errors{}. Tell me what to change, or press Install to put it in your app menu.", url.map(|u| format!(" (preview: {})", u)).unwrap_or_default());
+                        self.shared.push(Event::Assistant { text: done.clone() });
+                        let _ = self.commit();
+                        if let Some(p) = self.active_project.clone() { maker::record_recipe(&p, None, &self.last_prompt.clone()); }
+                        self.shared.push(Event::Done { turns: turn + 1 });
+                        self.shared.set_state("done");
+                        return Ok(done);
+                    }
+                    let msg = "Genesis stopped this job: five changes in a row wrote nothing new, so the model is not getting anywhere. What was made is kept, and Undo takes it back. A shorter request, or a bigger model pack, is more likely to work.".to_string();
+                    self.shared.push(Event::Error { text: msg.clone() });
+                    self.shared.set_state("error");
+                    return Err(anyhow!(msg));
+                }
                 // Eighteen changes and the program has still never run clean: this is not a job that is
                 // nearly there. It ended at the turn limit instead, twenty-six writes and ten minutes later,
                 // with nothing to show the person (the checklist make). Stop and say so.
