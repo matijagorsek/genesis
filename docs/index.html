@@ -40,6 +40,10 @@ pre{background:#0d1218;border:1px solid var(--line);border-radius:10px;padding:1
   <p>Downloads are split into parts because of GitHub's 2 GB limit. Join them:</p>
   <pre>cat genesis-VERSION.qcow2.zst.*.part | zstd -d -o disk.qcow2
 cat genesis-VERSION.iso.*.part &gt; genesis.iso</pre>
+  <p>The joined ISO is about <b>6.3 GB</b>, so a <b>USB stick of 8 GB or more</b> is needed; a 4 GB stick
+  cannot hold it. Write it with Fedora Media Writer, or <code>sudo dd if=genesis.iso of=/dev/sdX bs=4M
+  status=progress oflag=sync</code> — the whole stick is overwritten. Nothing is downloaded during the
+  install: the ISO carries the whole system, so the machine can be offline until the first boot.</p>
   <h2>Hardware</h2>
   <ul>
     <li><b>Any x86_64 PC with an AMD or Intel GPU:</b> the standard image. Models run on the GPU through Vulkan.</li>

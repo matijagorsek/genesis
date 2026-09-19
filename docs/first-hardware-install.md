@@ -7,8 +7,15 @@ minutes of notes here answer more open questions than a week of CI. Paste the re
 ## Before
 
 - Download the ISO from the [download page](https://matijagorsek.github.io/genesis/) and write it to a
-  USB stick (Fedora Media Writer, or `dd`). There is one ISO. With an NVIDIA card you install it, and
-  then switch to the NVIDIA flavour (last section).
+  USB stick (Fedora Media Writer, or `dd`). The ISO is about 6.3 GB, so the stick must be **8 GB or
+  larger**; 4 GB is not enough. Everything the install needs is on the ISO, so no network is needed
+  until the first boot. There is one ISO. With an NVIDIA card you install it, and then switch to the
+  NVIDIA flavour (last section).
+- The target disk: the system is about 13 GB installed, and bootc keeps the previous version alongside it
+  so an upgrade can be rolled back. On top of that comes the model pack, which the wizard sizes to the
+  machine: 3.8 GB for the tiny pack, 12.5 GB for CPU-only, 20–50 GB for an 8–24 GB GPU, 130 GB for a
+  48 GB card (the `disk_gb` field in `packs/*.json`). 64 GB is a sensible floor; a 32 GB disk only works
+  with the tiny or CPU pack.
 - Note the machine: model, CPU, RAM, GPU and its memory, Wi-Fi chip if you know it.
 - Secure Boot: note whether it is on. The kernel is signed with the Universal Blue key, which a fresh
   machine does not know. If the first boot stops with a signature error, turn Secure Boot off in the
