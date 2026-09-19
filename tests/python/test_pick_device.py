@@ -87,3 +87,20 @@ def test_it_parses_what_llama_bench_actually_prints(monkeypatch):
     monkeypatch.setattr(pick.subprocess, "run", lambda *a, **k: subprocess.CompletedProcess(a, -6, "", "terminate called after throwing an instance of 'vk::OutOfDeviceMemoryError'"))
     tps, why = pick.measure("/m.gguf", "Vulkan0", 6, 60)
     assert tps is None and "out of memory" in why
+
+
+def test_it_measures_with_a_model_that_can_generate(tmp_path, monkeypatch):
+    """An embedding model produces no tokens, so measuring generation with it measures nothing.
+
+    On the first real laptop the embedder was the smallest file on disk and was picked, and every
+    arrangement came back with no measurement at all.
+    """
+    pick = load()
+    for role, name, size in [("embed", "e.gguf", 10), ("rerank", "r.gguf", 20),
+                             ("fim", "f.gguf", 300), ("code", "c.gguf", 900)]:
+        d = tmp_path / role
+        d.mkdir()
+        (d / name).write_bytes(b"x" * size)
+    monkeypatch.setattr(pick, "MODELS", str(tmp_path))
+    chosen = pick.smallest_model()
+    assert chosen.endswith("f.gguf"), f"the smallest model that can generate, not the smallest file: {chosen}"

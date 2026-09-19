@@ -200,6 +200,11 @@ fn handle(app: &Arc<App>, mut req: Request) -> Result<bool> {
                                 let budget_mb = prof.get("budget_mb").and_then(|b| b.as_u64()).unwrap_or(0);
                                 let mut tuning = packs::tuning_for(cores, &gpus, compute, vram_mb, unified);
                                 tuning.budget_mb = budget_mb;
+                                // If this machine has been measured, that answer wins over anything guessed
+                                // from device names. genesis-pick-device writes it after the models land.
+                                tuning.device = std::fs::read_to_string("/var/lib/genesis/device.json").ok()
+                                    .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+                                    .and_then(|v| v.get("device").and_then(|d| d.as_str()).map(|s| s.to_string()));
                                 let yaml = packs::render_router_tuned(&models_dir, 10001, tuning)?;
                                 if let Some(d) = router_out.parent() {
                                     std::fs::create_dir_all(d)?;
@@ -211,6 +216,30 @@ fn handle(app: &Arc<App>, mut req: Request) -> Result<bool> {
                                 let _ = std::process::Command::new("systemctl").args(["restart", "genesis-router.service"]).status();
                                 Ok(())
                             });
+                            // Measure this machine once, in the background, and render again with the answer.
+                            // It takes a couple of minutes and nobody should wait for it: the assistant works
+                            // from the first render, and gets faster when the measurement lands. Deciding from
+                            // device names instead cost the first real laptop twenty-one times its speed.
+                            {
+                                let render_again = render.clone();
+                                std::thread::spawn(move || {
+                                    if std::path::Path::new("/var/lib/genesis/device.json").exists() {
+                                        return;  // already measured; genesis-pick-device --json redoes it by hand
+                                    }
+                                    let out = std::process::Command::new("/usr/bin/genesis-pick-device").arg("--json").output();
+                                    match out {
+                                        Ok(o) if o.status.success() => {
+                                            let _ = std::fs::create_dir_all("/var/lib/genesis");
+                                            if std::fs::write("/var/lib/genesis/device.json", &o.stdout).is_ok() {
+                                                tracing::info!("measured this machine; rendering the router again");
+                                                let _ = render_again();
+                                            }
+                                        }
+                                        Ok(o) => tracing::warn!(status = ?o.status, "could not measure this machine; keeping what the hardware said"),
+                                        Err(e) => tracing::warn!(error = %e, "could not run genesis-pick-device"),
+                                    }
+                                });
+                            }
                             // the model file itself is enough to start; the vision projector (mmproj) joins at the
                             // final render. Waiting for both meant a dropped projector download left no model at all.
                             files.sort_by_key(|f| (order(&f.role), f.filename.to_lowercase().contains("mmproj")));

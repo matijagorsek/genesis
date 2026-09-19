@@ -21,9 +21,15 @@ LLAMA = os.environ.get("GENESIS_LLAMA", "/usr/lib/genesis/llama.cpp")
 MODELS = os.environ.get("GENESIS_MODELS", "/var/lib/genesis/models")
 
 
+# Only models that generate text: the question is how fast this machine produces tokens, and an
+# embedding or reranking model produces none. The smallest of those on disk was picked first otherwise,
+# and every measurement came back empty.
+GENERATIVE = ("fim", "fast", "code", "chat")
+
+
 def smallest_model():
-    """The cheapest model on disk to measure with: the answer is about the machine, not the model."""
-    files = [f for r in ("fim", "fast", "embed", "code", "chat") for f in glob.glob(os.path.join(MODELS, r, "*.gguf"))]
+    """The cheapest generative model on disk: the answer is about the machine, not the model."""
+    files = [f for r in GENERATIVE for f in glob.glob(os.path.join(MODELS, r, "*.gguf"))]
     files = [f for f in files if "mmproj" not in os.path.basename(f)]
     return min(files, key=os.path.getsize) if files else None
 
