@@ -1,18 +1,27 @@
 name: eval
 
-# Once a week: ten small makes on the tiny pack (CPU only, the 2B model) inside a fresh VM of the
-# latest release, scored. The number moves when the prompts, the tools or the compact script change,
-# so a change that helps or hurts small models shows up here rather than in a feeling. Nothing is
-# published; the results are an artifact and the job summary.
+# Ten small makes on the tiny pack (CPU only, the 2B model) inside fresh VMs of the latest release,
+# scored. The number moves when the prompts, the tools or the compact script change, so a change that
+# helps or hurts small models shows up here rather than in a feeling. Nothing is published; the results
+# are an artifact and the job summary.
+#
+# Two things keep the wait short enough to act on. The makes are split over parallel machines, so the run
+# takes as long as its slowest shard instead of the sum of all ten. And when the change under test is in
+# genesis-agentd, the binary is built here and dropped into the last release's VM, which skips the hour
+# the image build costs. The weekly run does neither of those tricks: it tests the image as it shipped.
 
 on:
   schedule:
     - cron: '15 4 * * 0'
   workflow_dispatch:
     inputs:
-      only:
-        description: 'run only the first N makes (default all ten)'
-        default: '10'
+      agentd_from_source:
+        description: 'build genesis-agentd from this commit and drop it into the last release (fast); false tests the release as it shipped'
+        type: boolean
+        default: true
+      shards:
+        description: 'how many machines to split the ten makes over'
+        default: '5'
       releases_back:
         description: 'which release to test (0 = latest)'
         default: '0'
@@ -21,11 +30,58 @@ permissions:
   contents: read
 
 jobs:
-  ten-makes:
+  # The binary under test, when it is agentd that changed. Skipped for the weekly run.
+  agentd:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.agentd_from_source == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 300
     steps:
       - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src
+      # built on an older glibc than the image carries, which is the direction that works
+      - run: cargo build --release --manifest-path src/genesis-agentd/Cargo.toml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: agentd-binary
+          path: src/target/release/genesis-agentd
+          retention-days: 1
+
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      shards: ${{ steps.s.outputs.shards }}
+      count: ${{ steps.s.outputs.count }}
+    steps:
+      - id: s
+        env:
+          N: ${{ github.event.inputs.shards || '5' }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os
+          n = max(1, min(10, int(os.environ["N"])))
+          print("shards=" + json.dumps(list(range(n))))
+          print("count=%d" % n)
+          PY
+
+  makes:
+    needs: [plan, agentd]
+    if: always() && needs.plan.result == 'success' && needs.agentd.result != 'failure'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJson(needs.plan.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: The binary under test, if one was built
+        if: needs.agentd.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: agentd-binary
+          path: newbin
       - name: Fetch the release disk
         env:
           GH_TOKEN: ${{ github.token }}
@@ -43,9 +99,10 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm; sudo chmod 0666 /dev/kvm || true
           qemu-img resize disk.qcow2 +16G
-      - name: Boot, install the tiny pack, run ten makes
+      - name: Boot, install the tiny pack, run this shard's makes
         env:
-          ONLY: ${{ github.event.inputs.only || '10' }}
+          SHARD: ${{ matrix.shard }}
+          OF: ${{ needs.plan.outputs.count }}
         run: |
           set -o pipefail
           FW=/usr/share/ovmf/OVMF.fd; [ -f "$FW" ] || FW=/usr/share/OVMF/OVMF.fd
@@ -61,35 +118,63 @@ jobs:
           # the first-run wizard answers once its service is up; then the tiny pack through its own API
           # (the model files come from GHCR or Hugging Face)
           for i in $(seq 1 60); do vm 'curl -s -m 10 127.0.0.1:11510/api/state' | grep -q '"packs"' && break; sleep 5; done
-          vm 'curl -s -m 10 127.0.0.1:11510/api/state | head -c 400; echo'
           t_choose=$(date +%s)
-          vm 'T=$(echo genesis | sudo -S cat /run/genesis/firstrun.token 2>/dev/null); echo "token: ${#T} chars"; curl -s -m 20 -H "X-Genesis-Token: $T" -H "Content-Type: application/json" -d "{\"pack\":\"tiny\",\"force\":true}" 127.0.0.1:11510/api/choose; echo'
+          vm 'T=$(echo genesis | sudo -S cat /run/genesis/firstrun.token 2>/dev/null); curl -s -m 20 -H "X-Genesis-Token: $T" -H "Content-Type: application/json" -d "{\"pack\":\"tiny\",\"force\":true}" 127.0.0.1:11510/api/choose; echo'
           for i in $(seq 1 120); do vm 'curl -s -m 10 127.0.0.1:8080/v1/models' 2>/dev/null | grep -q '"fast"' && { echo "small model serving $(( $(date +%s) - t_choose )) s after the choice"; break; }; sleep 10; done
           for i in $(seq 1 240); do
-            st=$(vm 'curl -s -m 10 127.0.0.1:11510/api/state' | python3 -c 'import sys,json; p=json.load(sys.stdin).get("progress",{}); print(p.get("state",""), p.get("error","") or "", {k:v for k,v in p.items() if "byte" in k or "file" in k})' 2>/dev/null || echo "?")
+            st=$(vm 'curl -s -m 10 127.0.0.1:11510/api/state' | python3 -c 'import sys,json; p=json.load(sys.stdin).get("progress",{}); print(p.get("state",""), p.get("error","") or "")' 2>/dev/null || echo "?")
             echo "  $st"
             case "$st" in done*) break;; error*) echo "download failed"; break;; *) sleep 15;; esac
           done
+          # the maker under test: the binary built from this commit replaces the one the release carries
+          # /usr is read-only on a bootc image, so the binary goes to the user's own bin and a drop-in
+          # points the service at it; the image on disk is left exactly as it shipped
+          if [ -f newbin/genesis-agentd ]; then
+            vm 'mkdir -p ~/.local/bin ~/.config/systemd/user/genesis-agentd.service.d; cat > ~/.local/bin/genesis-agentd && chmod +x ~/.local/bin/genesis-agentd' < newbin/genesis-agentd
+            vm 'printf "[Service]\nExecStart=\nExecStart=%s/.local/bin/genesis-agentd serve\n" "$HOME" > ~/.config/systemd/user/genesis-agentd.service.d/under-test.conf; systemctl --user daemon-reload'
+            vm 'ls -l ~/.local/bin/genesis-agentd; echo "the maker under test is the build from this commit"'
+          fi
           # the maker is a user service: an SSH login has a user manager, but nothing started the daemons yet
-          vm 'systemctl --user start genesis-permd genesis-agentd; sleep 3; systemctl --user is-active genesis-permd genesis-agentd; echo genesis | sudo -S systemctl status genesis-router --no-pager 2>&1 | head -3'
-          t_models=$(date +%s); echo "models ready $((t_models - t_choose)) s after the pack was chosen (the small model comes first, the rest keeps downloading)"
+          vm 'systemctl --user start genesis-permd genesis-agentd; sleep 3; systemctl --user is-active genesis-permd genesis-agentd'
           for i in $(seq 1 60); do vm 'curl -s -m 10 127.0.0.1:8080/v1/models' | grep -q '"fast"' && break; sleep 10; done
-          vm 'curl -s -m 10 127.0.0.1:8080/v1/models | head -c 300; echo'
           vm 'cat > /tmp/eval-makes.py' < prototype/eval-makes.py
-          vm "python3 /tmp/eval-makes.py --only $ONLY --out /tmp/results.json --timeout 1500" 2>eval-progress.log | tee eval-summary.md
+          vm "python3 /tmp/eval-makes.py --shard $SHARD --of $OF --out /tmp/results.json --timeout 1500" 2>eval-progress.log | tee eval-summary.md
           vm 'cat /tmp/results.json' > results.json
           vm 'echo genesis | sudo -S systemctl poweroff' >/dev/null 2>&1 || true
           sleep 10; kill $QEMU 2>/dev/null || true
-          { echo "Release: $TAG"; echo; cat eval-summary.md; } >> "$GITHUB_STEP_SUMMARY"
-          passed=$(python3 -c 'import json; d=json.load(open("results.json")); print(d["passed"])')
-          echo "passed $passed of $(python3 -c 'import json; print(json.load(open("results.json"))["total"])')"
-          [ "$passed" -ge 1 ] || { echo "::warning::no make passed: look at the progress log"; }
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: eval-${{ env.TAG }}
+          name: shard-${{ matrix.shard }}
           path: |
             results.json
             eval-summary.md
             eval-progress.log
             eval-serial.log
+
+  report:
+    needs: makes
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: shard-*
+          path: shards
+      - name: One table out of all the shards
+        run: |
+          set -o pipefail
+          python3 prototype/eval-merge.py shards/*/results.json --out results.json | tee summary.md
+          cat summary.md >> "$GITHUB_STEP_SUMMARY"
+          passed=$(python3 -c 'import json; print(json.load(open("results.json"))["passed"])')
+          total=$(python3 -c 'import json; print(json.load(open("results.json"))["total"])')
+          echo "passed $passed of $total"
+          [ "$total" -eq 10 ] || echo "::warning::only $total makes reported: a shard failed before it could write results"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-result
+          path: |
+            results.json
+            summary.md

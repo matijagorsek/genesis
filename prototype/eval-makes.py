@@ -3,7 +3,11 @@
 this inside a fresh VM on the tiny pack (CPU only, the 2B model), so a change to the prompts, the
 tools or the compact script shows up as a number rather than a feeling.
 
-  eval-makes.py [--out results.json] [--only N] [--timeout 900]
+  eval-makes.py [--out results.json] [--only N] [--shard I --of N] [--timeout 900]
+
+--shard I --of N runs every Nth make starting at I, so the ten can be split over parallel machines and
+the whole run takes as long as its slowest shard rather than the sum of all ten. Round robin, not
+contiguous blocks: the makes differ by a factor of forty in how long they take.
 
 A make counts as passed when the session ends in "done", at least one file was written or edited,
 and no tool call ended in an error the model did not recover from. Permission prompts are answered
@@ -134,13 +138,17 @@ def one(name, prompt, timeout):
 
 
 def main(argv):
-    out = "results.json"; only = None; timeout = 1500
+    out = "results.json"; only = None; timeout = 1500; shard = 0; of = 1
     if "--out" in argv: out = argv[argv.index("--out") + 1]
     if "--only" in argv: only = int(argv[argv.index("--only") + 1])
     if "--timeout" in argv: timeout = int(argv[argv.index("--timeout") + 1])
+    if "--shard" in argv: shard = int(argv[argv.index("--shard") + 1])
+    if "--of" in argv: of = int(argv[argv.index("--of") + 1])
     health = api("/api/health")
     rows = []
-    for name, prompt in MAKES[:only]:
+    mine = MAKES[:only][shard::of]
+    if of > 1: print(f"shard {shard} of {of}: {', '.join(n for n, _ in mine)}", file=sys.stderr, flush=True)
+    for name, prompt in mine:
         print(f"== {name}: {prompt}", file=sys.stderr, flush=True)
         try:
             rows.append(one(name, prompt, timeout))
