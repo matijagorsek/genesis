@@ -41,10 +41,28 @@ pub fn bwrap_args(project: &Path, allow_network: bool) -> Vec<String> {
         "--tmpfs", "/home",
         "--bind", &p, &p,
         "--chdir", &p,
-        "--unshare-pid", "--unshare-ipc", "--unshare-uts",
-        "--die-with-parent", "--new-session",
-        "--setenv", "HOME", "/tmp", "--setenv", "GENESIS_SANDBOX", "1",
+        "--unshare-pid", "--unshare-ipc", "--unshare-uts", "--unshare-cgroup-try",
+        "--die-with-parent", "--new-session", "--cap-drop", "ALL",
+        // Nothing of this session's environment goes in. It was inherited whole, which handed every
+        // command the model runs whatever the desktop session happens to carry — an API key someone
+        // exported, the address of the session bus, the path to this daemon's own token. A command that
+        // is allowed the network could have read any of it out. What a shell genuinely needs is short.
+        "--clearenv",
+        "--setenv", "HOME", "/tmp",
+        "--setenv", "GENESIS_SANDBOX", "1",
+        "--setenv", "PATH", "/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin",
+        "--setenv", "SHELL", "/bin/sh",
+        "--setenv", "USER", "genesis",
     ].into_iter().map(String::from).collect();
+    // how text is shown and where the machine thinks it is: no secret in any of them, and a build that
+    // cannot read its own locale produces confusing failures
+    for k in ["TERM", "LANG", "LC_ALL", "TZ"] {
+        if let Ok(v) = std::env::var(k) {
+            if !v.is_empty() {
+                a.extend(["--setenv".to_string(), k.to_string(), v]);
+            }
+        }
+    }
     if !allow_network {
         a.push("--unshare-net".into());
     }
@@ -136,6 +154,26 @@ fn truncate(s: String, max: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_sandbox_hands_over_none_of_this_session_environment() {
+        let a = bwrap_args(std::path::Path::new("/tmp/p"), false);
+        // a command the model runs used to inherit whatever the desktop session carried, including an
+        // API key someone had exported and the path to this daemon's own token
+        assert!(a.iter().any(|x| x == "--clearenv"), "{:?}", a);
+        assert!(a.iter().any(|x| x == "--cap-drop"), "{:?}", a);
+        // and what it is given instead is short and carries nothing secret
+        let set: Vec<&str> = a.windows(2).filter(|w| w[0] == "--setenv").map(|w| w[1].as_str()).collect();
+        for k in ["HOME", "PATH", "GENESIS_SANDBOX"] {
+            assert!(set.contains(&k), "{} should be set: {:?}", k, set);
+        }
+        for k in ["XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS", "ANTHROPIC_API_KEY", "GENESIS_TOKEN", "SSH_AUTH_SOCK"] {
+            assert!(!set.contains(&k), "{} must never be handed over: {:?}", k, set);
+        }
+        // with no network asked for, there is none
+        assert!(a.iter().any(|x| x == "--unshare-net"));
+        assert!(!bwrap_args(std::path::Path::new("/tmp/p"), true).iter().any(|x| x == "--unshare-net"));
+    }
 
     #[test]
     fn stop_kills_the_command_and_everything_it_started() {
