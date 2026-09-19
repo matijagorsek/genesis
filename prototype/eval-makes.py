@@ -105,6 +105,22 @@ def one(name, prompt, timeout):
         row["router_alive"] = "llama-server" in ps or "llama-swap" in ps
     except Exception:
         pass
+    # Memory available fell from 1.7 GB to 480 MB across one run of ten makes, and the slowest three makes
+    # were all at the bottom of that slide. Who is holding it is a question the run should answer rather
+    # than something to reason about from outside: the six largest resident sets, and the totals.
+    try:
+        out = subprocess.run(["ps", "-eo", "rss,comm,args"], capture_output=True, text=True, timeout=10).stdout.splitlines()[1:]
+        procs = []
+        for l in out:
+            parts = l.split(None, 2)
+            if len(parts) >= 2 and parts[0].isdigit():
+                procs.append((int(parts[0]) // 1024, parts[1], (parts[2] if len(parts) > 2 else "")[:60]))
+        procs.sort(reverse=True)
+        row["top_rss"] = [f"{mb} MB {comm} {args}" for mb, comm, args in procs[:6]]
+        row["rss_total_mb"] = sum(mb for mb, _, _ in procs)
+        row["proc_count"] = len(procs)
+    except Exception:
+        pass
     # did it finish, and does what it made look like the thing that was asked for
     try:
         made = os.listdir(project)
@@ -141,6 +157,9 @@ def main(argv):
     for r in rows:
         mem = f"{r.get('mem_available_mb', 0)} MB" + ("" if r.get("router_alive", True) else " · model service gone")
         print(f"| {r['name']} | {'pass' if r.get('passed') else r['state']} | {r['writes']} | {r['turns']} | {r['tool_errors']} | {'yes' if r['preview'] else 'no'} | {r['seconds']}s | {mem} |")
+    print("\nWhat was holding memory at the end of each make (largest resident sets):\n")
+    for r in rows:
+        print(f"- **{r['name']}** — {r.get('mem_available_mb', 0)} MB free, {r.get('proc_count', 0)} processes, {r.get('rss_total_mb', 0)} MB resident in all: " + "; ".join(r.get("top_rss", [])[:4]))
     return 0
 
 

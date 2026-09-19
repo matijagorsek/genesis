@@ -551,6 +551,16 @@ impl Agent {
                 // Alternating a change and a run escapes every streak above, because each kind of call resets
                 // the other's counter. Once the program has run clean and a dozen changes have been made, the
                 // thing is made and the model is polishing: end it (the word counter took 25 edits this way).
+                // Eighteen changes and the program has still never run clean: this is not a job that is
+                // nearly there. It ended at the turn limit instead, twenty-six writes and ten minutes later,
+                // with nothing to show the person (the checklist make). Stop and say so.
+                if !chat && is_write && !self.ran_clean && self.total_writes >= 18 {
+                    self.shared.push(Event::ToolResult { id: call.id.clone(), ok, summary: text.chars().take(200).collect() });
+                    let msg = "Genesis stopped this job: eighteen changes without the program once running without an error. What was made is kept, and Undo takes it back. A shorter request, or a bigger model pack, is more likely to work.".to_string();
+                    self.shared.push(Event::Error { text: msg.clone() });
+                    self.shared.set_state("error");
+                    return Err(anyhow!(msg));
+                }
                 if !chat && is_write && self.ran_clean && self.total_writes >= 12 {
                     self.shared.push(Event::ToolResult { id: call.id.clone(), ok, summary: text.chars().take(200).collect() });
                     let url = self.shared.info.lock().unwrap().preview_url.clone();
@@ -888,6 +898,11 @@ impl Agent {
                         std::fs::write(&p, serde_json::to_string_pretty(&merged)?).map_err(|e| anyhow!("{}: {}", p.display(), e))?;
                         Ok(format!("wrote {} (the project manifest; how the program is run was kept as it was)", p.display()))
                     }
+                    // Not an object (an array, a string, broken JSON). If a usable manifest is already on
+                    // disk there is nothing to do and nothing to report as wrong: a refusal here is a failure
+                    // the guards count, and four of them in a row killed a make whose program was finished.
+                    // Genesis keeps the manifest it has and points the model back at the program.
+                    _ if old.get("dev").is_some() => Ok(format!("{} is already set up and does not need changing. The program is what to work on: the entry file is {}.", p.display(), self.active_project.as_ref().unwrap_or(&self.project).join(maker_entry(self.active_project.as_ref().unwrap_or(&self.project))).display())),
                     _ => Ok(format!("not written: {} has to be a JSON object, so Genesis kept the old one. Change the program files instead; the entry file is {}.", p.display(), self.active_project.as_ref().unwrap_or(&self.project).join(maker_entry(self.active_project.as_ref().unwrap_or(&self.project))).display())),
                 }
             }

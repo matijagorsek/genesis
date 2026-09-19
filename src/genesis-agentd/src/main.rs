@@ -954,6 +954,45 @@ mod tests {
     }
 
     #[test]
+    fn a_manifest_that_is_already_right_is_not_a_failure() {
+        let proj = script_project();
+        // A small model writes genesis.json as an array, four times. The manifest on disk is fine, so there
+        // is nothing to do and nothing that failed: refusing it four times killed a make whose program was
+        // already finished (the dice roller). Genesis says it is set up and the job carries on.
+        let bad = serde_json::json!({"path":"genesis.json","content":"[\"dice\", \"a dice roller\"]"});
+        let mut script = vec![tool_call("write_file", serde_json::json!({"path":"app.py","content":"print('roll')\n"}))];
+        for _ in 0..2 { script.push(tool_call("write_file", bad.clone())); }
+        script.push(serde_json::json!({"role":"assistant","content":"done"}));
+        let ep = fake_llm(script);
+        let (mut agent, shared) = setup(proj.path(), Mode::AutoEdit, ep);
+        assert_eq!(agent.run("a dice roller").unwrap(), "done", "the job finishes instead of being killed");
+        let results: Vec<String> = shared.info.lock().unwrap().events.iter().filter_map(|e| if let Event::ToolResult { summary, .. } = e { Some(summary.clone()) } else { None }).collect();
+        assert!(results[1].contains("already set up"), "got: {:?}", results);
+        // and the manifest Genesis needs is still there, untouched
+        let m: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(proj.path().join("genesis.json")).unwrap()).unwrap();
+        assert!(m.get("dev").and_then(|d| d.get("cmd")).is_some());
+    }
+
+    #[test]
+    fn many_changes_and_never_a_clean_run_stops_the_job() {
+        let proj = script_project();
+        // Twenty-six writes, previews in between, and the program never once ran without an error: the job
+        // ran to the turn limit with nothing to show. The finish-line guard needs a clean run to arm, so
+        // this one must not; it stops at eighteen changes and says why.
+        let mut script = vec![];
+        for i in 0..30 {
+            script.push(tool_call("write_file", serde_json::json!({"path":"app.py","content":format!("raise SystemExit('Traceback {}')\n", i)})));
+            if i % 2 == 1 { script.push(tool_call("shell", serde_json::json!({"command":"python3 app.py"}))); }
+        }
+        let ep = fake_llm(script);
+        let (mut agent, shared) = setup(proj.path(), Mode::AutoEdit, ep);
+        let err = agent.run("a script").unwrap_err().to_string();
+        assert!(err.contains("eighteen changes"), "got: {}", err);
+        let writes = shared.info.lock().unwrap().events.iter().filter(|e| matches!(e, Event::ToolCall { name, .. } if name == "write_file")).count();
+        assert!(writes <= 19, "it stopped at eighteen, not thirty: {}", writes);
+    }
+
+    #[test]
     fn stop_ends_the_loop_cleanly() {
         let proj = tempfile::tempdir().unwrap();
         // a long-running command, then more work that must never happen: Stop kills the command and ends the loop
@@ -1037,7 +1076,7 @@ mod tests {
         let ev = shared.info.lock().unwrap().events.clone();
         let results: Vec<String> = ev.iter().filter_map(|e| if let Event::ToolResult { summary, .. } = e { Some(summary.clone()) } else { None }).collect();
         assert!(results[0].starts_with("wrote"), "their fields are taken, not refused: {:?}", results);
-        assert!(results[1].starts_with("not written"), "something that is not JSON is refused: {:?}", results);
+        assert!(results[1].contains("already set up"), "a manifest Genesis can already run is left alone, not refused: {:?}", results);
         let m: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(proj.path().join("genesis.json")).unwrap()).unwrap();
         assert_eq!(m["name"], "checklist", "what the model wrote is kept");
         assert_eq!(m["dev"]["cmd"], "python3 app.py", "how the program runs is kept");
