@@ -1,3 +1,3 @@
 # Latest screenshots
 
-Taken automatically by CI from release 0.2.218 under KVM. Login, first run, desktop, app menu, palette.
+Taken automatically by CI from release 0.2.219 under KVM. Login, first run, desktop, app menu, palette.
