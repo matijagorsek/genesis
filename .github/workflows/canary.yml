@@ -75,6 +75,10 @@ jobs:
           before=$(vm 'grep --color=never ^IMAGE_VERSION= /etc/os-release'); echo "before: $before"
           timeout 1500 sshpass -p genesis ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR genesis@127.0.0.1 \
             'echo genesis | sudo -S bootc switch ghcr.io/matijagorsek/genesis:testing 2>&1 | tail -3; sudo bootc upgrade 2>&1 | tail -5' || { echo "the switch did not finish"; exit 1; }
+          # Which image this machine actually took. The promotion used to copy whatever :testing pointed at
+          # by the time it ran, which on a day with twenty builds is not what was tested at all.
+          tested=$(vm 'echo genesis | sudo -S bootc status --format json 2>/dev/null' | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("status",{}).get("booted",{}).get("image",{}).get("imageDigest","") or "")' 2>/dev/null || true)
+          echo "the machine is running $tested"; echo "TESTED_DIGEST=$tested" >> "$GITHUB_ENV" 
           vm 'echo genesis | sudo -S systemctl reboot' || true
           sleep 30; wait_ssh || exit 1
           after=$(vm 'grep --color=never ^IMAGE_VERSION= /etc/os-release'); echo "after: $after"
@@ -121,7 +125,11 @@ jobs:
         run: |
           echo "${{ github.token }}" | sudo podman login ghcr.io -u "${{ github.actor }}" --password-stdin
           for suffix in "" -arm64 -nvidia; do
-            sudo skopeo copy --all "docker://ghcr.io/${{ github.repository }}:testing$suffix" "docker://ghcr.io/${{ github.repository }}:stable$suffix" && echo "stable$suffix now = testing$suffix"
+            # the x86 image by the digest that was actually booted and checked; the other flavours by tag,
+            # since they are built from the same commit and cannot be canary-tested here
+            src="docker://ghcr.io/${{ github.repository }}:testing$suffix"
+            if [ -z "$suffix" ] && [ -n "${TESTED_DIGEST:-}" ]; then src="docker://ghcr.io/${{ github.repository }}@${TESTED_DIGEST}"; fi
+            sudo skopeo copy --all "$src" "docker://ghcr.io/${{ github.repository }}:stable$suffix" && echo "stable$suffix now = $src"
           done
       - name: Tell someone when the canary is red
         if: failure() && github.event_name == 'schedule'
