@@ -128,8 +128,18 @@ jobs:
             # the x86 image by the digest that was actually booted and checked; the other flavours by tag,
             # since they are built from the same commit and cannot be canary-tested here
             src="docker://ghcr.io/${{ github.repository }}:testing$suffix"
-            if [ -z "$suffix" ] && [ -n "${TESTED_DIGEST:-}" ]; then src="docker://ghcr.io/${{ github.repository }}@${TESTED_DIGEST}"; fi
-            sudo skopeo copy --all "$src" "docker://ghcr.io/${{ github.repository }}:stable$suffix" && echo "stable$suffix now = $src"
+            # What bootc reports as the booted digest is not always something the registry will serve back
+            # (it answered "manifest unknown" the first time this was tried), so ask before relying on it
+            # and fall back to the tag when it cannot be resolved. Promoting nothing at all is the one
+            # outcome that must not happen quietly.
+            if [ -z "$suffix" ] && [ -n "${TESTED_DIGEST:-}" ]; then
+              cand="docker://ghcr.io/${{ github.repository }}@${TESTED_DIGEST}"
+              if sudo skopeo inspect --raw "$cand" >/dev/null 2>&1; then src="$cand"
+              else echo "::warning::the digest the machine reported (${TESTED_DIGEST}) is not in the registry; promoting the testing tag instead"; fi
+            fi
+            # no && here: a copy that fails must fail this step, not print nothing and let the run go green
+            sudo skopeo copy --all "$src" "docker://ghcr.io/${{ github.repository }}:stable$suffix"
+            echo "stable$suffix now = $src"
           done
       - name: Tell someone when the canary is red
         if: failure() && github.event_name == 'schedule'
