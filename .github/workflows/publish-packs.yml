@@ -45,6 +45,11 @@ jobs:
           for path in sorted(glob.glob("packs/*.json")):
               if path.endswith("schema.json"): continue
               pack = json.load(open(path))
+              # a pack that is off its own schema must not publish (the draft role was used in code and
+              # missing from the schema for a day without anything noticing)
+              roles = json.load(open("packs/schema.json"))["properties"]["models"]["items"]["properties"]["role"]["enum"]
+              for m in pack["models"]:
+                  if m["role"] not in roles: raise SystemExit(f"{path}: role {m['role']!r} is not in packs/schema.json")
               # licensing tiers, the way a distro splits main and non-free: every model names its licence and
               # tier; "excluded" models never publish; a pack with "restricted" ones is marked so the wizard says so
               for m in pack["models"]:

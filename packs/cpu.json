@@ -5,7 +5,7 @@
     "gpu": "none",
     "min_ram_gb": 16
   },
-  "disk_gb": 10.83,
+  "disk_gb": 12.5,
   "models": [
     {
       "role": "fast",
@@ -69,6 +69,28 @@
       "tier": "main",
       "size_gb": 0.2,
       "optional": true
+    },
+    {
+      "role": "rerank",
+      "name": "bge-reranker-v2-m3",
+      "repo": "gpustack/bge-reranker-v2-m3-GGUF",
+      "include": [
+        "*Q8_0*.gguf"
+      ],
+      "license": "MIT",
+      "tier": "main",
+      "size_gb": 0.6
+    },
+    {
+      "role": "fim",
+      "name": "Qwen2.5-Coder-1.5B",
+      "repo": "Qwen/Qwen2.5-Coder-1.5B-GGUF",
+      "include": [
+        "*q4_k_m*.gguf"
+      ],
+      "license": "Apache-2.0",
+      "tier": "main",
+      "size_gb": 1.1
     }
   ]
 }

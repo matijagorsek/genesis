@@ -67,7 +67,8 @@
               "stt",
               "tts",
               "image",
-              "fim"
+              "fim",
+              "draft"
             ]
           },
           "name": {

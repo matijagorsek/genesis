@@ -18,6 +18,21 @@ try:
 except OSError:
     pass
 
+# What each make must actually DO. Until now a make "passed" when the session ended and a file was
+# written, which says nothing about whether the thing works: two runs of the same tree scored 9 and 5.
+CHECKS = {
+    "checklist": lambda d: any(f.endswith((".py", ".html", ".js")) for f in d),
+    "pomodoro": lambda d: any("html" in f for f in d),
+    "wordcount": lambda d: True,
+    "rename": lambda d: True,
+    "club": lambda d: sum(1 for f in d if f.endswith(".html")) >= 2,
+    "json-flag": lambda d: True,
+    "temperature": lambda d: any("html" in f for f in d),
+    "todo-cli": lambda d: True,
+    "quotes": lambda d: any("html" in f for f in d),
+    "dice": lambda d: True,
+}
+
 MAKES = [
     ("checklist", "a checklist app that saves to a file"),
     ("pomodoro", "a pomodoro timer web app with a big countdown and a bell"),
@@ -90,7 +105,15 @@ def one(name, prompt, timeout):
         row["router_alive"] = "llama-server" in ps or "llama-swap" in ps
     except Exception:
         pass
-    row["passed"] = row["state"] == "done" and row["writes"] > 0
+    # did it finish, and does what it made look like the thing that was asked for
+    try:
+        made = os.listdir(project)
+    except OSError:
+        made = []
+    row["files"] = made
+    row["looks_right"] = bool(CHECKS.get(name, lambda d: True)(made))
+    row["finished"] = row["state"] == "done" and row["writes"] > 0
+    row["passed"] = row["finished"] and row["looks_right"]
     return row
 
 
@@ -111,7 +134,8 @@ def main(argv):
     passed = sum(1 for r in rows if r.get("passed"))
     result = {"model": health.get("model"), "at": time.strftime("%Y-%m-%dT%H:%M:%S"), "passed": passed, "total": len(rows), "makes": rows}
     json.dump(result, open(out, "w"), indent=1)
-    print(f"## Ten makes on `{health.get('model')}`: **{passed}/{len(rows)} passed**\n")
+    finished = sum(1 for r in rows if r.get("finished"))
+    print(f"## Ten makes on `{health.get('model')}`: **{passed}/{len(rows)} passed** ({finished} finished, {passed} of those look right)\n")
     print("| make | result | files written | turns | tool errors | preview | time | memory left |")
     print("|---|---|---|---|---|---|---|---|")
     for r in rows:

@@ -295,18 +295,12 @@ impl Agent {
         }
     }
 
-    /// The small model has a 16k-token window; a long job overflowed it (a 400 from the model service
-    /// ended a make in the evaluation). Older tool output and file contents are cut to a line once the
-    /// conversation passes about 9k tokens; the last eight messages stay whole.
-    pub(crate) fn trim_context(&mut self) {
-        let total: usize = self.messages.iter().map(|m| m.content.as_deref().map(|c| c.len()).unwrap_or(0) + m.tool_calls.as_ref().map(|t| serde_json::to_string(t).map(|s| s.len()).unwrap_or(0)).unwrap_or(0)).sum();
-        if total < 36_000 { return; }
-        let keep_from = self.messages.len().saturating_sub(8);
-        for (i, m) in self.messages.iter_mut().enumerate() {
-            if i == 0 || i >= keep_from { continue; }
-            if m.role == "tool" { if let Some(c) = m.content.as_mut() { if c.len() > 300 { *c = format!("{}… [earlier output trimmed]", cut_at_char(c, 200)); } } }
-            if m.role == "assistant" { if let Some(calls) = m.tool_calls.as_mut() { for call in calls.iter_mut() { if call.function.arguments.len() > 400 { call.function.arguments = "{\"note\":\"earlier arguments trimmed\"}".into(); } } } }
-        }
+    /// What a tool result may add to the conversation. A small model's window is sixteen thousand tokens,
+    /// and one file can be bigger than that; cut here, at insertion, because anything already sent has to
+    /// stay exactly as it was — the model service reuses its work by matching the start of the conversation,
+    /// and rewriting an old message throws all of that away and re-reads everything on every turn.
+    fn tool_result_cap(&self) -> usize {
+        if compact_model(&self.client.model) { 4_000 } else { 24_000 }
     }
 
     fn finish_stopped(&mut self) -> Result<String> {
@@ -340,7 +334,6 @@ impl Agent {
         let mut final_text = String::new();
         for turn in 0..self.max_turns {
             if self.shared.stopped() { return self.finish_stopped(); }
-            self.trim_context();
             let started = Instant::now();
             let reply = match self.chat_or_stop(&tools) {
                 Ok(r) => {
@@ -481,7 +474,9 @@ impl Agent {
                     text.push_str("\n[It ran without an error. If it does what the user asked, stop changing files and reply with the summary now.]");
                 }
                 self.shared.push(Event::ToolResult { id: call.id.clone(), ok, summary: text.chars().take(200).collect() });
-                self.messages.push(Message::tool(&call.id, &call.function.name, text));
+                let cap = self.tool_result_cap();
+                let kept = if text.len() > cap { format!("{}\n… [{} characters in all; ask for the part you need]", cut_at_char(&text, cap), text.len()) } else { text };
+                self.messages.push(Message::tool(&call.id, &call.function.name, kept));
                 if self.shared.stopped() { return self.finish_stopped(); }
             }
         }

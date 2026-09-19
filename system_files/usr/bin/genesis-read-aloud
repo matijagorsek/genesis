@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Read the selection aloud, in the desktop's language, on this machine.
+#   Meta+Shift+R once  -> the selected text is spoken by the local voice (piper)
+#   Meta+Shift+R again -> it stops
+# Every pack ships the voice, so this works on the smallest machine and before any big model is there.
+set -u
+run="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/genesis"
+pidfile="$run/read-aloud.pid"
+mkdir -p "$run"
+
+# already reading: this press means stop
+if [ -s "$pidfile" ] && kill -0 "$(cat "$pidfile")" 2>/dev/null; then
+  pkill -TERM -P "$(cat "$pidfile")" 2>/dev/null || true
+  kill -TERM "$(cat "$pidfile")" 2>/dev/null || true
+  rm -f "$pidfile"
+  notify-send -a Genesis -i genesis -t 1500 "Stopped reading" "" 2>/dev/null
+  exit 0
+fi
+
+sel="$(wl-paste -p -n 2>/dev/null || true)"
+[ -n "$sel" ] || sel="$(wl-paste -n 2>/dev/null || true)"
+if [ -z "$sel" ]; then
+  notify-send -a Genesis -i genesis "Nothing selected" "Select some text, then press Meta+Shift+R." 2>/dev/null
+  exit 0
+fi
+sel="${sel:0:6000}"
+
+sock="$run/agentd.sock"
+if [ -S "$sock" ]; then C=(curl --unix-socket "$sock"); api=http://localhost; else C=(curl); api=http://127.0.0.1:11520; fi
+tok="$(cat "$run/agentd.token" 2>/dev/null || true)"
+wav="$(mktemp -t genesis-read-XXXXXX.wav)"
+trap 'rm -f "$wav"' EXIT
+
+notify-send -a Genesis -i genesis -t 1500 "Reading aloud" "$(printf '%.60s…' "$sel")" 2>/dev/null
+code=$("${C[@]}" -s -o "$wav" -w '%{http_code}' -m 120 -X POST -H "X-Genesis-Token: $tok" -H "Content-Type: application/json" \
+  --data-raw "$(python3 -c 'import json,sys; print(json.dumps({"text": sys.argv[1]}))' "$sel")" "$api/api/speak")
+if [ "$code" != 200 ] || [ ! -s "$wav" ]; then
+  notify-send -a Genesis -i genesis "No voice yet" "The voice model is not installed. Genesis Settings, Models." 2>/dev/null
+  exit 1
+fi
+
+# play it in the background so the key can stop it; the pid file is how the next press finds it
+setsid sh -c 'paplay "$1" 2>/dev/null || aplay -q "$1" 2>/dev/null' _ "$wav" &
+echo $! > "$pidfile"
+wait $! 2>/dev/null || true
+rm -f "$pidfile"

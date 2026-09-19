@@ -20,3 +20,7 @@ _launch=Meta+Shift+M
 # Meta+Shift+V: talk to Genesis (listens at once, sends when you pause).
 [services][org.genesis.talk.desktop]
 _launch=Meta+Shift+V
+
+# Meta+Shift+R: read the selection aloud (press again to stop).
+[services][org.genesis.readaloud.desktop]
+_launch=Meta+Shift+R

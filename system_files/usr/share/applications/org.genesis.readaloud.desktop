@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Read the selection aloud
+Comment=The local voice reads what you selected; press again to stop
+Exec=/usr/bin/genesis-read-aloud
+Icon=genesis
+Terminal=false
+NoDisplay=true
+Categories=Utility;

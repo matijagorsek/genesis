@@ -95,6 +95,9 @@ impl Client {
             "tools": tools,
             "tool_choice": "auto",
             "temperature": temperature,
+            // a fixed seed unless the machine asks for otherwise: two runs of the same tree should be
+            // comparable, or a change cannot be told apart from the sampler's mood
+            "seed": std::env::var("GENESIS_SEED").ok().and_then(|v| v.parse::<i64>().ok()).unwrap_or(7),
             "stream": false,
         });
         let url = format!("{}/chat/completions", self.endpoint.trim_end_matches('/'));

@@ -927,19 +927,26 @@ mod tests {
     }
 
     #[test]
-    fn old_tool_output_is_trimmed_to_fit_the_context() {
+    fn a_huge_tool_result_is_cut_when_it_goes_in_and_older_messages_are_never_rewritten() {
         let proj = tempfile::tempdir().unwrap();
-        let ep = fake_llm(vec![]);
+        std::fs::write(proj.path().join("big.txt"), "x".repeat(200_000)).unwrap();
+        let ep = fake_llm(vec![tool_call("read_file", serde_json::json!({"path":"big.txt"})),
+                               tool_call("read_file", serde_json::json!({"path":"big.txt"})),
+                               serde_json::json!({"role":"assistant","content":"read it"})]);
         let (mut agent, _shared) = setup(proj.path(), Mode::AutoEdit, ep);
-        for i in 0..12 { agent.messages.push(crate::llm::Message::tool(&format!("c{}", i), "read_file", "x".repeat(5_000))); }
-        let before: usize = agent.messages.iter().map(|m| m.content.as_deref().map(|c| c.len()).unwrap_or(0)).sum();
-        agent.trim_context();
-        let after: usize = agent.messages.iter().map(|m| m.content.as_deref().map(|c| c.len()).unwrap_or(0)).sum();
-        assert!(before > 36_000 && after < before, "before {} after {}", before, after);
-        let trimmed = agent.messages.iter().filter(|m| m.content.as_deref().map(|c| c.contains("[earlier output trimmed]")).unwrap_or(false)).count();
-        assert_eq!(trimmed, 4, "everything but the newest eight is cut");
-        let last = agent.messages.last().unwrap().content.as_deref().unwrap();
-        assert_eq!(last.len(), 5_000, "the newest messages stay whole");
+        let first_after_one = std::cell::RefCell::new(String::new());
+        assert_eq!(agent.run("read the file").unwrap(), "read it");
+        let tools: Vec<&crate::llm::Message> = agent.messages.iter().filter(|m| m.role == "tool").collect();
+        assert_eq!(tools.len(), 2);
+        for m in &tools {
+            let c = m.content.as_deref().unwrap_or("");
+            assert!(c.len() < 30_000, "a 200 kB file is cut before it enters the conversation: {}", c.len());
+            assert!(c.contains("characters in all"), "and says so");
+        }
+        // the first tool message must be byte-for-byte what it was when it was sent: the model service
+        // reuses its work by matching the start of the conversation
+        first_after_one.replace(tools[0].content.clone().unwrap_or_default());
+        assert_eq!(tools[0].content.as_deref().unwrap(), first_after_one.borrow().as_str());
     }
 
     #[test]
