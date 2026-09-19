@@ -1,0 +1,110 @@
+<title>Genesis Next Plan</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root{--bg:#f4f6f9;--panel:#ffffff;--line:#d9dfe7;--ink:#0f1720;--muted:#5a6675;--accent-ink:#0b6e61;--second:#6d5ce6;--warn:#b7791f;--ok:#1c8a4a;--bad:#b42318;--code:#eef2f6}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0d1117;--panel:#141a22;--line:#233040;--ink:#e6edf3;--muted:#8b98a8;--accent-ink:#2dd4bf;--second:#a394ff;--warn:#f0b04a;--ok:#4ade80;--bad:#f87171;--code:#0b0f14}}
+  :root[data-theme="dark"]{--bg:#0d1117;--panel:#141a22;--line:#233040;--ink:#e6edf3;--muted:#8b98a8;--accent-ink:#2dd4bf;--second:#a394ff;--warn:#f0b04a;--ok:#4ade80;--bad:#f87171;--code:#0b0f14}
+  body{background:var(--bg);color:var(--ink);font:15px/1.6 Inter,system-ui,sans-serif;margin:0}
+  main{max-width:82ch;margin:0 auto;padding:40px 20px 80px}
+  .kicker{color:var(--accent-ink);font-weight:600;text-transform:uppercase;letter-spacing:.08em;font-size:12px}
+  h1{font-size:32px;line-height:1.15;margin:4px 0 8px;letter-spacing:-.01em;text-wrap:balance}
+  .lede{font-size:17px;color:var(--muted);margin:0 0 24px;text-wrap:balance}
+  h2{font-size:21px;margin:42px 0 8px;letter-spacing:-.01em}
+  h3{font-size:16px;margin:22px 0 4px}
+  p{margin:8px 0}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:14px 0}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .stat b{display:block;font-size:22px;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+  .stat span{color:var(--muted);font-size:13px}
+  .item{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:12px;padding:12px 16px;margin:10px 0}
+  .item.now{border-left-color:var(--ok)} .item.soon{border-left-color:var(--second)} .item.later{border-left-color:var(--warn)} .item.no{border-left-color:var(--bad)}
+  .item h3{margin:0 0 4px;display:flex;gap:8px;flex-wrap:wrap;align-items:baseline;font-size:15.5px}
+  .item p{margin:3px 0}
+  .on{color:var(--muted);font-size:13px}
+  .pill{font-size:12px;padding:1px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted);white-space:nowrap;font-weight:500}
+  .pill.s{border-color:var(--ok);color:var(--ok)} .pill.m{border-color:var(--warn);color:var(--warn)} .pill.l{border-color:var(--bad);color:var(--bad)}
+  .pill.cpu{border-color:var(--accent-ink);color:var(--accent-ink)}
+  code{font-family:'IBM Plex Mono',monospace;font-size:13px;background:var(--code);padding:1px 5px;border-radius:5px}
+  .wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--panel);margin:12px 0}
+  table{border-collapse:collapse;width:100%;font-size:14px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  tr:last-child td{border-bottom:0}
+  .small{color:var(--muted);font-size:13px}
+</style>
+<main>
+<div class="kicker">Genesis · what to build next · 19 September 2026</div>
+<h1>The next plan, and the three things it found wrong first</h1>
+<p class="lede">Two investigations: what the operating system makes possible that Genesis has not used, and what the models already on disk can do that nothing calls. The first answer was not a feature. It was that three pieces of this week's work were quietly making Genesis worse, and one of them had been poisoning the only number we steer by.</p>
+
+<div class="grid">
+  <div class="stat"><b>0</b><span>udev rules, sleep hooks and inhibitors in the whole image</span></div>
+  <div class="stat"><b>1 of 8</b><span>packs shipped the reranker and the completion model, whose code was already written</span></div>
+  <div class="stat"><b>±1.45</b><span>makes of noise in a ten-make score: two runs of one tree can read 9 and 5</span></div>
+  <div class="stat"><b>5 of 10</b><span>evaluation makes inherited a test that a correct program cannot pass</span></div>
+</div>
+
+<h2>1 · What was wrong, and is now fixed</h2>
+<div class="item no"><h3>A shipped test that failed every correct program</h3>
+<p>Every command-line make inherited <code>test___name__.py</code>, which asserts the <em>placeholder's</em> behaviour: <code>dice.py a b --json</code> printing <code>"count": 2</code>. So the moment the model wrote a real dice roller the template's own test went red, the preview reported FAILED, and the model thrashed against it. Five of the ten evaluation makes are command-line shaped; four of them appear in the failure lists of decisions 106, 116, 119 and 139. Template tests now check only that the program starts and answers <code>--help</code>.</p></div>
+<div class="item no"><h3>The conversation was being rewritten behind the model</h3>
+<p><code>trim_context</code>, added on 17 September to keep within a 16k window, edited messages that had already been sent. The model service reuses its work by matching the start of a conversation; changing an old message moves the divergence point and makes it re-read everything, every turn. That is the likeliest cause of the runs that took two to four times longer, which I had blamed on tool schemas. Output is now cut when it is added and never afterwards.</p></div>
+<div class="item no"><h3>The number we steer by could not support the claims made from it</h3>
+<p>A make counted as passed when the session ended and a file was written — nothing checked the program did what was asked — and no seed was sent, so two runs of the same tree differ by sampling alone. Decisions 138, 139 and 140 attribute score movements to specific code changes; that attribution is not sound at n=1. The evaluation now fixes a seed, checks that what was made resembles what was asked, and reports <b>finished</b> and <b>correct</b> as two numbers.</p></div>
+<p class="small">Also fixed the same day: the reranker and completion model now ship in the CPU pack, where their code sat idle; <code>draft</code> is a legal pack role and the publish job refuses a pack that is off schema; the pages take dark or light from the window instead of guessing; an empty box that appeared above the start page on every visit is gone.</p>
+
+<h2>2 · Make the small model better, in the order I would do it</h2>
+<p class="small">These are about technique, not more guards. Most people's first experience is a 2B model on a CPU, and that is where Genesis is judged. Effort: <span class="pill s">S</span> a day · <span class="pill m">M</span> a week.</p>
+<div class="item now"><h3><span class="pill s">S</span><span class="pill cpu">CPU</span> Hand back the file with the scaffold</h3>
+<p>The compact script's second step is "read the entry file" — a whole model call plus a tool call, forty to ninety seconds, for content Genesis has on disk. The scaffold result should carry it.</p><p class="on">Builds on the scaffold tool in <code>agent.rs</code>. Saves a turn and removes the wrong-path failure class.</p></div>
+<div class="item now"><h3><span class="pill s">S</span><span class="pill cpu">CPU</span> Insist on an action while nothing has been written</h3>
+<p>The rule "never finish before you changed a file" is enforced after the fact, by spending a turn telling the model off. The model service can be told that a turn <em>must</em> be a tool call, so prose is not possible until the work exists.</p><p class="on">One parameter through <code>Client::chat</code>. Replaces a wasted turn with a constraint.</p></div>
+<div class="item now"><h3><span class="pill m">M</span><span class="pill cpu">CPU</span> One worked example instead of more instructions</h3>
+<p>The compact prompt is 244 tokens of instruction and zero demonstration. A 2B model imitates far better than it follows. One complete example — request, a whole file written, a run, a two-sentence summary — is the largest single lever in this list.</p><p class="on">Costs about a thousand tokens of prefix, which is free once the prefix stops being invalidated.</p></div>
+<div class="item now"><h3><span class="pill m">M</span><span class="pill cpu">CPU</span> Pick the template with the embedder, not the model</h3>
+<p>Asking a 2B model to choose a template id from a list in prose is a turn spent on something an embedding comparison does in fifty milliseconds — and every pack already ships the embedder, always loaded.</p><p class="on">Removes two tools from the small-model schema and starts the conversation two turns in.</p></div>
+<div class="item soon"><h3><span class="pill s">S</span><span class="pill cpu">CPU</span> Use the plan we already pay for</h3>
+<p>The plan card makes a model call, shows the steps to the user, and throws them away: they are never put into the conversation. A small model follows its own plan better than a list of rules.</p></div>
+
+<h2>3 · New capability from models already on disk</h2>
+<div class="item now"><h3><span class="pill s">S</span><span class="pill cpu">CPU</span> Read anything aloud — <em>built today</em></h3>
+<p>Select text anywhere, <code>Meta+Shift+R</code>, and the local voice reads it; press again to stop. Every pack ships three voices and they were used for one card a day.</p></div>
+<div class="item now"><h3><span class="pill m">M</span><span class="pill cpu">CPU</span> Transcripts with timestamps, and subtitles</h3>
+<p>Whisper computes timestamps and Genesis throws them away. Right-click an audio or video file: a clickable transcript, an <code>.srt</code> next to the video, and the spoken words added to the file index so search finds them.</p></div>
+<div class="item soon"><h3><span class="pill m">M</span><span class="pill cpu">CPU, once per make</span> Genesis looks at what it made</h3>
+<p>The small model on most packs can see. After a preview, one screenshot and one line under it: "a countdown, a Start button, no bell control visible." Shown to the person, never used to fail a build — a 2B model's visual judgement is not good enough for that.</p></div>
+<div class="item soon"><h3><span class="pill s">S</span><span class="pill cpu">CPU</span> "I could not find this" instead of an invention</h3>
+<p>When nothing in your files scores above the reranker's threshold, chat should say it does not know. The most damaging failure of a small local assistant is a confident answer from memory.</p></div>
+
+<h2>4 · What the operating system makes possible and Genesis has not used</h2>
+<p class="small">The image has no udev rules, no sleep hooks, no inhibitors, one file-manager menu and one polkit rule. These are the empty hooks worth filling.</p>
+<div class="item now"><h3><span class="pill s">S</span><span class="pill cpu">CPU</span> Undo an app install from the panel</h3>
+<p>Chat installs an app; the panel says "installed · Undo"; one click removes it. The install is already recorded in the same transaction that powers Undo — this is plumbing, not new machinery. It should say plainly that it keeps the app's settings.</p></div>
+<div class="item now"><h3><span class="pill s">S</span><span class="pill cpu">CPU</span> A job survives the lid</h3>
+<p>Close a laptop during a make and it comes back broken. An inhibitor while a job runs, and a sleep hook that pauses and resumes cleanly. It matters most on the machines where a make takes twenty minutes.</p><p class="on">Risk worth naming: an inhibitor that leaks keeps a laptop awake in a bag. It must be capped and released on the failure path, not only the happy one.</p></div>
+<div class="item now"><h3><span class="pill s">S</span><span class="pill cpu">CPU</span> Ask this computer about itself</h3>
+<p>"Why is my disk full?" answered with the three biggest folders. "What is using my microphone?" answered with the app's name. Small read-only tools next to the ones that already exist.</p></div>
+<div class="item soon"><h3><span class="pill m">M</span><span class="pill cpu">CPU</span> Roll the whole system back, from the panel</h3>
+<p>After a bad update: "Go back to yesterday's version", one click, reboot. The status the panel already reads includes the previous deployment. The card must say what a rollback does <em>not</em> fix, or people will click it for a full disk.</p></div>
+<div class="item soon"><h3><span class="pill m">M</span><span class="pill cpu">CPU</span> Plug in a stick, get one card</h3>
+<p>"47 photos and 3 PDFs on this drive. Make a tool for them?" — and, if there is room, "back up what Genesis made to it."</p><p class="on">The line that must not be crossed: count file types and stop. Never read, index or describe the contents of someone's drive without being asked. If that line ever moves, this feature should be deleted.</p></div>
+<div class="item later"><h3><span class="pill l">L</span><span class="pill cpu">CPU</span> Dictate into any field, in any app</h3>
+<p>Hold a key anywhere, speak, and the text appears where the cursor is. The permission tier for sending input to the desktop was written on day one and has never been used. The hard part is doing it as a real input method rather than a fake keyboard, and text landing in the wrong field is a bad failure.</p></div>
+
+<h2>5 · What I will not build, and why</h2>
+<div class="item no"><h3>A camera plugged in, described</h3><p>Technically a day's work: the vision model is already there. It is also the fastest way to destroy the one thing this project sells, and it contradicts the rule against always-on capture. No.</p></div>
+<div class="item no"><h3>Summarising your notifications</h3><p>It requires subscribing to mail, messages and banking alerts: continuous capture of the most sensitive stream on the machine, for a small convenience.</p></div>
+<div class="item no"><h3>Anything on the lock screen</h3><p>A lock screen is visible to whoever walks past. Job names and summaries are the user's work, shown to strangers.</p></div>
+<div class="item no"><h3>Speculative decoding on CPU, and grammars over tool calls</h3><p>On four cores generation is bound by memory bandwidth, so a draft model competes for the bottleneck instead of relieving it, on machines where the model service was already being killed for memory. And a tool-call grammar is already installed by the model service; the failures were semantic, not syntactic.</p></div>
+
+<h2>6 · Order</h2>
+<div class="wrap"><table>
+<tr><th>When</th><th>What</th><th>Why then</th></tr>
+<tr><td><b>Done today</b></td><td>The three faults above; read aloud; the reranker and completion model in the CPU pack</td><td>A measurement you cannot trust makes every later decision guesswork</td></tr>
+<tr><td><b>Next</b></td><td>Scaffold returns the file · insist on an action · one worked example · the plan folded in</td><td>Four changes aimed at the same number, each measurable on its own now that the seed is fixed</td></tr>
+<tr><td><b>Then</b></td><td>Undo an install from the panel · a job survives the lid · ask this computer about itself</td><td>Small, visible, and they fill hooks that are empty today</td></tr>
+<tr><td><b>After that</b></td><td>Transcripts and subtitles · look at what it made · "I could not find this" · rollback from the panel</td><td>New capability from models and state already on the machine</td></tr>
+<tr><td><b>Gated</b></td><td>Anything that needs a GPU, and dictation into any app</td><td>Real hardware first; dictation needs a real input method, not a shortcut</td></tr>
+</table></div>
+<p class="small">Sources: two read-only investigations on 19 September, each claim checked against the code before it was acted on; decisions 142 and 143 in <a href="decisions.md">decisions.md</a>. The measurement changes come first because the last four days of reasoning about the score rest on it.</p>
+</main>
