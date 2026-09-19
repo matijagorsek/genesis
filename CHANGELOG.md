@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-09-19
+- Write down what is said in any recording, with subtitles; chat says when it could not find something instead of inventing it (decision 147)
 - Undo an app install from the panel; a job stops cleanly when the lid closes; ask why the disk is full or what is using the microphone (decision 146)
 - The maker hands the model its file, insists on an action, shows it one worked example, and keeps its own plan (decision 145)
 - Template tests no longer fail a correct program; the conversation is no longer rewritten behind the model; the evaluation has a seed and checks correctness; the CPU pack gains the reranker and completion model (decision 143)

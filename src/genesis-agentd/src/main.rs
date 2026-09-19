@@ -530,6 +530,15 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
                 Err(e) => json_response(&serde_json::json!({"error": format!("the model did not answer: {}", e)}), 502),
             }
         }
+        // A whole recording or video: the text with its times, and subtitles written next to the file.
+        (Method::Post, ["api", "transcribe-file"]) => {
+            let path = serde_json::from_str::<serde_json::Value>(&body).ok().and_then(|v| v.get("path").and_then(|p| p.as_str()).map(|s| s.to_string())).unwrap_or_default();
+            let p = std::path::PathBuf::from(shellexpand(&path));
+            match voice::transcribe_file(&p) {
+                Ok((text, srt)) => json_response(&serde_json::json!({"text": text, "subtitles": srt.display().to_string()}), 200),
+                Err(e) => json_response(&serde_json::json!({"error": e.to_string()}), 400),
+            }
+        }
         (Method::Get, ["api", "data"]) => json_response(&stored_data(), 200),
         (Method::Post, ["api", "data", kind, "delete"]) => json_response(&delete_stored(kind), 200),
         (Method::Get, ["api", "mcp"]) => json_response(&mcp::status(), 200),
@@ -1235,6 +1244,11 @@ fn delete_stored(kind: &str) -> serde_json::Value {
         "queue" => { let _ = std::fs::remove_file(format!("{}/.local/state/genesis/queue.json", home)); done("the queue and its results are gone") }
         _ => serde_json::json!({"error": "unknown kind"}),
     }
+}
+
+/// `~` the way a person writes it.
+fn shellexpand(p: &str) -> String {
+    match p.strip_prefix('~') { Some(rest) => format!("{}{}", std::env::var("HOME").unwrap_or_default(), rest), None => p.to_string() }
 }
 
 /// The user's always/never command rules (Settings > Always and never): kept as JSON, rendered into

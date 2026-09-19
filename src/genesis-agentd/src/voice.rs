@@ -44,6 +44,41 @@ pub fn transcribe_with(cli: &std::path::Path, model: &std::path::Path, wav: &[u8
     Ok(text)
 }
 
+/// A whole audio or video file, transcribed with the times kept: the text, and the subtitles next to the
+/// file. whisper computes the timestamps either way and Genesis threw them away; an `.srt` beside a video
+/// is the most useful thing a local machine can make from an hour of speech.
+pub fn transcribe_file(path: &std::path::Path) -> Result<(String, std::path::PathBuf)> {
+    let cli = whisper_cli().ok_or_else(|| anyhow!("whisper-cli is not installed"))?;
+    let model = whisper_model().ok_or_else(|| anyhow!("no voice model yet; Genesis Settings, Models"))?;
+    // whisper wants 16 kHz mono; ffmpeg is in the image and handles both audio and video
+    let wav = std::env::temp_dir().join(format!("genesis-transcribe-{}.wav", uuid::Uuid::new_v4()));
+    let conv = Command::new("ffmpeg").args(["-nostdin", "-y", "-i"]).arg(path).args(["-ac", "1", "-ar", "16000", "-vn"]).arg(&wav).output()
+        .map_err(|e| anyhow!("ffmpeg: {}", e))?;
+    if !conv.status.success() || !wav.exists() {
+        return Err(anyhow!("{} is not audio or video that Genesis can read", path.display()));
+    }
+    let stem = wav.with_extension("");
+    let out = Command::new(&cli).args(["-m"]).arg(&model).args(["-f"]).arg(&wav)
+        .args(["-l", "auto", "-t", "4", "-osrt", "-of"]).arg(&stem).output();
+    let _ = std::fs::remove_file(&wav);
+    let out = out.map_err(|e| anyhow!("running {}: {}", cli.display(), e))?;
+    if !out.status.success() {
+        return Err(anyhow!("whisper failed: {}", String::from_utf8_lossy(&out.stderr).chars().take(400).collect::<String>()));
+    }
+    let srt_tmp = stem.with_extension("srt");
+    let srt = path.with_extension("srt");
+    if srt_tmp.exists() { let _ = std::fs::copy(&srt_tmp, &srt); let _ = std::fs::remove_file(&srt_tmp); }
+    // the plain text, with each line's start time in front of it, for reading and for the file index
+    let text = std::fs::read_to_string(&srt).unwrap_or_default();
+    let mut lines = Vec::new();
+    let mut at = String::new();
+    for l in text.lines() {
+        if l.contains("-->") { at = l.split(" --> ").next().unwrap_or("").split(',').next().unwrap_or("").to_string(); }
+        else if !l.trim().is_empty() && l.trim().parse::<u32>().is_err() { lines.push(format!("[{}] {}", at, l.trim())); }
+    }
+    Ok((lines.join("\n"), srt))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

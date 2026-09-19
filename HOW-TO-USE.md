@@ -25,6 +25,17 @@ In the file manager, right-click any file or folder: **Genesis > Make a tool for
 with a request that fits it (a table viewer for a spreadsheet, a renamer for a folder of photos, an error
 list for a log); **Ask Genesis about this** opens chat with the file attached. Neither runs on its own.
 
+## Write down what is said
+
+Right-click any recording or video in the file manager: **Genesis > Write down what is said**. It runs on
+your machine, writes the text and a subtitle file next to it, and opens chat with the transcript attached
+so you can ask about it. A long recording takes a while; nothing leaves the computer.
+
+## Read it aloud
+
+Select text anywhere and press `Meta+Shift+R`: the local voice reads it, in your language. Press again to
+stop. This works on the smallest machine, before any large model is downloaded.
+
 ## When a command fails
 
 In the terminal, a failed command leaves one dim line: *that failed · Ctrl+G: explain and fix*. Press

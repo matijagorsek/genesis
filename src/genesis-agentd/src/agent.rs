@@ -774,7 +774,14 @@ impl Agent {
                 let out = std::process::Command::new("/usr/bin/genesis-index").args(["search", &s("query"), "--json", "-n", &limit]).output()
                     .map_err(|e| anyhow!("genesis-index: {}", e))?;
                 let hits: Vec<serde_json::Value> = serde_json::from_slice(&out.stdout).unwrap_or_default();
-                if hits.is_empty() { return Ok("No matching passages in the folders the user opted in (Settings > Files Genesis may search). Say so; do not guess.".into()); }
+                if hits.is_empty() { return Ok("No matching passages in the folders the user opted in (Settings > Files Genesis may search). Say that you could not find it in their files, and do not answer from memory.".into()); }
+                // a weak best hit is the same thing as a miss, and worth saying so: the reranker scores
+                // a passage against the question, so a low best score means nothing here really answers it
+                let best = hits.iter().filter_map(|h| h.get("score").and_then(|s| s.as_f64())).fold(f64::MIN, f64::max);
+                let reranked = hits.iter().any(|h| h.get("by").and_then(|b| b.as_str()).map(|b| b.contains("rerank")).unwrap_or(false));
+                if reranked && best < 0.2 {
+                    return Ok(format!("Nothing in the user's files really answers this (the closest passage scored {:.2}). Say you could not find it, name the closest file, and do not answer from memory. Closest: {}", best, hits.iter().take(2).map(|h| h.get("path").and_then(|p| p.as_str()).unwrap_or("")).collect::<Vec<_>>().join(", ")));
+                }
                 Ok(hits.iter().map(|h| format!("{}\n    {}", h["path"].as_str().unwrap_or(""), h["snippet"].as_str().unwrap_or(""))).collect::<Vec<_>>().join("\n"))
             }
             "read_document" => {

@@ -3,6 +3,7 @@
 
   genesis-file-action make <path>   the maker opens with a request that fits this kind of file
   genesis-file-action ask  <path>   chat opens with the file attached
+  genesis-file-action transcribe <path>  the spoken words, with times, plus subtitles next to the file
 
 Nothing runs on its own: the text lands in the box and waits for you.
 """
@@ -37,10 +38,32 @@ def request_for(path):
     return BY_KIND.get(ext, "a small tool that opens {name} and shows what is in it").format(name=name)
 
 
+def transcribe(path):
+    """The spoken words, with their times, and subtitles written next to the file."""
+    import sys as _s
+    _s.path.insert(0, "/usr/lib/genesis")
+    import genesis_local
+    subprocess.run(["notify-send", "-a", "Genesis", "-i", "genesis", "Writing down what is said",
+                    "This runs on your machine and can take a while for a long recording."], check=False)
+    r = genesis_local.call("POST", "/api/transcribe-file", {"path": path}, timeout=3600)
+    if r.get("error"):
+        subprocess.run(["notify-send", "-a", "Genesis", "-i", "genesis", "Could not transcribe", r["error"][:200]], check=False)
+        return 1
+    out = os.path.splitext(path)[0] + ".txt"
+    with open(out, "w") as f:
+        f.write(r.get("text", ""))
+    subprocess.run(["notify-send", "-a", "Genesis", "-i", "genesis", "Written down",
+                    f"{os.path.basename(out)} and {os.path.basename(r.get('subtitles', ''))} are next to the file."], check=False)
+    subprocess.Popen(["genesis-window", "http://127.0.0.1:11520/chat?attach=" + urllib.parse.quote(out)])
+    return 0
+
+
 def main(argv):
     if len(argv) < 3:
         print(__doc__.strip()); return 2
     action, path = argv[1], os.path.abspath(argv[2])
+    if action == "transcribe":
+        return transcribe(path)
     if action == "make":
         project = os.path.dirname(path) if os.path.isfile(path) else path
         url = "http://127.0.0.1:11520/?draft={}&project={}".format(
