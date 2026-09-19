@@ -179,8 +179,11 @@ Or install from the ISO in a VM (UTM, virt-manager, VirtualBox) or on a spare ma
 about 6.3 GB, so a **USB stick of 8 GB or more** is needed; the whole system is on it, and nothing is
 downloaded during the install. For the target disk, 64 GB is a sensible floor: the system is about 13 GB
 and bootc keeps the previous version so an upgrade can be rolled back, then the model pack is 3.8 GB for
-the tiny one up to 130 GB for a 48 GB card. On an NVIDIA machine, switch to the NVIDIA flavour afterwards:
-`sudo bootc switch ghcr.io/matijagorsek/genesis:stable-nvidia`. The first install on real hardware has a
+the tiny one up to 130 GB for a 48 GB card. On an NVIDIA machine **with a Turing card or newer** (GTX 16xx,
+RTX 20xx and later), switch to the NVIDIA flavour afterwards:
+`sudo bootc switch ghcr.io/matijagorsek/genesis:stable-nvidia`. That flavour carries NVIDIA's *open* kernel
+modules, which do not support Maxwell or Pascal (GTX 9xx and 10xx) — on those cards do not switch; they need
+the proprietary driver, which Genesis does not ship, and the models run on the CPU. The first install on real hardware has a
 checklist: [docs/first-hardware-install.md](docs/first-hardware-install.md).
 
 **On an Apple Silicon Mac**, use the arm64 flavour, which runs natively under Apple's hypervisor at

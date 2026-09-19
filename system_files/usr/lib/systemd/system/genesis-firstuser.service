@@ -1,0 +1,24 @@
+[Unit]
+Description=Genesis: create an account if the installer did not
+Documentation=https://github.com/matijagorsek/genesis
+# Before the login screen, because a login screen with no account to offer is a dead end
+Before=display-manager.service systemd-user-sessions.service
+After=systemd-tmpfiles-setup.service
+ConditionPathExists=!/run/genesis/firstuser-skip
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/genesis-firstuser
+StandardInput=tty-force
+StandardOutput=tty
+StandardError=tty
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+# it asks a person a question: no timeout, and a failure must never keep the machine from booting
+TimeoutStartSec=infinity
+SuccessExitStatus=0 1
+
+[Install]
+WantedBy=multi-user.target

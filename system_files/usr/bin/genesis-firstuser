@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# genesis-firstuser: a machine with no account cannot be logged into, and the login screen does not say
+# so — it just refuses every password. The installer is supposed to make creating an account mandatory
+# and does not always do it (found on the first real install, 19 Sep: an ASUS laptop installed cleanly
+# with no user at all, and the only way back in was editing the kernel command line in GRUB, on a
+# keyboard whose layout GRUB does not use).
+#
+# So: before the login screen appears, if there is no human account on this machine, make one here.
+# This ships no default account and no default password. It asks, once, on the console.
+set -uo pipefail
+
+# A human account is any that can log in: a real shell, and a UID in the range useradd hands out.
+has_user() {
+  getent passwd | awk -F: '$3 >= 1000 && $3 < 60000 && $7 !~ /(nologin|false|sync|shutdown|halt)$/ { found = 1 } END { exit !found }'
+}
+
+has_user && exit 0
+
+exec </dev/tty1 >/dev/tty1 2>&1
+cat <<'TXT'
+
+  ────────────────────────────────────────────────────────────────
+   Genesis: no account was created while this machine was installed
+  ────────────────────────────────────────────────────────────────
+
+  Without one there is nobody to log in as, so let us make yours now.
+  It will be an administrator, which is what you want on your own machine.
+
+  Use letters and digits for the password. This console uses a US keyboard
+  layout whatever is printed on your keys, so a symbol you type here may
+  not be the one you get back at the login screen.
+
+TXT
+
+while :; do
+  read -rp "  Username (lowercase, no spaces): " name
+  if [[ "$name" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]; then
+    if getent passwd "$name" >/dev/null; then echo "  That name is already taken on this machine."; continue; fi
+    break
+  fi
+  echo "  Letters, digits, - and _ only, starting with a letter."
+done
+
+full=""
+read -rp "  Your name (optional, shown on the login screen): " full
+
+if ! useradd -m -G wheel -c "${full:-$name}" "$name"; then
+  echo "  Could not create the account. Reboot and try again, or report this."
+  sleep 20; exit 1
+fi
+
+until passwd "$name"; do
+  echo "  Let us try that again."
+done
+
+# a home directory made outside the installer needs its SELinux labels set, or the desktop session
+# fails in ways that look nothing like the cause
+command -v restorecon >/dev/null && restorecon -RF "/home/$name" "/var/home/$name" 2>/dev/null
+
+echo
+echo "  Done. The login screen is coming up: log in as $name."
+sleep 3

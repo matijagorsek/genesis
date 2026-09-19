@@ -10,7 +10,7 @@ minutes of notes here answer more open questions than a week of CI. Paste the re
   USB stick (Fedora Media Writer, or `dd`). The ISO is about 6.3 GB, so the stick must be **8 GB or
   larger**; 4 GB is not enough. Everything the install needs is on the ISO, so no network is needed
   until the first boot. There is one ISO. With an NVIDIA card you install it, and then switch to the
-  NVIDIA flavour (last section).
+  NVIDIA flavour (last section) — but only if the card is Turing or newer (GTX 16xx, RTX 20xx and later).
 - The target disk: the system is about 13 GB installed, and bootc keeps the previous version alongside it
   so an upgrade can be rolled back. On top of that comes the model pack, which the wizard sizes to the
   machine: 3.8 GB for the tiny pack, 12.5 GB for CPU-only, 20–50 GB for an 8–24 GB GPU, 130 GB for a
@@ -83,6 +83,10 @@ The wizard is a maximized window; the panel with the network icon stays visible 
 to Wi-Fi there first: the wizard says so when the machine is offline.
 
 ## NVIDIA
+
+**Only for Turing cards and newer** (GTX 16xx, RTX 20xx, and later). The flavour carries NVIDIA's open
+kernel modules, which do not support Maxwell or Pascal — a GTX 9xx or 10xx will not get a working driver
+from it, so leave those machines on the standard image and let the models run on the CPU.
 
 After the install, in Konsole:
 
