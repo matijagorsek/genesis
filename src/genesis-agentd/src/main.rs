@@ -972,21 +972,21 @@ mod tests {
     }
 
     #[test]
-    fn a_write_that_changes_nothing_does_not_count_towards_the_guards() {
+    fn a_write_that_changes_nothing_still_ends_in_a_finished_job() {
         let proj = script_project();
-        // the model writes the same content six times: "unchanged" is not progress, so Genesis does not
-        // take over after three, and the turn limit is not spent on a loop either
+        // A small model writes the same finished file over and over. The file is correct and on disk, so
+        // this must end as a made program, not as "failed four times in a row": Genesis takes over on the
+        // third write, runs it, and stops on a clean run. Discounting these writes held the forced run off
+        // while the failure guard fired, and six of ten evaluation makes died with a working program.
         let same = serde_json::json!({"path":"app.py","content":"print('v0')\n"});
         let script: Vec<_> = (0..8).map(|_| tool_call("write_file", same.clone())).collect();
         let ep = fake_llm(script);
         let (mut agent, shared) = setup(proj.path(), Mode::AutoEdit, ep);
-        let err = agent.run("a script").unwrap_err().to_string();
-        // writing the same bytes again is not progress, so it never counts as a change and never triggers
-        // the forced run; four of them in a row is stuck, and Genesis says so instead of looping
-        assert!(err.contains("failed four times in a row"), "got: {}", err);
+        let out = agent.run("a script").expect("a finished program, not an error");
+        assert!(out.contains("It is made"), "got: {}", out);
         let ev = shared.info.lock().unwrap().events.clone();
-        assert_eq!(ev.iter().filter(|e| matches!(e, Event::ToolCall { name, .. } if name == "preview_start")).count(), 0, "unchanged writes must not trigger the forced run");
-        assert!(ev.iter().filter(|e| matches!(e, Event::ToolCall { .. })).count() <= 4, "it stopped early, not after the whole script");
+        assert!(ev.iter().any(|e| matches!(e, Event::Done { .. })), "and the job is done");
+        assert!(ev.iter().filter(|e| matches!(e, Event::ToolCall { .. })).count() <= 5, "it stopped early, not after the whole script");
     }
 
     #[test]

@@ -483,13 +483,17 @@ impl Agent {
                     Ok(t) => (true, t),
                     Err(e) => (false, format!("ERROR: {}", e)),
                 };
-                // a write that failed or changed nothing is not progress and must not count towards the guards
-                if is_write && (!ok || text.starts_with("unchanged") || text.starts_with("not written")) {
+                // a write that errored or was refused is not progress and must not count towards the guards.
+                // A write whose content was already on disk is different: the file IS written, and the turn was
+                // spent on it, so it counts. Discounting it held same_file_streak below the auto-run that ends
+                // the job while failure_streak climbed to four — six of ten evaluation makes died that way with
+                // a finished program in the folder.
+                if is_write && (!ok || text.starts_with("not written")) {
                     self.writes_since_run = self.writes_since_run.saturating_sub(1);
                     self.same_file_streak = self.same_file_streak.saturating_sub(1);
                 }
                 // …but a call that keeps failing the same way is its own kind of stuck
-                let failure = if ok && !text.starts_with("unchanged") && !text.starts_with("not written") { String::new() } else { format!("{} {}", call.function.name, text.chars().take(80).collect::<String>()) };
+                let failure = if ok && !text.starts_with("not written") { String::new() } else { format!("{} {}", call.function.name, text.chars().take(80).collect::<String>()) };
                 if failure.is_empty() { self.failure_streak = 0; self.last_failure.clear(); }
                 else if failure == self.last_failure { self.failure_streak += 1; }
                 else { self.last_failure = failure; self.failure_streak = 1; }
@@ -849,7 +853,7 @@ impl Agent {
                 let content = s("content");
                 // writing back exactly what was there is not progress (small models do this with templates)
                 if std::fs::read_to_string(&p).map(|old| old == content).unwrap_or(false) {
-                    return Ok(format!("unchanged: {} already had exactly this content. Implement the request: change the file so it does what the user asked.", p.display()));
+                    return Ok(format!("{} already holds exactly this, so it is written ({} bytes). Do not write it again: run the program now (preview_start), and reply with the summary if the run is clean.", p.display(), content.len()));
                 }
                 self.edited_after_scaffold = true;
                 std::fs::write(&p, &content).map_err(|e| anyhow!("{}: {}", p.display(), e))?;
@@ -860,7 +864,7 @@ impl Agent {
                 let p = resolve_path(&self.project, &s("path"));
                 let text = std::fs::read_to_string(&p).map_err(|e| anyhow!("{}: {}", p.display(), e))?;
                 let old = s("old_text");
-                if old == s("new_text") { return Ok("unchanged: old_text and new_text are the same; make the actual change, or run the program if it is already right".into()); }
+                if old == s("new_text") { return Ok("not written: old_text and new_text are the same, so this edit changes nothing; make the actual change, or run the program if it is already right".into()); }
                 let n = text.matches(&old).count();
                 if n != 1 {
                     return Err(anyhow!("old_text found {} times in {}; it must match exactly once", n, p.display()));

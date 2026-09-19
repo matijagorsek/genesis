@@ -104,6 +104,46 @@ fn copy_tree(src: &Path, dest: &Path, name: &str) -> Result<()> {
     Ok(())
 }
 
+/// A project with no manifest, because the model wrote files without scaffolding first. Rather than
+/// refusing the preview and letting a small model hand-write genesis.json field by field (the evaluation
+/// lost a whole make to `missing field dev`), read the folder and write the manifest that fits what is
+/// already there. Only the two shapes that can be recognised without guessing.
+pub fn infer_manifest(project: &Path) -> Result<Template> {
+    let names: Vec<String> = std::fs::read_dir(project)?.filter_map(|e| e.ok())
+        .filter(|e| e.path().is_file())
+        .map(|e| e.file_name().to_string_lossy().to_string()).collect();
+    let id = project.file_name().map(|s| s.to_string_lossy().to_string()).unwrap_or_else(|| "project".into());
+    let t = if names.iter().any(|n| n == "index.html") {
+        Template {
+            id: id.clone(), name: id, description: "Inferred from the files in this folder".into(),
+            dev: RunSpec { cmd: "python3 -m http.server {port} --bind 127.0.0.1".into(), port: 5300, open: Some("http://127.0.0.1:{port}/".into()) },
+            run: None, entry: "index.html".into(), hints: String::new(),
+        }
+    } else if let Some(py) = pick_script(&names) {
+        Template {
+            id: id.clone(), name: id, description: "Inferred from the files in this folder".into(),
+            dev: RunSpec { cmd: format!("python3 {}", py), port: 0, open: None },
+            run: Some(RunSpec { cmd: format!("python3 {}", py), port: 0, open: None }),
+            entry: py, hints: String::new(),
+        }
+    } else {
+        return Err(anyhow!("nothing runnable in {}", project.display()));
+    };
+    std::fs::write(project.join("genesis.json"), serde_json::to_string_pretty(&t)?)?;
+    Ok(t)
+}
+
+/// The one Python file to run: a main.py or app.py if there is one, otherwise the only .py file there
+/// (a test file never counts). More than one candidate and Genesis does not guess.
+fn pick_script(names: &[String]) -> Option<String> {
+    let py: Vec<&String> = names.iter().filter(|n| n.ends_with(".py") && !n.starts_with("test_") && !n.ends_with("_test.py")).collect();
+    for want in ["main.py", "app.py"] {
+        if let Some(n) = py.iter().find(|n| n.as_str() == want) { return Some((*n).clone()); }
+    }
+    if py.len() == 1 { return Some(py[0].clone()); }
+    None
+}
+
 pub struct Preview {
     pub child: Child,
     pub url: Option<String>,
@@ -126,7 +166,8 @@ impl Previews {
             self.running.remove(&key);
         }
         let manifest = project.join("genesis.json");
-        let t: Template = serde_json::from_str(&std::fs::read_to_string(&manifest).with_context(|| format!("no genesis.json in {}; scaffold a template first or add one", project.display()))?)?;
+        if !manifest.exists() { let _ = infer_manifest(project); }
+        let t: Template = serde_json::from_str(&std::fs::read_to_string(&manifest).with_context(|| format!("no genesis.json in {} and nothing there looks runnable; call scaffold first", project.display()))?)?;
         let name = project.file_name().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
         let port = if t.dev.port > 0 { free_port(t.dev.port) } else { 0 };
         let cmd = t.dev.cmd.replace("{port}", &port.to_string()).replace("{name}", &name);
@@ -432,6 +473,32 @@ mod tests {
     use super::*;
     /// Tests that set HOME must not overlap (cargo runs tests in parallel).
     static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    #[test]
+    fn manifest_is_inferred_from_what_is_in_the_folder() {
+        // a page: served statically, entry index.html
+        let d = tempfile::tempdir().unwrap();
+        std::fs::write(d.path().join("index.html"), "<h1>hi</h1>").unwrap();
+        let t = infer_manifest(d.path()).unwrap();
+        assert_eq!(t.entry, "index.html");
+        assert!(t.dev.cmd.contains("http.server") && t.dev.port > 0);
+        assert!(d.path().join("genesis.json").is_file());
+
+        // one script, with its test file alongside: the script is the entry, not the test
+        let d2 = tempfile::tempdir().unwrap();
+        std::fs::write(d2.path().join("dice.py"), "print(1)").unwrap();
+        std::fs::write(d2.path().join("test_dice.py"), "").unwrap();
+        let t2 = infer_manifest(d2.path()).unwrap();
+        assert_eq!(t2.entry, "dice.py");
+        assert_eq!(t2.dev.cmd, "python3 dice.py");
+
+        // two candidates and no main.py/app.py: Genesis does not guess
+        let d3 = tempfile::tempdir().unwrap();
+        std::fs::write(d3.path().join("a.py"), "").unwrap();
+        std::fs::write(d3.path().join("b.py"), "").unwrap();
+        assert!(infer_manifest(d3.path()).is_err());
+        assert!(!d3.path().join("genesis.json").exists());
+    }
 
     #[test]
     fn scaffold_substitutes_names_and_lists_templates() {
