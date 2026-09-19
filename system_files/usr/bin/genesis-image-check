@@ -7,6 +7,13 @@ echo "Genesis image check"
 grep -q '^ID=genesis' /usr/lib/os-release && ok "os-release ID=genesis" || fail "os-release"
 grep '^PRETTY_NAME' /usr/lib/os-release
 for b in llama-server llama-swap ramalama bwrap distrobox bootc vulkaninfo genesis-permd genesis-probe genesis-firstrun genesis-agentd genesis-txd genesis-krunner genesis-ask genesis-report genesis-firstuser genesis-pick-device genesis-llama-server btrfs rsync firefox okular gwenview kcalc plasma-discover dolphin konsole kate; do command -v "$b" >/dev/null && ok "binary $b" || fail "binary $b"; done
+# the test disks carry a known account; a password must not be accepted from a real network
+if grep -q "genesis.devssh" /proc/cmdline 2>/dev/null; then
+  f=/etc/ssh/sshd_config.d/99-genesis-devssh.conf
+  if grep -q "genesis.devssh=any" /proc/cmdline; then ok "dev SSH unrestricted because genesis.devssh=any was asked for"
+  elif [ -s "$f" ] && grep -q "^PasswordAuthentication no" "$f" && grep -q "^Match Address" "$f"; then ok "dev SSH takes a password only from a virtual machine's own network"
+  else fail "this test disk accepts its known password from anywhere: $f is missing or wrong"; fi
+fi
 # the model service must go through the wrapper that survives a GPU failure, not straight to llama-server
 if [ -f /etc/genesis/router.yaml ]; then
   grep -q "genesis-llama-server" /etc/genesis/router.yaml && ok "the router starts models through the fallback wrapper" || fail "router.yaml calls llama-server directly: a GPU failure would leave no assistant at all"

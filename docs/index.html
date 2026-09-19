@@ -61,7 +61,11 @@ cat genesis-VERSION.iso.*.part &gt; genesis.iso</pre>
   <h2>Everything is open</h2>
   <p>Source, images and the decision log: <a href="https://github.com/matijagorsek/genesis" style="color:var(--acc)">github.com/matijagorsek/genesis</a>. Genesis is a Fedora Remix and is not endorsed by the Fedora Project.</p>
 </div>
-<p class="foot">Alpha. Test user on prebuilt disks: <span style="font-family:'IBM Plex Mono',monospace">genesis / genesis</span>.</p>
+<p class="foot">Alpha. The prebuilt <b>qcow2 disks are for trying Genesis in a virtual machine</b>: they carry a known
+account, <span style="font-family:'IBM Plex Mono',monospace">genesis / genesis</span>, so the boot tests and the weekly
+evaluation can drive them. That password is only accepted from inside a virtual machine's own network (QEMU, UTM and
+libvirt NAT); a bridged test disk on a real network refuses it. The <b>installer ISO has no account at all</b> — it asks
+you to make one, and Genesis asks again on the console if the installer did not.</p>
 <script>
 (async function(){
   const isMac=/Mac/.test(navigator.platform)&&(navigator.userAgent.includes('Mac')); const arm=/arm|aarch64/i.test(navigator.userAgent); // browsers on Apple Silicon still claim Intel: Macs get both choices below

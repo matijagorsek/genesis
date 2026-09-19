@@ -1,10 +1,20 @@
 [Unit]
 Description=Genesis dev loop: SSH on test disks only (kernel argument genesis.devssh=1)
-ConditionKernelCommandLine=genesis.devssh=1
+# the key without a value, so genesis.devssh=1 and genesis.devssh=any both start it; the value decides
+# how strict the drop-in below is, not whether SSH runs at all
+ConditionKernelCommandLine=genesis.devssh
 After=network.target
 
 [Service]
 Type=oneshot
+# The prebuilt qcow2 test disks carry a known account (genesis/genesis) so the boot tests, the canary and
+# the evaluation can drive them. That is fine inside a virtual machine's own NAT and not fine on a real
+# network, where anyone on the LAN could log in with a password printed on the download page. So on these
+# disks a password is only accepted from the address a virtual machine's host appears as: QEMU and UTM
+# shared networking (10.0.2.0/24), libvirt's default network (192.168.122.0/24), and the machine itself.
+# A bridged test disk on a real network refuses the password instead of handing out a wheel account.
+# genesis.devssh=any turns the restriction off for someone who knows why they want that.
+ExecStartPre=/usr/bin/bash -c 'mkdir -p /etc/ssh/sshd_config.d; if grep -q "genesis.devssh=any" /proc/cmdline; then printf "# genesis.devssh=any: no restriction was asked for\\n" > /etc/ssh/sshd_config.d/99-genesis-devssh.conf; else printf "PasswordAuthentication no\\nPermitRootLogin no\\nMatch Address 127.0.0.0/8,10.0.2.0/24,192.168.122.0/24\\n    PasswordAuthentication yes\\n" > /etc/ssh/sshd_config.d/99-genesis-devssh.conf; fi'
 ExecStart=/usr/bin/systemctl start sshd.service
 RemainAfterExit=yes
 
