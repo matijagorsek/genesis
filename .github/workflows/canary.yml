@@ -75,10 +75,13 @@ jobs:
           before=$(vm 'grep --color=never ^IMAGE_VERSION= /etc/os-release'); echo "before: $before"
           timeout 1500 sshpass -p genesis ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR genesis@127.0.0.1 \
             'echo genesis | sudo -S bootc switch ghcr.io/matijagorsek/genesis:testing 2>&1 | tail -3; sudo bootc upgrade 2>&1 | tail -5' || { echo "the switch did not finish"; exit 1; }
-          # Which image this machine actually took. The promotion used to copy whatever :testing pointed at
-          # by the time it ran, which on a day with twenty builds is not what was tested at all.
-          tested=$(vm 'echo genesis | sudo -S bootc status --format json 2>/dev/null' | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("status",{}).get("booted",{}).get("image",{}).get("imageDigest","") or "")' 2>/dev/null || true)
-          echo "the machine is running $tested"; echo "TESTED_DIGEST=$tested" >> "$GITHUB_ENV" 
+          # Which image this test is about. Asked of the registry, not of the machine: what bootc reports
+          # as the booted digest is not a manifest the registry will serve (it 404s), so the first attempt
+          # at this fell back to the tag every time while looking like it had worked. The tag is resolved
+          # here, seconds before the machine pulls it, and that digest is what becomes stable — so a build
+          # landing during the test cannot put an untested image on the channel every machine follows.
+          tested=$(sudo skopeo inspect --format '{{.Digest}}' "docker://ghcr.io/matijagorsek/genesis:testing" 2>/dev/null || true)
+          echo "this test is about $tested"; echo "TESTED_DIGEST=$tested" >> "$GITHUB_ENV" 
           vm 'echo genesis | sudo -S systemctl reboot' || true
           sleep 30; wait_ssh || exit 1
           after=$(vm 'grep --color=never ^IMAGE_VERSION= /etc/os-release'); echo "after: $after"
