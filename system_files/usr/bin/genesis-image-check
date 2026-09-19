@@ -33,6 +33,8 @@ fi
 [ -x /usr/bin/genesis-mode ] && grep -q "org.genesis.mode.desktop" /etc/xdg/kglobalshortcutsrc && [ -f /usr/share/applications/org.genesis.mode.desktop ] && ok "mode key (genesis-mode, Meta+Shift+M)" || fail "genesis-mode or its shortcut missing"
 [ -x /usr/bin/kdialog ] && ok "file dialog for the pages (kdialog)" || fail "kdialog missing: Choose… buttons cannot open a dialog"
 [ -x /usr/bin/genesis-file-action ] && [ -f /usr/share/kio/servicemenus/genesis-make.desktop ] && ok "right-click a file: make a tool, or ask about it" || fail "file manager menu missing"
+[ -x /usr/lib/systemd/system-sleep/genesis ] && ok "a job stops cleanly when the machine sleeps" || fail "no sleep hook"
+[ -x /usr/bin/genesis-read-aloud ] && grep -q "org.genesis.readaloud" /etc/xdg/kglobalshortcutsrc && ok "read the selection aloud (Meta+Shift+R)" || fail "read aloud missing"
 # the door local programs use: a 0600 socket in the runtime directory, which a sandboxed command cannot see
 if [ -n "${XDG_RUNTIME_DIR:-}" ] && [ -S "$XDG_RUNTIME_DIR/genesis/agentd.sock" ]; then
   [ "$(stat -c %a "$XDG_RUNTIME_DIR/genesis/agentd.sock")" = 600 ] && ok "maker socket for local programs (0600)" || fail "the maker socket is not 0600"

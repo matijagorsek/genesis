@@ -53,5 +53,15 @@
   "id": "fix-slow",
   "title": "My computer feels slow",
   "text": "My computer feels slow right now. Check the top processes, memory and disk with your system tools and tell me what is using it, then what I can do."
+ },
+ {
+  "id": "fix-disk",
+  "title": "My disk is full",
+  "text": "My disk is filling up. Use your system tools to show what is taking the space, then tell me in two sentences what to clear first."
+ },
+ {
+  "id": "fix-listening",
+  "title": "Is anything using my camera or microphone?",
+  "text": "Check whether any program is using the microphone or the camera right now, and tell me plainly what you found."
  }
 ]

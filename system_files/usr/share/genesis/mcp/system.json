@@ -14,7 +14,10 @@
         "wifi_diagnose": "network",
         "wifi_reconnect": "write",
         "print_test_page": "write",
-        "offline_proof": "system"
+        "offline_proof": "system",
+        "disk_usage": "read",
+        "whats_listening": "read",
+        "whats_slow": "read"
       }
     }
   }

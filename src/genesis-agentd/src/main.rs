@@ -1078,7 +1078,9 @@ fn system_overview(d: &Arc<Daemon>) -> serde_json::Value {
         .map(|t| {
             // what the person asked for, when the job left a note of it, so the list is readable
             let asked = t.entries.iter().find_map(|e| if let genesis_txd::Entry::Note { text } = e { text.strip_prefix("asked: ").map(|s| s.to_string()) } else { None }).unwrap_or_default();
-            serde_json::json!({"id": t.id, "asked": asked, "started_at": t.started_at, "finished_at": t.finished_at, "status": format!("{:?}", t.status).to_lowercase(), "changes": t.entries.len()})
+            // apps installed in this job, so the panel can say "installed GIMP · Undo" rather than "a job"
+            let apps: Vec<String> = t.entries.iter().filter_map(|e| if let genesis_txd::Entry::FlatpakUser { r#ref } = e { r#ref.rsplit('/').next().or(Some(r#ref.as_str())).map(|s| s.split('/').next().unwrap_or(s).to_string()) } else { None }).collect();
+            serde_json::json!({"id": t.id, "asked": asked, "apps": apps, "started_at": t.started_at, "finished_at": t.finished_at, "status": format!("{:?}", t.status).to_lowercase(), "changes": t.entries.len()})
         }).collect();
     serde_json::json!({
         "profile": profile, "setup": setup, "models_on_disk": on_disk, "router": {"endpoint": d.endpoint, "running": running},

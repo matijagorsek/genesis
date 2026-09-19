@@ -15,6 +15,7 @@ PlasmoidItem {
     property string mode: ""
     property string lastJob: ""
     property string lastJobId: ""
+    property bool lastWasApp: false
     property bool sandbox: false
     property bool voice: false
     property var netDomains: []
@@ -45,7 +46,9 @@ PlasmoidItem {
             var h = (sy && sy.history) ? sy.history : []
             var last = null
             for (var i = 0; i < h.length; i++) { if (/committed|kept|done/i.test(h[i].status || "")) { last = h[i]; break } }
-            lastJob = last ? ((last.asked || "a job") + " · " + (last.changes || 0) + " changes") : ""
+            var apps = (last && last.apps) ? last.apps : []
+            lastJob = last ? (apps.length ? ("installed " + apps.join(", ")) : ((last.asked || "a job") + " · " + (last.changes || 0) + " changes")) : ""
+            lastWasApp = apps.length > 0
             lastJobId = last ? last.id : ""
         })
         get("/api/sessions", function(list) {
@@ -109,9 +112,9 @@ PlasmoidItem {
             PC.Button { text: "Stop"; icon.name: "process-stop"; onClicked: root.stopRunning() }
         }
         PC.Label { visible: root.alive && root.running === 0; text: "Nothing running."; opacity: 0.8; Layout.fillWidth: true }
-        PC.Label { visible: root.alive && root.lastJob !== ""; text: "Last change: " + root.lastJob; Layout.fillWidth: true; wrapMode: Text.Wrap; opacity: 0.9 }
+        PC.Label { visible: root.alive && root.lastJob !== ""; text: (root.lastWasApp ? "" : "Last change: ") + root.lastJob + (root.lastWasApp ? " · its settings stay behind" : ""); Layout.fillWidth: true; wrapMode: Text.Wrap; opacity: 0.9 }
         RowLayout { visible: root.alive && root.lastJobId !== ""; Layout.fillWidth: true
-            PC.Button { text: "Undo the last job"; icon.name: "edit-undo"; onClicked: { root.undoLast(); root.expanded = false } }
+            PC.Button { text: root.lastWasApp ? "Remove it again" : "Undo the last job"; icon.name: "edit-undo"; onClicked: { root.undoLast(); root.expanded = false } }
             PC.Button { text: "See what changed"; icon.name: "document-edit"; onClicked: { modeRunner.connectSource("genesis-window http://127.0.0.1:11520/settings#sec-undo"); root.expanded = false } }
         }
         PC.Button { text: "Open Genesis"; icon.name: "genesis"; onClicked: { root.openMaker(); root.expanded = false } }

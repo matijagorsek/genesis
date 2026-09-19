@@ -1,0 +1,28 @@
+#!/usr/bin/bash
+# A job should not come back broken because the lid closed. Before sleep, every running job is told to
+# stop at its next checkpoint (what was made is kept, and Undo takes it back); after resume, the model
+# service is nudged so the first request afterwards does not meet a half-asleep server.
+case "$1/$2" in
+  pre/*)
+    for rt in /run/user/*; do
+      sock="$rt/genesis/agentd.sock"; tok="$rt/genesis/agentd.token"
+      [ -S "$sock" ] && [ -r "$tok" ] || continue
+      ids=$(curl --unix-socket "$sock" -s -m 5 -H "X-Genesis-Token: $(cat "$tok")" http://localhost/api/sessions \
+        | python3 -c 'import sys, json
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    raise SystemExit
+for s in (d if isinstance(d, list) else d.get("list", [])):
+    if s.get("state") in ("running", "waiting"):
+        print(s["id"])' 2>/dev/null)
+      for id in $ids; do
+        curl --unix-socket "$sock" -s -o /dev/null -m 5 -X POST -H "X-Genesis-Token: $(cat "$tok")" "http://localhost/api/sessions/$id/stop"
+      done
+    done
+    ;;
+  post/*)
+    systemctl try-restart genesis-router.service 2>/dev/null || true
+    ;;
+esac
+exit 0

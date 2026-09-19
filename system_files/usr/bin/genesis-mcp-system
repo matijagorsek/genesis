@@ -133,6 +133,32 @@ def wifi_diagnose(_):
         except (IndexError, ValueError): pass
     return "\n".join(lines)
 
+def disk_usage(_):
+    """Why the disk is full: the biggest folders under home, and what the filesystems have left."""
+    _, df = run(["df", "-h", "-x", "tmpfs", "-x", "devtmpfs"], timeout=20)
+    home = os.path.expanduser("~")
+    code, du = run(["sh", "-c", f"du -h -d 2 -x {shlex.quote(home)} 2>/dev/null | sort -rh | head -12"], timeout=120)
+    return "Filesystems:\n" + df + "\n\nBiggest folders in your home:\n" + (du or "could not read them")
+
+
+def whats_listening(_):
+    """Which programs hold the microphone or the camera right now."""
+    out = []
+    code, rec = run(["sh", "-c", "pactl list source-outputs 2>/dev/null | grep -i 'application.name' | sort -u"], timeout=20)
+    out.append("using the microphone: " + (rec.strip() or "nothing"))
+    code, cam = run(["sh", "-c", "for d in /dev/video*; do [ -e \"$d\" ] || continue; fuser -v \"$d\" 2>&1 | tail -n +2; done"], timeout=20)
+    out.append("using the camera: " + (cam.strip() or "nothing"))
+    return "\n".join(out)
+
+
+def whats_slow(_):
+    """What is using this machine right now: processes by processor and by memory."""
+    _, cpu = run(["sh", "-c", "ps -eo pcpu,pmem,comm --sort=-pcpu | head -8"], timeout=20)
+    _, mem = run(["sh", "-c", "free -h | head -2"], timeout=20)
+    _, load = run(["sh", "-c", "uptime"], timeout=10)
+    return f"{load}\n\n{mem}\n\nBusiest programs:\n{cpu}"
+
+
 def offline_proof(a):
     """Take every network connection down for a minute, then bring it back: the local claim, demonstrated.
     Always restores, even if this process is killed (the restore is scheduled first, with `at`-less nohup)."""
@@ -203,6 +229,9 @@ TOOLS = [
     ("find_printers", "Look for network printers on this network (their URIs, for printer_setup).", {"type": "object", "properties": {}}, find_printers),
     ("printer_setup", "Add a printer by URI through CUPS and make it the default (a system change: asks first).", {"type": "object", "properties": {"name": {"type": "string"}, "uri": {"type": "string", "description": "e.g. ipp://192.168.1.50/ipp/print"}}, "required": ["name", "uri"]}, printer_setup),
     ("wifi_diagnose", "Why the network is slow or down: connection, gateway, internet by address, DNS, signal.", {"type": "object", "properties": {}}, wifi_diagnose),
+    ("disk_usage", "Why the disk is full: free space per filesystem and the biggest folders in your home.", {"type": "object", "properties": {}}, disk_usage),
+    ("whats_listening", "Which programs are using the microphone or the camera right now.", {"type": "object", "properties": {}}, whats_listening),
+    ("whats_slow", "What is using this computer right now: load, memory and the busiest programs.", {"type": "object", "properties": {}}, whats_slow),
     ("wifi_reconnect", "Drop and re-establish the Wi-Fi connection (the first fix to try; asks first).", {"type": "object", "properties": {}}, wifi_reconnect),
     ("offline_proof", "Take the network down for a minute and bring it back on its own, to show that Genesis works without it (asks first).", {"type": "object", "properties": {"seconds": {"type": "integer"}}}, offline_proof),
     ("print_test_page", "Print a test page on a printer (the default one when no name is given; asks first).", {"type": "object", "properties": {"printer": {"type": "string"}}}, print_test_page),

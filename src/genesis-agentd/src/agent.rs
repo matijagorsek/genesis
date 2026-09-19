@@ -32,6 +32,26 @@ Follow this script: 1) call scaffold with the closest template (web-static for a
 3) call preview_start (or shell to run it once). 4) if the result shows an error, fix that one thing and run again; at most three fixes. 5) then reply with one short paragraph: what you made and how to use it. \
 Rules: never finish before step 2 changed a file; write the entry file once, completely, instead of many small edits; do not install packages; never edit genesis.json; keep everything in the project folder; do not explain the tools to the user.";
 
+/// Holds an idle inhibitor for as long as it exists, and never longer. `systemd-inhibit` is a child
+/// process, so killing it on drop is the whole release path, including a panic.
+pub struct KeepAwake(Option<std::process::Child>);
+
+impl KeepAwake {
+    pub fn start(wanted: bool) -> KeepAwake {
+        if !wanted || std::env::var("GENESIS_NO_INHIBIT").is_ok() { return KeepAwake(None); }
+        let child = std::process::Command::new("systemd-inhibit")
+            .args(["--what=idle:sleep", "--who=Genesis", "--why=a job is running", "--mode=block", "sleep", "3600"])
+            .stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).spawn().ok();
+        KeepAwake(child)
+    }
+}
+
+impl Drop for KeepAwake {
+    fn drop(&mut self) {
+        if let Some(c) = self.0.as_mut() { let _ = c.kill(); let _ = c.wait(); }
+    }
+}
+
 /// One worked example, put in front of a small model before its own job. Instruction alone leaves a 2B
 /// model describing what it would do; a single demonstration of the whole shape — scaffold, one complete
 /// file, run it, say what it is — is worth more than another paragraph of rules. It sits in the cached
@@ -334,6 +354,9 @@ impl Agent {
 
     /// Run one user prompt to completion (or until a tool call is denied and the model gives up).
     pub fn run(&mut self, text: &str) -> Result<String> {
+        // Keep the machine awake while a job runs, and let go of that the moment the job ends, however it
+        // ends: an inhibitor that leaks keeps a laptop awake in a bag. The cap is the job's own timeout.
+        let _awake = KeepAwake::start(self.kind == "make");
         self.shared.stop.store(false, std::sync::atomic::Ordering::SeqCst);
         self.shared.push(Event::UserPrompt { text: text.into() });
         self.shared.set_state("running");
