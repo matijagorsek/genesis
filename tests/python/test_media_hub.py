@@ -61,6 +61,9 @@ def test_the_firefox_profile_allows_drm_and_asks_for_nothing_else(tmp_path):
     p = mh.ensure_profile()
     prefs = open(os.path.join(p, "user.js")).read()
     assert 'media.eme.enabled", true' in prefs, "the services that need Widevine must be able to ask"
+    # someone who pressed Netflix wants Netflix, not Firefox's welcome tour in front of it
+    assert 'aboutwelcome.enabled", false' in prefs
+    assert 'homepage_override.mstone", "ignore"' in prefs
     assert "healthreport.uploadEnabled\", false" in prefs
     # running it twice must not throw away a profile that already holds logins
     open(os.path.join(p, "cookies.sqlite"), "w").write("x")

@@ -2,6 +2,8 @@
 
 One window for the streaming services you already pay for, and a player for your own IPTV subscription.
 
+![The services, on a real machine](../../docs/screens/media/01-services.png)
+
 ## What it does
 
 - **Services** — Netflix, Disney+, HBO Max, Prime Video, YouTube, Spotify and the rest open as their own
@@ -9,6 +11,8 @@ One window for the streaming services you already pay for, and a player for your
   single sign-on between these companies and there cannot be: each one authenticates separately.
 - **IPTV** — your own provider's credentials (Xtream Codes, or a plain M3U playlist URL). It lists what your
   subscription carries, searches it, and hands the stream to Haruna.
+
+![Your own IPTV subscription](../../docs/screens/media/02-iptv.png)
 
 ## What it deliberately does not do
 

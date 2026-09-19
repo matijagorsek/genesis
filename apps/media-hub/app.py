@@ -61,6 +61,15 @@ def ensure_profile():
             f.write('user_pref("media.gmp-widevinecdm.enabled", true);\n')
             f.write('user_pref("browser.shell.checkDefaultBrowser", false);\n')
             f.write('user_pref("datareporting.healthreport.uploadEnabled", false);\n')
+            # A fresh profile opens Firefox's welcome tour and puts the address that was asked for behind
+            # it. Someone who pressed Netflix wants Netflix, not an onboarding tour in a browser they did
+            # not choose to set up — this profile exists to hold logins, not to be configured.
+            f.write('user_pref("browser.aboutwelcome.enabled", false);\n')
+            f.write('user_pref("browser.startup.homepage_override.mstone", "ignore");\n')
+            f.write('user_pref("startup.homepage_welcome_url", "");\n')
+            f.write('user_pref("startup.homepage_welcome_url.additional", "");\n')
+            f.write('user_pref("browser.messaging-system.whatsNewPanel.enabled", false);\n')
+            f.write('user_pref("trailhead.firstrun.didSeeAboutWelcome", true);\n')
     return PROFILE
 
 
