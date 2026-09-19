@@ -14,10 +14,15 @@ if grep -q "genesis.devssh" /proc/cmdline 2>/dev/null; then
   elif [ -s "$f" ] && grep -q "^PasswordAuthentication no" "$f" && grep -q "^Match Address" "$f"; then ok "dev SSH takes a password only from a virtual machine's own network"
   else fail "this test disk accepts its known password from anywhere: $f is missing or wrong"; fi
 fi
-# the model service must go through the wrapper that survives a GPU failure, not straight to llama-server
+# the model service must go through the wrapper that survives a GPU failure, not straight to llama-server.
+# On a machine upgraded from an older image the config is rewritten at the next boot by
+# genesis-router-refresh, so say that rather than calling it a fault the person cannot fix.
 if [ -f /etc/genesis/router.yaml ]; then
-  grep -q "genesis-llama-server" /etc/genesis/router.yaml && ok "the router starts models through the fallback wrapper" || fail "router.yaml calls llama-server directly: a GPU failure would leave no assistant at all"
+  if grep -q "genesis-llama-server" /etc/genesis/router.yaml; then ok "the router starts models through the fallback wrapper"
+  elif [ "$(cat /var/lib/genesis/router-written-for 2>/dev/null)" != "$(. /usr/lib/os-release; echo "$IMAGE_VERSION")" ]; then ok "the router config predates this image; it is rewritten at the next boot"
+  else fail "router.yaml calls llama-server directly and was written for this image: a GPU failure would leave no assistant at all"; fi
 fi
+[ -L /usr/lib/systemd/system/multi-user.target.wants/genesis-router-refresh.service ] && ok "an upgraded machine rewrites its router config" || fail "genesis-router-refresh is not enabled: an upgrade would never reach the config in /etc"
 # a machine that installs with no account has no way in at all: the rescue must be there and enabled
 [ -L /usr/lib/systemd/system/multi-user.target.wants/genesis-firstuser.service ] && ok "the no-account rescue is enabled" || fail "genesis-firstuser is not enabled: an install with no user would be unreachable"
 for u in genesis-router.service; do [ -f "/usr/lib/systemd/system/$u" ] && ok "unit $u" || fail "unit $u"; done

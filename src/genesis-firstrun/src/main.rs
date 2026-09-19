@@ -43,6 +43,16 @@ struct Cli {
     /// Exit after /api/finish (the systemd unit relies on this).
     #[arg(long, default_value_t = true)]
     exit_on_finish: bool,
+    /// Write the router config for this machine from the models already on it, and exit.
+    ///
+    /// The config is written once, at first run, and the wizard never starts again afterwards — so an
+    /// upgrade that changes how models should be run reaches /usr and nothing else. Every fix made on
+    /// 19 Sep (the GPU devices taken away, the small models unloading on a CPU pack, what may stay
+    /// resident, reusing a processed prompt, starting models through the wrapper that survives a GPU
+    /// failure) would have reached a new install and no existing one, including the laptop they were
+    /// found on. This is how an upgraded machine gets them.
+    #[arg(long)]
+    render_router: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -310,9 +320,43 @@ fn handle(app: &Arc<App>, mut req: Request) -> Result<bool> {
     Ok(finish)
 }
 
+/// Write the router config from what is on this machine now, without the wizard.
+fn render_router_now(cli: &Cli) -> Result<()> {
+    if !cli.models_dir.is_dir() {
+        tracing::info!("no models on this machine yet; nothing to write");
+        return Ok(());
+    }
+    let prof: serde_json::Value = std::fs::read_to_string(&cli.profile).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(serde_json::Value::Null);
+    let cores = prof.pointer("/cpu/cores").and_then(|c| c.as_u64()).unwrap_or(4) as u32;
+    let gpus: Vec<String> = prof.get("gpus").and_then(|g| g.as_array()).map(|a| a.iter().filter_map(|g| g.get("name").and_then(|n| n.as_str()).map(|s| s.to_string())).collect()).unwrap_or_default();
+    let compute = prof.get("gpus").and_then(|g| g.as_array()).map(|a| a.iter().any(|g| g.get("compute_ready").and_then(|c| c.as_bool()).unwrap_or(false))).unwrap_or(false);
+    let vram_mb = prof.get("gpus").and_then(|g| g.as_array()).map(|a| a.iter().filter(|g| g.get("compute_ready").and_then(|c| c.as_bool()).unwrap_or(false)).filter_map(|g| g.get("vram_mb").and_then(|v| v.as_u64())).max().unwrap_or(0)).unwrap_or(0);
+    let unified = prof.get("unified_memory").and_then(|u| u.as_bool()).unwrap_or(false);
+    let mut tuning = packs::tuning_for(cores, &gpus, compute, vram_mb, unified);
+    tuning.budget_mb = prof.get("budget_mb").and_then(|b| b.as_u64()).unwrap_or(0);
+    // what this machine measured about itself beats anything read off device names
+    tuning.device = std::fs::read_to_string("/var/lib/genesis/device.json").ok()
+        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+        .and_then(|v| v.get("device").and_then(|d| d.as_str()).map(|s| s.to_string()));
+    let yaml = packs::render_router_tuned(&cli.models_dir, 10001, tuning)?;
+    let same = std::fs::read_to_string(&cli.router_out).map(|old| old == yaml).unwrap_or(false);
+    if same {
+        tracing::info!("the router config already says what it should; leaving it alone");
+        return Ok(());
+    }
+    if let Some(d) = cli.router_out.parent() { std::fs::create_dir_all(d)?; }
+    std::fs::write(&cli.router_out, &yaml).with_context(|| format!("writing {}", cli.router_out.display()))?;
+    tracing::info!(path = %cli.router_out.display(), "the router config was rewritten for this machine");
+    let _ = std::process::Command::new("systemctl").args(["restart", "genesis-router.service"]).status();
+    Ok(())
+}
+
 fn main() -> Result<()> {
     tracing_subscriber::fmt().with_env_filter(tracing_subscriber::EnvFilter::from_default_env().add_directive("info".parse()?)).with_writer(std::io::stderr).init();
     let cli = Cli::parse();
+    if cli.render_router {
+        return render_router_now(&cli);
+    }
     if cli.done_marker.exists() {
         tracing::info!("first run already completed ({}); nothing to do", cli.done_marker.display());
         return Ok(());
