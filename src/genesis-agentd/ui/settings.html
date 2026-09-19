@@ -2,7 +2,9 @@
 <html lang="en"><head><meta charset="utf-8"><title>Genesis settings</title>
 <style>
 :root{--bg:#10161e;--panel:#161d27;--panel-2:#1d2631;--ink:#e6ebf1;--ink-2:#a9b4c1;--ink-3:#8894a3;--muted:#8b98a8;--line:#232c37;--accent:#5fb5bd;--accent-ink:#08181a;--good:#6ccf94;--warn:#e0a84a;--bad:#ef7b7b;--second:#8b7cf6;--mono:ui-monospace,Menlo,Consolas,monospace}
-  @media (prefers-color-scheme: light){:root{--bg:#f4f6f9;--panel:#ffffff;--panel-2:#eef2f6;--ink:#0f1720;--ink-2:#41505f;--ink-3:#5a6675;--muted:#5a6675;--line:#d9dfe7;--accent:#0f8d96;--accent-ink:#ffffff;--good:#1c8a4a;--warn:#b7791f;--bad:#b42318;--second:#6d5ce6}}
+  /* the window says which one, because a web view inside a Qt app guesses wrong */
+  :root[data-theme="light"]{--bg:#f4f6f9;--panel:#ffffff;--panel-2:#eef2f6;--ink:#0f1720;--ink-2:#41505f;--ink-3:#5a6675;--muted:#5a6675;--line:#d9dfe7;--accent:#0f8d96;--accent-ink:#ffffff;--good:#1c8a4a;--warn:#b7791f;--bad:#b42318;--second:#6d5ce6}
+  @media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--bg:#f4f6f9;--panel:#ffffff;--panel-2:#eef2f6;--ink:#0f1720;--ink-2:#41505f;--ink-3:#5a6675;--muted:#5a6675;--line:#d9dfe7;--accent:#0f8d96;--accent-ink:#ffffff;--good:#1c8a4a;--warn:#b7791f;--bad:#b42318;--second:#6d5ce6}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-size:14px}
 header{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel)}header b{font-size:15px}header .sp{flex:1}
 button,select{font:inherit;color:var(--ink);background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer}button.primary{background:var(--accent);border-color:var(--accent);color:#08181a;font-weight:600}
@@ -20,7 +22,8 @@ table{width:100%;border-collapse:collapse;font-size:13px}td,th{text-align:left;p
   .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:8px 0}
   .warn{color:var(--warn)}
-</style></head><body>
+</style>
+<script>try{var t=new URLSearchParams(location.search).get('theme');if(t)document.documentElement.dataset.theme=t}catch(e){}</script></head><body>
 <header><b>Genesis settings</b><span class="muted">Everything here is read from this computer.</span><span class="sp"></span><button id="back">Back to the maker</button></header>
 <main>
 <nav class="secnav" aria-label="Sections"><span class="grp">Machine</span><a href="#sec-updates">Updates</a><a href="#sec-machine">On this machine</a><a href="#sec-models">Models</a><span class="grp">Genesis</span><a href="#sec-quiet">When it speaks</a><a href="#sec-autonomy">How much it may do</a><a href="#sec-rules">Always / never</a><a href="#sec-tools">Tools</a><a href="#sec-files">Files it may search</a><a href="#sec-voice">Voice</a><a href="#sec-theme">Day / night</a><a href="#sec-claude">Claude</a><span class="grp">Phone</span><a href="#sec-phone">Phone</a><a href="#sec-app">Phone app</a><span class="grp">History</span><a href="#sec-activity">Activity</a><a href="#sec-data">What is kept</a><a href="#sec-undo">Undo history</a><a href="#sec-backup">Backup</a></nav>

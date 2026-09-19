@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026-09-19
+- The pages follow the desktop's dark or light setting; an empty box above the start page is gone (decision 142)
+
 Derived from the decision log (`docs/decisions.md`); one line per decision, newest first. Versions are 0.2.N on the stable channel; 0.1.N before 2026-09-15.
 
 ## 2026-09-18

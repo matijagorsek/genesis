@@ -2,7 +2,9 @@
 <html><head><meta charset="utf-8"><title>Genesis</title>
 <style>
 :root{--bg:#10161e;--panel:#161d27;--panel-2:#1d2631;--ink:#e6ebf1;--ink-2:#a9b4c1;--ink-3:#8894a3;--muted:#8b98a8;--line:#232c37;--accent:#5fb5bd;--accent-ink:#08181a;--good:#6ccf94;--warn:#e0a84a;--bad:#ef7b7b;--second:#8b7cf6;--mono:ui-monospace,Menlo,Consolas,monospace}
-  @media (prefers-color-scheme: light){:root{--bg:#f4f6f9;--panel:#ffffff;--panel-2:#eef2f6;--ink:#0f1720;--ink-2:#41505f;--ink-3:#5a6675;--muted:#5a6675;--line:#d9dfe7;--accent:#0f8d96;--accent-ink:#ffffff;--good:#1c8a4a;--warn:#b7791f;--bad:#b42318;--second:#6d5ce6}}
+  /* the window says which one, because a web view inside a Qt app guesses wrong */
+  :root[data-theme="light"]{--bg:#f4f6f9;--panel:#ffffff;--panel-2:#eef2f6;--ink:#0f1720;--ink-2:#41505f;--ink-3:#5a6675;--muted:#5a6675;--line:#d9dfe7;--accent:#0f8d96;--accent-ink:#ffffff;--good:#1c8a4a;--warn:#b7791f;--bad:#b42318;--second:#6d5ce6}
+  @media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--bg:#f4f6f9;--panel:#ffffff;--panel-2:#eef2f6;--ink:#0f1720;--ink-2:#41505f;--ink-3:#5a6675;--muted:#5a6675;--line:#d9dfe7;--accent:#0f8d96;--accent-ink:#ffffff;--good:#1c8a4a;--warn:#b7791f;--bad:#b42318;--second:#6d5ce6}}
 *{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-size:15px;overflow:hidden}
 .wrap{display:flex;flex-direction:column;gap:12px;padding:18px 20px;height:100%}
 .top{display:flex;align-items:center;gap:10px;color:var(--ink-3);font-size:12px}.top b{color:var(--ink);font-size:14px}.top .local{color:#6ccf94}
@@ -17,7 +19,8 @@ body.listening .wrap{box-shadow:inset 0 0 0 2px var(--accent),inset 0 0 40px rgb
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   .confirm{margin:6px 0;color:var(--warn,#f59e0b);font-size:13px}
   .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
-</style></head><body>
+</style>
+<script>try{var t=new URLSearchParams(location.search).get('theme');if(t)document.documentElement.dataset.theme=t}catch(e){}</script></head><body>
 <div class="wrap" role="dialog" aria-label="Ask Genesis">
   <div class="top"><b>Genesis</b><span class="local">● on this machine</span><span id="hint">Tell it what you want made, or what to do with this.</span></div>
   <div class="ask"><textarea id="q" aria-label="What do you want made or done" placeholder="a timer, a tool that renames my photos, a website for the club…" autofocus></textarea><button id="mic" class="mic" title="Hold to talk" aria-label="Hold to talk" hidden>🎤</button></div>

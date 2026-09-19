@@ -6,7 +6,9 @@
 <title>Welcome to Genesis</title>
 <style>
 :root{--bg:#10161e;--panel:#161d27;--panel-2:#1d2631;--ink:#e6ebf1;--ink-2:#a9b4c1;--ink-3:#8894a3;--muted:#8b98a8;--line:#232c37;--accent:#5fb5bd;--accent-ink:#08181a;--good:#6ccf94;--warn:#e0a84a;--bad:#ef7b7b;--second:#8b7cf6;--mono:ui-monospace,Menlo,Consolas,monospace}
-  @media (prefers-color-scheme: light){:root{--bg:#f4f6f9;--panel:#ffffff;--panel-2:#eef2f6;--ink:#0f1720;--ink-2:#41505f;--ink-3:#5a6675;--muted:#5a6675;--line:#d9dfe7;--accent:#0f8d96;--accent-ink:#ffffff;--good:#1c8a4a;--warn:#b7791f;--bad:#b42318;--second:#6d5ce6}}
+  /* the window says which one, because a web view inside a Qt app guesses wrong */
+  :root[data-theme="light"]{--bg:#f4f6f9;--panel:#ffffff;--panel-2:#eef2f6;--ink:#0f1720;--ink-2:#41505f;--ink-3:#5a6675;--muted:#5a6675;--line:#d9dfe7;--accent:#0f8d96;--accent-ink:#ffffff;--good:#1c8a4a;--warn:#b7791f;--bad:#b42318;--second:#6d5ce6}
+  @media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--bg:#f4f6f9;--panel:#ffffff;--panel-2:#eef2f6;--ink:#0f1720;--ink-2:#41505f;--ink-3:#5a6675;--muted:#5a6675;--line:#d9dfe7;--accent:#0f8d96;--accent-ink:#ffffff;--good:#1c8a4a;--warn:#b7791f;--bad:#b42318;--second:#6d5ce6}}
 *{box-sizing:border-box}
 html,body{height:100%}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans",sans-serif;font-size:15px;line-height:1.55}
@@ -70,6 +72,7 @@ section{display:none}section.active{display:block}
 .addr{display:flex;gap:8px;align-items:center;margin-top:8px}.addr input{background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:7px;padding:8px 10px;font:inherit;font-size:14px;width:200px}
   .tag.warn{border-color:#f59e0b;color:#f59e0b}
 </style>
+<script>try{var t=new URLSearchParams(location.search).get('theme');if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
 </head>
 <body>
 <div id="offline" hidden role="status" style="background:#3b2a0a;color:#f59e0b;padding:10px 16px;font-size:14px;text-align:center">This computer is not online yet. Connect to Wi-Fi from the network icon in the panel at the bottom right, then come back here; the models need a download.</div>

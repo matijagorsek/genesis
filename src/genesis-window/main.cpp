@@ -12,6 +12,7 @@
 #include <QProcess>
 #include <QTimer>
 #include <QUrl>
+#include <QUrlQuery>
 #include <QWebEngineProfile>
 #include <QWebEngineSettings>
 #include <QWebEngineView>
@@ -42,6 +43,25 @@ public:
 private:
     QByteArray token;
 };
+
+/// Dark or light, as the desktop has it: a web view inside a Qt app reports the Qt palette, which is not
+/// the Plasma colour scheme, so it rendered light pages on a dark desktop. The pages take it from the URL.
+static QString desktopTheme() {
+    const QString home = qEnvironmentVariable("HOME");
+    for (const QString &f : {home + "/.config/kdedefaults/kdeglobals", home + "/.config/kdeglobals"}) {
+        QFile g(f);
+        if (!g.open(QIODevice::ReadOnly | QIODevice::Text)) continue;
+        const QString text = QString::fromUtf8(g.readAll());
+        for (const QString &key : {QStringLiteral("ColorScheme="), QStringLiteral("LookAndFeelPackage=")}) {
+            const int at = text.indexOf(key);
+            if (at < 0) continue;
+            const QString value = text.mid(at + key.size(), 60).section('\n', 0, 0).toLower();
+            if (value.contains("dark")) return QStringLiteral("dark");
+            if (!value.isEmpty()) return QStringLiteral("light");
+        }
+    }
+    return QStringLiteral("dark");  // Genesis ships dark
+}
 
 static QByteArray agentdToken() {
     QString dir = qEnvironmentVariable("XDG_RUNTIME_DIR");
@@ -106,6 +126,11 @@ int main(int argc, char **argv) {
         view->page()->setFeaturePermission(o, f, (f == QWebEnginePage::MediaAudioCapture && o.host() == "127.0.0.1") ? QWebEnginePage::PermissionGrantedByUser : QWebEnginePage::PermissionDeniedByUser);
     });
 #endif
+    {   // hand the page the desktop's own answer
+        QUrl u(url);
+        QUrlQuery q(u.query());
+        if (!q.hasQueryItem("theme")) { q.addQueryItem("theme", desktopTheme()); u.setQuery(q); url = u.toString(); }
+    }
     view->page()->profile()->setUrlRequestInterceptor(new TokenInterceptor(agentdToken(), win));
     view->load(QUrl(url));
     win->setCentralWidget(view);
