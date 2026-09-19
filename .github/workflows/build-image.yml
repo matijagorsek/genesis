@@ -67,6 +67,36 @@ jobs:
           for page in src/genesis-agentd/ui/*.html; do grep -q "__GENESIS_JS__" "$page" || { echo "::error::$page lost its script placeholder"; exit 1; }; done
           node --check system_files/usr/share/genesis/babel/extension/extension.js
           for j in packs/*.json templates/*/genesis.json system_files/usr/share/genesis/*.json system_files/usr/share/genesis/mcp/*.json; do python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$j"; done
+          # Every model a pack names must still exist. The CPU pack carried a repo that had become a 401,
+          # and nothing noticed until someone chose that pack on a real machine and the whole download
+          # failed on the first call. One HEAD per repo, deduplicated.
+          python3 - <<'PYCHECK'
+          import glob, json, sys, urllib.request
+          repos = {}
+          for f in sorted(glob.glob("packs/*.json")):
+              if f.endswith("schema.json"):
+                  continue
+              d = json.load(open(f))
+              for m in d["models"]:
+                  repos.setdefault(m["repo"], []).append(f"{d['id']}/{m['role']}")
+          dead = []
+          for repo, used in sorted(repos.items()):
+              url = f"https://huggingface.co/api/models/{repo}"
+              try:
+                  with urllib.request.urlopen(url, timeout=30) as r:
+                      code = r.status
+              except urllib.error.HTTPError as e:
+                  code = e.code
+              except Exception as e:
+                  print(f"  ?? {repo}: {e}")
+                  continue
+              print(f"  {code} {repo}")
+              if code != 200:
+                  dead.append(f"{repo} ({code}), named by {', '.join(used)}")
+          for d in dead:
+              print(f"::error::a pack names a model that cannot be fetched: {d}")
+          sys.exit(1 if dead else 0)
+          PYCHECK
 
       - name: Python tool tests (index, Ollama shim, system server)
         run: |

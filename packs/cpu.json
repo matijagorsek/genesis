@@ -5,7 +5,7 @@
     "gpu": "none",
     "min_ram_gb": 16
   },
-  "disk_gb": 12.5,
+  "disk_gb": 12.94,
   "models": [
     {
       "role": "fast",
@@ -84,13 +84,13 @@
     {
       "role": "fim",
       "name": "Qwen2.5-Coder-1.5B",
-      "repo": "Qwen/Qwen2.5-Coder-1.5B-GGUF",
+      "repo": "ggml-org/Qwen2.5-Coder-1.5B-Q8_0-GGUF",
       "include": [
-        "*q4_k_m*.gguf"
+        "*q8_0*.gguf"
       ],
       "license": "Apache-2.0",
       "tier": "main",
-      "size_gb": 1.1
+      "size_gb": 1.65
     }
   ]
 }
