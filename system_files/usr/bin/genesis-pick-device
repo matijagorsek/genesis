@@ -1,0 +1,110 @@
+#!/usr/bin/python3
+"""genesis-pick-device: ask this machine which way of running a model is fastest, instead of guessing.
+
+  genesis-pick-device [--model FILE] [--threads N] [--seconds N] [--json]
+
+Genesis used to decide whether to put a model on the GPU by looking at names and flags: is the device
+called virtio, does it claim to be ready for compute. The first real laptop answered "yes, a real GPU"
+with an Intel HD 530 that has no memory of its own — llama.cpp crashed on a 4B model, and merely leaving
+the device registered while offloading nothing cost twenty-three times the speed (0.32 tokens a second
+against 7.55). No table of device names would have caught that, and the next unknown chip would break it
+again.
+
+So this measures. It generates a few tokens with the GPU devices taken away, and again on each device the
+machine offers, and keeps the fastest arrangement that did not crash. A crash or a hang is an answer too:
+that device is out. The result is the flags the model service should run with, which is the same question
+for a 2015 laptop, a 4090, an Arc card or something nobody has tried yet.
+"""
+import argparse, glob, json, os, re, subprocess, sys
+
+LLAMA = os.environ.get("GENESIS_LLAMA", "/usr/lib/genesis/llama.cpp")
+MODELS = os.environ.get("GENESIS_MODELS", "/var/lib/genesis/models")
+
+
+def smallest_model():
+    """The cheapest model on disk to measure with: the answer is about the machine, not the model."""
+    files = [f for r in ("fim", "fast", "embed", "code", "chat") for f in glob.glob(os.path.join(MODELS, r, "*.gguf"))]
+    files = [f for f in files if "mmproj" not in os.path.basename(f)]
+    return min(files, key=os.path.getsize) if files else None
+
+
+def devices():
+    """Every device llama.cpp can see, by the id it wants on the command line."""
+    try:
+        out = subprocess.run([f"{LLAMA}/llama-bench", "--list-devices"], capture_output=True, text=True, timeout=120).stdout
+    except Exception as e:
+        print(f"could not list devices: {e}", file=sys.stderr)
+        return []
+    return re.findall(r"^\s{2}(\w+\d+):", out, re.M)
+
+
+def measure(model, dev, threads, seconds):
+    """Tokens a second generating on this arrangement. None means it crashed, hung, or said nothing."""
+    ngl = "0" if dev == "none" else "99"
+    cmd = [f"{LLAMA}/llama-bench", "-m", model, "-t", str(threads), "-dev", dev, "-ngl", ngl,
+           "-p", "32", "-n", "16", "-r", "1", "-o", "json"]
+    try:
+        p = subprocess.run(cmd, capture_output=True, text=True, timeout=seconds)
+    except subprocess.TimeoutExpired:
+        return None, "took longer than the time allowed"
+    if p.returncode != 0:
+        why = "ran out of memory on the device" if "OutOfDeviceMemory" in p.stderr else f"exited {p.returncode}"
+        return None, why
+    try:
+        rows = json.loads(p.stdout)
+    except ValueError:
+        return None, "produced no measurement"
+    tg = [r for r in rows if r.get("n_gen")]
+    if not tg:
+        return None, "produced no generation measurement"
+    return float(tg[0]["avg_ts"]), ""
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--model", default=None)
+    ap.add_argument("--threads", type=int, default=max(1, (os.cpu_count() or 4) - 2))
+    ap.add_argument("--seconds", type=int, default=180, help="time allowed for each arrangement")
+    ap.add_argument("--json", action="store_true")
+    a = ap.parse_args(argv)
+
+    model = a.model or smallest_model()
+    if not model:
+        print("no model on disk to measure with; run this after the first model has downloaded", file=sys.stderr)
+        return 2
+
+    tried = []
+    for dev in ["none"] + devices():
+        tps, why = measure(model, dev, a.threads, a.seconds)
+        tried.append({"device": dev, "tokens_per_second": tps, "why_not": why})
+        where = "the CPU alone" if dev == "none" else dev
+        print(f"  {where:<12} {f'{tps:.2f} tokens/second' if tps else why}", file=sys.stderr)
+
+    ok = [t for t in tried if t["tokens_per_second"]]
+    if not ok:
+        best = {"device": "none", "tokens_per_second": None}
+    else:
+        best = max(ok, key=lambda t: t["tokens_per_second"])
+    # a device has to be meaningfully faster to be worth the memory it takes and the ways it can fail
+    cpu = next((t["tokens_per_second"] for t in tried if t["device"] == "none"), None)
+    if best["device"] != "none" and cpu and best["tokens_per_second"] < cpu * 1.15:
+        best = {"device": "none", "tokens_per_second": cpu}
+
+    result = {
+        "device": best["device"],
+        "ngl": 0 if best["device"] == "none" else 99,
+        "flags": "-ngl 0 -dev none" if best["device"] == "none" else f"-ngl 99 -dev {best['device']}",
+        "tokens_per_second": best["tokens_per_second"],
+        "threads": a.threads,
+        "model": os.path.basename(model),
+        "tried": tried,
+    }
+    if a.json:
+        print(json.dumps(result, indent=1))
+    else:
+        print(result["flags"])
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

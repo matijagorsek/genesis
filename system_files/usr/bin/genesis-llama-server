@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# genesis-llama-server: start llama-server, and if it dies because of the GPU, start it again without one.
+#
+# The router's config names a device because genesis-pick-device measured it as the fastest. Hardware does
+# not always keep its promises: a driver update, a second model already holding the memory, a card that
+# reported 11.9 GB and ran out at 2.5. When that happens the person should get a slower assistant, not a
+# broken one — the first real laptop crashed with vk::OutOfDeviceMemoryError and simply had no maker at all.
+#
+# Used in place of llama-server in the generated router config. Everything is passed through untouched.
+set -uo pipefail
+LLAMA=${GENESIS_LLAMA:-/usr/lib/genesis/llama.cpp}/llama-server
+log=$(mktemp /tmp/genesis-llama.XXXXXX)
+trap 'rm -f "$log"' EXIT
+
+"$LLAMA" "$@" 2> >(tee -a "$log" >&2)
+rc=$?
+# a clean stop, or a failure that has nothing to do with the GPU: leave it alone
+[ $rc -eq 0 ] && exit 0
+grep -qiE "OutOfDeviceMemory|vk::|ErrorDeviceLost|failed to allocate.*(device|vulkan)|ggml_vulkan.*error" "$log" || exit $rc
+
+# strip the device selection and the offload, and say so where a person will find it
+args=(); skip=0
+for a in "$@"; do
+  if [ $skip -eq 1 ]; then skip=0; continue; fi
+  case "$a" in
+    -dev|--device|-ngl|--n-gpu-layers|--gpu-layers) skip=1; continue;;
+  esac
+  args+=("$a")
+done
+echo "genesis: the GPU failed while loading a model, so this one runs on the CPU instead. Run 'sudo genesis-pick-device --json' to measure this machine again." >&2
+exec "$LLAMA" "${args[@]}" -ngl 0 -dev none
