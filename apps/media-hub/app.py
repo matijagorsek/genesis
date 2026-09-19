@@ -73,18 +73,48 @@ def ensure_profile():
     return PROFILE
 
 
+def no_desktop():
+    """Started without a desktop to open windows on — over SSH, or from a service with no session.
+
+    Firefox's own words for this are "Error: no DISPLAY environment variable specified", which tells
+    somebody who just pressed Netflix nothing at all.
+    """
+    if os.environ.get("WAYLAND_DISPLAY") or os.environ.get("DISPLAY"):
+        return None
+    return ("Media is not attached to a desktop, so it cannot open a window. Start it from the "
+            "application menu, or from a terminal on this machine rather than over SSH.")
+
+
 def open_service(url):
+    blocked = no_desktop()
+    if blocked:
+        return False, blocked
     firefox = shutil.which("firefox")
     if not firefox:
         return False, "Firefox is not installed, and it is what handles the DRM these services need."
     p = ensure_profile()
-    # --no-remote with an explicit profile keeps this separate from the browser you use for everything else
-    cmd = [firefox, "--no-remote", "--profile", p, "--new-window", url]
-    subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    # No --no-remote. This profile is almost always already open — it is where this page is being read —
+    # and --no-remote refuses to speak to a running instance, so a second one dies at once and pressing a
+    # service did nothing at all. Naming the profile is enough: a window for it opens in the instance that
+    # already has it, which is the point of keeping every login in one place.
+    cmd = [firefox, "--profile", p, "--new-window", url]
+    proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, start_new_session=True)
+    # Firefox that cannot start says so within a moment and exits; one that worked is still running. Either
+    # way the person hears back, instead of pressing a tile and watching nothing happen.
+    try:
+        _, err = proc.communicate(timeout=2.5)
+        if proc.returncode != 0:
+            msg = (err or b"").decode("utf-8", "ignore").strip().splitlines()
+            return False, "Firefox could not open it: " + (msg[-1] if msg else f"it stopped with code {proc.returncode}")
+    except subprocess.TimeoutExpired:
+        pass  # still running, which is what a window being open looks like
     return True, ""
 
 
 def play(url):
+    blocked = no_desktop()
+    if blocked:
+        return False, blocked
     for player in ("haruna", "mpv", "vlc"):
         exe = shutil.which(player)
         if exe:

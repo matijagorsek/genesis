@@ -17,8 +17,10 @@ async function loadServices() {
     b.querySelector("b").textContent = s.name;
     b.querySelector("small").textContent = s.drm ? "needs Widevine" : "plays without DRM";
     b.onclick = async () => {
+      b.querySelector("small").textContent = "opening…";
       const { data } = await api("/api/open", { id: s.id });
-      if (data.error) say("iptv-msg", data.error);
+      b.querySelector("small").textContent = s.drm ? "needs Widevine" : "plays without DRM";
+      say("service-msg", data.error || "", data.error ? "bad" : "ok");
     };
     $("tiles").appendChild(b);
   }

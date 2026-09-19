@@ -78,3 +78,18 @@ def test_every_service_is_a_real_https_address():
     for s in mh.SERVICES:
         assert s["url"].startswith("https://"), s
         assert s["name"] and s["colour"].startswith("#")
+
+
+def test_without_a_desktop_it_says_so_in_words_a_person_can_act_on(monkeypatch):
+    """Firefox says "no DISPLAY environment variable specified", which helps nobody who pressed Netflix."""
+    mh = load()
+    monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
+    monkeypatch.delenv("DISPLAY", raising=False)
+    ok, why = mh.open_service("https://example.com")
+    assert not ok
+    assert "not attached to a desktop" in why and "application menu" in why
+    ok, why = mh.play("http://example.com/s.m3u8")
+    assert not ok and "not attached to a desktop" in why
+    # and with a desktop it gets as far as looking for the browser
+    monkeypatch.setenv("WAYLAND_DISPLAY", "wayland-0")
+    assert mh.no_desktop() is None
