@@ -38,6 +38,7 @@ How Genesis got here, in the order it happened. The decision log has the detail 
 | 5. Babel and day two | 15 to 16 Sep | The IDE with the maker at its side and language servers and debuggers in the box; recipes, backup and moving, the weekly canary, German and Slovenian, a screen-reader pass. |
 | 6. Back to the brief | 16 Sep | The gaps against the original brief closed: inline completion in Babel from the local model, MCP servers as the extension point with a system-administrator server, a kept and searchable chat that reads documents, search by meaning, the plan card before a job, an Ollama-compatible door, and a weekly ten-make evaluation. |
 | 7. The review, answered | 17-18 Sep | Two audits and a product review, then the work they asked for: Stop, one door for asking and making, one design system with a light theme, plain words instead of internals, what is kept about you and how to delete it, model management, project lifecycle, file pickers, a testing channel promoted to stable by the nightly canary, tests for the Python tools and the page scripts, and seven of ten new ideas (right-click a file, terminal rescue, undo from the panel, clipboard transforms, screenshot to app, a key for a made app, the morning card read aloud). |
+| 8. What the machine makes possible | 19 Sep | Two investigations into what else could be delivered found three faults in the week's own work first: a shipped template test no correct program could pass, a context trimmer that made the model re-read the conversation every turn, and an evaluation that scored completion rather than correctness with no fixed seed. Fixed, then built: read the selection aloud, write down what is said in any recording (with subtitles), undo an app install from the panel, a job that survives the lid, three questions the computer answers about itself, an honest "I could not find that", and four changes aimed at the small model. |
 | Next | | Real hardware. See [ROADMAP.md](ROADMAP.md). |
 
 ## What works today (0.2)
@@ -47,7 +48,9 @@ How Genesis got here, in the order it happened. The decision log has the detail 
   back and updates it to today's `testing` image; only a green canary moves `stable`, the channel installed
   machines follow, so no push reaches a user's machine unseen. `bootc switch …:testing` follows every build.
   A weekly evaluation runs ten small makes on the tiny pack in a fresh VM and scores them, so a change
-  to the prompts or tools shows as a number ([eval.yml](.github/workflows/eval.yml)); 9 of 10 on 17 Sep.
+  to the prompts or tools shows as a number ([eval.yml](.github/workflows/eval.yml)). It runs with a fixed
+  seed and scores two things apart: whether a make finished, and whether what it made is what was asked
+  for. 10 of 10 finished on 0.2.200; the first run under the stricter correctness check is pending.
 - **Complete desktop**: KDE Plasma 6 with Firefox, Dolphin, Konsole, Kate, Okular, Gwenview, Haruna,
   Elisa, KCalc, Discover (Flatpak), Ark, Spectacle, System Monitor as RPMs; LibreOffice, Thunderbird,
   VLC, GIMP, Krita preinstalled as Flatpaks once online. Genesis identity: Genesis Dark colour scheme,
@@ -86,6 +89,11 @@ How Genesis got here, in the order it happened. The decision log has the detail 
 - **One door, two answers**: `Meta+Space` sends a request to make something to the maker and a question to
   chat; `Stop` ends a job within a second and kills everything it started; the dock widget says what is
   running and what changed last, and undoes it in one click.
+- **Read and listen**: `Meta+Shift+R` reads the selection aloud in your language; right-click a recording
+  or a video and Genesis writes down what is said, with subtitles, next to the file. Both run on the
+  smallest machine, before any large model is downloaded.
+- **It says when it does not know**: a search of your own files that finds nothing is answered with that,
+  not with something the model remembers.
 - **Yours to see and delete**: Settings lists every place Genesis keeps something, with its size and a
   delete button; voice audio is never kept.
 - **Ollama-compatible door** on `127.0.0.1:11434` (`genesis-ollama`): apps and editors that speak Ollama's
