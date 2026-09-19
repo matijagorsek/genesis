@@ -83,7 +83,20 @@ jobs:
           echo "--- disk after the upgrade (the root should have grown into the resized disk):"; vm 'df -h / /var 2>/dev/null; lsblk -o NAME,SIZE,MOUNTPOINTS 2>/dev/null | head -8; echo genesis | sudo -S journalctl -b -1 -u genesis-growpart -u bootc-generic-growpart --no-pager 2>/dev/null | tail -6; echo "--- this boot:"; sudo journalctl -b -u genesis-growpart -u bootc-generic-growpart --no-pager 2>/dev/null | tail -6' || true
           ok=$(grep -c "^  ok" check.txt || echo 0)
           fails=$(grep FAIL check.txt || true)
-          wizard=$(vm 'curl -s -m 20 127.0.0.1:11510/api/state | grep --color=never -o recommended_pack | head -1' || true)
+          # The wizard starts after the network is up and the hardware probe has run, so asking it once the
+          # moment a machine finishes rebooting is a race — and losing that race held the stable tag for a
+          # day while the upgrade itself had worked perfectly. Wait for it, and if it never answers, say
+          # why before the machine is powered off: a canary that only reports "silent" cannot be acted on.
+          wizard=""
+          for i in $(seq 1 18); do
+            wizard=$(vm 'curl -s -m 10 127.0.0.1:11510/api/state | grep --color=never -o recommended_pack | head -1' 2>/dev/null || true)
+            [ -n "$wizard" ] && { echo "the wizard answered after $(( i * 5 ))s"; break; }
+            sleep 5
+          done
+          if [ -z "$wizard" ]; then
+            echo "--- the wizard never answered; what the machine says about it:"
+            vm 'systemctl is-active genesis-firstrun genesis-probe 2>&1 | paste -sd" " -; echo genesis | sudo -S systemctl status genesis-firstrun --no-pager 2>/dev/null | head -12; echo "--- its log:"; echo genesis | sudo -S journalctl -u genesis-firstrun --no-pager -n 25 2>/dev/null; echo "--- is first run already done (the wizard does not run then):"; ls -l /var/lib/genesis/first-run-done 2>&1 | head -1; echo "--- listening:"; ss -ltn 2>/dev/null | grep 11510 || echo "nothing on 11510"' || true
+          fi
           vm 'echo genesis | sudo -S systemctl poweroff' >/dev/null 2>&1 || true
           sleep 10; kill $QEMU 2>/dev/null || true
           echo "self-check: $ok ok; failures: ${fails:-none}; wizard: ${wizard:-silent}"
