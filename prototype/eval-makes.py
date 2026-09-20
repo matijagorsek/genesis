@@ -148,6 +148,17 @@ def main(argv):
     rows = []
     mine = MAKES[:only][shard::of]
     if of > 1: print(f"shard {shard} of {of}: {', '.join(n for n, _ in mine)}", file=sys.stderr, flush=True)
+
+    def save():
+        """Write what is known so far. A run of ten makes on a slow machine takes hours, and until now it
+        wrote nothing until the last one finished — so a crash, a timeout or an interrupted run left no
+        record of the nine that had worked, and nobody could see how it was going while it went."""
+        p = sum(1 for r in rows if r.get("passed"))
+        json.dump({"model": health.get("model"), "at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                   "passed": p, "total": len(rows), "of_planned": len(mine), "makes": rows},
+                  open(out, "w"), indent=1)
+
+    save()
     for name, prompt in mine:
         print(f"== {name}: {prompt}", file=sys.stderr, flush=True)
         try:
@@ -155,9 +166,9 @@ def main(argv):
         except Exception as e:
             rows.append({"name": name, "prompt": prompt, "state": "crash", "error": str(e), "passed": False, "writes": 0, "turns": 0, "seconds": 0, "tool_calls": 0, "tool_errors": 0, "preview": False, "summary": ""})
         print(f"   {rows[-1]['state']} writes={rows[-1]['writes']} turns={rows[-1]['turns']} {rows[-1]['seconds']}s", file=sys.stderr, flush=True)
+        save()  # after every make, so an interrupted run still says what it learned
     passed = sum(1 for r in rows if r.get("passed"))
-    result = {"model": health.get("model"), "at": time.strftime("%Y-%m-%dT%H:%M:%S"), "passed": passed, "total": len(rows), "makes": rows}
-    json.dump(result, open(out, "w"), indent=1)
+    save()
     finished = sum(1 for r in rows if r.get("finished"))
     print(f"## Ten makes on `{health.get('model')}`: **{passed}/{len(rows)} passed** ({finished} finished, {passed} of those look right)\n")
     print("| make | result | files written | turns | tool errors | preview | time | memory left |")

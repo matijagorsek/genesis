@@ -52,6 +52,33 @@ for n in p.get("notes", []):
   echo "models on disk:"; du -sh /var/lib/genesis/*/ 2>/dev/null | sed 's/^/  /' || echo "  none"
 } | code
 
+say "What this machine measured about itself"
+# The answer to "why is it slow" lives here more often than anywhere else: what was measured, what was
+# rejected and why. Without it a hardware report says the GPU is idle and cannot say whether that was a
+# decision or a failure.
+{ if [ -s /var/lib/genesis/device.json ]; then
+    python3 -c '
+import json
+d = json.load(open("/var/lib/genesis/device.json"))
+print("chose:", d.get("flags"), " at", "%.2f" % (d.get("tokens_per_second") or 0), "tokens/second")
+print("measured with:", d.get("model"), "on", d.get("threads"), "threads")
+for t in d.get("tried", []):
+    tps = t.get("tokens_per_second")
+    where = "the CPU alone" if t["device"] == "none" else t["device"]
+    print("  %-14s %s" % (where, ("%.2f tokens/second" % tps) if tps else t.get("why_not", "no result")))
+' 2>&1
+  else
+    echo "this machine has not been measured yet (no /var/lib/genesis/device.json)"
+    echo "run: sudo genesis-pick-device --json"
+  fi
+  echo
+  echo "is the config current for the image now booted?"
+  now=$(. /usr/lib/os-release; echo "$IMAGE_VERSION")
+  was=$(cat /var/lib/genesis/router-written-for 2>/dev/null || echo "not recorded")
+  if [ "$now" = "$was" ]; then echo "  yes: written for $now"
+  else echo "  no: written for $was, booted $now — it is rewritten at the next boot"; fi
+} | code
+
 say "Is the GPU actually used"
 # a model that quietly runs on the CPU is the failure this section exists to catch
 { grep -iE 'vulkan|rocm|cuda|offloaded|using device|buffer size' <(journalctl -u genesis-router --no-pager -n 400 2>/dev/null) | tail -14 || echo "no router log lines"

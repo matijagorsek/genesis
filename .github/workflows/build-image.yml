@@ -68,6 +68,15 @@ jobs:
           node --check system_files/usr/share/genesis/babel/extension/extension.js
           for j in apps/*/static/*.js; do node --check "$j"; done
           for p in apps/*/app.py; do python3 -c "import ast,sys; ast.parse(open(sys.argv[1]).read())" "$p"; done
+          # Every shell script in the image, checked. Five of the faults found on the first real machine
+          # were shell code where a decision rested on whether a command had run rather than on what it
+          # said — an `ls` on an empty directory read as success, a `curl` against a 503 read as ready,
+          # a `skopeo copy` behind an `&&` that failed in silence. shellcheck does not catch all of that
+          # shape, but it catches enough of it, and it costs nothing to have it watching from now on.
+          sudo apt-get install -y -q shellcheck >/dev/null
+          mapfile -t scripts < <(find system_files -type f -exec sh -c 'head -1 "$1" | grep -qE "^#!.*(bash|sh)" && echo "$1"' _ {} \;)
+          echo "checking ${#scripts[@]} shell scripts"
+          shellcheck -S warning "${scripts[@]}" || { echo "::error::shellcheck found something worth fixing in a shipped script"; exit 1; }
           for j in packs/*.json templates/*/genesis.json apps/*/genesis.json system_files/usr/share/genesis/*.json system_files/usr/share/genesis/mcp/*.json; do python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$j"; done
           # Every model a pack names must still exist. The CPU pack carried a repo that had become a 401,
           # and nothing noticed until someone chose that pack on a real machine and the whole download
