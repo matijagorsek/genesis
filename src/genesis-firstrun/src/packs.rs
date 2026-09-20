@@ -283,11 +283,22 @@ pub fn render_router_tuned(models_dir: &Path, port_base: u16, t: Tuning) -> Resu
     // model stayed loaded while the 9B coder (8.9 GB) came up beside them: 13.8 GB resident on a 15.5 GB
     // machine, and it swapped. Measured from the files that are actually on this disk, not the sizes a
     // pack claims, because a pack can be edited and a download can be partial.
-    let on_disk = |roles: &[&str]| -> u64 {
-        roles.iter().filter_map(|r| find(r, false)).filter_map(|f| std::fs::metadata(&f).ok()).map(|m| m.len()).sum::<u64>() / (1024 * 1024)
+    // What a model costs in memory is its weights plus its cache, and the cache is not a fixed share of
+    // the weights: measured on the first real laptop, the 4B at 16k context took 1.26 times its file, the
+    // 9B at 8k took 1.64, and the 1.5B at 4k took 1.05 — 0.021 to 0.420 MB a token, a twentyfold spread,
+    // because a KV cache is sized by layers and heads rather than by bytes on disk. Predicting it properly
+    // means reading the model's own metadata, which is worth doing and is not this change.
+    //
+    // Until then, the two mistakes are not equal. Reserving too much costs a reload, which is seconds.
+    // Reserving too little costs swapping, which is what this machine did: three models resident, 13.8 GB
+    // on a 15.5 GB laptop, a gigabyte in swap and every answer crawling. So take the worst ratio seen and
+    // err towards putting a model away.
+    let memory_for = |roles: &[&str]| -> u64 {
+        let bytes: u64 = roles.iter().filter_map(|r| find(r, false)).filter_map(|f| std::fs::metadata(&f).ok()).map(|m| m.len()).sum();
+        (bytes / (1024 * 1024)) * 17 / 10
     };
-    let hot_mb = on_disk(&hot);
-    let biggest_mb = big.iter().map(|r| on_disk(&[r])).max().unwrap_or(0);
+    let hot_mb = memory_for(&hot);
+    let biggest_mb = big.iter().map(|r| memory_for(&[r])).max().unwrap_or(0);
     // a fifth over the budget is where it starts costing more than it saves; under that, holding is better
     let fits_together = t.budget_mb == 0 || hot_mb + biggest_mb <= t.budget_mb * 6 / 5;
     y.push_str("groups:\n");
@@ -299,7 +310,7 @@ pub fn render_router_tuned(models_dir: &Path, port_base: u16, t: Tuning) -> Resu
         y.push_str(&format!("  big:\n    swap: true\n    exclusive: {}\n    members: [ {} ]\n", !fits_together, big.join(", ")));
     }
     if !fits_together {
-        y.push_str(&format!("# {} MB of always-loaded models plus {} MB for the largest is more than this machine's {} MB budget,\n# so the big models take the small ones' place instead of sitting beside them.\n", hot_mb, biggest_mb, t.budget_mb));
+        y.push_str(&format!("# {} MB for the always-loaded models plus {} MB for the largest (weights and cache) is more\n# than this machine's {} MB budget, so the big models take the small ones' place rather than sit beside\n# them and push it into swap.\n", hot_mb, biggest_mb, t.budget_mb));
     }
     Ok(y)
 }
@@ -362,8 +373,8 @@ mod tests {
         write("fast", 64);
         write("code", 192);
 
-        // budget big enough for both: they sit beside each other and nothing is ever unloaded
-        let roomy = render_router_tuned(dir.path(), 10001, Tuning { threads: 4, ngl: 0, budget_mb: 1024, device: None }).unwrap();
+        // budget big enough for both, allowing for the cache each one carries: they sit beside each other
+        let roomy = render_router_tuned(dir.path(), 10001, Tuning { threads: 4, ngl: 0, budget_mb: 2048, device: None }).unwrap();
         assert!(roomy.contains("persistent: true"), "{}", roomy);
         assert!(roomy.contains("exclusive: false"), "{}", roomy);
 
@@ -372,7 +383,22 @@ mod tests {
         let tight = render_router_tuned(dir.path(), 10001, Tuning { threads: 4, ngl: 0, budget_mb: 200, device: None }).unwrap();
         assert!(tight.contains("persistent: false"), "the small model does not stay loaded: {}", tight);
         assert!(tight.contains("  big:\n    swap: true\n    exclusive: true"), "loading the coder puts it away: {}", tight);
-        assert!(tight.contains("is more than this machine"), "and the config says why: {}", tight);
+        assert!(tight.contains("MB budget") && tight.contains("weights and cache"), "and the config says why: {}", tight);
+
+        // The first real laptop, with its actual files and budget: 2613 MB of assistant and 5417 MB of
+        // coder, which measured 3288 and 8857 resident, against a 9520 MB budget. It swapped. The rule
+        // has to say no to this.
+        let d2 = tempfile::tempdir().unwrap();
+        let mb = |role: &str, n: usize| {
+            std::fs::create_dir_all(d2.path().join(role)).unwrap();
+            let mut f = std::fs::File::create(d2.path().join(role).join("m.gguf")).unwrap();
+            f.write_all(&vec![0u8; n * 1024 * 1024]).unwrap();
+        };
+        mb("fast", 2613);
+        mb("code", 5417);
+        let laptop = render_router_tuned(d2.path(), 10001, Tuning { threads: 6, ngl: 0, budget_mb: 9520, device: None }).unwrap();
+        assert!(laptop.contains("persistent: false"), "the assistant must not stay loaded beside the coder: {}", laptop);
+        assert!(laptop.contains("exclusive: true"), "{}", laptop);
 
         // a machine that never reported a budget keeps the old behaviour rather than guessing
         let unknown = render_router_tuned(dir.path(), 10001, Tuning { threads: 4, ngl: 0, budget_mb: 0, device: None }).unwrap();
