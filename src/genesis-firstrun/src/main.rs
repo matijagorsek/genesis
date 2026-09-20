@@ -361,6 +361,17 @@ fn main() -> Result<()> {
         tracing::info!("first run already completed ({}); nothing to do", cli.done_marker.display());
         return Ok(());
     }
+    // A machine can be completely set up and never marked as such: the marker is written when the last
+    // page of the wizard is reached, and a person who closes the window once their models have downloaded
+    // never reaches it. That machine has its models and its router config and is ready to use — and the
+    // wizard would offer to set it up again at every boot for the rest of its life. Setting up is what
+    // finishing means, so a machine that is set up is finished.
+    if cli.router_out.exists() && cli.models_dir.join("fast").is_dir() {
+        if let Some(d) = cli.done_marker.parent() { std::fs::create_dir_all(d)?; }
+        std::fs::write(&cli.done_marker, format!("{}\n", now()))?;
+        tracing::info!("this machine has its models and its router config already; marking first run complete rather than offering to do it again");
+        return Ok(());
+    }
     let server = Server::http(&cli.listen).map_err(|e| anyhow::anyhow!("listen {}: {}", cli.listen, e))?;
     tracing::info!(listen = %cli.listen, "genesis-firstrun serving the wizard");
     let exit_on_finish = cli.exit_on_finish;

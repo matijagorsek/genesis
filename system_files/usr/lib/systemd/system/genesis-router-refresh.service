@@ -1,9 +1,11 @@
 [Unit]
 Description=Genesis: rewrite the router config when the image has changed under it
 Documentation=https://github.com/matijagorsek/genesis
-# Only on a machine that has already been through first run. A machine that has not will get its config
-# from the wizard, which does it better because it also chooses the pack.
-ConditionPathExists=/var/lib/genesis/first-run-done
+# The precondition is that there is a config to refresh, not that a marker was written. Keying on the
+# first-run marker looked equivalent and is not: a machine whose models were downloaded but whose wizard
+# was never finished has a complete, working setup and no marker — and skipped this entirely, which is
+# exactly the machine that most needed it. A machine with no config yet will get one from the wizard.
+ConditionPathExists=/etc/genesis/router.yaml
 After=genesis-probe.service network-online.target
 Before=genesis-router.service
 
