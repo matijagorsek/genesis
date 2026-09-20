@@ -16,7 +16,12 @@ has_user() {
 
 has_user && exit 0
 
-exec </dev/tty1 >/dev/tty1 2>&1
+# The service hands this the console, but a machine without /dev/tty1 — a serial-only install, a
+# container — must not have the script die on the redirection itself. Take the console when it is there
+# and carry on with what was given otherwise.
+if [ -c /dev/tty1 ] && [ -r /dev/tty1 ] && [ -w /dev/tty1 ]; then
+  exec </dev/tty1 >/dev/tty1 2>&1
+fi
 cat <<'TXT'
 
   ────────────────────────────────────────────────────────────────
