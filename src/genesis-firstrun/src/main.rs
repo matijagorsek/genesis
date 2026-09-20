@@ -226,30 +226,6 @@ fn handle(app: &Arc<App>, mut req: Request) -> Result<bool> {
                                 let _ = std::process::Command::new("systemctl").args(["restart", "genesis-router.service"]).status();
                                 Ok(())
                             });
-                            // Measure this machine once, in the background, and render again with the answer.
-                            // It takes a couple of minutes and nobody should wait for it: the assistant works
-                            // from the first render, and gets faster when the measurement lands. Deciding from
-                            // device names instead cost the first real laptop twenty-one times its speed.
-                            {
-                                let render_again = render.clone();
-                                std::thread::spawn(move || {
-                                    if std::path::Path::new("/var/lib/genesis/device.json").exists() {
-                                        return;  // already measured; genesis-pick-device --json redoes it by hand
-                                    }
-                                    let out = std::process::Command::new("/usr/bin/genesis-pick-device").arg("--json").output();
-                                    match out {
-                                        Ok(o) if o.status.success() => {
-                                            let _ = std::fs::create_dir_all("/var/lib/genesis");
-                                            if std::fs::write("/var/lib/genesis/device.json", &o.stdout).is_ok() {
-                                                tracing::info!("measured this machine; rendering the router again");
-                                                let _ = render_again();
-                                            }
-                                        }
-                                        Ok(o) => tracing::warn!(status = ?o.status, "could not measure this machine; keeping what the hardware said"),
-                                        Err(e) => tracing::warn!(error = %e, "could not run genesis-pick-device"),
-                                    }
-                                });
-                            }
                             // the model file itself is enough to start; the vision projector (mmproj) joins at the
                             // final render. Waiting for both meant a dropped projector download left no model at all.
                             files.sort_by_key(|f| (order(&f.role), f.filename.to_lowercase().contains("mmproj")));
@@ -260,7 +236,35 @@ fn handle(app: &Arc<App>, mut req: Request) -> Result<bool> {
                                 }
                             });
                             let render_done = render.clone();
-                            let on_done: Box<dyn FnOnce() -> Result<()> + Send> = Box::new(move || render_done());
+                            let render_done_again = render.clone();
+                            let on_done: Box<dyn FnOnce() -> Result<()> + Send> = Box::new(move || {
+                                render_done()?;
+                                // Measure this machine, now that there is something on it to measure with, and
+                                // render once more with the answer. It takes a couple of minutes and nobody
+                                // waits for it: the assistant works from the render above and gets faster when
+                                // the measurement lands. This used to be spawned when the pack was chosen,
+                                // which is before a single model has been downloaded — so it found nothing to
+                                // measure, said so into a log, and no machine was ever measured at all.
+                                // Deciding from device names instead cost the first real laptop 21x its speed.
+                                let render_again = render_done_again.clone();
+                                std::thread::spawn(move || {
+                                    if std::path::Path::new("/var/lib/genesis/device.json").exists() {
+                                        return;  // already measured; genesis-pick-device --json redoes it by hand
+                                    }
+                                    match std::process::Command::new("/usr/bin/genesis-pick-device").arg("--json").output() {
+                                        Ok(o) if o.status.success() => {
+                                            let _ = std::fs::create_dir_all("/var/lib/genesis");
+                                            if std::fs::write("/var/lib/genesis/device.json", &o.stdout).is_ok() {
+                                                tracing::info!("measured this machine; rendering the router again");
+                                                let _ = render_again();
+                                            }
+                                        }
+                                        Ok(o) => tracing::warn!(status = ?o.status, stderr = %String::from_utf8_lossy(&o.stderr).chars().take(200).collect::<String>(), "could not measure this machine; keeping what the hardware said"),
+                                        Err(e) => tracing::warn!(error = %e, "could not run genesis-pick-device"),
+                                    }
+                                });
+                                Ok(())
+                            });
                             download::start_with(app.progress.clone(), pack.id.clone(), files.clone(), on_file, on_done);
                             json_response(&serde_json::json!({ "started": true, "files": files.len(), "bytes_total": files.iter().map(|f| f.size).sum::<u64>() }), 202)
                         }
