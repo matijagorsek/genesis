@@ -10,11 +10,30 @@
 set -uo pipefail
 
 # A human account is any that can log in: a real shell, and a UID in the range useradd hands out.
-has_user() {
-  getent passwd | awk -F: '$3 >= 1000 && $3 < 60000 && $7 !~ /(nologin|false|sync|shutdown|halt)$/ { found = 1 } END { exit !found }'
+#
+# This has to fail CLOSED. Offering an administrator account at the console is the right thing to do on a
+# machine nobody can log into and a way in for anyone with physical access to a machine that already has
+# users. `getent` alone is not enough to decide: it answers through NSS, which can be slow or broken at
+# this point in a boot — userdbd not yet up, a directory service timing out on a domain-joined machine —
+# and an empty answer from it looks exactly like an empty machine. So ask two sources, and when they
+# cannot be read, or disagree, or /etc/passwd does not even contain root, do nothing at all.
+humans_in() {  # $1: passwd-format text on stdin
+  awk -F: '$3 >= 1000 && $3 < 60000 && $7 !~ /(nologin|false|sync|shutdown|halt)$/ { n++ } END { print n + 0 }'
 }
 
-has_user && exit 0
+should_ask() {
+  [ -r /etc/passwd ] || { echo "genesis-firstuser: /etc/passwd cannot be read; leaving this machine alone" >&2; return 1; }
+  grep -q '^root:' /etc/passwd || { echo "genesis-firstuser: /etc/passwd has no root entry, so it is not to be trusted; leaving this machine alone" >&2; return 1; }
+  local from_file from_nss
+  from_file=$(humans_in < /etc/passwd)
+  from_nss=$(getent passwd 2>/dev/null | humans_in)
+  if [ "$from_file" != "0" ] || [ "$from_nss" != "0" ]; then
+    return 1   # somebody can log in; nothing to do
+  fi
+  return 0
+}
+
+should_ask || exit 0
 
 # The service hands this the console, but a machine without /dev/tty1 — a serial-only install, a
 # container — must not have the script die on the redirection itself. Take the console when it is there
@@ -37,26 +56,51 @@ cat <<'TXT'
 
 TXT
 
-while :; do
-  read -rp "  Username (lowercase, no spaces): " name
+# Bounded, and it stops when there is nobody there to answer. `read` returns non-zero at end of input, and
+# an unbounded loop around it spins forever printing a prompt — which on a console that has closed, a
+# serial line or a machine with no keyboard, would flood it and keep the machine from ever reaching a
+# login screen. This runs before the display manager with no timeout, so it must always be able to give up.
+name=""
+for try in 1 2 3 4 5; do
+  if ! read -rp "  Username (lowercase, no spaces): " name; then
+    echo "  There is nobody at this console to answer, so nothing was changed."
+    echo "  Boot with init=/bin/bash from the boot menu to make an account by hand."
+    exit 1
+  fi
   if [[ "$name" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]; then
-    if getent passwd "$name" >/dev/null; then echo "  That name is already taken on this machine."; continue; fi
+    if getent passwd "$name" >/dev/null 2>&1 || grep -q "^$name:" /etc/passwd 2>/dev/null; then
+      echo "  That name is already taken on this machine."; name=""; continue
+    fi
     break
   fi
   echo "  Letters, digits, - and _ only, starting with a letter."
+  name=""
 done
+[ -n "$name" ] || { echo "  No usable name was given, so nothing was changed."; exit 1; }
 
 full=""
-read -rp "  Your name (optional, shown on the login screen): " full
+read -rp "  Your name (optional, shown on the login screen): " full || full=""
 
 if ! useradd -m -G wheel -c "${full:-$name}" "$name"; then
   echo "  Could not create the account. Reboot and try again, or report this."
   sleep 20; exit 1
 fi
 
-until passwd "$name"; do
+# Three goes, then stop. An unbounded loop here runs before the login screen with no timeout, so a console
+# that cannot take a password — a serial line, a machine with no keyboard attached — would keep the machine
+# from ever reaching a login screen at all. Better to take the half-made account away and let it boot.
+set_password=0
+for attempt in 1 2 3; do
+  if passwd "$name"; then set_password=1; break; fi
   echo "  Let us try that again."
 done
+if [ "$set_password" != "1" ]; then
+  userdel -r "$name" 2>/dev/null
+  echo "  A password could not be set, so the account was removed and nothing was changed."
+  echo "  Boot with init=/bin/bash from the boot menu to make one by hand."
+  sleep 10
+  exit 1
+fi
 
 # a home directory made outside the installer needs its SELinux labels set, or the desktop session
 # fails in ways that look nothing like the cause
