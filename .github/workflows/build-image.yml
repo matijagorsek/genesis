@@ -73,10 +73,16 @@ jobs:
           # said — an `ls` on an empty directory read as success, a `curl` against a 503 read as ready,
           # a `skopeo copy` behind an `&&` that failed in silence. shellcheck does not catch all of that
           # shape, but it catches enough of it, and it costs nothing to have it watching from now on.
-          sudo apt-get install -y -q shellcheck >/dev/null
+          # A pinned shellcheck, because the one in apt is older than the one a person has locally and
+          # flags things the newer one does not: a check that passes on your machine and fails here is
+          # worse than no check. The version is printed so a disagreement is visible rather than puzzling.
+          curl -fsSL https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.x86_64.tar.xz | tar -xJ -C /tmp
+          SC=/tmp/shellcheck-v0.11.0/shellcheck
+          $SC --version | grep version:
           mapfile -t scripts < <(find system_files -type f -exec sh -c 'head -1 "$1" | grep -qE "^#!.*(bash|sh)" && echo "$1"' _ {} \;)
+          [ "${#scripts[@]}" -ge 10 ] || { echo "::error::only ${#scripts[@]} shell scripts found; the search is broken, not the repository"; exit 1; }
           echo "checking ${#scripts[@]} shell scripts"
-          shellcheck -S warning "${scripts[@]}" || { echo "::error::shellcheck found something worth fixing in a shipped script"; exit 1; }
+          $SC -S warning "${scripts[@]}" || { echo "::error::shellcheck found something worth fixing in a shipped script"; exit 1; }
           for j in packs/*.json templates/*/genesis.json apps/*/genesis.json system_files/usr/share/genesis/*.json system_files/usr/share/genesis/mcp/*.json; do python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$j"; done
           # Every model a pack names must still exist. The CPU pack carried a repo that had become a 401,
           # and nothing noticed until someone chose that pack on a real machine and the whole download

@@ -61,7 +61,7 @@ TXT
 # serial line or a machine with no keyboard, would flood it and keep the machine from ever reaching a
 # login screen. This runs before the display manager with no timeout, so it must always be able to give up.
 name=""
-for try in 1 2 3 4 5; do
+for _ in 1 2 3 4 5; do
   if ! read -rp "  Username (lowercase, no spaces): " name; then
     echo "  There is nobody at this console to answer, so nothing was changed."
     echo "  Boot with init=/bin/bash from the boot menu to make an account by hand."
@@ -90,7 +90,7 @@ fi
 # that cannot take a password — a serial line, a machine with no keyboard attached — would keep the machine
 # from ever reaching a login screen at all. Better to take the half-made account away and let it boot.
 set_password=0
-for attempt in 1 2 3; do
+for _ in 1 2 3; do
   if passwd "$name"; then set_password=1; break; fi
   echo "  Let us try that again."
 done

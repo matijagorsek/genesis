@@ -21,7 +21,7 @@ sid=$("${C[@]}" -s -m 10 -H "X-Genesis-Token: $tok" -H "Content-Type: applicatio
 genesis-window "http://127.0.0.1:11520/?session=$sid" >/dev/null 2>&1 &
 sleep 2
 "${C[@]}" -s -o /dev/null -m 10 -H "X-Genesis-Token: $tok" -H "Content-Type: application/json" -d '{"text":"a checklist app that saves to a file"}' "$api/api/sessions/$sid/prompt"
-for i in $(seq 1 240); do
+for _ in $(seq 1 240); do
   st=$("${C[@]}" -s -m 5 -H "X-Genesis-Token: $tok" "$api/api/sessions/$sid" | python3 -c 'import sys,json;d=json.load(sys.stdin);print(d["state"]);[print(p["request_id"]) for p in d.get("pending",[])]' 2>/dev/null)
   state=$(echo "$st" | head -1)
   for rid in $(echo "$st" | tail -n +2); do "${C[@]}" -s -o /dev/null -m 5 -H "X-Genesis-Token: $tok" -H "Content-Type: application/json" -d '{"allow":true}' "$api/api/prompts/$rid"; say "A card" "Genesis asked before doing this. The demo allows it for you; normally that click is yours."; done
@@ -31,7 +31,7 @@ done
 if [ "$state" != "done" ]; then say "Genesis" "The make did not finish this time; the steps stay on screen."; exit 1; fi
 say "3 · In your menu" "Installed as an app, like any other program."
 "${C[@]}" -s -o /dev/null -m 10 -H "X-Genesis-Token: $tok" -H "Content-Type: application/json" -d '{"text":"Install this project as an app named Demo checklist using the install_app tool."}' "$api/api/sessions/$sid/prompt"
-for i in $(seq 1 20); do
+for _ in $(seq 1 20); do
   st=$("${C[@]}" -s -m 5 -H "X-Genesis-Token: $tok" "$api/api/sessions/$sid" | python3 -c 'import sys,json;d=json.load(sys.stdin);print(d["state"]);[print(p["request_id"]) for p in d.get("pending",[])]' 2>/dev/null)
   for rid in $(echo "$st" | tail -n +2); do "${C[@]}" -s -o /dev/null -m 5 -H "X-Genesis-Token: $tok" -H "Content-Type: application/json" -d '{"allow":true}' "$api/api/prompts/$rid"; say "A card" "Installing an app changes your menu, so Genesis asked. The demo allows it for you."; done
   case "$(echo "$st" | head -1)" in done|error) break;; esac

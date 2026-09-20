@@ -25,7 +25,7 @@ fi
 [ -L /usr/lib/systemd/system/multi-user.target.wants/genesis-router-refresh.service ] && ok "an upgraded machine rewrites its router config" || fail "genesis-router-refresh is not enabled: an upgrade would never reach the config in /etc"
 # a machine that installs with no account has no way in at all: the rescue must be there and enabled
 [ -L /usr/lib/systemd/system/multi-user.target.wants/genesis-firstuser.service ] && ok "the no-account rescue is enabled" || fail "genesis-firstuser is not enabled: an install with no user would be unreachable"
-for u in genesis-router.service; do [ -f "/usr/lib/systemd/system/$u" ] && ok "unit $u" || fail "unit $u"; done
+u=genesis-router.service; [ -f "/usr/lib/systemd/system/$u" ] && ok "unit $u" || fail "unit $u"
 [ -L /etc/systemd/system/multi-user.target.wants/genesis-router.service ] && ok "router service enabled" || fail "router service not enabled"
 # the model service must be able to open the GPU from inside its sandbox (a closed render node means CPU only, silently)
 grep -q "^DeviceAllow=char-drm" /usr/lib/systemd/system/genesis-router.service && ! grep -q "^DeviceAllow=/dev/dri" /usr/lib/systemd/system/genesis-router.service && ok "router device allow-list uses device classes (char-drm)" || fail "router unit allows /dev/dri by path: systemd ignores it and the GPU stays closed"
