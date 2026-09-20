@@ -351,7 +351,14 @@ fn render_router_now(cli: &Cli) -> Result<()> {
     if let Some(d) = cli.router_out.parent() { std::fs::create_dir_all(d)?; }
     std::fs::write(&cli.router_out, &yaml).with_context(|| format!("writing {}", cli.router_out.display()))?;
     tracing::info!(path = %cli.router_out.display(), "the router config was rewritten for this machine");
-    let _ = std::process::Command::new("systemctl").args(["restart", "genesis-router.service"]).status();
+    // --no-block, and it matters. This also runs from genesis-router-refresh, which is ordered *before*
+    // the model service so that the service starts with the config this just wrote. Asking systemd to
+    // restart that service and then waiting for it deadlocks: systemd will not start the router until
+    // this unit finishes, and this unit will not finish until the restart it is waiting on completes.
+    // It hung for as long as the timeout allowed with the model service down — a worse outcome than the
+    // stale config it was rewriting. Queuing the restart is right in both cases: from the refresh the
+    // router starts once this returns, and by hand it restarts a moment later.
+    let _ = std::process::Command::new("systemctl").args(["restart", "--no-block", "genesis-router.service"]).status();
     Ok(())
 }
 

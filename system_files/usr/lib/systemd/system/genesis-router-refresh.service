@@ -12,6 +12,10 @@ Before=genesis-router.service
 [Service]
 Type=oneshot
 RemainAfterExit=yes
+# Rewriting a file takes seconds. If this ever blocks — as it did when it waited on a service ordered
+# after itself — the model service must not be held down behind it: give up and let the machine run with
+# the config it already had, which is stale but works.
+TimeoutStartSec=120
 # The router config is written once, at first run, and the wizard never starts again. So an upgrade that
 # changes how models should be started — which devices to use, what may stay in memory, which wrapper
 # starts them — reaches /usr and stops there. Every machine already installed keeps the config it was
