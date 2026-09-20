@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# genesis-llama-server: start llama-server, and if it dies because of the GPU, start it again without one.
+# genesis-llama-server: start llama-server, pass signals through to it, and if it dies because of the GPU,
+# start it again without one.
 #
 # The router's config names a device because genesis-pick-device measured it as the fastest. Hardware does
 # not always keep its promises: a driver update, a second model already holding the memory, a card that
@@ -12,10 +13,35 @@ LLAMA=${GENESIS_LLAMA:-/usr/lib/genesis/llama.cpp}/llama-server
 log=$(mktemp /tmp/genesis-llama.XXXXXX)
 trap 'rm -f "$log"' EXIT
 
-"$LLAMA" "$@" 2> >(tee -a "$log" >&2)
-rc=$?
+# The router unloads a model by killing the process it started, which is this one. A shell does not pass a
+# signal to the child it is waiting on, so the first version of this left llama-server orphaned: the port
+# stayed bound and the memory was never given back, which is the opposite of what the router asked for and
+# worse than not having a wrapper at all. So: keep the child's pid, forward what arrives, and wait for it.
+child=""
+forward() { [ -n "$child" ] && kill -"$1" "$child" 2>/dev/null; }
+for sig in TERM INT HUP QUIT; do
+  # shellcheck disable=SC2064
+  trap "forward $sig" "$sig"
+done
+
+# Not `2> >(tee …)`: with process substitution and a background job, $! is the subshell bash makes, not
+# llama-server, so the signal went to the wrong process and the model was orphaned anyway. The log is
+# written directly and followed to stderr alongside, which keeps $! honest.
+"$LLAMA" "$@" 2>>"$log" &
+child=$!
+tail -n +1 -f "$log" >&2 &
+tailer=$!
+trap 'kill "$tailer" 2>/dev/null; rm -f "$log"' EXIT
+# wait returns early when a signal arrives, so wait again until the child is really gone
+while :; do
+  wait "$child"; rc=$?
+  kill -0 "$child" 2>/dev/null || break
+done
+
 # a clean stop, or a failure that has nothing to do with the GPU: leave it alone
 [ $rc -eq 0 ] && exit 0
+# killed by a signal (128+n) is the router unloading the model, not a fault
+[ $rc -gt 128 ] && exit $rc
 grep -qiE "OutOfDeviceMemory|vk::|ErrorDeviceLost|failed to allocate.*(device|vulkan)|ggml_vulkan.*error" "$log" || exit $rc
 
 # strip the device selection and the offload, and say so where a person will find it
