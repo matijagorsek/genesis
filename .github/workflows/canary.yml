@@ -18,6 +18,13 @@ on:
         description: 'true = move the stable tags to testing when this run is green'
         default: 'false'
 
+# One canary at a time, and they queue rather than cancel: a run that is part-way through promoting
+# should finish that, not be interrupted. A scheduled run and one started by hand can otherwise overlap,
+# boot two virtual machines at once and both write the stable tag.
+concurrency:
+  group: canary
+  cancel-in-progress: false
+
 permissions:
   contents: read
   issues: write

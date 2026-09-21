@@ -12,6 +12,17 @@ on:
         description: 'move the stable tags even if the last weekly canary was red'
         default: 'false'
 
+# One build of a branch at a time, and a newer commit cancels an older one still running.
+#
+# Without this, two builds race to push :testing and whichever finishes last wins — which is not the same
+# as whichever is newest. On 20 Sep five builds ran at once: 0.2.233 pushed at 09:49 and 0.2.232, from an
+# older commit, pushed over it at 09:57. The canary then promotes :testing to stable, so a fix could be
+# published and silently un-published by an older build finishing after it. The version number is taken
+# from the run number, which says when a build started and nothing about when it ended.
+concurrency:
+  group: build-image-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
   packages: write
