@@ -97,6 +97,41 @@ pub fn compact_model(model: &str) -> bool {
 }
 
 /// No real GPU in the hardware profile: every model is small enough to want the compact tool set.
+/// Is this machine running on its battery, with saving on? On battery the assistant runs on the small
+/// model (see genesis-power). Reads the same sysfs the watcher reads, so the two never disagree, and the
+/// same per-user switch: `genesis-power off` means the coder loads on battery too. GENESIS_POWER overrides
+/// for tests and demos. A machine with no battery answers no.
+pub(crate) fn on_battery_saving() -> bool {
+    on_battery_saving_at(std::path::Path::new(&std::env::var("GENESIS_POWER_SUPPLY").unwrap_or_else(|_| "/sys/class/power_supply".into())),
+        &dirs_config().join("genesis").join("power"))
+}
+
+fn dirs_config() -> std::path::PathBuf {
+    std::env::var("XDG_CONFIG_HOME").map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| std::path::PathBuf::from(std::env::var("HOME").unwrap_or_default()).join(".config"))
+}
+
+pub(crate) fn on_battery_saving_at(supply: &std::path::Path, conf: &std::path::Path) -> bool {
+    if std::fs::read_to_string(conf).map(|c| c.trim() == "saver=off").unwrap_or(false) { return false; }
+    if let Ok(f) = std::env::var("GENESIS_POWER") { return f == "battery"; }
+    let read = |p: std::path::PathBuf| std::fs::read_to_string(p).map(|s| s.trim().to_string()).unwrap_or_default();
+    let Ok(entries) = std::fs::read_dir(supply) else { return false };
+    let (mut battery, mut mains_online, mut discharging) = (false, None, false);
+    for e in entries.flatten() {
+        let d = e.path();
+        match read(d.join("type")).as_str() {
+            "Battery" => { if read(d.join("present")) != "0" { battery = true; if read(d.join("status")) == "Discharging" { discharging = true; } } }
+            "Mains" | "USB" => match read(d.join("online")).as_str() {
+                "1" => mains_online = Some(true),
+                "0" => { if mains_online.is_none() { mains_online = Some(false); } }
+                _ => {}
+            },
+            _ => {}
+        }
+    }
+    battery && match mains_online { Some(on) => !on, None => discharging }
+}
+
 fn cpu_only_machine() -> bool {
     let prof: serde_json::Value = std::fs::read_to_string("/etc/genesis/profile.json").ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(serde_json::Value::Null);
     match prof.get("gpus").and_then(|g| g.as_array()) {
@@ -994,6 +1029,24 @@ mod compact_tests {
     #[test]
     fn compact_mode_picks_small_models() {
         assert!(compact_model("fast") && compact_model("Qwen3.5-4B") && !compact_model("code") && !compact_model("claude-sonnet-5"));
+    }
+
+    #[test]
+    fn on_battery_is_read_off_sysfs_and_a_person_can_turn_it_off() {
+        let t = tempfile::tempdir().unwrap();
+        let mk = |name: &str, kv: &[(&str, &str)]| { let d = t.path().join("s").join(name); std::fs::create_dir_all(&d).unwrap(); for (k, v) in kv { std::fs::write(d.join(k), v).unwrap(); } };
+        let conf = t.path().join("power");
+        mk("AC0", &[("type", "Mains"), ("online", "0")]);
+        mk("BAT0", &[("type", "Battery"), ("status", "Discharging")]);
+        assert!(on_battery_saving_at(&t.path().join("s"), &conf), "unplugged laptop saves");
+        std::fs::write(t.path().join("s/AC0/online"), "1").unwrap();
+        assert!(!on_battery_saving_at(&t.path().join("s"), &conf), "plugged in does not");
+        std::fs::write(t.path().join("s/AC0/online"), "0").unwrap();
+        std::fs::write(&conf, "saver=off\n").unwrap();
+        assert!(!on_battery_saving_at(&t.path().join("s"), &conf), "genesis-power off is respected");
+        // a desktop: mains and no battery
+        let d = tempfile::tempdir().unwrap(); std::fs::create_dir_all(d.path().join("AC")).unwrap(); std::fs::write(d.path().join("AC/type"), "Mains").unwrap(); std::fs::write(d.path().join("AC/online"), "1").unwrap();
+        assert!(!on_battery_saving_at(d.path(), &d.path().join("none")));
         let n = tool_schemas_compact().as_array().unwrap().len();
         assert!(n >= 8 && n < tool_schemas().as_array().unwrap().len());
     }

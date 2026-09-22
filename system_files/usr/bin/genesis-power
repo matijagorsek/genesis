@@ -1,0 +1,169 @@
+#!/usr/bin/python3
+"""genesis-power: on battery, the assistant runs on the small model; plugged in, the big ones come back.
+
+  genesis-power --watch     follow the power supply and act on changes (the user service does this)
+  genesis-power status      what this machine is running on, and whether saving is on
+  genesis-power off | on    stop saving on battery, or start again (per user, remembered)
+
+A 9B model on a laptop on battery is a heater with a chat window. Nobody else can do anything about that,
+because nobody else has both the model and the machine: a cloud assistant does not know you unplugged,
+and a local one on somebody else's distro has no say in what loads. Here the router is ours. When the
+plug comes out, the big models are put away and every request goes to the small always-loaded one; when
+it goes back in, the router is allowed to load them again on the next request. The small model is not
+touched either way, so the assistant never goes quiet -- it gets shorter for a while.
+
+A desktop has no battery and is left alone. A person who wants the coder on battery says so once.
+"""
+import argparse, json, os, subprocess, sys, time, urllib.request
+
+ROUTER = os.environ.get("GENESIS_ROUTER", "http://127.0.0.1:8080")
+SUPPLY = os.environ.get("GENESIS_POWER_SUPPLY", "/sys/class/power_supply")
+CONF = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), "genesis", "power")
+# the model that stays: the small one the router keeps loaded
+KEEP = {"fast"}
+
+
+def read(path):
+    try:
+        with open(path) as f:
+            return f.read().strip()
+    except OSError:
+        return ""
+
+
+def source(root=SUPPLY):
+    """'battery', 'ac', or 'none' for a machine with no battery. GENESIS_POWER overrides, for tests and demos."""
+    forced = os.environ.get("GENESIS_POWER")
+    if forced in ("battery", "ac", "none"):
+        return forced
+    supplies = []
+    try:
+        supplies = sorted(os.listdir(root))
+    except OSError:
+        return "none"
+    has_battery = False
+    mains_online = None
+    for name in supplies:
+        p = os.path.join(root, name)
+        kind = read(os.path.join(p, "type"))
+        if kind == "Battery":
+            # a battery that reports no capacity at all is a slot, not a battery (docks and UPS drivers do this)
+            if read(os.path.join(p, "present")) != "0":
+                has_battery = True
+        elif kind in ("Mains", "USB"):
+            online = read(os.path.join(p, "online"))
+            if online == "1":
+                mains_online = True
+            elif online == "0" and mains_online is None:
+                mains_online = False
+    if not has_battery:
+        return "none"
+    if mains_online is True:
+        return "ac"
+    if mains_online is False:
+        return "battery"
+    # a battery and no mains supply reported at all: go by what the battery says about itself
+    for name in supplies:
+        p = os.path.join(root, name)
+        if read(os.path.join(p, "type")) == "Battery":
+            return "battery" if read(os.path.join(p, "status")) == "Discharging" else "ac"
+    return "ac"
+
+
+def saving_enabled():
+    return read(CONF) != "saver=off"
+
+
+def set_saving(on):
+    os.makedirs(os.path.dirname(CONF), exist_ok=True)
+    with open(CONF, "w") as f:
+        f.write("saver=on\n" if on else "saver=off\n")
+
+
+def running():
+    try:
+        with urllib.request.urlopen(f"{ROUTER}/running", timeout=5) as r:
+            return [m.get("model", "") for m in json.load(r).get("running", [])]
+    except Exception:
+        return []
+
+
+def put_away_big_models():
+    """Unload everything but the small one. Returns the names put away; the router says 200 for each."""
+    gone = []
+    for m in running():
+        if not m or m in KEEP:
+            continue
+        try:
+            req = urllib.request.Request(f"{ROUTER}/api/models/unload/{m}", method="POST")
+            with urllib.request.urlopen(req, timeout=30) as r:
+                if r.status == 200:
+                    gone.append(m)
+        except Exception as e:
+            print(f"could not unload {m}: {e}", file=sys.stderr)
+    return gone
+
+
+def notify(title, body):
+    try:
+        subprocess.run(["notify-send", "-a", "Genesis", "-i", "genesis", "-u", "low", title, body], timeout=10, capture_output=True)
+    except Exception:
+        pass
+
+
+def on_change(before, now):
+    """What one transition does. Kept apart from the loop so it can be tested without a power supply."""
+    if not saving_enabled():
+        return "saving is off; nothing done"
+    if now == "battery":
+        gone = put_away_big_models()
+        what = f"put away: {', '.join(gone)}" if gone else "nothing big was loaded"
+        notify("On battery", "The assistant runs on the small model until you plug in. (genesis-power off to change)")
+        return f"battery: {what}"
+    if now == "ac" and before == "battery":
+        notify("Plugged in", "The big models are available again.")
+        return "ac: the router may load the big models again"
+    return f"{now}: nothing to do"
+
+
+def watch(interval):
+    now = source()
+    if now == "none":
+        print("no battery on this machine; nothing to watch", flush=True)
+        return 0
+    print(f"running on {now}; saving on battery is {'on' if saving_enabled() else 'off'}", flush=True)
+    # A watcher that starts on battery acts on it: a laptop that booted unplugged must not carry a big
+    # model just because nothing changed while it was watching.
+    if now == "battery":
+        print(on_change("ac", now), flush=True)
+    while True:
+        time.sleep(interval)
+        new = source()
+        if new != now:
+            print(f"{now} -> {new}: {on_change(now, new)}", flush=True)
+            now = new
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--watch", action="store_true")
+    ap.add_argument("--interval", type=float, default=5.0)
+    ap.add_argument("cmd", nargs="?", choices=["status", "on", "off"])
+    a = ap.parse_args()
+    if a.watch:
+        return watch(a.interval)
+    if a.cmd == "off":
+        set_saving(False); print("saving on battery is off: the big models load on battery too")
+    elif a.cmd == "on":
+        set_saving(True); print("saving on battery is on")
+    else:
+        s = source()
+        print(f"power: {s}" + (" (no battery)" if s == "none" else ""))
+        print(f"saving on battery: {'on' if saving_enabled() else 'off'}")
+        r = running()
+        print(f"loaded now: {', '.join(r) if r else 'nothing'}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

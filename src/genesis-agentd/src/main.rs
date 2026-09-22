@@ -1208,6 +1208,7 @@ fn system_overview(d: &Arc<Daemon>) -> serde_json::Value {
         "os": os_status(),
         "last_generation": agent::LAST_GENERATION.lock().unwrap().clone().map(|(tok, secs, model)| serde_json::json!({"tokens": tok, "seconds": (secs * 10.0).round() / 10.0, "tokens_per_second": (tok as f64 / secs * 10.0).round() / 10.0, "model": model})),
         "sandbox": sandbox::bwrap_available(), "user": read_user_settings(), "history": history,
+        "power": if agent::on_battery_saving() { "battery" } else { "ac" },
     })
 }
 
@@ -1222,10 +1223,14 @@ pub(crate) fn served_model_for(endpoint: &str, wanted: &str, kind: &str) -> Stri
     let list = ureq::get(&format!("{}/models", endpoint.trim_end_matches('/'))).timeout(std::time::Duration::from_secs(8)).call().ok()
         .and_then(|r| r.into_json::<serde_json::Value>().ok())
         .and_then(|v| v.get("data").and_then(|d| d.as_array()).map(|a| a.iter().filter_map(|m| m.get("id").and_then(|i| i.as_str()).map(|s| s.to_string())).collect::<Vec<_>>()));
-    let prefs: &[&str] = match kind { "chat" => &["chat", "fast", "code", "auto"], "vision" => &["fast", "chat", "code", "auto"], _ => &["code", "fast", "chat", "auto"] };
+    // On battery, with saving on, everything goes to the small always-loaded model -- including a model
+    // named on the command line, because "code" is the default there and a laptop unplugged should not
+    // start a 9B model for a question a 4B answers. genesis-power puts the big ones away at the same moment.
+    let battery = agent::on_battery_saving();
+    let prefs: &[&str] = if battery { &["fast", "chat", "code", "auto"] } else { match kind { "chat" => &["chat", "fast", "code", "auto"], "vision" => &["fast", "chat", "code", "auto"], _ => &["code", "fast", "chat", "auto"] } };
     match list {
         Some(ids) if !ids.is_empty() => {
-            if wanted != "auto" && ids.iter().any(|i| i == wanted) { return wanted.to_string(); }
+            if !battery && wanted != "auto" && ids.iter().any(|i| i == wanted) { return wanted.to_string(); }
             for pref in prefs { if ids.iter().any(|i| i == pref) { return pref.to_string(); } }
             wanted.to_string()
         }

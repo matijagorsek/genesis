@@ -6,7 +6,7 @@ rc=0
 echo "Genesis image check"
 grep -q '^ID=genesis' /usr/lib/os-release && ok "os-release ID=genesis" || fail "os-release"
 grep '^PRETTY_NAME' /usr/lib/os-release
-for b in llama-server llama-swap ramalama bwrap distrobox bootc vulkaninfo genesis-permd genesis-probe genesis-firstrun genesis-agentd genesis-txd genesis-krunner genesis-ask genesis-report genesis-firstuser genesis-pick-device genesis-llama-server genesis-crash btrfs rsync firefox okular gwenview kcalc plasma-discover dolphin konsole kate; do command -v "$b" >/dev/null && ok "binary $b" || fail "binary $b"; done
+for b in llama-server llama-swap ramalama bwrap distrobox bootc vulkaninfo genesis-permd genesis-probe genesis-firstrun genesis-agentd genesis-txd genesis-krunner genesis-ask genesis-report genesis-firstuser genesis-pick-device genesis-llama-server genesis-crash genesis-power btrfs rsync firefox okular gwenview kcalc plasma-discover dolphin konsole kate; do command -v "$b" >/dev/null && ok "binary $b" || fail "binary $b"; done
 # the test disks carry a known account; a password must not be accepted from a real network
 if grep -q "genesis.devssh" /proc/cmdline 2>/dev/null; then
   f=/etc/ssh/sshd_config.d/99-genesis-devssh.conf

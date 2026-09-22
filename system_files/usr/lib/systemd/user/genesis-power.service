@@ -1,0 +1,19 @@
+[Unit]
+Description=Genesis: the assistant follows the plug
+Documentation=https://github.com/matijagorsek/genesis
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+# Watches the power supply. When the plug comes out the big models are put away and the assistant runs
+# on the small always-loaded one; when it goes back in they are allowed to load again. A machine with no
+# battery is left alone, and it exits at once.
+ExecStart=/usr/bin/genesis-power --watch
+Restart=on-failure
+RestartSec=10
+Nice=10
+MemoryMax=100M
+
+[Install]
+WantedBy=graphical-session.target
