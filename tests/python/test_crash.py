@@ -81,8 +81,8 @@ def test_the_question_says_what_it_knows_and_asks_for_no_more(monkeypatch):
     monkeypatch.setitem(sys.modules, "genesis_local", fake)
     opened = {}
     monkeypatch.setattr(gc.subprocess, "Popen", lambda cmd, **k: opened.update({"cmd": cmd}))
-    ok, err = gc.ask_genesis({"program": "okular", "signal": "11 (SEGV)", "command": "/usr/bin/okular",
-                              "when": "now", "stack": "#0 qt_assert"})
+    ok, err = gc.ask_genesis(gc.crash_question({"program": "okular", "signal": "11 (SEGV)", "command": "/usr/bin/okular",
+                                                "when": "now", "stack": "#0 qt_assert"}))
     assert ok, err
     q = sent["/api/sessions/s1/prompt"]["text"]
     assert "okular" in q and "SEGV" in q and "qt_assert" in q

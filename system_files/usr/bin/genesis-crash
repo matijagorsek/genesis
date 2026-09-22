@@ -1,9 +1,10 @@
 #!/usr/bin/python3
 """genesis-crash: when a program stops unexpectedly, offer to look at why — on this machine.
 
-  genesis-crash --watch     follow the journal for crashes and offer to look (the user service does this)
+  genesis-crash --watch     follow the journal for crashes and failed services and offer to look (the user service does this)
   genesis-crash --last      look at the most recent crash now
   genesis-crash --explain PID
+  genesis-crash --unit NAME look at why a service failed now (--user for one of yours)
 
 A crash dump says what a program was doing when it died: the arguments it was given, the libraries it had
 open, the path it was reading. That is why this does not leave the machine. The model that reads it is the
@@ -17,6 +18,14 @@ sys.path.insert(0, "/usr/lib/genesis")
 # Programs whose crashes are not worth interrupting somebody about: things that crash on the way down,
 # and the parts of Genesis whose own failures are reported elsewhere.
 IGNORE = {"plasmashell", "kwin_wayland", "xdg-desktop-portal", "gnome-keyring-d", "pipewire", "wireplumber"}
+
+# A service that fails is ten times more common than a program that crashes, and just as opaque: "Failed
+# with result 'exit-code'" says nothing to anybody. The same offer applies. What is not offered: units
+# systemd makes on the fly for a command or a session (run-*, session-*), the per-user manager itself,
+# and app-* -- the unit KDE wraps around every program it launches, which "fails" whenever a program
+# exits non-zero, which is most of the time somebody closed something.
+UNIT_MESSAGE_ID = "d9b373ed55a64feb8242e02dbe79a49c"  # systemd: "<unit>: Failed with result '...'"
+UNIT_IGNORE_PREFIX = ("run-", "session-", "user@", "app-", "systemd-coredump@", "genesis-probe-fail-test")
 
 
 def notify(title, body, *, urgency="normal", action=None):
@@ -53,10 +62,8 @@ def crash_detail(pid):
     }, ""
 
 
-def ask_genesis(d):
-    """Hand the crash to the assistant on this machine and open it where the person can read the answer."""
-    import genesis_local
-    question = (
+def crash_question(d):
+    return (
         f"{d['program']} stopped unexpectedly on this computer and I would like to know why, in plain words.\n\n"
         f"Signal: {d['signal']}\nCommand: {d['command']}\nWhen: {d['when']}\n"
         + (f"\nStack trace:\n{d['stack']}\n" if d["stack"] else "\nNo stack trace was kept.\n")
@@ -64,6 +71,23 @@ def ask_genesis(d):
           "and say whether it is something I should do anything about. If it looks like it will happen again, "
           "say what would stop it. Do not guess at a cause you cannot see evidence for."
     )
+
+
+def unit_question(u):
+    return (
+        f"The service {u['unit']} on this computer failed ({u['result']}) and I would like to know why, in plain words.\n\n"
+        f"When: {u['when']}\n"
+        + (f"\nWhat systemd says about it:\n{u['status']}\n" if u["status"] else "")
+        + f"\nThe last lines of its log:\n{u['log']}\n"
+        + "\nSay what most likely went wrong, whether it matters to me, and what would fix it if it does. "
+          "If it is going to keep failing, say so. Do not guess at a cause you cannot see evidence for, and do "
+          "not tell me to reinstall anything."
+    )
+
+
+def ask_genesis(question):
+    """Hand it to the assistant on this machine and open it where the person can read the answer."""
+    import genesis_local
     try:
         s = genesis_local.call("POST", "/api/sessions", {"mode": "chat", "project": os.path.expanduser("~")})
         genesis_local.call("POST", f"/api/sessions/{s['id']}/prompt", {"text": question})
@@ -84,9 +108,56 @@ def offer(d):
     )
     if chosen.strip() != "look":
         return
-    ok, err = ask_genesis(d)
+    ok, err = ask_genesis(crash_question(d))
     if not ok:
         notify("Genesis could not look at that crash", err[:160], urgency="critical")
+
+
+def unit_from_entry(entry):
+    """The unit a journal entry is about, and whether it is one worth a person's attention."""
+    if entry.get("MESSAGE_ID") != UNIT_MESSAGE_ID:
+        return None
+    unit = entry.get("UNIT") or entry.get("USER_UNIT") or ""
+    if not unit or unit.startswith(UNIT_IGNORE_PREFIX):
+        return None
+    return unit
+
+
+def unit_detail(unit, user):
+    """What the machine knows about one failed service. A transient unit is gone by the time anybody asks,
+    so status may say nothing; the journal is what remains, and it is enough."""
+    scope = ["--user"] if user else []
+    run = lambda cmd: subprocess.run(cmd, capture_output=True, text=True, timeout=60).stdout
+    try:
+        status = run(["systemctl"] + scope + ["status", unit, "--no-pager", "-n", "0"])
+    except Exception:
+        status = ""
+    if "could not be found" in status:
+        status = ""
+    try:
+        log = run(["journalctl"] + scope + ["-u", unit, "-n", "40", "--no-pager", "-o", "short"])
+    except Exception as e:
+        log = f"(the log could not be read: {e})"
+    m = re.search(r"Failed with result '([^']+)'", log)
+    when = ""
+    for line in reversed(log.splitlines()):
+        if "Failed with result" in line:
+            when = " ".join(line.split()[:3]); break
+    return {"unit": unit, "user": user, "result": m.group(1) if m else "failed", "when": when,
+            "status": "\n".join(status.splitlines()[:12]), "log": "\n".join(log.splitlines()[-40:])}
+
+
+def offer_unit(u):
+    chosen = notify(
+        f"{u['unit']} failed",
+        f"{u['result']} · ask Genesis to look at why, on this machine",
+        action="look=Ask Genesis",
+    )
+    if chosen.strip() != "look":
+        return
+    ok, err = ask_genesis(unit_question(u))
+    if not ok:
+        notify("Genesis could not look at that service", err[:160], urgency="critical")
 
 
 def last(argv_pid=None):
@@ -110,8 +181,31 @@ def last(argv_pid=None):
     return 0
 
 
+def watch_units(user):
+    """Follow one manager for services that fail. One offer per unit for as long as this runs: a service
+    with Restart= that keeps failing would otherwise ask every ten seconds."""
+    scope = ["--user"] if user else []
+    seen = set()
+    p = subprocess.Popen(["journalctl"] + scope + ["-f", "-o", "json", f"MESSAGE_ID={UNIT_MESSAGE_ID}", "--since", "now"],
+                         stdout=subprocess.PIPE, text=True)
+    for line in p.stdout:
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+        unit = unit_from_entry(entry)
+        if not unit or unit in seen:
+            continue
+        seen.add(unit)
+        time.sleep(2)  # let the unit's last lines reach the journal
+        offer_unit(unit_detail(unit, user))
+
+
 def watch():
-    """Follow the journal for new crashes. One offer per crash, and never for the list above."""
+    """Follow the journal for new crashes and failed services. One offer per crash, and never for the list above."""
+    import threading
+    for user in (False, True):
+        threading.Thread(target=watch_units, args=(user,), daemon=True).start()
     seen = set()
     p = subprocess.Popen(["journalctl", "-f", "-o", "json", "-u", "systemd-coredump@*", "--since", "now"],
                          stdout=subprocess.PIPE, text=True)
@@ -137,9 +231,14 @@ def main():
     ap.add_argument("--watch", action="store_true")
     ap.add_argument("--last", action="store_true")
     ap.add_argument("--explain", metavar="PID")
+    ap.add_argument("--unit", metavar="NAME")
+    ap.add_argument("--user", action="store_true")
     a = ap.parse_args()
     if a.watch:
         return watch()
+    if a.unit:
+        offer_unit(unit_detail(a.unit, a.user))
+        return 0
     if a.explain:
         return last(a.explain)
     return last()
