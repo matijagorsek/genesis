@@ -92,7 +92,16 @@ def remove_app(a):
 
 def set_theme(a):
     mode = (a.get("mode") or "").strip().lower()
-    if mode not in ("dark", "light"): return "mode must be dark or light"
+    look = (a.get("look") or "").strip()
+    if mode == "make" or (look and not mode):
+        if not look: return "say what it should look like, e.g. look: 'foggy morning by the sea'"
+        # the palette is made by the model on this machine and checked before it touches the screen
+        code, out = run(["genesis-theme", "make", look[:120]], timeout=400)
+        return ("made a look for '%s': %s (say 'undo the theme' to go back)" % (look, out.strip()[:300])) if code == 0 else out
+    if mode == "undo":
+        code, out = run(["genesis-theme", "undo"])
+        return "back to the look before" if code == 0 else out
+    if mode not in ("dark", "light"): return "mode must be dark, light, make (with look) or undo"
     code, out = run(["genesis-theme", mode])
     return f"switched to {mode}" if code == 0 else out
 
@@ -224,7 +233,7 @@ TOOLS = [
     ("search_apps", "Search the Flathub app catalogue (uses the network).", {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}, search_apps),
     ("install_app", "Install an app from Flathub for this user (a system change: asks first).", {"type": "object", "properties": {"app_id": {"type": "string", "description": "Flatpak id, e.g. org.gimp.GIMP"}}, "required": ["app_id"]}, install_app),
     ("remove_app", "Remove a Flatpak app (a system change: asks first).", {"type": "object", "properties": {"app_id": {"type": "string"}}, "required": ["app_id"]}, remove_app),
-    ("set_theme", "Switch the whole desktop between day and night.", {"type": "object", "properties": {"mode": {"type": "string", "enum": ["dark", "light"]}}, "required": ["mode"]}, set_theme),
+    ("set_theme", "Change how the whole desktop looks: dark, light, undo, or make a new look from a description (colours for every app, the terminal and a wallpaper, made on this machine).", {"type": "object", "properties": {"mode": {"type": "string", "enum": ["dark", "light", "make", "undo"]}, "look": {"type": "string", "description": "for make: what it should look like, e.g. 'foggy morning by the sea'"}}, "required": ["mode"]}, set_theme),
     ("printers", "Printers set up on this computer.", {"type": "object", "properties": {}}, printers),
     ("find_printers", "Look for network printers on this network (their URIs, for printer_setup).", {"type": "object", "properties": {}}, find_printers),
     ("printer_setup", "Add a printer by URI through CUPS and make it the default (a system change: asks first).", {"type": "object", "properties": {"name": {"type": "string"}, "uri": {"type": "string", "description": "e.g. ipp://192.168.1.50/ipp/print"}}, "required": ["name", "uri"]}, printer_setup),

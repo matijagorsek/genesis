@@ -368,9 +368,12 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
         (Method::Get, ["settings"]) => Response::from_string(page(SETTINGS_HTML, SETTINGS_JS, page_token(d, &req))).with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
         (Method::Get, ["api", "system"]) => json_response(&system_overview(d), 200),
         (Method::Post, ["api", "system", "theme"]) => {
-            let want = serde_json::from_str::<serde_json::Value>(&body).ok().and_then(|v| v.get("theme").and_then(|m| m.as_str()).map(|s| s.to_string())).unwrap_or_else(|| "toggle".into());
-            if !["dark", "light", "toggle"].contains(&want.as_str()) { json_response(&serde_json::json!({"error": "expected {theme: dark|light|toggle}"}), 400) }
-            else { match std::process::Command::new("genesis-theme").arg(&want).output() {
+            let v = serde_json::from_str::<serde_json::Value>(&body).unwrap_or(serde_json::Value::Null);
+            let want = v.get("theme").and_then(|m| m.as_str()).map(|s| s.to_string()).unwrap_or_else(|| "toggle".into());
+            let look = v.get("look").and_then(|m| m.as_str()).unwrap_or("").trim().chars().take(120).collect::<String>();
+            if !["dark", "light", "toggle", "undo", "make"].contains(&want.as_str()) || (want == "make" && look.is_empty()) { json_response(&serde_json::json!({"error": "expected {theme: dark|light|toggle|undo} or {theme: make, look: \"...\"}"}), 400) }
+            else { let mut cmd = std::process::Command::new("genesis-theme"); cmd.arg(&want); if want == "make" { cmd.arg(&look); }
+              match cmd.output() {
                 Ok(o) if o.status.success() => json_response(&serde_json::json!({"scheme": String::from_utf8_lossy(&o.stdout).trim()}), 200),
                 Ok(o) => json_response(&serde_json::json!({"error": String::from_utf8_lossy(&o.stderr).trim()}), 500),
                 Err(e) => json_response(&serde_json::json!({"error": format!("genesis-theme: {}", e)}), 503),

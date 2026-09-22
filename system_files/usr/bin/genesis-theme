@@ -1,16 +1,348 @@
-#!/usr/bin/env bash
-# One key, whole desktop: switch between Genesis Dark and Genesis Light (colour scheme for every app,
-# the panel and the login screen follow). Usage: genesis-theme [dark|light|toggle]   (default: toggle)
-set -u
-want="${1:-toggle}"
-cur="$(kreadconfig6 --file kdeglobals --group General --key ColorScheme 2>/dev/null || echo GenesisDark)"
-if [ "$want" = toggle ]; then [ "$cur" = GenesisLight ] && want=dark || want=light; fi
-case "$want" in
-  light) scheme=GenesisLight; icons=Papirus-Light ;;
-  *)     scheme=GenesisDark;  icons=Papirus-Dark ;;
-esac
-plasma-apply-colorscheme "$scheme" >/dev/null 2>&1
-[ -d "/usr/share/icons/$icons" ] && /usr/libexec/plasma-changeicons "$icons" >/dev/null 2>&1
-kwriteconfig6 --file kdeglobals --group General --key ColorScheme "$scheme"
-notify-send -a Genesis -i genesis "Genesis ${want^}" "Colours switched for every app." 2>/dev/null || true
-echo "$scheme"
+#!/usr/bin/python3
+"""genesis-theme: one key, whole desktop -- and a desktop that looks like whatever you say.
+
+  genesis-theme dark | light | toggle     the two shipped looks (default: toggle)
+  genesis-theme make "foggy morning by the sea"
+                                           a look made here, by the model on this machine: colours for
+                                           every app, the panel, the terminal, and a wallpaper to match
+  genesis-theme undo                       the look before the last change
+  genesis-theme status
+
+The colour scheme is what every application, the panel and the login screen follow. A made look is
+written as a KDE colour scheme, a Konsole colour scheme and a wallpaper, applied at once, and the look it
+replaced is remembered so undo is one word. The palette comes from the small model already running here;
+what it says is checked before anything is applied -- whether it is dark is read off the background it
+chose, not off what it claims, and text is made to read against it whatever it proposed -- because a
+small model will call a light palette dark and put grey on grey, and a desktop is not the place to find out.
+"""
+import argparse, json, os, re, subprocess, sys, time, urllib.request
+
+ROUTER = os.environ.get("GENESIS_ROUTER", "http://127.0.0.1:8080")
+HOME = os.path.expanduser("~")
+DATA = os.environ.get("XDG_DATA_HOME", os.path.join(HOME, ".local", "share"))
+STATE = os.path.join(os.environ.get("XDG_STATE_HOME", os.path.join(HOME, ".local", "state")), "genesis")
+UNDO = os.path.join(STATE, "theme-undo.json")
+MADE = "GenesisMade"
+SHIPPED_WALLPAPER = "/usr/share/wallpapers/Genesis/contents/images/2560x1600.png"
+
+
+# --- colour arithmetic -------------------------------------------------------------------------------
+
+def hex_to_rgb(h):
+    h = h.lstrip("#")
+    return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
+
+
+def rgb_to_hex(c):
+    return "#%02x%02x%02x" % tuple(max(0, min(255, int(round(v)))) for v in c)
+
+
+def kde(c):
+    return "%d,%d,%d" % tuple(int(round(v)) for v in c)
+
+
+def luminance(c):
+    def ch(v):
+        v /= 255.0
+        return v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
+    r, g, b = (ch(v) for v in c)
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def contrast(a, b):
+    la, lb = luminance(a), luminance(b)
+    hi, lo = max(la, lb), min(la, lb)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def mix(a, b, t):
+    return tuple(a[i] + (b[i] - a[i]) * t for i in range(3))
+
+
+def is_dark(bg):
+    return luminance(bg) < 0.2
+
+
+def readable(fg, bg, minimum):
+    """Push fg away from bg -- towards white on a dark background, black on a light one -- until it reads.
+    Hue is kept; only how light it is changes. A colour that cannot get there becomes plain text colour."""
+    target = (255, 255, 255) if is_dark(bg) else (0, 0, 0)
+    c = tuple(fg)
+    for _ in range(20):
+        if contrast(c, bg) >= minimum:
+            return c
+        c = mix(c, target, 0.15)
+    return target
+
+
+# --- the palette -------------------------------------------------------------------------------------
+
+SCHEMA = {"type": "object", "properties": {
+    "name": {"type": "string"},
+    "dark": {"type": "boolean"},
+    "background": {"type": "string", "pattern": "^#[0-9a-fA-F]{6}$"},
+    "foreground": {"type": "string", "pattern": "^#[0-9a-fA-F]{6}$"},
+    "accent": {"type": "string", "pattern": "^#[0-9a-fA-F]{6}$"},
+    "terminal": {"type": "array", "minItems": 8, "maxItems": 8, "items": {"type": "string", "pattern": "^#[0-9a-fA-F]{6}$"}}},
+    "required": ["name", "dark", "background", "foreground", "accent", "terminal"]}
+
+SYSTEM = ("You design colour palettes for a desktop, in the style of Nord, Gruvbox, Catppuccin and Solarized: "
+          "muted, harmonious, every colour related to the mood. Never use pure primaries like #ff0000 or #00ffff. "
+          "Answer only with JSON.")
+
+
+def ask_model(mood, timeout=240):
+    body = {"model": "fast", "temperature": 0.8, "max_tokens": 400,
+            "response_format": {"type": "json_schema", "json_schema": {"name": "palette", "schema": SCHEMA}},
+            "messages": [{"role": "system", "content": SYSTEM},
+                         {"role": "user", "content": f"A palette for: {mood}. Give a short name, whether it is dark, a background, "
+                          "a readable foreground, one accent, and the eight terminal colours in order black red green yellow "
+                          "blue magenta cyan white, all as #rrggbb, all tinted toward the mood."}]}
+    req = urllib.request.Request(f"{ROUTER}/v1/chat/completions", data=json.dumps(body).encode(),
+                                 headers={"Content-Type": "application/json"}, method="POST")
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return json.loads(json.load(r)["choices"][0]["message"]["content"])
+
+
+def check(p):
+    """What the model said, made safe to put on a screen. Returns rgb tuples, with `dark` decided here."""
+    bg = hex_to_rgb(p["background"])
+    dark = is_dark(bg)
+    fg = readable(hex_to_rgb(p["foreground"]), bg, 4.5)
+    accent = readable(hex_to_rgb(p["accent"]), bg, 3.0)
+    term = [hex_to_rgb(c) for c in p["terminal"]]
+    # the terminal's black and white are the ends; the six in between must each be visible on the background
+    term[0] = mix(bg, (0, 0, 0), 0.4) if dark else mix(bg, (0, 0, 0), 0.85)
+    term[7] = mix(fg, (255, 255, 255), 0.3) if dark else mix(bg, (255, 255, 255), 0.9)
+    term[1:7] = [readable(c, bg, 2.5) for c in term[1:7]]
+    name = re.sub(r"[^A-Za-z0-9 ]", "", str(p.get("name", "")))[:40].strip() or "Made here"
+    return {"name": name, "dark": dark, "bg": bg, "fg": fg, "accent": accent, "term": term}
+
+
+# --- what gets written -------------------------------------------------------------------------------
+
+def render_colors(c):
+    """A KDE colour scheme, the shape of the shipped GenesisDark.colors, from six colours."""
+    bg, fg, ac, dark = c["bg"], c["fg"], c["accent"], c["dark"]
+    lift = lambda t: mix(bg, fg, t)  # a little towards the text colour: lighter on dark, darker on light
+    view, window, button, header, tooltip = bg, lift(0.05), lift(0.11), lift(0.03), lift(0.07)
+    comp = mix(bg, (0, 0, 0), 0.3) if dark else mix(bg, (0, 0, 0), 0.75)
+    inactive = mix(fg, bg, 0.45)
+    red, green, yellow, magenta = c["term"][1], c["term"][2], c["term"][3], c["term"][5]
+    sel_fg = (255, 255, 255) if contrast((255, 255, 255), ac) >= contrast((0, 0, 0), ac) else (0, 0, 0)
+
+    def block(bgn, alt, fgn=fg, fgi=inactive):
+        return (f"BackgroundAlternate={kde(alt)}\nBackgroundNormal={kde(bgn)}\nDecorationFocus={kde(ac)}\nDecorationHover={kde(ac)}\n"
+                f"ForegroundActive={kde(ac)}\nForegroundInactive={kde(fgi)}\nForegroundLink={kde(ac)}\nForegroundNegative={kde(red)}\n"
+                f"ForegroundNeutral={kde(yellow)}\nForegroundNormal={kde(fgn)}\nForegroundPositive={kde(green)}\nForegroundVisited={kde(magenta)}\n")
+
+    out = ["[ColorEffects:Disabled]\nColor=56,56,56\nColorAmount=0\nColorEffect=0\nContrastAmount=0.65\nContrastEffect=1\nIntensityAmount=0.1\nIntensityEffect=2\n",
+           "[ColorEffects:Inactive]\nChangeSelectionColor=true\nColor=112,111,110\nColorAmount=0.025\nColorEffect=2\nContrastAmount=0.1\nContrastEffect=2\nEnable=false\nIntensityAmount=0\nIntensityEffect=0\n",
+           "[Colors:Button]\n" + block(button, lift(0.09)),
+           "[Colors:Complementary]\n" + block(comp, mix(comp, fg, 0.04)),
+           "[Colors:Header]\n" + block(header, lift(0.05)),
+           "[Colors:Header][Inactive]\n" + block(header, lift(0.05), fgn=inactive),
+           "[Colors:Selection]\n" + block(ac, mix(ac, bg, 0.1), fgn=sel_fg, fgi=mix(sel_fg, ac, 0.3)).replace(f"ForegroundActive={kde(ac)}", f"ForegroundActive={kde(sel_fg)}").replace(f"ForegroundLink={kde(ac)}", f"ForegroundLink={kde(sel_fg)}"),
+           "[Colors:Tooltip]\n" + block(tooltip, lift(0.05)),
+           "[Colors:View]\n" + block(view, lift(0.03)),
+           "[Colors:Window]\n" + block(window, lift(0.08)),
+           f"[General]\nColorScheme={MADE}\nName={c['name']}\nshadeSortColumn=true\nAccentColor={kde(ac)}\n",
+           "[KDE]\ncontrast=4\n",
+           f"[WM]\nactiveBackground={kde(header)}\nactiveBlend={kde(fg)}\nactiveForeground={kde(fg)}\ninactiveBackground={kde(header)}\ninactiveBlend={kde(inactive)}\ninactiveForeground={kde(inactive)}\n"]
+    return "\n".join(out)
+
+
+def render_konsole(c):
+    """A Konsole colour scheme: the eight colours, their intense forms, and the background and text."""
+    out = [f"[General]\nDescription={c['name']}\nOpacity=1\nWallpaper=\n",
+           f"[Background]\nColor={kde(c['bg'])}\n", f"[BackgroundIntense]\nColor={kde(mix(c['bg'], c['fg'], 0.06))}\n",
+           f"[BackgroundFaint]\nColor={kde(c['bg'])}\n",
+           f"[Foreground]\nColor={kde(c['fg'])}\n", f"[ForegroundIntense]\nColor={kde(mix(c['fg'], (255, 255, 255) if c['dark'] else (0, 0, 0), 0.3))}\n",
+           f"[ForegroundFaint]\nColor={kde(mix(c['fg'], c['bg'], 0.3))}\n"]
+    for i, col in enumerate(c["term"]):
+        bright = mix(col, (255, 255, 255) if c["dark"] else (0, 0, 0), 0.2)
+        out += [f"[Color{i}]\nColor={kde(col)}\n", f"[Color{i}Intense]\nColor={kde(bright)}\n", f"[Color{i}Faint]\nColor={kde(mix(col, c['bg'], 0.4))}\n"]
+    return "\n".join(out)
+
+
+def render_wallpaper(c, path, size=(2560, 1600)):
+    """A wallpaper in the palette: the background, drifting towards the accent in one corner. Made with
+    PIL's gradients rather than pixel by pixel, so it takes a moment and not a minute."""
+    try:
+        from PIL import Image
+    except ImportError:
+        return False
+    w, h = size
+    bg, ac = c["bg"], c["accent"]
+    far = mix(bg, ac, 0.45 if c["dark"] else 0.35)
+    base = Image.new("RGB", (w, h), tuple(int(v) for v in bg))
+    glow = Image.new("RGB", (w, h), tuple(int(v) for v in far))
+    mask = Image.linear_gradient("L").rotate(35, expand=True).resize((w, h))
+    # a second, softer gradient the other way, so the corner is a glow and not a stripe
+    soft = Image.radial_gradient("L").resize((w * 2, h * 2)).crop((w // 2, h // 2, w // 2 + w, h // 2 + h))
+    mask = Image.blend(mask, soft, 0.5)
+    Image.composite(glow, base, mask).save(path, "PNG", optimize=False)
+    return True
+
+
+# --- applying --------------------------------------------------------------------------------------
+
+def run(cmd, **k):
+    env = dict(os.environ)
+    # the Plasma tools are Qt programs: with no display they abort, and with the offscreen platform they
+    # still reach the session over the bus and apply. The agent, a timer, or SSH has no display.
+    if not env.get("WAYLAND_DISPLAY") and not env.get("DISPLAY"):
+        env.setdefault("QT_QPA_PLATFORM", "offscreen")
+    return subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=60, **k)
+
+
+def current():
+    scheme = run(["kreadconfig6", "--file", "kdeglobals", "--group", "General", "--key", "ColorScheme"]).stdout.strip() or "GenesisDark"
+    wallpaper = ""
+    try:
+        with open(os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.join(HOME, ".config")), "plasma-org.kde.plasma.desktop-appletsrc")) as f:
+            m = re.search(r"^Image=file://(.+)$", f.read(), re.M)
+            wallpaper = m.group(1) if m else ""
+    except OSError:
+        pass
+    konsole = run(["kreadconfig6", "--file", os.path.join(DATA, "konsole", "Genesis.profile"), "--group", "Appearance", "--key", "ColorScheme"]).stdout.strip()
+    return {"scheme": scheme, "wallpaper": wallpaper, "konsole": konsole}
+
+
+def remember(state):
+    os.makedirs(STATE, exist_ok=True)
+    with open(UNDO, "w") as f:
+        json.dump(dict(state, at=time.time()), f)
+
+
+def apply_scheme(scheme, icons=None):
+    r = run(["plasma-apply-colorscheme", scheme])
+    if r.returncode != 0:
+        return False, (r.stderr or r.stdout).strip()[-200:]
+    run(["kwriteconfig6", "--file", "kdeglobals", "--group", "General", "--key", "ColorScheme", scheme])
+    if icons and os.path.isdir(f"/usr/share/icons/{icons}"):
+        run(["/usr/libexec/plasma-changeicons", icons])
+    return True, ""
+
+
+def apply_wallpaper(path):
+    if not path or not os.path.exists(path):
+        return
+    run(["plasma-apply-wallpaperimage", path])
+
+
+def apply_konsole(scheme_name):
+    """Konsole reads a profile; there is none until one is made. New windows take it; open ones keep theirs."""
+    d = os.path.join(DATA, "konsole")
+    os.makedirs(d, exist_ok=True)
+    prof = os.path.join(d, "Genesis.profile")
+    lines = [f"[Appearance]\nColorScheme={scheme_name}\n", "[General]\nName=Genesis\nParent=FALLBACK/\n"]
+    with open(prof, "w") as f:
+        f.write("\n".join(lines))
+    run(["kwriteconfig6", "--file", "konsolerc", "--group", "Desktop Entry", "--key", "DefaultProfile", "Genesis.profile"])
+
+
+def notify(title, body):
+    try:
+        subprocess.run(["notify-send", "-a", "Genesis", "-i", "genesis", title, body], capture_output=True, timeout=10)
+    except Exception:
+        pass
+
+
+def shipped(want):
+    scheme, icons, konsole = ("GenesisLight", "Papirus-Light", "BlackOnWhite") if want == "light" else ("GenesisDark", "Papirus-Dark", "Breeze")
+    remember(current())
+    ok, err = apply_scheme(scheme, icons)
+    if not ok:
+        print(f"could not apply {scheme}: {err}", file=sys.stderr)
+        return 1
+    apply_konsole(konsole)
+    apply_wallpaper(SHIPPED_WALLPAPER)
+    notify(f"Genesis {want.capitalize()}", "Colours switched for every app.")
+    print(scheme)
+    return 0
+
+
+def make(mood):
+    try:
+        raw = ask_model(mood)
+    except Exception as e:
+        print(f"the assistant could not make a palette: {e}", file=sys.stderr)
+        return 2
+    c = check(raw)
+    os.makedirs(os.path.join(DATA, "color-schemes"), exist_ok=True)
+    os.makedirs(os.path.join(DATA, "konsole"), exist_ok=True)
+    os.makedirs(os.path.join(DATA, "wallpapers"), exist_ok=True)
+    with open(os.path.join(DATA, "color-schemes", f"{MADE}.colors"), "w") as f:
+        f.write(render_colors(c))
+    with open(os.path.join(DATA, "konsole", f"{MADE}.colorscheme"), "w") as f:
+        f.write(render_konsole(c))
+    wall = os.path.join(DATA, "wallpapers", f"{MADE}.png")
+    if not render_wallpaper(c, wall):
+        wall = ""
+    remember(current())
+    ok, err = apply_scheme(MADE, "Papirus-Dark" if c["dark"] else "Papirus-Light")
+    if not ok:
+        print(f"could not apply the made scheme: {err}", file=sys.stderr)
+        return 1
+    apply_konsole(MADE)
+    apply_wallpaper(wall)
+    notify(c["name"], f"Made here for “{mood}”. genesis-theme undo brings the old look back.")
+    print(json.dumps({"name": c["name"], "dark": c["dark"], "background": rgb_to_hex(c["bg"]), "foreground": rgb_to_hex(c["fg"]),
+                      "accent": rgb_to_hex(c["accent"]), "terminal": [rgb_to_hex(t) for t in c["term"]], "wallpaper": wall}))
+    return 0
+
+
+def undo():
+    try:
+        with open(UNDO) as f:
+            prev = json.load(f)
+    except (OSError, ValueError):
+        print("nothing to undo", file=sys.stderr)
+        return 1
+    remember(current())
+    scheme = prev.get("scheme") or "GenesisDark"
+    ok, err = apply_scheme(scheme, "Papirus-Light" if scheme == "GenesisLight" else "Papirus-Dark")
+    if not ok:
+        print(f"could not go back to {scheme}: {err}", file=sys.stderr)
+        return 1
+    if prev.get("konsole"):
+        apply_konsole(prev["konsole"])
+    else:
+        # there was no profile before: going back means not having one, not keeping the made scheme
+        for f in (os.path.join(DATA, "konsole", "Genesis.profile"),):
+            try: os.remove(f)
+            except OSError: pass
+        run(["kwriteconfig6", "--file", "konsolerc", "--group", "Desktop Entry", "--key", "DefaultProfile", "--delete"])
+    apply_wallpaper(prev.get("wallpaper") or SHIPPED_WALLPAPER)
+    notify("Back to the look before", scheme)
+    print(scheme)
+    return 0
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("cmd", nargs="?", default="toggle")
+    ap.add_argument("mood", nargs="*")
+    a = ap.parse_args()
+    if a.cmd == "make":
+        mood = " ".join(a.mood).strip()
+        if not mood:
+            print("say what it should look like: genesis-theme make \"foggy morning by the sea\"", file=sys.stderr)
+            return 2
+        return make(mood)
+    if a.cmd == "undo":
+        return undo()
+    if a.cmd == "status":
+        print(json.dumps(current()))
+        return 0
+    want = a.cmd
+    if want == "toggle":
+        want = "dark" if current()["scheme"] == "GenesisLight" else "light"
+    if want not in ("dark", "light"):
+        ap.error(f"unknown command {want!r}")
+    return shipped(want)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -78,6 +78,13 @@ How Genesis got here, in the order it happened. The decision log has the detail 
   when a service fails — a backup that did not run, a mount that did not come up — which is ten times more
   common than a crash and just as opaque: "Failed with result 'exit-code'" becomes "your backup disk was
   not plugged in". The units systemd makes for a session or a launched program are not offered.
+- **A desktop that looks like whatever you say.** `genesis-theme make "foggy morning by the sea"` — or
+  asking the assistant for it — and twenty seconds later every application, the panel, the terminal and
+  the wallpaper are in a palette made for that, by the model on this machine, with `genesis-theme undo`
+  one word away. What the model proposes is checked before it reaches the screen: whether a look is dark
+  is read off the background it chose rather than what it claims, and text is pushed until it reads,
+  because a small model will call a light palette dark and put grey on grey. Day and night are still one
+  key. Nobody's list of themes is as long as what you can describe.
 - **The assistant follows the plug.** Pull the cable out of a laptop and the big models are put away;
   every request goes to the small always-loaded one, and the assistant gets shorter rather than quiet.
   Plug back in and they are allowed to load again. Nobody else can do this, because nobody else has both
