@@ -17,7 +17,7 @@ off limits, per Fedora's Remix rules.
 
 | | (a) From scratch | (b) Independent, reuse upstream sources | (c) Classic derived | (d) Image-based derived |
 |---|---|---|---|---|
-| Examples | LFS, Yocto, Chimera, AerynOS | Alpine, Void, Solus, NixOS, Clear Linux | Ubuntu, Pop!_OS, Mint, CachyOS, Omarchy, SteamOS | Bazzite, Bluefin, Aurora, Ubuntu Core, ChromeOS |
+| Examples | LFS, Yocto, Chimera, AerynOS | Alpine, Void, Solus, NixOS, Clear Linux | Ubuntu, Pop!_OS, Mint, CachyOS, SteamOS | Bazzite, Bluefin, Aurora, Ubuntu Core, ChromeOS |
 | You own | Toolchain, package format, every build, kernel, security tracking | Own package builds, own kernel, own repo | Upstream binaries plus your overlay, installer, defaults | Upstream binaries composed in a Containerfile; your layer on top |
 | Time to usable desktop with GPU drivers and Secure Boot | 3 to 5 years | 2 to 4 years | 2 to 6 months | Weeks |
 | Ongoing FTE to stay current and secure | 3 to 6 | 2 to 4 | 0.5 to 1.5 | 0.3 to 1 |
@@ -33,7 +33,7 @@ off limits, per Fedora's Remix rules.
 
 **Derived, image-based distros ship with tiny teams.**
 - Bluefin and Aurora: 3 maintainers at 50k weekly active users.
-- Omarchy: 2 listed developers, script in June 2025 to full ISO plus repo within months.
+- An Arch-based AI desktop: 2 listed developers, a script in June 2025 to a full ISO plus repo within months.
 - CachyOS: started with 2 to 3 people.
 
 **Security volume is not survivable alone.**
@@ -49,7 +49,7 @@ one-time MOK enrolment. An own shim means a legal entity, key custody, and a mon
 review. Ubuntu is the only base with NVIDIA modules signed under the distro's own
 Microsoft-chained key.
 
-**AI-native precedent.** Omarchy chose Arch. Bluefin GDX chose Fedora then CentOS Stream.
+**AI-native precedent.** One AI-first desktop chose Arch. Bluefin GDX chose Fedora then CentOS Stream.
 Canonical is adding local-inference features to Ubuntu itself. No AI-native distro was built
 from scratch or on an independent base. MAGI OS, a one-developer Debian-based attempt, is
 already abandoned.
@@ -70,7 +70,7 @@ already abandoned.
 - Fedora's 13-month cycle forces a rebase every 6 to 12 months. Mitigation: CentOS Stream LTS stream later.
 - Universal Blue is a community project with 3 owners and no visible legal entity. Mitigation: everything is public Containerfiles, and Fedora's own bootc base images arrive with the Image Mode Phase 2 initiative (F44 beta, F45 production). We can rebase onto those directly.
 - bootc churn: expect a few breaking rebases per year.
-- The agent itself is the largest attack surface. Omarchy shipped a 14-month root escalation through a default docker group. Our security hours go to the permission model, not to redoing glibc updates.
+- The agent itself is the largest attack surface. One AI-first desktop shipped a 14-month root escalation through a default docker group. Our security hours go to the permission model, not to redoing glibc updates.
 
 ## Exit path, so the base stays a `FROM` line
 
@@ -100,7 +100,7 @@ Exact headcounts for Alpine, Void and CachyOS; whether any Universal Blue mainta
 
 Chimera news · fossforce.com on AerynOS · getsol.us "A New Voyage" · itsfoss.com on Void ·
 lwn.net/Articles/1030563 (Clear Linux) · dosu.dev Bluefin case study · docs.projectbluefin.io
-four-years post · en.wikipedia.org/wiki/Omarchy · 0xcc.io Omarchy root escalation ·
+four-years post · 0xcc.io: docker-group root escalation in an AI desktop ·
 jerrygamblin.com 2025 CVE review · tuxcare.com kernel CVE flood · lists.debian.org DSAs 2025 ·
 ariadne.space security response team · github.com/rhboot/shim-review ·
 universal-blue.discourse.group MOK management · fedoraproject.org/wiki/Remix ·
