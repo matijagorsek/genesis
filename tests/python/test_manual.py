@@ -37,3 +37,17 @@ def test_it_says_the_hard_parts_plainly():
     text = re.sub(r"<[^>]+>", " ", MANUAL.read_text())
     for phrase in ("10 to 30 minutes", "It isn't", "Nothing restarts on its own", "Nothing, by default", "It is working, not stuck", "rollback"):
         assert phrase in text, phrase
+
+
+def test_the_front_page_shows_only_pictures_that_exist_and_keeps_its_downloads():
+    html = (ROOT / "docs/index.html").read_text()
+    for src in re.findall(r'<img src="([^"]+)"', html):
+        assert (ROOT / "docs" / src).is_file(), f"the front page shows {src} and it is not in docs/"
+    ids = set(re.findall(r'id="([^"]+)"', html))
+    for anchor in re.findall(r'href="#([^"]+)"', html):
+        assert anchor in ids, f"#{anchor} goes nowhere"
+    # the download cards are built from the releases API; the pieces that logic needs must still be there
+    for needle in ('id="dl"', 'id="rel"', "api.github.com/repos/matijagorsek/genesis/releases", "SHA256SUMS.", 'href="manual.html"'):
+        assert needle in html, needle
+    text = re.sub(r"<[^>]+>", " ", html)
+    assert "10 to 30 minutes" in text and "Nothing, by default" in text and "one laptop" in text.lower() or "one Intel laptop" in text

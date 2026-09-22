@@ -1,78 +1,209 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Genesis</title>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Genesis · the desktop with the assistant inside</title>
+<meta name="description" content="A complete Linux desktop with a language model that lives on the machine. It makes things, explains things, and nothing leaves your computer.">
+<meta property="og:title" content="Genesis · the desktop with the assistant inside"><meta property="og:description" content="A complete Linux desktop with a language model that lives on the machine. Nothing leaves your computer."><meta property="og:image" content="https://matijagorsek.github.io/genesis/screens/latest/04-desktop.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='26' fill='none' stroke='%235fb5bd' stroke-width='6'/%3E%3Ccircle cx='32' cy='32' r='9' fill='%235fb5bd'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=IBM+Plex+Mono&display=swap">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=IBM+Plex+Mono&display=swap">
 <style>
-:root{--bg:#0b0f14;--bg2:#10161e;--panel:#161d27;--line:#232c37;--ink:#eef3f8;--ink2:#a9b4c1;--mute:#6f7a89;--acc:#5fb5bd}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Manrope,system-ui,sans-serif;font-size:17px;line-height:1.6}
-.hero{max-width:1100px;margin:0 auto;padding:12vh 6vw 6vh}.k{color:var(--acc);letter-spacing:.2em;text-transform:uppercase;font-weight:800;font-size:13px;margin:0 0 14px}
-h1{font-size:clamp(38px,6vw,76px);line-height:1;letter-spacing:-.03em;margin:0 0 20px;font-weight:800;max-width:14ch}
-.lead{font-size:clamp(18px,1.8vw,22px);color:var(--ink2);max-width:56ch;margin:0 0 28px}
-.dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;max-width:1100px;margin:0 auto;padding:0 6vw 6vh}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 22px}.card h2{margin:0 0 6px;font-size:20px}.card p{margin:0 0 12px;color:var(--ink2);font-size:15px}
-.card.rec{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset}.tag{display:inline-block;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--acc);font-weight:800;margin-bottom:8px}
-a.btn{display:inline-block;background:var(--acc);color:#08181a;font-weight:800;padding:10px 16px;border-radius:10px;text-decoration:none;margin:4px 6px 4px 0}a.btn.sec{background:var(--bg2);color:var(--ink);border:1px solid var(--line)}
+:root{--bg:#0b0f14;--bg2:#10161e;--panel:#161d27;--line:#232c37;--ink:#eef3f8;--ink2:#a9b4c1;--mute:#6f7a89;--acc:#5fb5bd;--acc2:#9b8cd6;--warm:#e0a84a}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Manrope,system-ui,sans-serif;font-size:17px;line-height:1.6;overflow-x:hidden}
+a{color:var(--acc)}
+.top{position:sticky;top:0;z-index:5;backdrop-filter:blur(14px);background:rgba(11,15,20,.72);border-bottom:1px solid rgba(35,44,55,.6)}
+.top .in{max-width:1180px;margin:0 auto;padding:12px 6vw;display:flex;align-items:center;gap:22px}
+.logo{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:-.01em;color:var(--ink);text-decoration:none}
+.logo i{width:20px;height:20px;border-radius:50%;border:3px solid var(--acc);position:relative;display:inline-block}.logo i:after{content:"";position:absolute;inset:4px;border-radius:50%;background:var(--acc)}
+.top nav{margin-left:auto;display:flex;gap:18px;font-size:14px}.top nav a{color:var(--ink2);text-decoration:none}.top nav a:hover{color:var(--ink)}
+.top nav a.dl{color:#08181a;background:var(--acc);padding:6px 12px;border-radius:8px;font-weight:800}
+@media (max-width:700px){.top nav a:not(.dl){display:none}}
+
+.hero{position:relative;max-width:1180px;margin:0 auto;padding:11vh 6vw 4vh;overflow:visible}
+.hero:before{content:"";position:absolute;inset:-20vh -30vw auto;height:70vh;background:radial-gradient(60% 60% at 30% 40%,rgba(95,181,189,.16),transparent 70%),radial-gradient(40% 50% at 80% 20%,rgba(155,140,214,.12),transparent 70%);pointer-events:none;z-index:-1}
+.k{color:var(--acc);letter-spacing:.2em;text-transform:uppercase;font-weight:800;font-size:12px;margin:0 0 14px}
+h1{font-size:clamp(40px,7vw,92px);line-height:.98;letter-spacing:-.035em;margin:0 0 22px;font-weight:800;max-width:13ch}
+h1 em{font-style:normal;color:var(--acc)}
+.lead{font-size:clamp(18px,1.9vw,23px);color:var(--ink2);max-width:52ch;margin:0 0 30px}
+.cta{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
+a.btn{display:inline-block;background:var(--acc);color:#08181a;font-weight:800;padding:13px 20px;border-radius:12px;text-decoration:none;font-size:16px}
+a.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}a.btn.ghost:hover{border-color:var(--acc)}
+.relline{color:var(--mute);font-size:14px;font-family:"IBM Plex Mono",monospace}
+.shot{max-width:1180px;margin:2vh auto 0;padding:0 6vw;perspective:1400px}
+.shot img{width:100%;display:block;border-radius:16px;border:1px solid var(--line);box-shadow:0 40px 120px rgba(0,0,0,.55),0 0 0 1px rgba(95,181,189,.15);transform:rotateX(6deg);transform-origin:50% 100%}
+.shot figcaption{color:var(--mute);font-size:13px;text-align:center;margin-top:12px}
+
+section{max-width:1180px;margin:0 auto;padding:9vh 6vw 2vh}
+h2{font-size:clamp(28px,3.6vw,46px);line-height:1.05;letter-spacing:-.025em;margin:0 0 14px;font-weight:800;max-width:22ch}
+.sub{font-size:clamp(17px,1.5vw,20px);color:var(--ink2);max-width:58ch;margin:0 0 30px}
+.split{display:grid;grid-template-columns:1.1fr 1fr;gap:40px;align-items:center}.split.flip>*:first-child{order:2}
+@media (max-width:860px){.split{grid-template-columns:1fr}.split.flip>*:first-child{order:0}}
+.split img{width:100%;border-radius:14px;border:1px solid var(--line);display:block;box-shadow:0 24px 60px rgba(0,0,0,.45)}
+.split h3{font-size:clamp(24px,2.6vw,34px);letter-spacing:-.02em;margin:0 0 10px;line-height:1.1}
+.split p{color:var(--ink2);max-width:48ch}
+kbd{font-family:"IBM Plex Mono",monospace;font-size:13px;background:var(--panel);border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;padding:1px 7px;color:var(--ink)}
+code{font-family:"IBM Plex Mono",monospace;font-size:14px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:var(--ink)}
+pre{background:#0d1218;border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow-x:auto;font-family:"IBM Plex Mono",monospace;font-size:13.5px;color:var(--ink2);margin:0}
+pre b{color:var(--ink);font-weight:500}
+
+.looks{display:grid;grid-template-columns:1fr 1fr;gap:16px}@media (max-width:760px){.looks{grid-template-columns:1fr}}
+.look{position:relative;border-radius:14px;overflow:hidden;border:1px solid var(--line);background:var(--panel)}
+.look img{width:100%;display:block}.look .cmd{position:absolute;left:12px;bottom:12px;right:12px;background:rgba(11,15,20,.82);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-family:"IBM Plex Mono",monospace;font-size:13px;color:var(--ink)}
+.look .cmd span{color:var(--acc)}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px}
+.card h3{margin:0 0 8px;font-size:19px;letter-spacing:-.01em}.card p{margin:0;color:var(--ink2);font-size:15.5px}
+.card .n{font-family:"IBM Plex Mono",monospace;color:var(--acc);font-size:12px;letter-spacing:.14em;margin-bottom:10px}
+.card.rec{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset}
+.tag{display:inline-block;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--acc);font-weight:800;margin-bottom:8px}
 .files{font-family:"IBM Plex Mono",monospace;font-size:12.5px;color:var(--mute);margin-top:10px;word-break:break-all}.files a{color:var(--ink2)}
-.how{max-width:1100px;margin:0 auto;padding:2vh 6vw 10vh}.how h2{font-size:26px;margin:36px 0 8px}.how p,.how li{max-width:70ch;color:var(--ink2)}
-pre{background:#0d1218;border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow-x:auto;font-family:"IBM Plex Mono",monospace;font-size:13px;color:var(--ink)}
-.shots{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;max-width:1100px;margin:0 auto;padding:0 6vw 6vh}.shots img{width:100%;border-radius:12px;border:1px solid var(--line)}
-.foot{color:var(--mute);font-size:13px;max-width:1100px;margin:0 auto;padding:0 6vw 8vh}
+.card a.btn{margin:8px 6px 4px 0;padding:9px 14px;font-size:14px}
+
+.pledge{background:linear-gradient(135deg,rgba(95,181,189,.12),rgba(155,140,214,.08));border:1px solid var(--line);border-radius:20px;padding:40px clamp(20px,5vw,60px)}
+.pledge h2{max-width:none}.pledge p{color:var(--ink2);max-width:62ch}
+.pledge ul{columns:2;column-gap:40px;padding-left:20px;color:var(--ink2)}@media (max-width:700px){.pledge ul{columns:1}}
+.numbers{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-top:22px}
+.num{border-left:2px solid var(--acc);padding:4px 16px}.num b{display:block;font-size:34px;letter-spacing:-.03em;line-height:1}.num span{color:var(--mute);font-size:14px}
+
+.how{color:var(--ink2)}.how h3{color:var(--ink);font-size:22px;margin:30px 0 8px}.how p,.how li{max-width:72ch}
+.foot{color:var(--mute);font-size:13px;max-width:1180px;margin:0 auto;padding:6vh 6vw 8vh;border-top:1px solid var(--line)}
+.r{opacity:0;transform:translateY(18px);transition:opacity .7s ease,transform .7s ease}.r.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){.r{opacity:1;transform:none;transition:none}.shot img{transform:none}}
 </style></head><body>
+
+<div class="top"><div class="in">
+  <a class="logo" href="#"><i></i>Genesis</a>
+  <nav><a href="manual.html">Your first hour</a><a href="#make">Make</a><a href="#looks">Looks</a><a href="#kept">Kept</a><a href="#honest">Honest</a><a href="https://github.com/matijagorsek/genesis">Source</a><a class="dl" href="#download">Download</a></nav>
+</div></div>
+
 <div class="hero">
-  <p class="k">Genesis · a Linux desktop with the AI inside</p>
-  <h1>A computer that can make things for you.</h1>
-  <p class="lead-note"><a href="manual.html">Your first hour</a> · <a href="https://github.com/matijagorsek/genesis/blob/main/HOW-TO-USE.md">How to use it</a> · <a href="https://github.com/matijagorsek/genesis/blob/main/docs/releases/0.2.md">What is new in Genesis 0.2</a></p>
-  <p class="lead">A complete desktop with a maker built in. Describe what you want, and Genesis builds it on your machine, with no cloud and no account. Every change asks first and can be undone.</p>
-  <p class="lead" id="rel">Loading the latest release…</p>
+  <p class="k">A Linux desktop · Fedora bootc · KDE Plasma</p>
+  <h1>The desktop with the <em>assistant inside.</em></h1>
+  <p class="lead">A complete computer, and a model that lives on it. Say what you want and it makes it. Ask what went wrong and it tells you. Describe a look and the whole desktop follows. Nothing leaves the machine.</p>
+  <div class="cta"><a class="btn" href="#download">Download</a><a class="btn ghost" href="manual.html">Read your first hour</a></div>
+  <p class="relline" id="rel">Loading the latest release…</p>
 </div>
-<div class="dl" id="dl"></div>
-<div class="shots">
-  <img src="screens/latest/04-desktop.png" alt="The Genesis desktop, captured by CI from the latest release">
-  <img src="screens/fresh-run/03-pomodoro-made-by-the-2B-model.png" alt="The maker, having built a pomodoro timer on a fresh disk">
-  <img src="screens/latest/02-login.png" alt="The login screen, captured by CI">
-</div>
-<div class="how">
-  <h2>Which file do I need?</h2>
-  <ul>
-    <li><b>PC or laptop (x86_64):</b> the installer ISO writes Genesis to a machine or a VM. The qcow2 disk boots directly in QEMU, virt-manager or UTM.</li>
-    <li><b>Apple Silicon Mac:</b> the arm64 disk runs natively in a VM (UTM, or QEMU with Apple's hypervisor) at full speed, models included.</li>
-  </ul>
-  <p>Downloads are split into parts because of GitHub's 2 GB limit. Join them:</p>
-  <pre>cat genesis-VERSION.qcow2.zst.*.part | zstd -d -o disk.qcow2
+<figure class="shot r"><img src="screens/latest/04-desktop.png" alt="The Genesis desktop, captured automatically from the latest release"><figcaption>The desktop, captured by the build itself from the latest release. Not a mockup.</figcaption></figure>
+
+<section id="looks">
+  <p class="k">Looks</p>
+  <h2>Describe it. Twenty seconds later, everything matches.</h2>
+  <p class="sub">The model on the machine proposes a palette; Genesis turns it into a colour scheme for every application, the terminal and a wallpaper, checks that text reads, and applies it together. Undo is one word. Both of these were made on a laptop this afternoon.</p>
+  <div class="looks">
+    <figure class="look r"><img src="screens/looks/foggy-morning-by-the-sea.png" alt="A Genesis desktop in a light, foggy blue-grey palette"><div class="cmd"><span>$</span> genesis-theme make "foggy morning by the sea"</div></figure>
+    <figure class="look r"><img src="screens/looks/warm-autumn-library-at-night.png" alt="A Genesis desktop in a warm amber and brown palette"><div class="cmd"><span>$</span> genesis-theme make "warm autumn library at night"</div></figure>
+  </div>
+</section>
+
+<section id="make">
+  <div class="split r">
+    <img src="screens/fresh-run/03-pomodoro-made-by-the-2B-model.png" alt="The maker, having built a pomodoro timer: steps on the left, the running app on the right">
+    <div>
+      <p class="k">Make</p>
+      <h3><kbd>Meta</kbd>+<kbd>Space</kbd>, say it, press Enter.</h3>
+      <p>"A checklist app that saves to a file." "A pomodoro timer with a bell." "Rename the photos in this folder by the date they were taken." Every step shows as it happens, the thing runs in a preview, and <b>Install as app</b> puts it in your menu. This one was built by the smallest model on a fresh machine.</p>
+      <p>Before anything outside the project, a card with a plain verb: <i>Genesis wants to install a package.</i> Allow once, or not now. Every job is snapshotted first, so Undo takes the whole thing back.</p>
+    </div>
+  </div>
+</section>
+
+<section id="ask">
+  <p class="k">Ask</p>
+  <h2>Your computer explains itself.</h2>
+  <p class="sub">The same model that makes things reads the machine. Not a chatbot bolted on the side — a thing with the journal, the package database and the hardware in front of it.</p>
+  <div class="grid">
+    <div class="card r"><div class="n">CRASH</div><h3>A program stops. It says why.</h3><p>One notification, one button. The program, the signal and the stack go to the model here, which reads the journal around that moment and answers in plain words. A crash dump carries the paths a program had open — exactly why it never leaves.</p></div>
+    <div class="card r"><div class="n">SERVICE</div><h3>"backup.service failed" becomes "your disk wasn't plugged in."</h3><p>Ten times more common than a crash, and just as opaque without this. Same offer, same door.</p></div>
+    <div class="card r"><div class="n">UPDATE</div><h3>An update says what's in it.</h3><p>Not "44.20260922.1". Genesis reads the two images on the disk — the one running and the one waiting — and lists the kernel, graphics, audio, what was added, and what in Genesis changed, with the sentences those changes shipped with.</p></div>
+    <div class="card r"><div class="n">SCREEN</div><h3>Draw a box on anything.</h3><p><kbd>Meta</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd>: an error, a chart, a form — asked about with a vision model on this machine. Select text and right-click for the same.</p></div>
+    <div class="card r"><div class="n">VOICE · PHONE</div><h3>Speak, or send it from your phone.</h3><p><kbd>Meta</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> listens. Share text starting with "ask" from the phone and the answer comes back as a notification. Anything that would install, delete or send is shown first and needs Enter.</p></div>
+    <div class="card r"><div class="n">BATTERY</div><h3>It follows the plug.</h3><p>Unplug a laptop and the big models are put away; every question goes to the small one, and the assistant gets shorter rather than quiet. Plug in, and they're back. Only a desktop that owns both the model and the machine can do this.</p></div>
+  </div>
+</section>
+
+<section id="measured">
+  <div class="split flip r">
+    <img src="screens/latest/03-first-run.png" alt="First run: what this machine can run, and the recommended model pack">
+    <div>
+      <p class="k">Measured</p>
+      <h3>It measures your machine instead of guessing.</h3>
+      <p>First run generates a few tokens on every device the machine offers — the CPU, each GPU — and keeps what was actually fastest. On the first real laptop that was the processor, not the built-in graphics, by three to one. Then it offers the biggest model pack that fits, from 2 GB for an old laptop to 48 GB for a workstation GPU, and the assistant starts the moment the first model is on disk.</p>
+    </div>
+  </div>
+</section>
+
+<section id="kept">
+  <p class="k">Kept</p>
+  <h2>Updates like an appliance. A stable channel that's tested by asking.</h2>
+  <p class="sub">Genesis is an image, not a pile of packages. Updates are fetched in the background and applied when you restart — never on their own — and the image you were on stays as the rollback, every time.</p>
+  <div class="grid">
+    <div class="card r"><div class="n">NIGHTLY CANARY</div><h3>Stable only moves after a machine proved it.</h3><p>Every night a machine installed a week ago is upgraded to the new image, rebooted, and checked: does it boot, does it set itself up, does the assistant answer? A build that fails never reaches you.</p></div>
+    <div class="card r"><div class="n">ROLLBACK</div><h3>Pick the previous entry in the boot menu.</h3><p>That's the whole procedure. Nothing to reinstall.</p></div>
+    <div class="card r"><div class="n">CATALOGUE</div><h3>Fifty apps with a reason each.</h3><p>Not a store with forty thousand. One answer per need, one word to install — <code>genesis-apps install obsidian</code> — and the assistant reads the same list. Apps install for you; the image underneath is never touched.</p></div>
+    <div class="card r"><div class="n">SIGNED</div><h3>Images signed, packs signed, downloads checked.</h3><p>Every image carries a cosign signature; every model pack definition is signed and every download is checked against it.</p></div>
+  </div>
+</section>
+
+<section id="leaves">
+  <div class="pledge r">
+    <p class="k">What leaves the machine</p>
+    <h2>Nothing, by default.</h2>
+    <p>The models run here. The crash you ask about, the screen you draw a box on, the files you opt in — none of it is uploaded, because there is nowhere for it to go. Genesis makes three kinds of connection on its own, and that's the list:</p>
+    <ul><li>Fetching updates</li><li>Downloading the model pack you chose</li><li>Installing the apps you asked for</li><li>…and one clearly labelled exception: Claude Code with your own account, off until you sign in</li></ul>
+    <p>Some things it never does whatever you answer: read your keys and passwords, wipe disks, change the base system. Refused by rules, not by the model's judgement.</p>
+  </div>
+</section>
+
+<section id="honest">
+  <p class="k">Honest</p>
+  <h2>Proven on one laptop. Here's what that means.</h2>
+  <p class="sub">Everything above was run on a real machine before it was written here, and the things that failed when it was — and there were several, today — are in the decision log with what was done. What has not happened yet is the second machine, and NVIDIA, AMD and Intel Arc have never been tried. If you have one, you'd be the first, and the hardware report is one command.</p>
+  <div class="numbers">
+    <div class="num"><b id="n-decisions">199</b><span>decisions written down, with the mistakes</span></div>
+    <div class="num"><b>nightly</b><span>canary that upgrades a real machine before stable moves</span></div>
+    <div class="num"><b>1</b><span>real laptop everything has been proven on</span></div>
+    <div class="num"><b>0</b><span>accounts, uploads, telemetry</span></div>
+  </div>
+</section>
+
+<section id="download">
+  <p class="k">Download</p>
+  <h2>Get Genesis.</h2>
+  <p class="sub">Alpha. Try it in a virtual machine first; install it on a machine you can afford to experiment with. Read <a href="manual.html">your first hour</a> before you do — it tells you the moments that look wrong and aren't.</p>
+  <div class="grid" id="dl"></div>
+  <div class="how">
+    <h3>Which file do I need?</h3>
+    <ul>
+      <li><b>PC or laptop (x86_64):</b> the installer ISO writes Genesis to a machine or a VM. The qcow2 disk boots directly in QEMU, virt-manager or UTM.</li>
+      <li><b>Apple Silicon Mac:</b> the arm64 disk runs natively in a VM (UTM, or QEMU with Apple's hypervisor) at full speed, models included.</li>
+    </ul>
+    <p>Downloads are split into parts because of GitHub's 2 GB limit. Join them:</p>
+    <pre>cat genesis-VERSION.qcow2.zst.*.part | zstd -d -o disk.qcow2
 cat genesis-VERSION.iso.*.part &gt; genesis.iso</pre>
-  <p><b>One thing to expect while installing:</b> the step called <i>"Deployment starting"</i> takes
-  <b>10 to 30 minutes with a progress bar that does not move</b>. It is writing about 13 GB to your disk and it
-  is not stuck. Press <code>Ctrl+Alt+F2</code> for a shell and run <code>journalctl -f</code> if you want to
-  watch it work; <code>Ctrl+Alt+F6</code> goes back.</p>
-  <p>The joined ISO is about <b>6.3 GB</b>, so a <b>USB stick of 8 GB or more</b> is needed; a 4 GB stick
-  cannot hold it. Write it with Fedora Media Writer, or <code>sudo dd if=genesis.iso of=/dev/sdX bs=4M
-  status=progress oflag=sync</code> — the whole stick is overwritten. Nothing is downloaded during the
-  install: the ISO carries the whole system, so the machine can be offline until the first boot.</p>
-  <h2>Hardware</h2>
-  <ul>
-    <li><b>Any x86_64 PC:</b> the standard image. At first run Genesis measures this machine — it generates a few tokens with the GPU set aside, then on each device the machine offers, and keeps whichever was fastest and did not crash. So a discrete AMD or Intel card is used through Vulkan, and an integrated chip that would be slower is not; there is no list of supported devices to be on.</li>
-    <li><b>NVIDIA, Turing or newer</b> (GTX 16xx, RTX 20xx and later): install the standard image, then <code>sudo bootc switch ghcr.io/matijagorsek/genesis:stable-nvidia</code> and restart; that flavour carries NVIDIA's open kernel modules.</li>
-    <li><b>NVIDIA, Maxwell or Pascal</b> (GTX 9xx, GTX 10xx): <b>do not switch to the NVIDIA flavour.</b> The open kernel modules do not support these cards; they need the proprietary driver, which Genesis does not ship. Use the standard image — the models will run on the CPU. A 2 or 4 GB card is below every GPU pack anyway.</li>
-    <li><b>Your phone:</b> KDE Connect pairs the phone for notifications, files and "ask" from the share sheet. The Genesis app for Android (jobs, permission cards, a make from the phone, a screenshot) builds from the repository's <code>android/</code> folder; a store listing comes later.</li>
-    <li><b>No usable GPU:</b> Genesis still works. The wizard picks a small pack; replies take seconds, app building is slow or limited, and every pack card says what to expect.</li>
-    <li><b>Apple Silicon Mac:</b> the arm64 flavour in a VM, natively. Models run on the CPU inside the VM; the desktop, voice and the terminal command are quick, app building needs a bigger machine or a real GPU.</li>
-    <li><b>Tested so far:</b> virtual machines on x86_64 and Apple Silicon. Real hardware reports are welcome: open a "Hardware report" issue.</li>
-  </ul>
-  <h2>First start</h2>
-  <p>Log in, and the wizard shows what your machine can run and picks a model pack that fits. Download it, or set models up later and use Genesis as a normal desktop. Then press <b>Meta+Space</b> and say what you want made.</p>
-  <h2>Updates</h2>
-  <p>Genesis updates itself in the background from the same image it was installed from and applies the update at the next restart. It never restarts on its own.</p>
-  <h2>Everything is open</h2>
-  <p>Source, images and the decision log: <a href="https://github.com/matijagorsek/genesis" style="color:var(--acc)">github.com/matijagorsek/genesis</a>. Genesis is a Fedora Remix and is not endorsed by the Fedora Project.</p>
-</div>
-<p class="foot">Alpha. The prebuilt <b>qcow2 disks are for trying Genesis in a virtual machine</b>: they carry a known
-account, <span style="font-family:'IBM Plex Mono',monospace">genesis / genesis</span>, so the boot tests and the weekly
-evaluation can drive them. That password is only accepted from inside a virtual machine's own network (QEMU, UTM and
-libvirt NAT); a bridged test disk on a real network refuses it. The <b>installer ISO has no account at all</b> — it asks
-you to make one, and Genesis asks again on the console if the installer did not.</p>
+    <p><b>One thing to expect while installing:</b> the step called <i>"Deployment starting"</i> takes <b>10 to 30 minutes with a progress bar that does not move</b>. It is writing about 13 GB to your disk and it is not stuck. <code>Ctrl+Alt+F3</code> for a shell where <code>top</code> shows the copy running; <code>Ctrl+Alt+F6</code> goes back.</p>
+    <p>The joined ISO is about <b>6.3 GB</b>, so a <b>USB stick of 8 GB or more</b> is needed. Write it with Fedora Media Writer, or <code>sudo dd if=genesis.iso of=/dev/sdX bs=4M status=progress oflag=sync</code> — the whole stick is overwritten. Nothing is downloaded during the install: the ISO carries the whole system, so the machine can be offline until the first boot.</p>
+    <h3>Hardware</h3>
+    <ul>
+      <li><b>Any x86_64 PC:</b> the standard image. At first run Genesis measures this machine and keeps whichever device was actually fastest.</li>
+      <li><b>NVIDIA, Turing or newer</b> (GTX 16xx, RTX 20xx and later): install the standard image, then <code>sudo bootc switch ghcr.io/matijagorsek/genesis:stable-nvidia</code> and restart. Untested on real hardware so far.</li>
+      <li><b>NVIDIA, Maxwell or Pascal</b> (GTX 9xx, GTX 10xx): <b>do not switch to the NVIDIA flavour.</b> The open kernel modules do not support these cards; the standard image runs them through Mesa.</li>
+      <li><b>No usable GPU:</b> Genesis still works. The wizard picks a small pack; replies take seconds, app building is slow or limited, and every pack card says what to expect.</li>
+      <li><b>Apple Silicon Mac:</b> the arm64 flavour in a VM, natively. Models run on the CPU inside the VM.</li>
+      <li><b>Tested so far:</b> one Intel laptop, virtual machines on x86_64 and Apple Silicon. Real hardware reports are welcome: <code>genesis-report --send</code>, or open a "Hardware report" issue.</li>
+    </ul>
+    <h3>Everything is open</h3>
+    <p>Source, images and the decision log: <a href="https://github.com/matijagorsek/genesis">github.com/matijagorsek/genesis</a>. Genesis is a Fedora Remix and is not endorsed by the Fedora Project.</p>
+  </div>
+</section>
+
+<p class="foot">Alpha. The prebuilt <b>qcow2 disks are for trying Genesis in a virtual machine</b>: they carry a known account, <span style="font-family:'IBM Plex Mono',monospace">genesis / genesis</span>, so the boot tests and the weekly evaluation can drive them. That password is only accepted from inside a virtual machine's own network (QEMU, UTM and libvirt NAT); a bridged test disk on a real network refuses it. The <b>installer ISO has no account at all</b> — it asks you to make one, and Genesis asks again on the console if the installer did not.</p>
+
 <script>
+// reveal on scroll; nothing moves for people who asked that nothing move
+if(!matchMedia('(prefers-reduced-motion: reduce)').matches&&'IntersectionObserver' in window){const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}}),{rootMargin:'0px 0px -8% 0px'});document.querySelectorAll('.r').forEach(el=>io.observe(el))}else{document.querySelectorAll('.r').forEach(el=>el.classList.add('in'))}
+// the decisions count, from the log itself, so the number on this page is never older than the log
+fetch('https://raw.githubusercontent.com/matijagorsek/genesis/main/docs/decisions.md').then(r=>r.text()).then(t=>{const m=t.match(/^\| (\d+) \|/gm);if(m){document.getElementById('n-decisions').textContent=m[m.length-1].replace(/\D/g,'')}}).catch(()=>{});
 (async function(){
-  const isMac=/Mac/.test(navigator.platform)&&(navigator.userAgent.includes('Mac')); const arm=/arm|aarch64/i.test(navigator.userAgent); // browsers on Apple Silicon still claim Intel: Macs get both choices below
+  const isMac=/Mac/.test(navigator.platform)&&(navigator.userAgent.includes('Mac')); const arm=/arm|aarch64/i.test(navigator.userAgent); // browsers on Apple Silicon still claim Intel: Macs get both cards, the arm64 one first
   try{
     const r=await fetch('https://api.github.com/repos/matijagorsek/genesis/releases?per_page=20');const rels=await r.json();
     // Each download comes from the newest release that actually has it. The disk image and the installer
@@ -88,16 +219,17 @@ you to make one, and Genesis asks again on the console if the installer did not.
     const x86=by(isX86);
     const iso=relISO?relISO.assets.filter(a=>isISO(a.name)):[];
     const a64=relA64?relA64.assets.filter(a=>isA64(a.name)):[];
-    const card=(title,tag,desc,assets,rec)=>{const d=document.createElement('div');d.className='card'+(rec?' rec':'');d.innerHTML=`<div class="tag">${tag}</div><h2>${title}</h2><p>${desc}</p>`;
+    const card=(title,tag,desc,assets,rec)=>{const d=document.createElement('div');d.className='card'+(rec?' rec':'');d.innerHTML=`<div class="tag">${tag}</div><h3>${title}</h3><p>${desc}</p>`;
       if(!assets.length){d.innerHTML+='<p class="files">not in this release</p>';return d}
-      const sums=rel.assets.find(a=>a.name==='SHA256SUMS.'+(assets[0].name.includes('arm64')?'qcow2-arm64':(assets[0].name.includes('.iso.')?'iso':'qcow2')));d.innerHTML+=assets.map((a,i)=>`<a class="btn${i?' sec':''}" href="${a.browser_download_url}">Part ${i+1} · ${(a.size/1e9).toFixed(2)} GB</a>`).join('')+`<div class="files">${assets.map(a=>a.name).join('<br>')}${sums?`<br><a href="${sums.browser_download_url}">${sums.name}</a> · verify with <code>sha256sum -c</code>`:''}</div>`;return d};
+      const sums=rel.assets.find(a=>a.name==='SHA256SUMS.'+(assets[0].name.includes('arm64')?'qcow2-arm64':(assets[0].name.includes('.iso.')?'iso':'qcow2')));d.innerHTML+=assets.map((a,i)=>`<a class="btn" href="${a.browser_download_url}">Part ${i+1} · ${(a.size/1e9).toFixed(1)} GB</a>`).join('')+(sums?`<p class="files"><a href="${sums.browser_download_url}">${sums.name}</a></p>`:'');return d};
     const dl=document.getElementById('dl');
     // each card says which release it is from, because they can now differ
     const ver=r=>r&&r.tag_name!==tag?' · from '+r.tag_name:'';
-    dl.appendChild(card('Apple Silicon Mac','arm64 disk · native speed'+ver(relA64),'Runs in UTM or QEMU with Apple\'s hypervisor. Boots to the login screen in under a minute.',a64,arm));
+    if(isMac||arm){dl.appendChild(card('Apple Silicon Mac','arm64 disk · native speed'+ver(relA64),'Runs in UTM or QEMU with Apple\'s hypervisor. Boots to the login screen in under a minute.',a64,arm))}
     dl.appendChild(card('PC installer','x86_64 ISO'+ver(relISO),'Install Genesis on a machine or in a VM.',iso,!arm));
     dl.appendChild(card('PC disk image','x86_64 qcow2','Boot directly in QEMU, virt-manager or UTM.',x86,false));
-  }catch(e){document.getElementById('rel').innerHTML='Releases: <a style="color:var(--acc)" href="https://github.com/matijagorsek/genesis/releases">github.com/matijagorsek/genesis/releases</a>'}
+    if(!(isMac||arm)){dl.appendChild(card('Apple Silicon Mac','arm64 disk · native speed'+ver(relA64),'Runs in UTM or QEMU with Apple\'s hypervisor.',a64,false))}
+  }catch(e){document.getElementById('rel').innerHTML='Releases: <a href="https://github.com/matijagorsek/genesis/releases">github.com/matijagorsek/genesis/releases</a>'}
 })();
 </script>
 </body></html>
