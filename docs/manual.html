@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Genesis · your first hour</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='26' fill='none' stroke='%235fb5bd' stroke-width='6'/%3E%3Ccircle cx='32' cy='32' r='9' fill='%235fb5bd'/%3E%3C/svg%3E">
+<style>
+:root{--bg:#0b0f14;--panel:#161d27;--line:#232c37;--ink:#eef3f8;--ink2:#a9b4c1;--mute:#6f7a89;--acc:#5fb5bd}
+@media (prefers-color-scheme:light){:root{--bg:#f6f8fa;--panel:#ffffff;--line:#dfe5ec;--ink:#111820;--ink2:#3d4a58;--mute:#6f7a89;--acc:#2f8f98}}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Manrope,system-ui,-apple-system,"Segoe UI",sans-serif;font-size:17px;line-height:1.65}
+.wrap{max-width:860px;margin:0 auto;padding:6vh 6vw 10vh}
+.k{color:var(--acc);letter-spacing:.2em;text-transform:uppercase;font-weight:800;font-size:12px;margin:0 0 10px}
+h1{font-size:clamp(34px,5vw,56px);line-height:1.05;letter-spacing:-.03em;margin:0 0 14px;font-weight:800}
+.lead{font-size:clamp(17px,1.6vw,20px);color:var(--ink2);max-width:60ch;margin:0 0 26px}
+nav{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 20px;margin:0 0 40px}
+nav ol{margin:0;padding-left:22px;columns:2;column-gap:28px}@media (max-width:600px){nav ol{columns:1}}nav li{margin:3px 0;break-inside:avoid}nav a{color:var(--ink);text-decoration:none}nav a:hover{color:var(--acc)}
+h2{font-size:26px;margin:52px 0 6px;letter-spacing:-.01em;scroll-margin-top:20px}
+h2 small{display:block;color:var(--mute);font-size:13px;letter-spacing:.14em;text-transform:uppercase;font-weight:800;margin-bottom:6px}
+p,li{color:var(--ink2);max-width:70ch}b{color:var(--ink)}
+kbd{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:13px;background:var(--panel);border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;padding:1px 7px;color:var(--ink)}
+code{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:14px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:var(--ink)}
+pre{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;overflow-x:auto;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:13.5px;color:var(--ink)}pre code{border:0;background:none;padding:0}
+figure{margin:18px 0 22px}figure img{width:100%;border-radius:12px;border:1px solid var(--line);display:block}figcaption{color:var(--mute);font-size:13px;margin-top:8px}
+.note{border-left:3px solid var(--acc);padding:8px 16px;background:var(--panel);border-radius:0 10px 10px 0;margin:16px 0}
+.note p{margin:6px 0}
+.foot{color:var(--mute);font-size:13px;margin-top:60px;border-top:1px solid var(--line);padding-top:16px}
+a{color:var(--acc)}
+</style></head><body>
+<div class="wrap">
+<p class="k">Genesis · the manual</p>
+<h1>Your first hour.</h1>
+<p class="lead">Genesis is a complete Linux desktop with an assistant that lives on the machine. This is what happens in the first hour, in the order it happens, with the moments that look wrong but aren't. Nothing here needs an account, and nothing here leaves your computer.</p>
+
+<nav><ol>
+<li><a href="#install">Installing</a></li>
+<li><a href="#first-run">First run</a></li>
+<li><a href="#key">The key</a></li>
+<li><a href="#asks">When it asks, and undo</a></li>
+<li><a href="#screen">Screen, voice, phone</a></li>
+<li><a href="#apps">Apps</a></li>
+<li><a href="#looks">Looks</a></li>
+<li><a href="#breaks">When something breaks</a></li>
+<li><a href="#updates">Updates</a></li>
+<li><a href="#leaves">What leaves the machine</a></li>
+<li><a href="#battery">On battery</a></li>
+<li><a href="#help">Getting help</a></li>
+</ol></nav>
+
+<h2 id="install"><small>1</small>Installing</h2>
+<p>Write the ISO to a USB stick of 16 GB or more, boot from it, and the installer asks for a disk, a language and <b>an account</b>. It will not continue without the account — that is deliberate, because a machine with no account has no way to log in.</p>
+<div class="note"><p><b>The installer will look stuck. It isn't.</b> After you press Install, the bar sits at "Deployment starting" for <b>10 to 30 minutes</b> while 13 GB is written to the disk. Nothing moves on screen during that time. Two ways to see it working: the disk light on the machine, or <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F3</kbd> for a console where <code>top</code> shows the copy running (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F6</kbd> brings the installer back).</p></div>
+<figure><img src="screens/latest/02-login.png" alt="The Genesis login screen"><figcaption>After the restart: the login screen. The look you see here follows you through the whole system.</figcaption></figure>
+
+<h2 id="first-run"><small>2</small>First run</h2>
+<p>The first time you log in, Genesis measures the machine — how much memory, which graphics, how fast it actually generates — and offers the biggest model pack that fits. Take the one it recommends. The smallest is about 2 GB and the assistant starts working the moment the first model is on disk, while the rest downloads behind it. You can use the desktop meanwhile.</p>
+<figure><img src="screens/latest/03-first-run.png" alt="First run: what this machine can run, and the recommended pack"><figcaption>First run: what this machine can run. The recommendation is measured, not guessed.</figcaption></figure>
+<p>Two more questions: <b>privacy</b> (local only is the default; leave it) and <b>your phone</b> (optional — KDE Connect on the phone, same Wi-Fi, the same code on both screens; you can do it later from Settings). At the end it offers to make something. Make it or don't; the window won't come back once the machine is set up.</p>
+<div class="note"><p>On a machine without a graphics card the assistant runs on the processor. It works; it is slower. Genesis measures this rather than assuming, and on the first real laptop it found the processor faster than the built-in graphics — so "no GPU" is not a downgrade, it is just what the machine is.</p></div>
+
+<h2 id="key"><small>3</small>The key</h2>
+<p><kbd>Meta</kbd>+<kbd>Space</kbd>, anywhere. Type what you want in plain words and press Enter.</p>
+<ul>
+<li>"a checklist app that saves to a file"</li>
+<li>"a pomodoro timer with a bell"</li>
+<li>"rename the photos in this folder by the date they were taken"</li>
+<li>"why is my disk full"</li>
+</ul>
+<figure><img src="screens/fresh-run/03-pomodoro-made-by-the-2B-model.png" alt="The maker after building a pomodoro timer: steps on the left, preview on the right"><figcaption>The maker, having built a pomodoro timer on a fresh machine with the smallest model. Steps on the left, the thing itself on the right.</figcaption></figure>
+<p>Every step shows as it happens; a preview appears when the thing runs. When it's done, <b>Install as app</b> puts it in the menu. The project is a folder under your home, named after what you asked for. To change it, type in the box at the bottom — "make the button bigger", "add a dark mode" — and Enter.</p>
+<div class="note"><p><b>A step can take minutes on a machine without a GPU.</b> The line under the steps says how long the current one has run. It is working, not stuck.</p></div>
+<p>The same key answers questions. Ask about the machine, a file, a command that failed — the answer comes from the model on this computer, with the permission rules below still in force.</p>
+
+<h2 id="asks"><small>4</small>When it asks, and undo</h2>
+<p>Genesis works in one of three modes, and <kbd>Meta</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd> cycles them from anywhere:</p>
+<ul>
+<li><b>Ask</b> — asks before every change.</li>
+<li><b>Trusted</b> (the default) — edits the project on its own, asks for everything outside it.</li>
+<li><b>Hands-off</b> — also handles installs and your own settings on its own; things that touch the system still ask.</li>
+</ul>
+<p>Before anything outside the project, a card appears with a plain verb: "Genesis wants to install a package", "wants to write to your Documents". <b>Allow once</b> or <b>Not now</b>. If you always (or never) want something, Settings › Always and never keeps the rule.</p>
+<figure><img src="screens/more/02-screen-region-asked.png" alt="A permission card with a plain verb"><figcaption>A card before it happens, in words, with two buttons. Rules, not the model, decide what can be asked at all.</figcaption></figure>
+<p>Some things it never does, whatever you answer: read your keys and passwords, wipe disks, change the base system. Those are refused by the rules, not by the model's judgement.</p>
+<p><b>Undo.</b> Every job that changed something outside its project was snapshotted first. The toast after a job offers Undo; Settings › Undo history lists every job, shows what it changed file by file, and can restore one file without undoing the rest. <b>Stop</b> ends a running job within a second and keeps what was made so far.</p>
+
+<h2 id="screen"><small>5</small>Screen, voice, phone</h2>
+<p><kbd>Meta</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> draws a box on the screen and asks about what's in it — an error, a chart, a form — with a vision model on this machine. Select text anywhere and right-click for "Ask Genesis about this". Right-click a file for what can be done with it.</p>
+<p><kbd>Meta</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> listens; speak, and it sends when you pause. Replies can be read aloud; <kbd>Esc</kbd> stops one mid-sentence. A spoken request that would install, delete or send something is shown first and needs Enter, so a misheard word cannot act on its own.</p>
+<figure><img src="screens/phone/05-phone-replies.png" alt="Answers from Genesis arriving as phone notifications"><figcaption>From the phone: share text starting with "ask", and the answer comes back as a notification.</figcaption></figure>
+<p>With the phone paired: share any text to Genesis starting with <b>ask</b>, or send a voice note, and the answer comes back as a notification. The phone can also run a few commands — lock the screen, switch day and night, apply an update, read what's in it.</p>
+
+<h2 id="apps"><small>6</small>Apps</h2>
+<p>Firefox, Dolphin, Konsole, Kate, Okular, Gwenview, Haruna and Elisa are already here. LibreOffice, Thunderbird, VLC, GIMP and Krita install themselves the first time the machine is online. For everything else there is a catalogue — fifty apps, one per need, with a sentence on why — rather than a store with forty thousand:</p>
+<pre><code>genesis-apps                    # the list, with what's here marked
+genesis-apps install obsidian   # one word
+genesis-apps search photo       # the catalogue first, then Flathub</code></pre>
+<p>Or just ask: "what do I use for notes" gets the line, "install it" gets the app. Nothing in the catalogue changes the system: apps install for you, and the image underneath is never touched. Discover is still there if you want to browse.</p>
+
+<h2 id="looks"><small>7</small>Looks</h2>
+<p>Day and night are one key: Settings › Day / night, or say "dark mode". The desktop, the terminal and the assistant switch together.</p>
+<p>Or describe what you want:</p>
+<pre><code>genesis-theme make "foggy morning by the sea"
+genesis-theme make "warm autumn library at night"
+genesis-theme undo</code></pre>
+<p>Twenty seconds later every application, the panel, the terminal and the wallpaper are in a palette made for that, by the model on this machine — and <code>undo</code> is the look before. What it proposes is checked before it reaches the screen, so text always reads. Open terminals keep their colours; new ones take the new ones.</p>
+
+<h2 id="breaks"><small>8</small>When something breaks</h2>
+<p><b>A program crashes.</b> A notification says so, once, and offers <b>Ask Genesis</b>. Pressing it hands the crash — the program, the signal, the stack — to the assistant here, which reads the journal around it and says in plain words what went wrong and whether it matters. A crash dump carries the arguments a program was given and the paths it had open, which is exactly why this stays on the machine.</p>
+<p><b>A service fails.</b> Same offer. "backup.service failed" becomes "your backup disk was not plugged in". Ten times more common than a crash and just as opaque without this.</p>
+<p><b>The assistant gives a bad answer.</b> It's a small model on your hardware; it will sometimes be wrong. The rules above mean a wrong answer can't do harm without asking first, and Undo takes back what it did.</p>
+<p><b>An update broke something.</b> Restart, and pick the previous entry in the boot menu. The image you were on is kept as the rollback, every time. Nothing to reinstall.</p>
+<p><b>Something else.</b> <code>genesis-report</code> prints what this machine is and how it was set up — hardware, models, what was measured — with nothing personal in it. That's the file to attach when you ask for help.</p>
+
+<h2 id="updates"><small>9</small>Updates</h2>
+<p>Genesis fetches updates in the background and stages them. <b>Nothing restarts on its own.</b> When one is ready, a notification says what's in it — kernel, graphics, audio, what was added, which parts of Genesis changed — read off the two images on the disk, not off a website. "What is in it" hands the notes to the assistant for a plain-words version. The update applies the next time you restart.</p>
+<figure><img src="screens/more/03-settings.png" alt="Genesis Settings: updates, this machine, models, and the rest"><figcaption>Settings: updates, this machine, models, tools, undo history.</figcaption></figure>
+<p>Your machine follows the <code>stable</code> channel. Stable only moves after a nightly test has taken a machine installed a week ago, upgraded it to the new image, rebooted, and checked that it boots, sets itself up and answers a question. A build that fails that never reaches you. If you want every build as it lands: <code>sudo bootc switch ghcr.io/matijagorsek/genesis:testing</code>.</p>
+
+<h2 id="leaves"><small>10</small>What leaves the machine</h2>
+<p>Nothing, by default. The models run here; the crash you ask about, the screen you ask about, the files you opt in — none of it is uploaded, because there is nowhere for it to go. Genesis makes three kinds of network connection on its own: fetching updates, downloading the model pack you chose, and installing the apps you asked for. That's the list.</p>
+<p>The one exception is clearly labelled: <b>Claude Code</b>, with your own account, is one click away in the menu if you want a bigger model for a bigger job. It says so on the button, and it is off until you sign in. Every tool the assistant has is listed under Settings › Tools, and you can add your own.</p>
+
+<h2 id="battery"><small>11</small>On battery</h2>
+<p>Pull the cable out of a laptop and the big models are put away; every question goes to the small always-loaded one, and the assistant gets shorter rather than quiet. Plug back in and they're allowed to load again. A desktop is left alone. If you want the big model on battery anyway: <code>genesis-power off</code>, once.</p>
+
+<h2 id="help"><small>12</small>Getting help</h2>
+<p>This page is also on the machine: Help › Genesis manual in the menu, no network needed. The longer reference — every feature, every key — is <a href="https://github.com/matijagorsek/genesis/blob/main/HOW-TO-USE.md">How to use Genesis</a>. Things that went wrong on a real machine and what was done about them are in the <a href="https://github.com/matijagorsek/genesis/blob/main/docs/decisions.md">decision log</a>; if yours is new, <a href="https://github.com/matijagorsek/genesis/issues">open an issue</a> and attach <code>genesis-report</code>.</p>
+
+<p class="foot">Genesis is built on Fedora bootc and KDE Plasma. Everything above was checked on a real machine before it was written down; where it says a thing takes a while, that is how long it took.</p>
+</div>
+</body></html>

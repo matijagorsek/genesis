@@ -78,6 +78,10 @@ How Genesis got here, in the order it happened. The decision log has the detail 
   when a service fails — a backup that did not run, a mount that did not come up — which is ten times more
   common than a crash and just as opaque: "Failed with result 'exit-code'" becomes "your backup disk was
   not plugged in". The units systemd makes for a session or a launched program are not offered.
+- **A manual for the first hour.** [Your first hour](https://matijagorsek.github.io/genesis/manual.html):
+  what happens, in the order it happens, with the moments that look wrong but aren't — the installer's
+  silence, the first run, the key, when it asks, when something breaks, what leaves the machine. It is
+  also on the machine, under Help, with no network needed.
 - **Updates that say what is in them.** An update that says "44.20260922.1" says nothing. When one is
   staged, Genesis reads the two images on the disk — the one running and the one waiting — and says what
   is different: kernel, graphics, desktop, audio, what was added, which parts of Genesis changed and the

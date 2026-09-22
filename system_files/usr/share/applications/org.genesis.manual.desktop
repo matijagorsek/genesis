@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Genesis manual
+Comment=Your first hour with Genesis: what happens, in order, and what looks wrong but isn't
+Exec=xdg-open /usr/share/doc/genesis/manual.html
+Icon=help-contents
+Terminal=false
+Categories=Documentation;
+Keywords=help;manual;how to;first run;

@@ -2,29 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "kanban-phase0",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": [
-        "run",
-        "dev",
-        "--",
-        "--port",
-        "5199"
-      ],
-      "cwd": "examples/kanban-phase0/kanban",
-      "port": 5199
-    },
-    {
-      "name": "firstrun-wizard",
-      "runtimeExecutable": "prototype/firstrun-dev.sh",
-      "runtimeArgs": [],
-      "port": 11510
-    },
-    {
-      "name": "agent-workspace",
-      "runtimeExecutable": "prototype/agentd-dev.sh",
-      "runtimeArgs": [],
-      "port": 11520
+      "name": "docs",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8765", "--bind", "127.0.0.1", "--directory", "docs"],
+      "port": 8765
     }
   ]
 }
