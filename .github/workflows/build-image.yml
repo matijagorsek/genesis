@@ -364,7 +364,16 @@ jobs:
           prerelease: true
           generate_release_notes: true
           body: |
+            Built from <https://github.com/${{ github.repository }}/commit/${{ github.sha }}>
+
             Image: `ghcr.io/${{ github.repository_owner }}/genesis:${{ steps.meta.outputs.tag }}`
+
+            To tell whether a fix is in this release, compare that commit with the one you are looking for:
+
+                git merge-base --is-ancestor <your-commit> ${{ github.sha }} && echo "it is in this build"
+
+            The number in the version comes from the build's run number, which records when a build started.
+            The commit above is what it was actually built from, and is the thing to trust.
 
             Disk image (QEMU/UTM/virt-manager), split because of GitHub's 2 GB asset limit:
 

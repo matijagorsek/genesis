@@ -70,17 +70,28 @@ you to make one, and Genesis asks again on the console if the installer did not.
 (async function(){
   const isMac=/Mac/.test(navigator.platform)&&(navigator.userAgent.includes('Mac')); const arm=/arm|aarch64/i.test(navigator.userAgent); // browsers on Apple Silicon still claim Intel: Macs get both choices below
   try{
-    const r=await fetch('https://api.github.com/repos/matijagorsek/genesis/releases?per_page=5');const rels=await r.json();
-    const rel=rels.find(x=>x.assets&&x.assets.some(a=>a.name.includes('qcow2')))||rels[0];
+    const r=await fetch('https://api.github.com/repos/matijagorsek/genesis/releases?per_page=20');const rels=await r.json();
+    // Each download comes from the newest release that actually has it. The disk image and the installer
+    // ISO are built by different jobs and the ISO often finishes later, so taking all three from one
+    // release showed "not in this release" to somebody who came here to install — with a perfectly good
+    // ISO sitting one release back.
+    const newestWith=p=>rels.find(x=>x.assets&&x.assets.some(a=>p(a.name)));
+    const isISO=n=>n.includes('.iso.');const isX86=n=>n.includes('.qcow2.zst.')&&!n.includes('arm64');const isA64=n=>n.includes('arm64.qcow2.zst.');
+    const rel=newestWith(isX86)||rels[0];
     const tag=rel.tag_name;document.getElementById('rel').textContent='Latest release: '+tag+' · '+new Date(rel.published_at).toLocaleDateString();
     const by=p=>rel.assets.filter(a=>p(a.name));
-    const x86=by(n=>n.includes('.qcow2.zst.')&&!n.includes('arm64'));const iso=by(n=>n.includes('.iso.'));const a64=by(n=>n.includes('arm64.qcow2.zst.'));
+    const relISO=newestWith(isISO), relA64=newestWith(isA64);
+    const x86=by(isX86);
+    const iso=relISO?relISO.assets.filter(a=>isISO(a.name)):[];
+    const a64=relA64?relA64.assets.filter(a=>isA64(a.name)):[];
     const card=(title,tag,desc,assets,rec)=>{const d=document.createElement('div');d.className='card'+(rec?' rec':'');d.innerHTML=`<div class="tag">${tag}</div><h2>${title}</h2><p>${desc}</p>`;
       if(!assets.length){d.innerHTML+='<p class="files">not in this release</p>';return d}
       const sums=rel.assets.find(a=>a.name==='SHA256SUMS.'+(assets[0].name.includes('arm64')?'qcow2-arm64':(assets[0].name.includes('.iso.')?'iso':'qcow2')));d.innerHTML+=assets.map((a,i)=>`<a class="btn${i?' sec':''}" href="${a.browser_download_url}">Part ${i+1} · ${(a.size/1e9).toFixed(2)} GB</a>`).join('')+`<div class="files">${assets.map(a=>a.name).join('<br>')}${sums?`<br><a href="${sums.browser_download_url}">${sums.name}</a> · verify with <code>sha256sum -c</code>`:''}</div>`;return d};
     const dl=document.getElementById('dl');
-    dl.appendChild(card('Apple Silicon Mac','arm64 disk · native speed','Runs in UTM or QEMU with Apple\'s hypervisor. Boots to the login screen in under a minute.',a64,arm));
-    dl.appendChild(card('PC installer','x86_64 ISO','Install Genesis on a machine or in a VM.',iso,!arm));
+    // each card says which release it is from, because they can now differ
+    const ver=r=>r&&r.tag_name!==tag?' · from '+r.tag_name:'';
+    dl.appendChild(card('Apple Silicon Mac','arm64 disk · native speed'+ver(relA64),'Runs in UTM or QEMU with Apple\'s hypervisor. Boots to the login screen in under a minute.',a64,arm));
+    dl.appendChild(card('PC installer','x86_64 ISO'+ver(relISO),'Install Genesis on a machine or in a VM.',iso,!arm));
     dl.appendChild(card('PC disk image','x86_64 qcow2','Boot directly in QEMU, virt-manager or UTM.',x86,false));
   }catch(e){document.getElementById('rel').innerHTML='Releases: <a style="color:var(--acc)" href="https://github.com/matijagorsek/genesis/releases">github.com/matijagorsek/genesis/releases</a>'}
 })();
