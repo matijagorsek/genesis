@@ -46,7 +46,7 @@ def test_text_reads_on_the_background_whatever_was_proposed(tmp_path, monkeypatc
 
 def test_the_colour_scheme_is_the_shape_kde_reads(tmp_path, monkeypatch):
     t = load(tmp_path, monkeypatch)
-    text = t.render_colors(t.check(SAGELEAF))
+    text = t.render_colors(t.check(SAGELEAF), "GenesisMade123")
     cp = configparser.ConfigParser(strict=False)
     cp.read_string(text)
     for section in ("Colors:View", "Colors:Window", "Colors:Button", "Colors:Selection", "Colors:Header", "Colors:Tooltip", "Colors:Complementary", "General", "WM"):
@@ -55,7 +55,7 @@ def test_the_colour_scheme_is_the_shape_kde_reads(tmp_path, monkeypatch):
         if section.startswith("Colors:"):
             for key in ("BackgroundNormal", "ForegroundNormal", "DecorationFocus", "ForegroundNegative", "ForegroundPositive"):
                 assert cp[section][key].count(",") == 2, f"{section}/{key} is not r,g,b"
-    assert cp["General"]["ColorScheme"] == "GenesisMade" and cp["General"]["Name"] == "Sageleaf"
+    assert cp["General"]["ColorScheme"] == "GenesisMade123" and cp["General"]["Name"] == "Sageleaf"
     assert cp["Colors:View"]["BackgroundNormal"] == "46,51,45", "the view is the background the model chose"
     # selection text reads on the accent
     sel_fg = tuple(int(v) for v in cp["Colors:Selection"]["ForegroundNormal"].split(","))
@@ -98,14 +98,15 @@ def test_make_writes_everything_and_remembers_what_it_replaced(tmp_path, monkeyp
     monkeypatch.setattr(t, "render_wallpaper", lambda c, p, size=None: pathlib.Path(p).write_bytes(b"png") or True)
     assert t.make("warm autumn library") == 0
     share = tmp_path / "share"
-    assert (share / "color-schemes/GenesisMade.colors").exists()
-    assert (share / "konsole/GenesisMade.colorscheme").exists()
-    assert (share / "konsole/Genesis.profile").read_text().count("ColorScheme=GenesisMade") == 1
-    assert (share / "wallpapers/GenesisMade.png").exists()
+    made = [f.stem for f in (share / "color-schemes").glob("GenesisMade*.colors")]
+    assert len(made) == 1 and made[0] != "GenesisMade", "a new name every time: KDE caches a scheme by its name"
+    assert (share / f"konsole/{made[0]}.colorscheme").exists()
+    assert (share / "konsole/Genesis.profile").read_text().count(f"ColorScheme={made[0]}") == 1
+    assert (share / f"wallpapers/{made[0]}.png").exists()
     undo = json.loads((tmp_path / "state/genesis/theme-undo.json").read_text())
-    assert undo["scheme"] == "GenesisDark", "what was there before is what undo goes back to"
+    assert undo[-1]["scheme"] == "GenesisDark", "what was there before is what undo goes back to"
     applied = [c for c in ran if c[0] == "plasma-apply-colorscheme"]
-    assert applied == [["plasma-apply-colorscheme", "GenesisMade"]]
+    assert applied == [["plasma-apply-colorscheme", made[0]]]
     assert any(c[0] == "plasma-apply-wallpaperimage" for c in ran)
 
 
@@ -137,3 +138,33 @@ def test_undo_to_a_time_with_no_konsole_profile_removes_the_made_one(tmp_path, m
     assert t.undo() == 0
     assert not prof.exists(), "the made profile must not outlive the undo"
     assert any("--delete" in c for c in ran)
+
+
+def test_two_makes_and_two_undos_end_where_they_started(tmp_path, monkeypatch):
+    t = load(tmp_path, monkeypatch)
+    state = {"scheme": "GenesisDark"}
+    def run(cmd, **k):
+        if cmd[0] == "plasma-apply-colorscheme": state["scheme"] = cmd[1]
+        if cmd[0] == "kreadconfig6" and "ColorScheme" in cmd and "kdeglobals" in cmd: return types.SimpleNamespace(returncode=0, stdout=state["scheme"] + "\n", stderr="")
+        return types.SimpleNamespace(returncode=0, stdout="", stderr="")
+    monkeypatch.setattr(t, "run", run)
+    monkeypatch.setattr(t, "notify", lambda *a: None)
+    monkeypatch.setattr(t, "render_wallpaper", lambda c, p, size=None: pathlib.Path(p).write_bytes(b"png") or True)
+    monkeypatch.setattr(t, "ask_model", lambda mood, timeout=0: SAGELEAF)
+    monkeypatch.setattr(t.time, "time", lambda: 1000.0)
+    assert t.make("one") == 0
+    first = state["scheme"]
+    monkeypatch.setattr(t.time, "time", lambda: 2000.0)
+    assert t.make("two") == 0
+    second = state["scheme"]
+    assert first != second and first.startswith("GenesisMade") and second.startswith("GenesisMade")
+    assert t.undo() == 0 and state["scheme"] == first, "one undo: the first made look"
+    assert t.undo() == 0 and state["scheme"] == "GenesisDark", "two undos: where it started"
+    assert t.undo() == 1, "and nothing further back"
+    # the look that nothing can reach any more is not left on disk
+    share = tmp_path / "share"
+    monkeypatch.setattr(t.time, "time", lambda: 3000.0)
+    for n in range(t.KEEP_MADE + 2):
+        monkeypatch.setattr(t.time, "time", lambda n=n: 3000.0 + n)
+        assert t.make("more") == 0
+    assert len(list((share / "color-schemes").glob("GenesisMade*.colors"))) <= t.KEEP_MADE + 1

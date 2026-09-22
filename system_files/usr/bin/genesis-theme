@@ -22,7 +22,8 @@ HOME = os.path.expanduser("~")
 DATA = os.environ.get("XDG_DATA_HOME", os.path.join(HOME, ".local", "share"))
 STATE = os.path.join(os.environ.get("XDG_STATE_HOME", os.path.join(HOME, ".local", "state")), "genesis")
 UNDO = os.path.join(STATE, "theme-undo.json")
-MADE = "GenesisMade"
+MADE_PREFIX = "GenesisMade"
+KEEP_MADE = 6  # made looks kept on disk: the current one and what undo can reach
 SHIPPED_WALLPAPER = "/usr/share/wallpapers/Genesis/contents/images/2560x1600.png"
 
 
@@ -121,8 +122,11 @@ def check(p):
 
 # --- what gets written -------------------------------------------------------------------------------
 
-def render_colors(c):
-    """A KDE colour scheme, the shape of the shipped GenesisDark.colors, from six colours."""
+def render_colors(c, scheme):
+    """A KDE colour scheme, the shape of the shipped GenesisDark.colors, from six colours. The scheme name
+    is new for every make: KDE and Plasma cache a scheme and a wallpaper by name, so writing a new look
+    under the old name applies the old look -- the first two looks made on a real machine were the same
+    look on screen, and the third was the first."""
     bg, fg, ac, dark = c["bg"], c["fg"], c["accent"], c["dark"]
     lift = lambda t: mix(bg, fg, t)  # a little towards the text colour: lighter on dark, darker on light
     view, window, button, header, tooltip = bg, lift(0.05), lift(0.11), lift(0.03), lift(0.07)
@@ -146,7 +150,7 @@ def render_colors(c):
            "[Colors:Tooltip]\n" + block(tooltip, lift(0.05)),
            "[Colors:View]\n" + block(view, lift(0.03)),
            "[Colors:Window]\n" + block(window, lift(0.08)),
-           f"[General]\nColorScheme={MADE}\nName={c['name']}\nshadeSortColumn=true\nAccentColor={kde(ac)}\n",
+           f"[General]\nColorScheme={scheme}\nName={c['name']}\nshadeSortColumn=true\nAccentColor={kde(ac)}\n",
            "[KDE]\ncontrast=4\n",
            f"[WM]\nactiveBackground={kde(header)}\nactiveBlend={kde(fg)}\nactiveForeground={kde(fg)}\ninactiveBackground={kde(header)}\ninactiveBlend={kde(inactive)}\ninactiveForeground={kde(inactive)}\n"]
     return "\n".join(out)
@@ -173,15 +177,18 @@ def render_wallpaper(c, path, size=(2560, 1600)):
     except ImportError:
         return False
     w, h = size
-    bg, ac = c["bg"], c["accent"]
-    far = mix(bg, ac, 0.45 if c["dark"] else 0.35)
-    base = Image.new("RGB", (w, h), tuple(int(v) for v in bg))
-    glow = Image.new("RGB", (w, h), tuple(int(v) for v in far))
-    mask = Image.linear_gradient("L").rotate(35, expand=True).resize((w, h))
-    # a second, softer gradient the other way, so the corner is a glow and not a stripe
-    soft = Image.radial_gradient("L").resize((w * 2, h * 2)).crop((w // 2, h // 2, w // 2 + w, h // 2 + h))
-    mask = Image.blend(mask, soft, 0.5)
-    Image.composite(glow, base, mask).save(path, "PNG", optimize=False)
+    bg, ac, fg = c["bg"], c["accent"], c["fg"]
+    far = mix(bg, ac, 0.5 if c["dark"] else 0.4)
+    near = mix(bg, fg, 0.04)
+    # four corners and a centre, blown up: the interpolation is the gradient, and there is nothing to
+    # rotate or composite, so there are no edges. The first version rotated a strip and it showed.
+    tiny = Image.new("RGB", (3, 3))
+    px = {(0, 0): near, (1, 0): bg, (2, 0): mix(bg, far, 0.25),
+          (0, 1): bg, (1, 1): mix(bg, far, 0.15), (2, 1): mix(bg, far, 0.6),
+          (0, 2): mix(bg, far, 0.1), (1, 2): mix(bg, far, 0.45), (2, 2): far}
+    for xy, col in px.items():
+        tiny.putpixel(xy, tuple(int(round(v)) for v in col))
+    tiny.resize((w, h), Image.BICUBIC).save(path, "PNG", optimize=False)
     return True
 
 
@@ -209,10 +216,36 @@ def current():
     return {"scheme": scheme, "wallpaper": wallpaper, "konsole": konsole}
 
 
+def stack():
+    try:
+        with open(UNDO) as f:
+            v = json.load(f)
+        return v if isinstance(v, list) else [v]
+    except (OSError, ValueError):
+        return []
+
+
 def remember(state):
+    """Push what is on screen now. A second make must not forget the look before the first: two makes
+    and two undos end where they started."""
     os.makedirs(STATE, exist_ok=True)
+    st = stack()
+    st.append(dict(state, at=time.time()))
     with open(UNDO, "w") as f:
-        json.dump(dict(state, at=time.time()), f)
+        json.dump(st[-KEEP_MADE:], f)
+
+
+def forget_old_made(keep):
+    """Made looks are files; the ones nothing can reach any more are removed."""
+    for d, suffix in ((os.path.join(DATA, "color-schemes"), ".colors"), (os.path.join(DATA, "konsole"), ".colorscheme"), (os.path.join(DATA, "wallpapers"), ".png")):
+        try:
+            names = os.listdir(d)
+        except OSError:
+            continue
+        for n in names:
+            if n.startswith(MADE_PREFIX) and n.endswith(suffix) and n[:-len(suffix)] not in keep:
+                try: os.remove(os.path.join(d, n))
+                except OSError: pass
 
 
 def apply_scheme(scheme, icons=None):
@@ -270,23 +303,26 @@ def make(mood):
         print(f"the assistant could not make a palette: {e}", file=sys.stderr)
         return 2
     c = check(raw)
+    made = f"{MADE_PREFIX}{int(time.time()) % 100000000}"
     os.makedirs(os.path.join(DATA, "color-schemes"), exist_ok=True)
     os.makedirs(os.path.join(DATA, "konsole"), exist_ok=True)
     os.makedirs(os.path.join(DATA, "wallpapers"), exist_ok=True)
-    with open(os.path.join(DATA, "color-schemes", f"{MADE}.colors"), "w") as f:
-        f.write(render_colors(c))
-    with open(os.path.join(DATA, "konsole", f"{MADE}.colorscheme"), "w") as f:
+    with open(os.path.join(DATA, "color-schemes", f"{made}.colors"), "w") as f:
+        f.write(render_colors(c, made))
+    with open(os.path.join(DATA, "konsole", f"{made}.colorscheme"), "w") as f:
         f.write(render_konsole(c))
-    wall = os.path.join(DATA, "wallpapers", f"{MADE}.png")
+    wall = os.path.join(DATA, "wallpapers", f"{made}.png")
     if not render_wallpaper(c, wall):
         wall = ""
     remember(current())
-    ok, err = apply_scheme(MADE, "Papirus-Dark" if c["dark"] else "Papirus-Light")
+    ok, err = apply_scheme(made, "Papirus-Dark" if c["dark"] else "Papirus-Light")
     if not ok:
         print(f"could not apply the made scheme: {err}", file=sys.stderr)
         return 1
-    apply_konsole(MADE)
+    apply_konsole(made)
     apply_wallpaper(wall)
+    reachable = {made} | {s.get("scheme", "") for s in stack()} | {os.path.basename(s.get("wallpaper", ""))[:-4] for s in stack()}
+    forget_old_made(reachable)
     notify(c["name"], f"Made here for “{mood}”. genesis-theme undo brings the old look back.")
     print(json.dumps({"name": c["name"], "dark": c["dark"], "background": rgb_to_hex(c["bg"]), "foreground": rgb_to_hex(c["fg"]),
                       "accent": rgb_to_hex(c["accent"]), "terminal": [rgb_to_hex(t) for t in c["term"]], "wallpaper": wall}))
@@ -294,13 +330,14 @@ def make(mood):
 
 
 def undo():
-    try:
-        with open(UNDO) as f:
-            prev = json.load(f)
-    except (OSError, ValueError):
+    st = stack()
+    if not st:
         print("nothing to undo", file=sys.stderr)
         return 1
-    remember(current())
+    prev = st.pop()
+    os.makedirs(STATE, exist_ok=True)
+    with open(UNDO, "w") as f:
+        json.dump(st, f)
     scheme = prev.get("scheme") or "GenesisDark"
     ok, err = apply_scheme(scheme, "Papirus-Light" if scheme == "GenesisLight" else "Papirus-Dark")
     if not ok:
