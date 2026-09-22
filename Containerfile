@@ -56,7 +56,7 @@ RUN set -eux; mkdir -p /out; if [ "$TARGETARCH" = arm64 ]; then \
       find /build -name 'lib*.so*' -type f -exec cp -n {} /out/usr/lib/genesis/llama.cpp/ \; ; \
       for b in /out/usr/lib/genesis/llama.cpp/llama-*; do \
         if LD_LIBRARY_PATH=/out/usr/lib/genesis/llama.cpp ldd "$b" 2>/dev/null | grep -q 'not found'; then \
-          echo "ERROR: $b is missing libraries and would not run:"; \
+          echo "ERROR: $b is missing a library entirely:"; \
           LD_LIBRARY_PATH=/out/usr/lib/genesis/llama.cpp ldd "$b" | grep 'not found'; exit 1; \
         fi; \
       done; \
@@ -153,6 +153,12 @@ RUN set -eux; \
       chmod 0755 "/usr/bin/$b"; \
     done; \
     echo "${LLAMA_CPP_BUILD}" > /usr/lib/genesis/llama.cpp/BUILD; \
+    for b in llama-server llama-bench llama-cli; do \
+      [ -x "/usr/bin/$b" ] || continue; \
+      if ! out=$("/usr/bin/$b" --version 2>&1) || printf '%s' "$out" | grep -qi 'error while loading shared libraries'; then \
+        echo "ERROR: /usr/bin/$b cannot start:"; printf '%s\n' "$out" | head -3; exit 1; \
+      fi; \
+    done; \
     /usr/bin/llama-server --version 2>&1 | head -2
 
 # ramalama: model pulls (OCI/HF/Ollama) and containerised CUDA/ROCm runners. vulkan-tools for genesis-probe.

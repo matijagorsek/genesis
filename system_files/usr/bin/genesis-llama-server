@@ -9,7 +9,12 @@
 #
 # Used in place of llama-server in the generated router config. Everything is passed through untouched.
 set -uo pipefail
-LLAMA=${GENESIS_LLAMA:-/usr/lib/genesis/llama.cpp}/llama-server
+# /usr/bin/llama-server, not the binary under /usr/lib/genesis. That one cannot start on its own: the
+# libraries it needs are beside it, outside the loader's search path, and /usr/bin/llama-server is the
+# wrapper that sets LD_LIBRARY_PATH and GGML_BACKEND_PATH before running it. Calling past that wrapper is
+# how this took the model service down on every machine that got the new config: llama-swap reported
+# "upstream command exited prematurely" and there was no assistant at all.
+LLAMA=${GENESIS_LLAMA_BIN:-/usr/bin/llama-server}
 log=$(mktemp /tmp/genesis-llama.XXXXXX)
 trap 'rm -f "$log"' EXIT
 

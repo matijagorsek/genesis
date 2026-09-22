@@ -17,7 +17,10 @@ for a 2015 laptop, a 4090, an Arc card or something nobody has tried yet.
 """
 import argparse, glob, json, os, re, subprocess, sys
 
-LLAMA = os.environ.get("GENESIS_LLAMA", "/usr/lib/genesis/llama.cpp")
+# /usr/bin, where the wrappers are: the binaries under /usr/lib/genesis cannot start on their own,
+# because the libraries beside them are outside the loader's search path. Calling them directly is why
+# every candidate on arm64 came back "exited 127" and no machine was ever measured.
+LLAMA = os.environ.get("GENESIS_LLAMA_BIN_DIR", "/usr/bin")
 MODELS = os.environ.get("GENESIS_MODELS", "/var/lib/genesis/models")
 
 
