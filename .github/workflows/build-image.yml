@@ -148,6 +148,14 @@ jobs:
       stable_ok: ${{ steps.meta.outputs.stable_ok }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # the last hundred commits go into the image, so an installed machine can say what changed
+          # between the image it runs and the one it has staged (genesis-upgrade-notes)
+          fetch-depth: 120
+      - name: What changed, for the machine that installs this
+        run: |
+          git log --no-merges --format='%h %s' -n 100 | grep -v '\[skip ci\]' > system_files/usr/share/genesis/changes.txt
+          echo "$(wc -l < system_files/usr/share/genesis/changes.txt) change lines go into the image; newest: $(head -1 system_files/usr/share/genesis/changes.txt)"
       - name: Base image pins
         run: |
           grep -E "^[A-Z]+_REF=" .github/base-pins.env >> "$GITHUB_ENV"; echo "BIB=$(grep ^BIB_REF= .github/base-pins.env | cut -d= -f2-)" >> "$GITHUB_ENV"

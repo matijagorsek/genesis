@@ -1,0 +1,12 @@
+[Unit]
+Description=Genesis: what is in the staged update, said once
+Documentation=https://github.com/matijagorsek/genesis
+
+[Service]
+# simple, not oneshot: the notification waits for a click for as long as it is on screen, and a oneshot
+# that waits past ninety seconds is killed and reported as a failed service -- by genesis-crash, no less
+Type=simple
+# Reads the running and the staged image off the disk and compares them; says once per staged image what
+# is in it. Reads only. The notification's action hands the notes to the assistant on this machine.
+ExecStart=/usr/bin/genesis-upgrade-notes --notify
+Nice=10

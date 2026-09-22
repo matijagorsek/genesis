@@ -78,6 +78,12 @@ How Genesis got here, in the order it happened. The decision log has the detail 
   when a service fails — a backup that did not run, a mount that did not come up — which is ten times more
   common than a crash and just as opaque: "Failed with result 'exit-code'" becomes "your backup disk was
   not plugged in". The units systemd makes for a session or a launched program are not offered.
+- **Updates that say what is in them.** An update that says "44.20260922.1" says nothing. When one is
+  staged, Genesis reads the two images on the disk — the one running and the one waiting — and says what
+  is different: kernel, graphics, desktop, audio, what was added, which parts of Genesis changed and the
+  commit lines they came with. Nothing fetched, nothing guessed: the staged image's package database is a
+  file on this disk. One notification per update, and "What is in it" hands the notes to the assistant
+  for a plain-words answer. `genesis-upgrade-notes` prints them.
 - **A catalogue, not a store.** Flathub has forty thousand things and Discover shows all of them.
   `genesis-apps` is the fifty a person setting up a computer actually asks about — one answer per need,
   with why it is the one — and `genesis-apps install obsidian` is the whole install. The assistant reads

@@ -1,0 +1,226 @@
+#!/usr/bin/python3
+"""genesis-upgrade-notes: what is actually in the update waiting on this machine, read off the update itself.
+
+  genesis-upgrade-notes           the notes for the staged update (or "nothing staged")
+  genesis-upgrade-notes --json
+  genesis-upgrade-notes --ask     hand them to the assistant on this machine, in plain words
+  genesis-upgrade-notes --notify  say once that an update is ready and what is in it (the path unit does this)
+
+An update that says "44.20260922.1" says nothing. This reads the two images that are on the disk -- the
+one running and the one staged -- and says what is different between them: the kernel, the graphics
+stack, the desktop, the browser, what was added, what was removed, and which parts of Genesis itself
+changed, with the commit lines those changes came with. Nothing is fetched and nothing is guessed: the
+staged image's package database is a file on this disk, and the comparison is a comparison.
+"""
+import argparse, json, os, subprocess, sys, time
+
+STATUS = os.environ.get("GENESIS_BOOTC_STATUS", "/run/genesis/bootc-status.json")
+DEPLOY = os.environ.get("GENESIS_DEPLOY_DIR", "/ostree/deploy/default/deploy")
+STATE = os.path.join(os.environ.get("XDG_STATE_HOME", os.path.expanduser("~/.local/state")), "genesis")
+NOTIFIED = os.path.join(STATE, "upgrade-notified")
+
+# The packages a person has heard of, in the order they would ask about them. Everything else is a count.
+NOTABLE = [("kernel", "Kernel"), ("mesa-dri-drivers", "Graphics (Mesa)"), ("plasma-desktop", "Plasma desktop"),
+           ("kwin-wayland", "Window manager (KWin)"), ("firefox", "Firefox"), ("systemd", "systemd"), ("glibc", "glibc"),
+           ("pipewire", "Audio (PipeWire)"), ("NetworkManager", "Networking"), ("bootc", "bootc"), ("podman", "Podman"),
+           ("flatpak", "Flatpak"), ("linux-firmware", "Firmware"), ("nvidia-driver", "NVIDIA driver"), ("llama-swap", "Model router")]
+
+
+def read(path, default=""):
+    try:
+        with open(path) as f:
+            return f.read()
+    except OSError:
+        return default
+
+
+def status():
+    try:
+        return json.loads(read(STATUS))["status"]
+    except (ValueError, KeyError, TypeError):
+        return {}
+
+
+def deploy_dir(entry):
+    ck = (entry or {}).get("ostree", {}).get("checksum")
+    return os.path.join(DEPLOY, ck + ".0") if ck else None
+
+
+def image_version(root):
+    for line in read(os.path.join(root, "usr/lib/os-release")).splitlines():
+        if line.startswith("IMAGE_VERSION="):
+            return line.split("=", 1)[1].strip().strip('"')
+    return "?"
+
+
+def packages(root):
+    """name -> epoch:version-release, from the package database inside a deployment. Read-only; no root."""
+    try:
+        out = subprocess.run(["rpm", "--dbpath", os.path.join(root, "usr/lib/sysimage/rpm"), "-qa", "--qf", "%{NAME}\t%{EVR}\n"],
+                             capture_output=True, text=True, timeout=120).stdout
+    except Exception:
+        return {}
+    return dict(l.split("\t", 1) for l in out.splitlines() if "\t" in l)
+
+
+def genesis_tools(root):
+    """name -> content hash for every genesis-* in the image's /usr/bin. Hashes, because half of them are
+    compiled daemons and not text, which the first run against a real image found at once."""
+    import hashlib
+    d = os.path.join(root, "usr/bin")
+    out = {}
+    try:
+        for n in os.listdir(d):
+            p = os.path.join(d, n)
+            if n.startswith("genesis-") and os.path.isfile(p):
+                with open(p, "rb") as f:
+                    out[n] = hashlib.sha256(f.read()).hexdigest()
+    except OSError:
+        pass
+    return out
+
+
+def changes_lines(root):
+    """The commit lines the build wrote into the image, newest first: 'abc1234 what changed'."""
+    return [l.strip() for l in read(os.path.join(root, "usr/share/genesis/changes.txt")).splitlines() if l.strip() and not l.startswith("#")]
+
+
+def strip_epoch(evr):
+    return evr.split(":", 1)[1] if ":" in evr else evr
+
+
+def compare(booted_root, staged_root):
+    """Everything the notes are made of. Pure over the two directories, so it is testable with fakes."""
+    pb, ps = packages(booted_root), packages(staged_root)
+    added = sorted(n for n in ps if n not in pb)
+    removed = sorted(n for n in pb if n not in ps)
+    changed = {n: (strip_epoch(pb[n]), strip_epoch(ps[n])) for n in ps if n in pb and pb[n] != ps[n]}
+    notable = [(label, changed[n][0], changed[n][1]) for n, label in NOTABLE if n in changed]
+    tb, ts = genesis_tools(booted_root), genesis_tools(staged_root)
+    tools_new = sorted(n for n in ts if n not in tb)
+    tools_gone = sorted(n for n in tb if n not in ts)
+    tools_changed = sorted(n for n in ts if n in tb and ts[n] != tb[n])
+    seen = set(changes_lines(booted_root))
+    commits = [l for l in changes_lines(staged_root) if l not in seen]
+    llama_b, llama_s = read(os.path.join(booted_root, "usr/lib/genesis/llama.cpp/BUILD")).strip(), read(os.path.join(staged_root, "usr/lib/genesis/llama.cpp/BUILD")).strip()
+    return {"from": image_version(booted_root), "to": image_version(staged_root),
+            "notable": notable, "added": added, "removed": removed, "changed_count": len(changed),
+            "tools_new": tools_new, "tools_gone": tools_gone, "tools_changed": tools_changed,
+            "commits": commits, "llama": (llama_b, llama_s) if llama_b != llama_s else None}
+
+
+def headline(c):
+    """One line for a notification: the two or three things a person would want to hear first."""
+    bits = [f"{label} {new}" for label, old, new in c["notable"][:3]]
+    g = len(c["tools_new"]) + len(c["tools_changed"])
+    if c["tools_new"]:
+        bits.append(f"new: {', '.join(t.replace('genesis-', '') for t in c['tools_new'][:2])}")
+    elif g:
+        bits.append(f"{g} Genesis tool{'s' if g != 1 else ''} changed")
+    if not bits:
+        bits.append(f"{c['changed_count']} packages updated")
+    return f"Genesis {c['to']}: " + ", ".join(bits)
+
+
+def markdown(c):
+    L = [f"# Update ready: Genesis {c['from']} → {c['to']}", ""]
+    if c["notable"]:
+        L.append("## What you would notice")
+        for label, old, new in c["notable"]:
+            L.append(f"- **{label}** {old} → {new}")
+        L.append("")
+    if c["tools_new"] or c["tools_changed"] or c["tools_gone"] or c["commits"] or c["llama"]:
+        L.append("## Genesis itself")
+        if c["commits"]:
+            for l in c["commits"][:12]:
+                L.append(f"- {l.split(' ', 1)[1] if ' ' in l else l}")
+            if len(c["commits"]) > 12:
+                L.append(f"- … and {len(c['commits']) - 12} more changes")
+        if c["tools_new"]:
+            L.append(f"- New tools: {', '.join(c['tools_new'])}")
+        if c["tools_changed"] and not c["commits"]:
+            L.append(f"- Changed tools: {', '.join(c['tools_changed'])}")
+        if c["tools_gone"]:
+            L.append(f"- Removed tools: {', '.join(c['tools_gone'])}")
+        if c["llama"]:
+            L.append(f"- llama.cpp {c['llama'][0]} → {c['llama'][1]}")
+        L.append("")
+    L.append("## Everything else")
+    L.append(f"- {c['changed_count']} packages updated" + (f", {len(c['added'])} added, {len(c['removed'])} removed" if c["added"] or c["removed"] else ""))
+    if c["added"]:
+        L.append(f"- Added: {', '.join(c['added'][:10])}" + (" …" if len(c["added"]) > 10 else ""))
+    if c["removed"]:
+        L.append(f"- Removed: {', '.join(c['removed'][:10])}" + (" …" if len(c["removed"]) > 10 else ""))
+    L += ["", "The update is applied at the next restart; the image you are on stays as the rollback."]
+    return "\n".join(L)
+
+
+def current():
+    """(comparison, staged digest) for the update staged on this machine, or (None, reason)."""
+    s = status()
+    staged, booted = s.get("staged"), s.get("booted")
+    if not staged:
+        return None, "nothing staged: this machine is on the newest image it knows about"
+    b, t = deploy_dir(booted), deploy_dir(staged)
+    if not (b and t and os.path.isdir(b) and os.path.isdir(t)):
+        return None, "the staged deployment is not on the disk yet"
+    return compare(b, t), staged.get("image", {}).get("imageDigest", "")
+
+
+def ask(c):
+    """The same door a crash goes through: a session with the assistant on this machine, in a window."""
+    sys.path.insert(0, "/usr/lib/genesis")
+    import genesis_local
+    question = ("An update is ready on this computer and I would like to know, in plain words and in a few lines, "
+                "what is in it and whether anything in it matters to me. Here is exactly what is different between "
+                "the image I am on and the one waiting:\n\n" + markdown(c) +
+                "\n\nSay what changed for a person using this computer every day, not for a packager. Do not invent "
+                "details that are not listed above.")
+    try:
+        s = genesis_local.call("POST", "/api/sessions", {"mode": "chat", "project": os.path.expanduser("~")})
+        genesis_local.call("POST", f"/api/sessions/{s['id']}/prompt", {"text": question})
+        subprocess.Popen(["genesis-window", f"http://127.0.0.1:11520/?session={s['id']}"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+        return True, ""
+    except Exception as e:
+        return False, str(e)
+
+
+def notify_once(c, digest):
+    """One notification per staged image. The action hands the notes to the assistant."""
+    if read(NOTIFIED).strip() == digest:
+        return "already said"
+    os.makedirs(STATE, exist_ok=True)
+    with open(NOTIFIED, "w") as f:
+        f.write(digest + "\n")
+    try:
+        out = subprocess.run(["notify-send", "-a", "Genesis", "-i", "genesis", "--action", "read=What is in it", "Update ready",
+                              headline(c) + " · applied at the next restart"], capture_output=True, text=True, timeout=300).stdout.strip()
+    except Exception:
+        out = ""
+    if out == "read":
+        ok, err = ask(c)
+        return "opened" if ok else f"could not open the assistant: {err}"
+    return "said"
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--json", action="store_true")
+    ap.add_argument("--ask", action="store_true")
+    ap.add_argument("--notify", action="store_true")
+    a = ap.parse_args()
+    c, extra = current()
+    if c is None:
+        print(extra, file=sys.stderr if not a.notify else sys.stdout)
+        return 0 if a.notify else 1
+    if a.notify:
+        print(notify_once(c, extra)); return 0
+    if a.ask:
+        ok, err = ask(c)
+        print("handed to the assistant" if ok else err, file=sys.stdout if ok else sys.stderr); return 0 if ok else 1
+    print(json.dumps(c, indent=1) if a.json else markdown(c))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

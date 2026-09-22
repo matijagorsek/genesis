@@ -41,6 +41,7 @@ COMMANDS = [
     ("Ask Genesis what I just shared", "/usr/bin/genesis-phone ask"),
     ("Day / night", "/usr/bin/genesis-theme toggle"),
     ("Lock the screen", "loginctl lock-session"),
+    ("What is in the update", "/usr/bin/genesis-upgrade-notes --ask"),
     ("Apply the staged update", "systemctl start --no-block bootc-fetch-apply-updates.service"),
 ]
 

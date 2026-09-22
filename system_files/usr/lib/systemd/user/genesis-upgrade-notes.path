@@ -1,0 +1,13 @@
+[Unit]
+Description=Genesis: say what is in an update once it is staged
+Documentation=https://github.com/matijagorsek/genesis
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Path]
+# genesis-bootc-status.service rewrites this after every fetch; a change means something may have been staged
+PathChanged=/run/genesis/bootc-status.json
+Unit=genesis-upgrade-notes.service
+
+[Install]
+WantedBy=graphical-session.target
