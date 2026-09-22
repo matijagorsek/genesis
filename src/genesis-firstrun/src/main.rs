@@ -237,8 +237,20 @@ fn handle(app: &Arc<App>, mut req: Request) -> Result<bool> {
                             });
                             let render_done = render.clone();
                             let render_done_again = render.clone();
+                            let done_marker = app.cli.done_marker.clone();
                             let on_done: Box<dyn FnOnce() -> Result<()> + Send> = Box::new(move || {
                                 render_done()?;
+                                // The models are here and the config is written: this machine is set up,
+                                // whether or not anybody reached the last page of the wizard. Waiting for
+                                // that page is why a machine that was finished downloading kept offering
+                                // to set itself up — checked on a fresh VM, where the wizard was still
+                                // running over a working assistant. Marking it here rather than only at
+                                // the next start means the offer stops when it stops being true.
+                                if let Some(d) = done_marker.parent() { let _ = std::fs::create_dir_all(d); }
+                                if !done_marker.exists() {
+                                    let _ = std::fs::write(&done_marker, format!("{}\n", now()));
+                                    tracing::info!(marker = %done_marker.display(), "models and config are in place; first run is complete");
+                                }
                                 // Measure this machine, now that there is something on it to measure with, and
                                 // render once more with the answer. It takes a couple of minutes and nobody
                                 // waits for it: the assistant works from the render above and gets faster when
