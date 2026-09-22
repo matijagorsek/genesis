@@ -4,7 +4,7 @@
 #   check:  docker run --rm --platform linux/amd64 genesis:0.1 genesis-image-check
 #   iso:    see iso/ (bootc-image-builder), Phase 1
 
-ARG BASE=ghcr.io/matijagorsek/genesis-base:aurora-stable@sha256:911281f2aaa42bfd17532c5cef917aba8d7ac8c0faeb1c1edc6a43dc28d0d2f1
+ARG BASE=ghcr.io/matijagorsek/genesis-base:aurora-stable@sha256:94b81908b565b2fa1a7c98836570c16f4c6d3e80f4bb1eadb8d497217433ab1d
 
 # ---- stage 1: Genesis daemons (Rust), cross-compiled for the target architecture on whatever the build host is
 FROM --platform=$BUILDPLATFORM docker.io/library/rust:1-bookworm AS daemons
