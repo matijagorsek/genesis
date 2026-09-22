@@ -1,0 +1,71 @@
+{
+  "_": "The Genesis app catalogue: one good answer per need, with a reason. Read by genesis-apps and by the assistant. kind: here = in the image already; flatpak = from Flathub, per user; toolbox = a distrobox with a toolchain, made on first use. Nothing on this list is a system change.",
+  "categories": [
+    {"name": "Browse", "apps": [
+      {"id": "firefox", "title": "Firefox", "why": "The browser that ships; already here.", "kind": "here", "ref": "firefox"},
+      {"id": "chromium", "title": "Chromium", "why": "For the sites that only work in Chrome; no Google account baked in.", "kind": "flatpak", "ref": "org.chromium.Chromium"},
+      {"id": "brave", "title": "Brave", "why": "Chrome's engine with ads and trackers blocked out of the box.", "kind": "flatpak", "ref": "com.brave.Browser"}
+    ]},
+    {"name": "Write and plan", "apps": [
+      {"id": "libreoffice", "title": "LibreOffice", "why": "Writer, Calc, Impress; opens Word and Excel files. Installed on first connection.", "kind": "flatpak", "ref": "org.libreoffice.LibreOffice"},
+      {"id": "onlyoffice", "title": "ONLYOFFICE", "why": "If you live in .docx and want it to look exactly like it does in Word.", "kind": "flatpak", "ref": "org.onlyoffice.desktopeditors"},
+      {"id": "obsidian", "title": "Obsidian", "why": "Notes as plain Markdown files in a folder you own; the assistant can read them.", "kind": "flatpak", "ref": "md.obsidian.Obsidian"},
+      {"id": "joplin", "title": "Joplin", "why": "Notes that sync through Nextcloud or Dropbox, open source, with a phone app.", "kind": "flatpak", "ref": "net.cozic.joplin_desktop"},
+      {"id": "okular", "title": "Okular", "why": "PDFs, with annotation and form filling; already here.", "kind": "here", "ref": "okular"},
+      {"id": "calibre", "title": "Calibre", "why": "Every e-book you have, in one library, converted to whatever your reader wants.", "kind": "flatpak", "ref": "com.calibre_ebook.calibre"}
+    ]},
+    {"name": "Talk", "apps": [
+      {"id": "thunderbird", "title": "Thunderbird", "why": "Mail, calendar and contacts. Installed on first connection.", "kind": "flatpak", "ref": "org.mozilla.Thunderbird"},
+      {"id": "signal", "title": "Signal", "why": "The messenger to use when it matters who can read it.", "kind": "flatpak", "ref": "org.signal.Signal"},
+      {"id": "telegram", "title": "Telegram", "why": "Fast, good on a desktop, and where a lot of groups already are.", "kind": "flatpak", "ref": "org.telegram.desktop"},
+      {"id": "discord", "title": "Discord", "why": "Voice and text for communities and games.", "kind": "flatpak", "ref": "com.discordapp.Discord"},
+      {"id": "slack", "title": "Slack", "why": "For the workplace that uses it.", "kind": "flatpak", "ref": "com.slack.Slack"},
+      {"id": "element", "title": "Element", "why": "Matrix: chat you can host yourself, end-to-end encrypted.", "kind": "flatpak", "ref": "im.riot.Riot"},
+      {"id": "zoom", "title": "Zoom", "why": "For the meetings you did not choose the software for.", "kind": "flatpak", "ref": "us.zoom.Zoom"}
+    ]},
+    {"name": "Watch and listen", "apps": [
+      {"id": "vlc", "title": "VLC", "why": "Plays anything. Installed on first connection.", "kind": "flatpak", "ref": "org.videolan.VLC"},
+      {"id": "haruna", "title": "Haruna", "why": "The video player that fits this desktop; already here.", "kind": "here", "ref": "haruna"},
+      {"id": "elisa", "title": "Elisa", "why": "Your music folder as a library; already here.", "kind": "here", "ref": "elisa"},
+      {"id": "spotify", "title": "Spotify", "why": "The official client.", "kind": "flatpak", "ref": "com.spotify.Client"},
+      {"id": "jellyfin", "title": "Jellyfin Media Player", "why": "Your own Netflix, if you run a Jellyfin server.", "kind": "flatpak", "ref": "com.github.iwalton3.jellyfin-media-player"}
+    ]},
+    {"name": "Make", "apps": [
+      {"id": "gimp", "title": "GIMP", "why": "Photo editing and retouching. Installed on first connection.", "kind": "flatpak", "ref": "org.gimp.GIMP"},
+      {"id": "krita", "title": "Krita", "why": "Painting and drawing with a tablet. Installed on first connection.", "kind": "flatpak", "ref": "org.kde.krita"},
+      {"id": "inkscape", "title": "Inkscape", "why": "Vector graphics: logos, icons, diagrams, anything that must scale.", "kind": "flatpak", "ref": "org.inkscape.Inkscape"},
+      {"id": "darktable", "title": "darktable", "why": "RAW photos, developed like in a darkroom, non-destructively.", "kind": "flatpak", "ref": "org.darktable.Darktable"},
+      {"id": "blender", "title": "Blender", "why": "3D, animation, video editing; the whole studio.", "kind": "flatpak", "ref": "org.blender.Blender"},
+      {"id": "kdenlive", "title": "Kdenlive", "why": "Video editing that fits this desktop and handles real projects.", "kind": "flatpak", "ref": "org.kde.kdenlive"},
+      {"id": "obs", "title": "OBS Studio", "why": "Recording the screen and streaming.", "kind": "flatpak", "ref": "com.obsproject.Studio"},
+      {"id": "audacity", "title": "Audacity", "why": "Recording and cutting audio.", "kind": "flatpak", "ref": "org.audacityteam.Audacity"},
+      {"id": "handbrake", "title": "HandBrake", "why": "Converting video to a size and format that plays everywhere.", "kind": "flatpak", "ref": "fr.handbrake.ghb"}
+    ]},
+    {"name": "Code", "apps": [
+      {"id": "kate", "title": "Kate", "why": "The editor that ships, with LSP and a terminal; already here.", "kind": "here", "ref": "kate"},
+      {"id": "vscode", "title": "Visual Studio Code", "why": "The editor most people use; Microsoft's build, with its telemetry.", "kind": "flatpak", "ref": "com.visualstudio.code"},
+      {"id": "vscodium", "title": "VSCodium", "why": "VS Code without the telemetry and the Microsoft branding.", "kind": "flatpak", "ref": "com.vscodium.codium"},
+      {"id": "zed", "title": "Zed", "why": "A fast editor built for pairing, with local models.", "kind": "flatpak", "ref": "dev.zed.Zed"},
+      {"id": "node", "title": "Node.js toolbox", "why": "node and npm in a box of their own; your home is shared, the OS is not touched.", "kind": "toolbox", "ref": "node"},
+      {"id": "rust", "title": "Rust toolbox", "why": "cargo, rustc and gcc in a box of their own.", "kind": "toolbox", "ref": "rust"},
+      {"id": "dbeaver", "title": "DBeaver", "why": "One client for every database.", "kind": "flatpak", "ref": "io.dbeaver.DBeaverCommunity"},
+      {"id": "bruno", "title": "Bruno", "why": "An API client whose collections are files in git, not in somebody's cloud.", "kind": "flatpak", "ref": "com.usebruno.Bruno"},
+      {"id": "podman-desktop", "title": "Podman Desktop", "why": "Containers with a window, on the podman that is already here.", "kind": "flatpak", "ref": "io.podman_desktop.PodmanDesktop"}
+    ]},
+    {"name": "Keep and share", "apps": [
+      {"id": "bitwarden", "title": "Bitwarden", "why": "Passwords, synced, open source, with a free tier that is enough.", "kind": "flatpak", "ref": "com.bitwarden.desktop"},
+      {"id": "keepassxc", "title": "KeePassXC", "why": "Passwords in one encrypted file you keep yourself; no account anywhere.", "kind": "flatpak", "ref": "org.keepassxc.KeePassXC"},
+      {"id": "nextcloud", "title": "Nextcloud", "why": "Sync your files with your own server.", "kind": "flatpak", "ref": "com.nextcloud.desktopclient.nextcloud"},
+      {"id": "localsend", "title": "LocalSend", "why": "AirDrop between anything on the same network, no account.", "kind": "flatpak", "ref": "org.localsend.localsend_app"},
+      {"id": "warp", "title": "Warp", "why": "Send a file to anyone with a code, over the internet, encrypted.", "kind": "flatpak", "ref": "app.drey.Warp"},
+      {"id": "qbittorrent", "title": "qBittorrent", "why": "Torrents without ads.", "kind": "flatpak", "ref": "org.qbittorrent.qBittorrent"},
+      {"id": "remmina", "title": "Remmina", "why": "Remote desktops: RDP, VNC, SSH in one place.", "kind": "flatpak", "ref": "org.remmina.Remmina"},
+      {"id": "flatseal", "title": "Flatseal", "why": "See and change what each Flatpak app is allowed to touch.", "kind": "flatpak", "ref": "com.github.tchx84.Flatseal"}
+    ]},
+    {"name": "Play", "apps": [
+      {"id": "steam", "title": "Steam", "why": "Most Windows games run through Proton; check protondb.com for yours.", "kind": "flatpak", "ref": "com.valvesoftware.Steam"},
+      {"id": "heroic", "title": "Heroic", "why": "Epic, GOG and Amazon games, one launcher.", "kind": "flatpak", "ref": "com.heroicgameslauncher.hgl"},
+      {"id": "bottles", "title": "Bottles", "why": "Windows programs that are not games, each in its own bottle.", "kind": "flatpak", "ref": "com.usebottles.bottles"}
+    ]}
+  ]
+}

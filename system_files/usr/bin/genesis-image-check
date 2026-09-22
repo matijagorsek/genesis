@@ -6,7 +6,7 @@ rc=0
 echo "Genesis image check"
 grep -q '^ID=genesis' /usr/lib/os-release && ok "os-release ID=genesis" || fail "os-release"
 grep '^PRETTY_NAME' /usr/lib/os-release
-for b in llama-server llama-swap ramalama bwrap distrobox bootc vulkaninfo genesis-permd genesis-probe genesis-firstrun genesis-agentd genesis-txd genesis-krunner genesis-ask genesis-report genesis-firstuser genesis-pick-device genesis-llama-server genesis-crash genesis-power btrfs rsync firefox okular gwenview kcalc plasma-discover dolphin konsole kate; do command -v "$b" >/dev/null && ok "binary $b" || fail "binary $b"; done
+for b in llama-server llama-swap ramalama bwrap distrobox bootc vulkaninfo genesis-permd genesis-probe genesis-firstrun genesis-agentd genesis-txd genesis-krunner genesis-ask genesis-report genesis-firstuser genesis-pick-device genesis-llama-server genesis-crash genesis-power genesis-apps btrfs rsync firefox okular gwenview kcalc plasma-discover dolphin konsole kate; do command -v "$b" >/dev/null && ok "binary $b" || fail "binary $b"; done
 # the test disks carry a known account; a password must not be accepted from a real network
 if grep -q "genesis.devssh" /proc/cmdline 2>/dev/null; then
   f=/etc/ssh/sshd_config.d/99-genesis-devssh.conf
@@ -108,6 +108,7 @@ grep -q "v1/embeddings" /usr/bin/genesis-index && python3 -c "import numpy" 2>/d
 [ -x /usr/lib/genesis/whisper/bin/whisper-cli ] && ok "whisper-cli (voice input)" || fail "whisper-cli"
 [ -d /usr/share/plasma/look-and-feel/org.genesis.desktop ] && grep -q org.genesis.desktop /usr/share/kde-settings/kde-profile/default/xdg/kdeglobals && ok "Genesis look-and-feel default" || fail "look-and-feel"
 [ -f /usr/share/wallpapers/Genesis/contents/images/2560x1600.png ] && ok "wallpaper" || fail "wallpaper"
+python3 -c "import json; json.load(open('/usr/share/genesis/apps.json'))" 2>/dev/null && ok "app catalogue" || fail "app catalogue"
 [ -f /usr/share/icons/hicolor/scalable/apps/genesis.svg ] && ok "icon" || fail "icon"
 grep -q "wallpapers/Genesis" /usr/lib/plasmalogin/defaults.conf && ok "login wallpaper" || fail "login wallpaper"
 [ -f /etc/flatpak/preinstall.d/genesis.preinstall ] && ok "flatpak preinstall list (office, mail, media)" || fail "flatpak preinstall"

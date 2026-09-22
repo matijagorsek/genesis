@@ -1,0 +1,183 @@
+#!/usr/bin/python3
+"""genesis-apps: the catalogue. One good answer per need, with the reason, and one word to install it.
+
+  genesis-apps                      the catalogue, with what is already here marked
+  genesis-apps install obsidian     by its short name (or a Flatpak id, if you know one)
+  genesis-apps remove obsidian
+  genesis-apps search photo         the catalogue first, then Flathub
+  genesis-apps info obsidian
+  genesis-apps --json               for the assistant and the settings page
+
+Flathub has forty thousand things and Discover shows all of them. This is the fifty that a person setting
+up a computer actually asks about, each with why it is the one, so the answer to "what do I use for
+notes" is one line and not an afternoon. Nothing here is a system change: Flatpaks install for this user,
+toolboxes are containers, and the image is not touched.
+"""
+import argparse, json, os, re, shutil, subprocess, sys
+
+CATALOGUE = os.environ.get("GENESIS_APPS", "/usr/share/genesis/apps.json")
+APP_ID = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]{2,120}$")
+
+
+def load(path=CATALOGUE):
+    with open(path) as f:
+        return json.load(f)
+
+
+def entries(cat=None):
+    cat = cat or load()
+    for c in cat["categories"]:
+        for a in c["apps"]:
+            yield dict(a, category=c["name"])
+
+
+def find(name, cat=None):
+    """A catalogue entry by short name, title, or Flatpak id; None if it is not in the catalogue."""
+    n = name.strip().lower()
+    for a in entries(cat):
+        if n in (a["id"].lower(), a["title"].lower(), a["ref"].lower()):
+            return a
+    return None
+
+
+def run(cmd, timeout=1800):
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        return r.returncode, (r.stdout + r.stderr).strip()
+    except FileNotFoundError:
+        return 127, f"{cmd[0]} is not installed"
+    except subprocess.TimeoutExpired:
+        return 124, "took too long"
+
+
+def flatpaks_installed():
+    code, out = run(["flatpak", "list", "--app", "--columns=application"], timeout=60)
+    return set(out.split()) if code == 0 else set()
+
+
+def toolboxes_present():
+    code, out = run(["distrobox", "list", "--no-color"], timeout=30)
+    return {m.group(1) for m in re.finditer(r"\bgenesis-(\w+)\b", out)} if code == 0 else set()
+
+
+def state(a, flatpaks, boxes):
+    """installed | available; a thing that is 'here' is here."""
+    if a["kind"] == "here":
+        return "installed" if shutil.which(a["ref"]) or os.path.exists(f"/usr/share/applications/{a['ref']}.desktop") else "missing"
+    if a["kind"] == "flatpak":
+        return "installed" if a["ref"] in flatpaks else "available"
+    if a["kind"] == "toolbox":
+        return "installed" if a["ref"] in boxes else "available"
+    return "unknown"
+
+
+def catalogue_with_state():
+    cat = load()
+    fl, bx = flatpaks_installed(), toolboxes_present()
+    out = []
+    for c in cat["categories"]:
+        out.append({"name": c["name"], "apps": [dict(a, state=state(a, fl, bx)) for a in c["apps"]]})
+    return out
+
+
+FLATHUB = "https://dl.flathub.org/repo/flathub.flatpakrepo"
+
+
+def ensure_user_flathub():
+    """Flathub is set up for the system, and a per-user install cannot see a system remote: `flatpak install
+    --user ... flathub` answers "No remote refs found" on a fresh machine, which is what the first real
+    install did. A user remote is added once; it needs no password and touches nothing shared."""
+    code, out = run(["flatpak", "remotes", "--user", "--columns=name"], timeout=30)
+    if code == 0 and "flathub" in out.split():
+        return True, ""
+    code, out = run(["flatpak", "remote-add", "--user", "--if-not-exists", "flathub", FLATHUB], timeout=120)
+    return code == 0, out[-300:]
+
+
+def install(name):
+    a = find(name)
+    if a is None:
+        if not APP_ID.match(name) or "." not in name:
+            return 2, f"{name!r} is not in the catalogue. genesis-apps search {name!r} looks further; a Flatpak id like org.videolan.VLC also works."
+        a = {"id": name, "title": name, "kind": "flatpak", "ref": name}
+    if a["kind"] == "here":
+        return 0, f"{a['title']} is already part of Genesis: it is in the menu."
+    if a["kind"] == "toolbox":
+        code, out = run(["genesis-toolbox", a["ref"], "--", "true"], timeout=1800)
+        return code, (f"the {a['title']} is ready: genesis-toolbox {a['ref']} -- <command>" if code == 0 else out[-600:])
+    ok, err = ensure_user_flathub()
+    if not ok:
+        return 1, "Flathub could not be set up for this user: " + err
+    code, out = run(["flatpak", "install", "--user", "--noninteractive", "-y", "flathub", "--", a["ref"]])
+    if code == 0:
+        return 0, f"installed {a['title']}: it is in the menu now."
+    if "already installed" in out:
+        return 0, f"{a['title']} is already installed."
+    return code, out[-600:]
+
+
+def remove(name):
+    a = find(name)
+    if a is None:
+        if not APP_ID.match(name): return 2, f"{name!r} is not in the catalogue"
+        a = {"id": name, "title": name, "kind": "flatpak", "ref": name}
+    if a["kind"] == "here":
+        return 2, f"{a['title']} is part of the Genesis image and is not removed per user."
+    if a["kind"] == "toolbox":
+        code, out = run(["distrobox", "rm", "--force", f"genesis-{a['ref']}"], timeout=300)
+        return code, (f"removed the {a['title']}" if code == 0 else out[-400:])
+    code, out = run(["flatpak", "uninstall", "--user", "--noninteractive", "-y", "--", a["ref"]], timeout=600)
+    return code, (f"removed {a['title']}" if code == 0 else out[-400:])
+
+
+def search(q):
+    ql = q.lower()
+    hits = [a for a in entries() if ql in a["id"] or ql in a["title"].lower() or ql in a["why"].lower() or ql in a["category"].lower()]
+    lines = [f"  {a['id']:<16} {a['title']:<24} {a['why']}" for a in hits]
+    if lines:
+        lines.insert(0, "in the catalogue:")
+    code, out = run(["flatpak", "search", "--columns=application,name,description", q], timeout=120)
+    if code == 0 and out and "No matches" not in out:
+        lines.append("on Flathub (genesis-apps install <id>):")
+        lines += ["  " + l for l in out.splitlines()[:15]]
+    return "\n".join(lines) if lines else f"nothing matches {q!r}"
+
+
+def show():
+    mark = {"installed": "*", "available": " ", "missing": "!", "unknown": "?"}
+    lines = []
+    for c in catalogue_with_state():
+        lines.append(f"\n{c['name']}")
+        for a in c["apps"]:
+            lines.append(f"  {mark[a['state']]} {a['id']:<16} {a['title']:<24} {a['why']}")
+    lines.append("\n  * = here already.  genesis-apps install <name>   genesis-apps info <name>")
+    return "\n".join(lines).lstrip("\n")
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("cmd", nargs="?", default="list", choices=["list", "install", "remove", "search", "info"])
+    ap.add_argument("name", nargs="*")
+    ap.add_argument("--json", action="store_true")
+    a = ap.parse_args()
+    name = " ".join(a.name).strip()
+    if a.cmd == "list":
+        print(json.dumps(catalogue_with_state()) if a.json else show())
+        return 0
+    if not name:
+        print(f"genesis-apps {a.cmd} <name>", file=sys.stderr); return 2
+    if a.cmd == "install":
+        code, msg = install(name)
+    elif a.cmd == "remove":
+        code, msg = remove(name)
+    elif a.cmd == "search":
+        code, msg = 0, search(name)
+    else:
+        e = find(name)
+        code, msg = (0, json.dumps(e, indent=1) if a.json else f"{e['title']} ({e['category']}): {e['why']}\n  {e['kind']}: {e['ref']}") if e else (1, f"{name!r} is not in the catalogue")
+    print(msg, file=sys.stdout if code == 0 else sys.stderr)
+    return code
+
+
+if __name__ == "__main__":
+    sys.exit(main())

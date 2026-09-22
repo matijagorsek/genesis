@@ -78,6 +78,11 @@ How Genesis got here, in the order it happened. The decision log has the detail 
   when a service fails — a backup that did not run, a mount that did not come up — which is ten times more
   common than a crash and just as opaque: "Failed with result 'exit-code'" becomes "your backup disk was
   not plugged in". The units systemd makes for a session or a launched program are not offered.
+- **A catalogue, not a store.** Flathub has forty thousand things and Discover shows all of them.
+  `genesis-apps` is the fifty a person setting up a computer actually asks about — one answer per need,
+  with why it is the one — and `genesis-apps install obsidian` is the whole install. The assistant reads
+  the same list, so "what do I use for notes" is a line and "install it" is a word. Nothing on it is a
+  system change: Flatpaks per user, toolboxes as containers, the image untouched.
 - **A desktop that looks like whatever you say.** `genesis-theme make "foggy morning by the sea"` — or
   asking the assistant for it — and twenty seconds later every application, the panel, the terminal and
   the wallpaper are in a palette made for that, by the model on this machine, with `genesis-theme undo`

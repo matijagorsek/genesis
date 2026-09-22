@@ -78,11 +78,17 @@ def search_apps(a):
 # an application id, never an option: "--all" as an id would have removed every app behind one card
 APP_ID = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]{2,120}$")
 
+def catalogue(a):
+    """The Genesis catalogue: one good answer per need, with why. The assistant reads this before Flathub."""
+    code, out = run(["genesis-apps", "list"], timeout=60)
+    return out if code == 0 else "the catalogue could not be read:\n" + out
+
 def install_app(a):
     app = (a.get("app_id") or "").strip()
-    if not APP_ID.match(app): return "give a Flatpak application id like org.videolan.VLC (use search_apps first)"
-    code, out = run(["flatpak", "install", "--user", "--noninteractive", "-y", "flathub", "--", app], timeout=1800)
-    return ("installed " + app if code == 0 else "install failed:\n" + out)
+    if not APP_ID.match(app): return "give a name from the catalogue (obsidian, signal, vscode...) or a Flatpak id like org.videolan.VLC"
+    # genesis-apps resolves a catalogue name, refuses a word that is neither, and knows a toolbox from a Flatpak
+    code, out = run(["genesis-apps", "install", app], timeout=1800)
+    return out if code == 0 else "install failed:\n" + out
 
 def remove_app(a):
     app = (a.get("app_id") or "").strip()
@@ -231,7 +237,8 @@ TOOLS = [
     ("updates_status", "Whether a Genesis update is staged for the next restart.", {"type": "object", "properties": {}}, updates_status),
     ("installed_apps", "Apps installed as Flatpaks, plus how many ship with the image.", {"type": "object", "properties": {}}, installed_apps),
     ("search_apps", "Search the Flathub app catalogue (uses the network).", {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}, search_apps),
-    ("install_app", "Install an app from Flathub for this user (a system change: asks first).", {"type": "object", "properties": {"app_id": {"type": "string", "description": "Flatpak id, e.g. org.gimp.GIMP"}}, "required": ["app_id"]}, install_app),
+    ("catalogue", "The Genesis app catalogue: the recommended app for each need, with why, and which are installed. Read this before searching Flathub.", {"type": "object", "properties": {}}, catalogue),
+    ("install_app", "Install an app for this user: a catalogue name (obsidian, signal, vscode, rust) or a Flatpak id (asks first).", {"type": "object", "properties": {"app_id": {"type": "string", "description": "a catalogue short name, or a Flatpak id like org.gimp.GIMP"}}, "required": ["app_id"]}, install_app),
     ("remove_app", "Remove a Flatpak app (a system change: asks first).", {"type": "object", "properties": {"app_id": {"type": "string"}}, "required": ["app_id"]}, remove_app),
     ("set_theme", "Change how the whole desktop looks: dark, light, undo, or make a new look from a description (colours for every app, the terminal and a wallpaper, made on this machine).", {"type": "object", "properties": {"mode": {"type": "string", "enum": ["dark", "light", "make", "undo"]}, "look": {"type": "string", "description": "for make: what it should look like, e.g. 'foggy morning by the sea'"}}, "required": ["mode"]}, set_theme),
     ("printers", "Printers set up on this computer.", {"type": "object", "properties": {}}, printers),
