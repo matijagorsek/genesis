@@ -735,6 +735,20 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_chat_never_takes_the_coder_just_because_it_is_the_default() {
+        let ids: Vec<String> = ["code", "fast"].iter().map(|s| s.to_string()).collect();
+        // the first real laptop: a code pack, no chat model, the command-line default "code"
+        assert_eq!(super::pick_model(&ids, "code", "chat", false), "fast", "a crash, a failed service or an update is answered by the small model, not a 9B cold load");
+        assert_eq!(super::pick_model(&ids, "code", "vision", false), "fast");
+        assert_eq!(super::pick_model(&ids, "code", "make", false), "code", "making things still takes the coder");
+        assert_eq!(super::pick_model(&ids, "code", "make", true), "fast", "on battery, not even that");
+        let with_chat: Vec<String> = ["code", "fast", "chat"].iter().map(|s| s.to_string()).collect();
+        assert_eq!(super::pick_model(&with_chat, "code", "chat", false), "chat");
+        assert_eq!(super::pick_model(&ids, "claude-sonnet-5", "make", false), "code", "a name that is not served: the preference order");
+        assert_eq!(super::pick_model(&["tiny".to_string()], "code", "chat", false), "code", "nothing preferred is served: the name as given, as before");
+    }
+
     use super::*;
     use std::io::{Read, Write};
     use std::net::TcpListener;
@@ -1230,15 +1244,23 @@ pub(crate) fn served_model_for(endpoint: &str, wanted: &str, kind: &str) -> Stri
     // named on the command line, because "code" is the default there and a laptop unplugged should not
     // start a 9B model for a question a 4B answers. genesis-power puts the big ones away at the same moment.
     let battery = agent::on_battery_saving();
-    let prefs: &[&str] = if battery { &["fast", "chat", "code", "auto"] } else { match kind { "chat" => &["chat", "fast", "code", "auto"], "vision" => &["fast", "chat", "code", "auto"], _ => &["code", "fast", "chat", "auto"] } };
+    // The name on the command line wins only for making things. Its default is "code", so for a chat --
+    // a crash, a failed service, an update, a question -- it sent every machine to the coder: on a CPU-only
+    // laptop that is a five-minute cold load of a 9B model to answer in plain words, and the first real
+    // crash handed to the assistant timed out on exactly that. A chat takes the chat model, or the small one.
     match list {
-        Some(ids) if !ids.is_empty() => {
-            if !battery && wanted != "auto" && ids.iter().any(|i| i == wanted) { return wanted.to_string(); }
-            for pref in prefs { if ids.iter().any(|i| i == pref) { return pref.to_string(); } }
-            wanted.to_string()
-        }
+        Some(ids) if !ids.is_empty() => pick_model(&ids, wanted, kind, battery),
         _ => wanted.to_string(),
     }
+}
+
+/// The choice itself, apart from the network, so it can be pinned.
+pub(crate) fn pick_model(ids: &[String], wanted: &str, kind: &str, battery: bool) -> String {
+    let explicit = kind == "make" && !battery && wanted != "auto";
+    if explicit && ids.iter().any(|i| i == wanted) { return wanted.to_string(); }
+    let prefs: &[&str] = if battery { &["fast", "chat", "code", "auto"] } else { match kind { "chat" => &["chat", "fast", "code", "auto"], "vision" => &["fast", "chat", "code", "auto"], _ => &["code", "fast", "chat", "auto"] } };
+    for pref in prefs { if ids.iter().any(|i| i == pref) { return pref.to_string(); } }
+    wanted.to_string()
 }
 
 /// One queued make: a Trusted session on the project (or a folder named after the request), every

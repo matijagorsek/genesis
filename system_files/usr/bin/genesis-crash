@@ -89,7 +89,9 @@ def ask_genesis(question):
     """Hand it to the assistant on this machine and open it where the person can read the answer."""
     import genesis_local
     try:
-        s = genesis_local.call("POST", "/api/sessions", {"mode": "chat", "project": os.path.expanduser("~")})
+        # "chat" is the kind of session; the mode is how much it may do. Sending "chat" as the mode was a 400
+        # for as long as this existed, and the fake in the test accepted it -- found by crashing a real program.
+        s = genesis_local.call("POST", "/api/sessions", {"mode": "assist", "kind": "chat", "project": os.path.expanduser("~")})
         genesis_local.call("POST", f"/api/sessions/{s['id']}/prompt", {"text": question})
         # the window takes a URL, the way genesis-demo opens a session it has just started
         subprocess.Popen(["genesis-window", f"http://127.0.0.1:11520/?session={s['id']}"],

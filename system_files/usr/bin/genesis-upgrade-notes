@@ -177,7 +177,9 @@ def ask(c):
                 "\n\nSay what changed for a person using this computer every day, not for a packager. Do not invent "
                 "details that are not listed above.")
     try:
-        s = genesis_local.call("POST", "/api/sessions", {"mode": "chat", "project": os.path.expanduser("~")})
+        # "chat" is the kind of session; the mode is how much it may do. Sending "chat" as the mode was a 400
+        # for as long as this existed, and the fake in the test accepted it -- found by crashing a real program.
+        s = genesis_local.call("POST", "/api/sessions", {"mode": "assist", "kind": "chat", "project": os.path.expanduser("~")})
         genesis_local.call("POST", f"/api/sessions/{s['id']}/prompt", {"text": question})
         subprocess.Popen(["genesis-window", f"http://127.0.0.1:11520/?session={s['id']}"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
         return True, ""

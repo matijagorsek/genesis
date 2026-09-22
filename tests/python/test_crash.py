@@ -77,7 +77,14 @@ def test_the_question_says_what_it_knows_and_asks_for_no_more(monkeypatch):
     gc = load()
     sent = {}
     fake = types.ModuleType("genesis_local")
-    fake.call = lambda method, path, body=None, timeout=60: (sent.update({path: body}) or {"id": "s1"})
+    def call(method, path, body=None, timeout=60):
+        # what genesis-agentd actually accepts: a mode from its list, and "chat" as the kind, never as the mode
+        if path == "/api/sessions":
+            assert body.get("mode") in ("assist", "auto_edit", "autonomous"), "the real API answers 400 to this: " + str(body)
+            assert body.get("kind") == "chat"
+        sent[path] = body
+        return {"id": "s1"}
+    fake.call = call
     monkeypatch.setitem(sys.modules, "genesis_local", fake)
     opened = {}
     monkeypatch.setattr(gc.subprocess, "Popen", lambda cmd, **k: opened.update({"cmd": cmd}))
