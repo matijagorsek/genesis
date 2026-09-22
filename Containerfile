@@ -149,14 +149,18 @@ RUN set -eux; \
     fi; \
     for b in llama-server llama-cli llama-bench llama-embedding llama-quantize llama-mtmd-cli; do \
       [ -x "/usr/lib/genesis/llama.cpp/$b" ] || continue; \
-      printf '#!/bin/sh\nexport LD_LIBRARY_PATH=/usr/lib/genesis/llama.cpp${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}\nexport GGML_BACKEND_PATH=/usr/lib/genesis/llama.cpp\nexec /usr/lib/genesis/llama.cpp/%s "$@"\n' "$b" > "/usr/bin/$b"; \
+      printf '#!/bin/sh\nexport LD_LIBRARY_PATH=/usr/lib/genesis/llama.cpp${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}\nexec /usr/lib/genesis/llama.cpp/%s "$@"\n' "$b" > "/usr/bin/$b"; \
       chmod 0755 "/usr/bin/$b"; \
     done; \
     echo "${LLAMA_CPP_BUILD}" > /usr/lib/genesis/llama.cpp/BUILD; \
-    for b in llama-server llama-bench llama-cli; do \
+    for b in llama-server llama-bench llama-cli llama-mtmd-cli; do \
       [ -x "/usr/bin/$b" ] || continue; \
-      if ! out=$("/usr/bin/$b" --version 2>&1) || printf '%s' "$out" | grep -qi 'error while loading shared libraries'; then \
+      out=$("/usr/bin/$b" -h 2>&1 | head -40); \
+      if [ -z "$out" ] || printf '%s' "$out" | grep -qiE 'error while loading shared libraries|cannot open shared object'; then \
         echo "ERROR: /usr/bin/$b cannot start:"; printf '%s\n' "$out" | head -3; exit 1; \
+      fi; \
+      if printf '%s' "$out" | grep -qi 'load_backend: failed to load'; then \
+        echo "ERROR: /usr/bin/$b starts but cannot load a backend:"; printf '%s\n' "$out" | grep -i 'failed to load' | head -3; exit 1; \
       fi; \
     done; \
     /usr/bin/llama-server --version 2>&1 | head -2
