@@ -3,12 +3,36 @@
 #
 #   genesis-report              # print it
 #   genesis-report > report.md  # attach that to issue #3
+#   genesis-report --send       # write it, copy it, and open the page where it goes
 #
 # It reads the machine's own facts: image version, hardware as the wizard saw it, which pack was chosen,
 # whether the models are actually on the GPU, how fast the small model answers, and the self-check. It
 # looks at nothing in your home folder and sends nothing anywhere — it prints, and you decide what to do
 # with it. Read it before you paste it; the hostname and your user name appear in the service lines.
 set -uo pipefail
+
+# --send: write the report to a file, put it on the clipboard, and open the page where it goes. It does
+# not upload anything: a machine that promises nothing leaves it should not post to the internet on its
+# own, and a report carries this machine's name and its hardware. The person reads it and presses send.
+if [ "${1:-}" = "--send" ]; then
+  out=${2:-$HOME/genesis-report.md}
+  "$0" > "$out" 2>/dev/null || true
+  echo "Written to $out ($(wc -l < "$out") lines). Read it before you send it."
+  copied=no
+  if command -v wl-copy >/dev/null && wl-copy < "$out" 2>/dev/null; then copied=yes
+  elif command -v xclip >/dev/null && xclip -selection clipboard < "$out" 2>/dev/null; then copied=yes
+  fi
+  if [ "$copied" = yes ]; then echo "It is on your clipboard: paste it with Ctrl+V."
+  else echo "Copy it from $out and paste it into the issue."; fi
+  url="https://github.com/matijagorsek/genesis/issues/3"
+  if command -v xdg-open >/dev/null; then (xdg-open "$url" >/dev/null 2>&1 &) ; echo "Opening $url"
+  else echo "Add it to $url"; fi
+  echo
+  if [ "$copied" = yes ]; then echo "Nothing has been sent: it is on this machine and on your clipboard until you post it."
+  else echo "Nothing has been sent: it is in $out until you post it."; fi
+  exit 0
+fi
+
 say(){ printf '\n## %s\n\n' "$1"; }
 code(){ printf '```\n'; cat; printf '```\n'; }
 

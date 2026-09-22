@@ -44,6 +44,12 @@ minutes of notes here answer more open questions than a week of CI. Paste the re
 
 When the desktop is up and the first make has run:
 
+    sudo genesis-report --send
+
+That writes the report, puts it on your clipboard and opens the issue; paste it there. Nothing is sent
+on its own — the report has this machine's name and hardware in it, so you read it and you press send.
+To keep it as a file instead:
+
     sudo genesis-report > report.md
 
 That collects the image version, the hardware as the wizard saw it, which pack it chose and why the
