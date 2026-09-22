@@ -40,6 +40,10 @@ pre{background:#0d1218;border:1px solid var(--line);border-radius:10px;padding:1
   <p>Downloads are split into parts because of GitHub's 2 GB limit. Join them:</p>
   <pre>cat genesis-VERSION.qcow2.zst.*.part | zstd -d -o disk.qcow2
 cat genesis-VERSION.iso.*.part &gt; genesis.iso</pre>
+  <p><b>One thing to expect while installing:</b> the step called <i>"Deployment starting"</i> takes
+  <b>10 to 30 minutes with a progress bar that does not move</b>. It is writing about 13 GB to your disk and it
+  is not stuck. Press <code>Ctrl+Alt+F2</code> for a shell and run <code>journalctl -f</code> if you want to
+  watch it work; <code>Ctrl+Alt+F6</code> goes back.</p>
   <p>The joined ISO is about <b>6.3 GB</b>, so a <b>USB stick of 8 GB or more</b> is needed; a 4 GB stick
   cannot hold it. Write it with Fedora Media Writer, or <code>sudo dd if=genesis.iso of=/dev/sdX bs=4M
   status=progress oflag=sync</code> — the whole stick is overwritten. Nothing is downloaded during the

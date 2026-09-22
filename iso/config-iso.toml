@@ -1,6 +1,22 @@
 # bootc-image-builder config for the INSTALLER ISO, the thing real people install.
-# No user block: Anaconda then makes creating your own account mandatory. No genesis.devssh argument:
-# sshd stays off. The test account and the SSH gate live in config.toml, which is for the qcow2 test
-# disks only (found by audit on 17 Sep: both had been shipping in the ISO).
+# No user block: the kickstart below locks root so that Anaconda requires an account to be created.
+# No genesis.devssh argument: sshd stays off. The test account and the SSH gate live in config.toml,
+# which is for the qcow2 test disks only (found by audit on 17 Sep: both had been shipping in the ISO).
 [customizations.kernel]
 append = "console=tty0"
+
+[customizations.installer.kickstart]
+contents = """
+# Root stays locked. With no root password, Anaconda requires an administrator account before it will
+# install — which is the thing that did not happen on the first real install on 19 Sep: it finished with
+# no account at all and nobody could log in, and the only way back was editing the kernel command line in
+# GRUB on a keyboard whose layout GRUB does not use. genesis-firstuser still asks on the console at first
+# boot if this somehow does not hold, but the installer is the right place to insist.
+rootpw --lock
+
+%anaconda
+# A password has to actually be set, and be worth having.
+pwpolicy root --minlen=6 --notempty --notstrict --nochanges --emptyok
+pwpolicy user --minlen=6 --notempty --notstrict --nochanges
+%end
+"""

@@ -29,6 +29,7 @@ minutes of notes here answer more open questions than a week of CI. Paste the re
 |---|---|---|
 | Boot the stick | Does the boot menu appear, does the installer start | Any black screen, and at which point |
 | Installer | Disk selection, language, keyboard | Minutes from start to reboot |
+| **"Deployment starting"** | **This is the long one: 10 to 30 minutes with a bar that does not move.** It is writing about 13 GB to the disk. It is not stuck. To watch it work, press **Ctrl+Alt+F2** for a shell and run `journalctl -f`, or `df -h /mnt/sysimage` twice a minute apart and watch it fill. **Ctrl+Alt+F6** returns to the installer. | How long it took |
 | First boot | Plymouth, the login screen, the desktop | Seconds from power button to login |
 
 ## First run
