@@ -1,0 +1,20 @@
+[Unit]
+Description=Genesis: offer to look at a crash, on this machine
+Documentation=https://github.com/matijagorsek/genesis
+PartOf=graphical-session.target
+After=graphical-session.target genesis-agentd.service
+
+[Service]
+Type=simple
+# Follows the journal for core dumps and offers once per crash. It reads; it decides nothing and sends
+# nothing. The assistant it hands a crash to is the model already running on this machine, so a dump —
+# which carries the arguments a program was given and the paths it had open — never leaves.
+ExecStart=/usr/bin/genesis-crash --watch
+Restart=on-failure
+RestartSec=10
+# a crash watcher that crashes should not take anything with it
+Nice=10
+MemoryMax=200M
+
+[Install]
+WantedBy=graphical-session.target

@@ -70,6 +70,11 @@ How Genesis got here, in the order it happened. The decision log has the detail 
   shipped binary, because that is the only run that tests what a person would install. Every make also
   records what was holding memory when it ended — that is how the embedding model was caught sitting in
   RAM for the life of a session on the machines least able to spare it.
+- **When something crashes, your own computer looks at why.** A program stopping unexpectedly offers a
+  notification; pressing it hands the crash — the program, the signal, the stack — to the model already
+  running on this machine, which reads the journal around it and says in plain words what went wrong and
+  whether it matters. A crash dump carries the arguments a program was given and the paths it had open,
+  which is exactly why this one does not leave: no account, no upload, no service.
 - **Complete desktop**: KDE Plasma 6 with Firefox, Dolphin, Konsole, Kate, Okular, Gwenview, Haruna,
   Elisa, KCalc, Discover (Flatpak), Ark, Spectacle, System Monitor as RPMs; LibreOffice, Thunderbird,
   VLC, GIMP, Krita preinstalled as Flatpaks once online. Genesis identity: Genesis Dark colour scheme,

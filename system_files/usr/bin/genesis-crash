@@ -1,0 +1,149 @@
+#!/usr/bin/python3
+"""genesis-crash: when a program stops unexpectedly, offer to look at why — on this machine.
+
+  genesis-crash --watch     follow the journal for crashes and offer to look (the user service does this)
+  genesis-crash --last      look at the most recent crash now
+  genesis-crash --explain PID
+
+A crash dump says what a program was doing when it died: the arguments it was given, the libraries it had
+open, the path it was reading. That is why this does not leave the machine. The model that reads it is the
+one already running here, the permission broker still applies, and nothing is uploaded to anybody —
+which is the whole difference between asking your own computer and asking a service.
+"""
+import argparse, json, os, re, subprocess, sys, time
+
+sys.path.insert(0, "/usr/lib/genesis")
+
+# Programs whose crashes are not worth interrupting somebody about: things that crash on the way down,
+# and the parts of Genesis whose own failures are reported elsewhere.
+IGNORE = {"plasmashell", "kwin_wayland", "xdg-desktop-portal", "gnome-keyring-d", "pipewire", "wireplumber"}
+
+
+def notify(title, body, *, urgency="normal", action=None):
+    cmd = ["notify-send", "-a", "Genesis", "-i", "genesis", "-u", urgency, title, body]
+    if action:
+        cmd[1:1] = ["--action", action]
+    try:
+        out = subprocess.run(cmd, capture_output=True, text=True, timeout=300).stdout.strip()
+        return out
+    except Exception:
+        return ""
+
+
+def crash_detail(pid):
+    """What the machine knows about one crash: the program, the signal, and the stack if it was kept."""
+    try:
+        info = subprocess.run(["coredumpctl", "info", str(pid)], capture_output=True, text=True, timeout=60).stdout
+    except Exception as e:
+        return None, f"coredumpctl could not be run: {e}"
+    if not info.strip():
+        return None, "there is no record of that crash"
+    field = lambda k: (re.search(rf"^\s*{k}:\s*(.+)$", info, re.M) or [None, ""])[1].strip()
+    stack = ""
+    m = re.search(r"Found module .*\n|Stack trace of thread \d+:\n((?:\s+#\d+.*\n)+)", info)
+    if m and m.group(1):
+        stack = "\n".join(m.group(1).splitlines()[:25])
+    return {
+        "program": os.path.basename(field("Executable") or field("Command Line").split(" ")[0] or "a program"),
+        "command": field("Command Line"),
+        "signal": field("Signal"),
+        "when": field("Timestamp"),
+        "stack": stack,
+        "raw": info[:4000],
+    }, ""
+
+
+def ask_genesis(d):
+    """Hand the crash to the assistant on this machine and open it where the person can read the answer."""
+    import genesis_local
+    question = (
+        f"{d['program']} stopped unexpectedly on this computer and I would like to know why, in plain words.\n\n"
+        f"Signal: {d['signal']}\nCommand: {d['command']}\nWhen: {d['when']}\n"
+        + (f"\nStack trace:\n{d['stack']}\n" if d["stack"] else "\nNo stack trace was kept.\n")
+        + "\nLook at the journal around that time with the tools you have, say what most likely went wrong, "
+          "and say whether it is something I should do anything about. If it looks like it will happen again, "
+          "say what would stop it. Do not guess at a cause you cannot see evidence for."
+    )
+    try:
+        s = genesis_local.call("POST", "/api/sessions", {"mode": "chat", "project": os.path.expanduser("~")})
+        genesis_local.call("POST", f"/api/sessions/{s['id']}/prompt", {"text": question})
+        # the window takes a URL, the way genesis-demo opens a session it has just started
+        subprocess.Popen(["genesis-window", f"http://127.0.0.1:11520/?session={s['id']}"],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+        return True, ""
+    except Exception as e:
+        return False, str(e)
+
+
+def offer(d):
+    """Ask, once, without stealing the screen. A crash is annoying enough without a window appearing."""
+    chosen = notify(
+        f"{d['program']} stopped unexpectedly",
+        f"{d['signal'] or 'It crashed'} · ask Genesis to look at why, on this machine",
+        action="look=Ask Genesis",
+    )
+    if chosen.strip() != "look":
+        return
+    ok, err = ask_genesis(d)
+    if not ok:
+        notify("Genesis could not look at that crash", err[:160], urgency="critical")
+
+
+def last(argv_pid=None):
+    if argv_pid:
+        pid = argv_pid
+    else:
+        try:
+            rows = subprocess.run(["coredumpctl", "list", "--no-legend", "--no-pager", "-r", "-n", "1"],
+                                  capture_output=True, text=True, timeout=60).stdout.split()
+            pid = rows[4] if len(rows) > 4 else None
+        except Exception:
+            pid = None
+        if not pid:
+            print("no crash has been recorded on this machine", file=sys.stderr)
+            return 1
+    d, err = crash_detail(pid)
+    if not d:
+        print(err, file=sys.stderr)
+        return 1
+    offer(d)
+    return 0
+
+
+def watch():
+    """Follow the journal for new crashes. One offer per crash, and never for the list above."""
+    seen = set()
+    p = subprocess.Popen(["journalctl", "-f", "-o", "json", "-u", "systemd-coredump@*", "--since", "now"],
+                         stdout=subprocess.PIPE, text=True)
+    for line in p.stdout:
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+        pid = entry.get("COREDUMP_PID") or entry.get("_PID")
+        exe = os.path.basename(entry.get("COREDUMP_EXE") or "")
+        if not pid or pid in seen or exe in IGNORE:
+            continue
+        seen.add(pid)
+        time.sleep(2)  # let systemd-coredump finish writing before asking about it
+        d, _ = crash_detail(pid)
+        if d and d["program"] not in IGNORE:
+            offer(d)
+    return 0
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--watch", action="store_true")
+    ap.add_argument("--last", action="store_true")
+    ap.add_argument("--explain", metavar="PID")
+    a = ap.parse_args()
+    if a.watch:
+        return watch()
+    if a.explain:
+        return last(a.explain)
+    return last()
+
+
+if __name__ == "__main__":
+    sys.exit(main())
