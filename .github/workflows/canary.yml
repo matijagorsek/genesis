@@ -111,14 +111,50 @@ jobs:
             echo "--- the wizard never answered; what the machine says about it:"
             vm 'systemctl is-active genesis-firstrun genesis-probe 2>&1 | paste -sd" " -; echo genesis | sudo -S systemctl status genesis-firstrun --no-pager 2>/dev/null | head -12; echo "--- its log:"; echo genesis | sudo -S journalctl -u genesis-firstrun --no-pager -n 25 2>/dev/null; echo "--- is first run already done (the wizard does not run then):"; ls -l /var/lib/genesis/first-run-done 2>&1 | head -1; echo "--- listening:"; ss -ltn 2>/dev/null | grep 11510 || echo "nothing on 11510"' || true
           fi
+          # Can this machine actually answer? Every check above passes on a machine whose assistant cannot
+          # load a single model: an image once reached the stable channel where the configured server
+          # command could not start at all, and the canary was green the whole time, because booting,
+          # answering the wizard and running the self-check never ask a model to load.
+          #
+          # Two tiers, because a canary machine has usually not been through first run and so has no model
+          # on disk. The first tier always runs and is the one that catches the break above: take the
+          # server command the router is configured to use -- or the default one when there is no config
+          # yet -- and start it. A command that cannot start says so here.
+          answer=""
+          echo "--- can the assistant load a model?"
+          serverbin=$(vm 'sed -n "s/^ *server: *\"\([^ ]*\).*/\1/p" /etc/genesis/router.yaml 2>/dev/null | head -1' 2>/dev/null || true)
+          [ -n "$serverbin" ] || serverbin=genesis-llama-server
+          echo "the configured server command is: $serverbin"
+          startup=$(vm "command -v $serverbin >/dev/null 2>&1 || { echo 'NOT-INSTALLED'; exit 0; }; $serverbin --version 2>&1 | tail -3" 2>/dev/null || true)
+          echo "$startup"
+          case "$startup" in
+            *"error while loading shared libraries"*|*"No such file or directory"*|*NOT-INSTALLED*|"")
+              echo "STARTUP-BROKEN" ;;
+            *) startup=ok ;;
+          esac
+          # The second tier only runs when a model is on disk, and then it is the real thing: ask the
+          # router the same question a person would and require words back.
+          if vm 'ls /var/lib/genesis/models/*/*.gguf >/dev/null 2>&1'; then
+            for i in $(seq 1 24); do
+              answer=$(vm 'curl -s -m 120 -H "Content-Type: application/json" -d "{\"model\":\"fast\",\"messages\":[{\"role\":\"user\",\"content\":\"Say hello.\"}],\"max_tokens\":16}" 127.0.0.1:8080/v1/chat/completions' 2>/dev/null || true)
+              case "$answer" in *'"content"'*) echo "the assistant answered after $(( i * 10 ))s"; break ;; esac
+              answer=""; sleep 10
+            done
+            [ -n "$answer" ] || { echo "--- it did not answer; what the machine says:"; vm 'echo genesis | sudo -S journalctl -u genesis-router --no-pager -n 30 2>/dev/null' || true; }
+          else
+            echo "no model on disk (this machine has not been through first run), so only the startup check applies"
+            answer="no-model"
+          fi
           vm 'echo genesis | sudo -S systemctl poweroff' >/dev/null 2>&1 || true
           sleep 10; kill $QEMU 2>/dev/null || true
-          echo "self-check: $ok ok; failures: ${fails:-none}; wizard: ${wizard:-silent}"
+          echo "self-check: $ok ok; failures: ${fails:-none}; wizard: ${wizard:-silent}; server command: ${startup:-unknown}"
           [ -n "$after" ] || { echo "no version after the upgrade"; exit 1; }
           [ "$before" != "$after" ] || { echo "the version did not change: the upgrade did not take"; exit 1; }
           [ -n "$wizard" ] || { echo "the wizard API did not answer after the upgrade"; exit 1; }
+          [ "$startup" = ok ] || { echo "the configured server command cannot start: no model can load on this image"; exit 1; }
+          [ -n "$answer" ] || { echo "a model is installed but the assistant never answered"; exit 1; }
           if [ -n "$fails" ]; then echo "::warning::self-check reported a failure after the upgrade: $fails"; fi
-          echo "canary: $before -> $after, wizard answers, self-check ran"
+          echo "canary: $before -> $after, wizard answers, self-check ran, the server command starts${answer:+, assistant: $answer}"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
