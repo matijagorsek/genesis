@@ -104,3 +104,22 @@ def test_it_measures_with_a_model_that_can_generate(tmp_path, monkeypatch):
     monkeypatch.setattr(pick, "MODELS", str(tmp_path))
     chosen = pick.smallest_model()
     assert chosen.endswith("f.gguf"), f"the smallest model that can generate, not the smallest file: {chosen}"
+
+
+def test_a_measurement_that_measured_nothing_says_so(monkeypatch):
+    """Everything failing is not a decision to use the CPU, and must not look like one.
+
+    The arm64 image shipped llama-bench without its libraries, so every run exited 127 and the file it
+    wrote was indistinguishable from a real answer that had chosen the CPU. The CPU is still what to run
+    with; what changes is that nobody can mistake it for something that was measured.
+    """
+    r = run(monkeypatch, {"none": (None, "exited 127"), "Vulkan0": (None, "exited 127")})
+    assert r["device"] == "none", "the CPU is still the safe thing to run with"
+    assert r["measured"] is False
+    assert "127" in r["why_not"]
+
+
+def test_a_real_measurement_is_marked_as_one(monkeypatch):
+    r = run(monkeypatch, {"none": (7.5, ""), "Vulkan0": (95.0, "")})
+    assert r["measured"] is True
+    assert r["device"] == "Vulkan0"

@@ -84,7 +84,11 @@ say "What this machine measured about itself"
     python3 -c '
 import json
 d = json.load(open("/var/lib/genesis/device.json"))
-print("chose:", d.get("flags"), " at", "%.2f" % (d.get("tokens_per_second") or 0), "tokens/second")
+if d.get("measured") is False:
+    print("NOT MEASURED — nothing could be run:", d.get("why_not", "unknown"))
+    print("running on the CPU without a measurement; this machine may be slower than it needs to be")
+else:
+    print("chose:", d.get("flags"), " at", "%.2f" % (d.get("tokens_per_second") or 0), "tokens/second")
 print("measured with:", d.get("model"), "on", d.get("threads"), "threads")
 for t in d.get("tried", []):
     tps = t.get("tokens_per_second")

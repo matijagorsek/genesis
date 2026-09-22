@@ -88,15 +88,25 @@ def main(argv=None):
 
     ok = [t for t in tried if t["tokens_per_second"]]
     if not ok:
-        best = {"device": "none", "tokens_per_second": None}
-    else:
-        best = max(ok, key=lambda t: t["tokens_per_second"])
+        # Nothing ran at all. That is not a measurement saying "use the CPU", it is the measurement
+        # failing — and it looked identical in the file it wrote, which is how an arm64 image that
+        # shipped llama-bench without its libraries produced a device.json nobody could tell from a real
+        # answer. The CPU is still the safe thing to run with; say loudly that it was not measured.
+        why = "; ".join(f"{t['device']}: {t['why_not']}" for t in tried) or "nothing to try"
+        print(f"could not measure this machine at all ({why}); running on the CPU without a measurement", file=sys.stderr)
+        result = {"device": "none", "ngl": 0, "flags": "-ngl 0 -dev none", "tokens_per_second": None,
+                  "measured": False, "why_not": why, "threads": a.threads,
+                  "model": os.path.basename(model), "tried": tried}
+        print(json.dumps(result, indent=1) if a.json else result["flags"])
+        return 3
+    best = max(ok, key=lambda t: t["tokens_per_second"])
     # a device has to be meaningfully faster to be worth the memory it takes and the ways it can fail
     cpu = next((t["tokens_per_second"] for t in tried if t["device"] == "none"), None)
     if best["device"] != "none" and cpu and best["tokens_per_second"] < cpu * 1.15:
         best = {"device": "none", "tokens_per_second": cpu}
 
     result = {
+        "measured": True,
         "device": best["device"],
         "ngl": 0 if best["device"] == "none" else 99,
         "flags": "-ngl 0 -dev none" if best["device"] == "none" else f"-ngl 99 -dev {best['device']}",

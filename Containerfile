@@ -53,6 +53,13 @@ RUN set -eux; mkdir -p /out; if [ "$TARGETARCH" = arm64 ]; then \
         -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_TOOLS=ON -DLLAMA_CURL=ON; \
       cmake --build /build -j 3 --target llama-server llama-cli llama-bench llama-quantize llama-mtmd-cli; \
       mkdir -p /out/usr/lib/genesis/llama.cpp; cp /build/bin/llama-* /build/bin/*.so* /out/usr/lib/genesis/llama.cpp/; \
+      find /build -name 'lib*.so*' -type f -exec cp -n {} /out/usr/lib/genesis/llama.cpp/ \; ; \
+      for b in /out/usr/lib/genesis/llama.cpp/llama-*; do \
+        if LD_LIBRARY_PATH=/out/usr/lib/genesis/llama.cpp ldd "$b" 2>/dev/null | grep -q 'not found'; then \
+          echo "ERROR: $b is missing libraries and would not run:"; \
+          LD_LIBRARY_PATH=/out/usr/lib/genesis/llama.cpp ldd "$b" | grep 'not found'; exit 1; \
+        fi; \
+      done; \
       ls /out/usr/lib/genesis/llama.cpp; \
     fi
 

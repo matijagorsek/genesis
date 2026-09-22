@@ -251,6 +251,9 @@ fn handle(app: &Arc<App>, mut req: Request) -> Result<bool> {
                                     if std::path::Path::new("/var/lib/genesis/device.json").exists() {
                                         return;  // already measured; genesis-pick-device --json redoes it by hand
                                     }
+                                    // exit 3 means it ran and could not measure anything; the file it writes
+                                    // then says measured: false, and taking it as an answer would record a
+                                    // decision nobody made
                                     match std::process::Command::new("/usr/bin/genesis-pick-device").arg("--json").output() {
                                         Ok(o) if o.status.success() => {
                                             let _ = std::fs::create_dir_all("/var/lib/genesis");
