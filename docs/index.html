@@ -209,7 +209,7 @@ pre b{color:var(--ink);font-weight:500}pre .d{color:var(--acc)}pre .ok{color:#7f
     <pre>cat genesis-VERSION.qcow2.zst.*.part | zstd -d -o disk.qcow2
 cat genesis-VERSION.iso.*.part &gt; genesis.iso</pre>
     <p><b>One thing to expect while installing:</b> the step called <i>"Deployment starting"</i> takes <b>10 to 30 minutes with a progress bar that does not move</b>. It is writing about 13 GB to your disk and it is not stuck. <code>Ctrl+Alt+F3</code> for a shell where <code>top</code> shows the copy running; <code>Ctrl+Alt+F6</code> goes back.</p>
-    <p>The joined ISO is about <b>6.3 GB</b>, so a <b>USB stick of 8 GB or more</b> is needed. Write it with Fedora Media Writer, or <code>sudo dd if=genesis.iso of=/dev/sdX bs=4M status=progress oflag=sync</code> — the whole stick is overwritten. Nothing is downloaded during the install: the ISO carries the whole system, so the machine can be offline until the first boot.</p>
+    <p>The joined ISO is about <b>9 GB</b> (it carries the smallest model pack, so the first boot answers offline), so a <b>USB stick of 16 GB or more</b> is needed. Write it with Fedora Media Writer, or <code>sudo dd if=genesis.iso of=/dev/sdX bs=4M status=progress oflag=sync</code> — the whole stick is overwritten. Nothing is downloaded during the install: the ISO carries the whole system, so the machine can be offline until the first boot.</p>
     <h3>Hardware</h3>
     <ul>
       <li><b>Any x86_64 PC:</b> the standard image. At first run Genesis measures this machine and keeps whichever device was actually fastest.</li>

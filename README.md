@@ -218,7 +218,7 @@ qemu-img resize disk.qcow2 40G         # optional: room for a bigger model pack;
 ```
 
 Or install from the ISO in a VM (UTM, virt-manager, VirtualBox) or on a spare machine. The joined ISO is
-about 6.3 GB, so a **USB stick of 8 GB or more** is needed; the whole system is on it, and nothing is
+about 9 GB, so a **USB stick of 16 GB or more** is needed; the whole system and the smallest model pack are on it, and nothing is
 downloaded during the install. For the target disk, 64 GB is a sensible floor: the system is about 13 GB
 and bootc keeps the previous version so an upgrade can be rolled back, then the model pack is 3.8 GB for
 the tiny one up to 130 GB for a 48 GB card. On an NVIDIA machine **with a Turing card or newer** (GTX 16xx,

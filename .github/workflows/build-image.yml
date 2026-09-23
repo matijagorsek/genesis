@@ -597,6 +597,54 @@ jobs:
             -v /var/lib/containers/storage:/var/lib/containers/storage \
             $BIB --type anaconda-iso --rootfs btrfs --config /config.toml $IMAGE:stable
           sudo chown -R "$USER" out; ls -la out/bootiso
+          # the image is no longer needed on this runner; the models and the rebuilt ISO need the room
+          sudo podman rmi -f $IMAGE:stable $IMAGE:0.1 $IMAGE:${{ needs.image.outputs.tag }} >/dev/null 2>&1 || true
+
+      # The first boot used to be a four-gigabyte download before the assistant was real. The ISO now carries
+      # the smallest pack -- the same signed definition first run would resolve, each file pulled from the
+      # GHCR mirror by its own sha256 and checked -- and a kickstart %post copies it into place during the
+      # install, so a machine answers the moment it is installed, offline. If any of that cannot be had, the
+      # ISO ships without it and says so: first run downloads as before. bootc-image-builder cannot put files
+      # on the ISO itself, so xorriso adds them after, replaying the boot records it made.
+      - uses: oras-project/setup-oras@v1
+      - name: Models for the first boot, onto the ISO
+        env:
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -uo pipefail
+          sudo apt-get install -y -q xorriso >/dev/null 2>&1 || true
+          echo "${{ secrets.GITHUB_TOKEN }}" | oras login ghcr.io -u ${{ github.actor }} --password-stdin >/dev/null 2>&1 || true
+          mkdir -p payload/genesis-models pdef
+          if ! skopeo copy --remove-signatures "docker://ghcr.io/$OWNER/genesis-packs:tiny" "oci:pdef:tiny" >/dev/null 2>&1; then
+            echo "::warning::the signed tiny pack could not be fetched; the ISO ships without models"; exit 0; fi
+          python3 - <<'PY' > files.tsv || { echo "::warning::the tiny pack definition could not be read; the ISO ships without models"; exit 0; }
+          import json, os
+          idx = json.load(open("pdef/index.json")); m = idx["manifests"][0]["digest"].split(":",1)[1]
+          man = json.load(open(f"pdef/blobs/sha256/{m}")); l = man["layers"][0]["digest"].split(":",1)[1]
+          doc = json.load(open(f"pdef/blobs/sha256/{l}"))
+          for f in doc.get("files", []):
+              if f.get("optional") and f.get("role") not in ("stt", "tts"): continue
+              print(f["role"], f["name"], f["sha256"], f.get("size", 0), sep="\t")
+          PY
+          n=0; total=0
+          while IFS=$'\t' read -r role name sha size; do
+            d="payload/genesis-models/$role"; mkdir -p "$d"
+            if ! oras pull -o "$d" "ghcr.io/$OWNER/genesis-models:$sha" >/dev/null 2>&1; then echo "::warning::not mirrored, not shipped: $role/$name"; continue; fi
+            f=$(ls -S "$d" | head -1); [ "$f" = "$name" ] || mv "$d/$f" "$d/$name"
+            got=$(sha256sum "$d/$name" | cut -d" " -f1)
+            if [ "$got" != "$sha" ]; then echo "::error::checksum mismatch for $role/$name; not shipped"; rm -f "$d/$name"; continue; fi
+            n=$((n+1)); total=$((total + size)); echo "  shipped $role/$name ($((size/1048576)) MB)"
+          done < files.tsv
+          [ "$n" -gt 0 ] || { echo "::warning::no model file could be shipped; the ISO is as before"; exit 0; }
+          ls -d payload/genesis-models/fast/*.gguf >/dev/null 2>&1 || { echo "::warning::the small model itself is missing; the ISO ships without models"; exit 0; }
+          iso=$(ls out/bootiso/*.iso | head -1)
+          xorriso -indev "$iso" -outdev "${iso}.new" -boot_image any replay -map payload/genesis-models /genesis-models -- 2>&1 | tail -3
+          mv "${iso}.new" "$iso"
+          echo "--- on the ISO now:"; xorriso -indev "$iso" -find /genesis-models -type f -- 2>/dev/null | head -12
+          # the installer's own layout, for the branding work that comes next (product.img lives in /images)
+          echo "--- the installer's files:"; xorriso -indev "$iso" -find /images /EFI -maxdepth 2 -- 2>/dev/null | head -20
+          echo "--- ISO with $n model files ($((total/1048576)) MB): $(du -h "$iso" | cut -f1)"
+          rm -rf payload pdef
 
       - name: Package ISO for release (split)
         run: |

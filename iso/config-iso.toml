@@ -19,4 +19,20 @@ rootpw --lock
 pwpolicy root --minlen=6 --notempty --notstrict --nochanges --emptyok
 pwpolicy user --minlen=6 --notempty --notstrict --nochanges
 %end
+
+# The ISO carries the smallest model pack under /genesis-models (see the ISO job). Copied into the
+# installed system here so the first boot answers at once, offline, instead of after a download. Every
+# line tolerates failure: an install must never fail over an optional payload.
+%post --nochroot --log=/mnt/sysroot/var/log/genesis-models-from-iso.log
+if [ -d /run/install/repo/genesis-models ]; then
+  mkdir -p /mnt/sysroot/var/lib/genesis/models || true
+  cp -a /run/install/repo/genesis-models/. /mnt/sysroot/var/lib/genesis/models/ || true
+  chmod -R a+rX /mnt/sysroot/var/lib/genesis/models || true
+  du -sh /mnt/sysroot/var/lib/genesis/models || true
+fi
+%end
+
+%post --log=/var/log/genesis-models-relabel.log
+restorecon -R /var/lib/genesis/models 2>/dev/null || true
+%end
 """
