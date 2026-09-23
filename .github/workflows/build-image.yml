@@ -646,6 +646,50 @@ jobs:
           echo "--- ISO with $n model files ($((total/1048576)) MB): $(du -h "$iso" | cut -f1)"
           rm -rf payload pdef
 
+      # The installer wears Genesis. Anaconda unpacks /images/product.img from the install medium over its
+      # own root before it starts (dracut anaconda-lib.sh, anaconda_auto_updates), and the base profile
+      # loads /usr/share/anaconda/pixmaps/fedora.css -- so a product.img that carries that file, with our
+      # colours and our logo at the stock selectors, brands the installer without a profile switch. The
+      # pictures and the stylesheet are in iso/branding/. If xorriso is missing the ISO ships unbranded.
+      - name: The installer wears Genesis (product.img)
+        run: |
+          set -uo pipefail
+          command -v xorriso >/dev/null || sudo apt-get install -y -q xorriso >/dev/null 2>&1 || { echo "::warning::no xorriso; the installer ships unbranded"; exit 0; }
+          rm -rf product && mkdir -p product/usr/share/anaconda/pixmaps
+          cp iso/branding/sidebar-logo.png iso/branding/sidebar-bg.png iso/branding/topbar-bg.png product/usr/share/anaconda/pixmaps/
+          cp iso/branding/genesis.css product/usr/share/anaconda/pixmaps/fedora.css
+          ( cd product && find . -type f | cpio -o -H newc --quiet | gzip -9 ) > product.img
+          ls -la product.img | awk '{print $5, "bytes of product.img"}'
+          iso=$(ls out/bootiso/*.iso | head -1)
+          xorriso -indev "$iso" -outdev "${iso}.new" -boot_image any replay -map product.img /images/product.img -- 2>&1 | tail -2
+          mv "${iso}.new" "$iso"
+          xorriso -indev "$iso" -find /images -type f -- 2>/dev/null | grep -q product.img && echo "product.img is on the ISO" || echo "::warning::product.img did not land on the ISO"
+          rm -rf product product.img
+
+      # The only test there is for an installer's look: boot the ISO and photograph it. Ninety seconds in,
+      # Anaconda's language screen is up; the picture is attached to the run. No install happens.
+      - name: Photograph the installer
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          sudo apt-get install -y -q qemu-system-x86 ovmf socat imagemagick >/dev/null 2>&1
+          iso=$(ls out/bootiso/*.iso | head -1); FW=/usr/share/ovmf/OVMF.fd; [ -f "$FW" ] || FW=/usr/share/OVMF/OVMF.fd
+          if [ -r /dev/kvm ] && [ -w /dev/kvm ]; then ACCEL="-enable-kvm -cpu host"; else ACCEL="-cpu max"; fi
+          nohup qemu-system-x86_64 $ACCEL -m 4096 -smp 2 -bios "$FW" -cdrom "$iso" -boot d -display none -vga std \
+            -monitor unix:/tmp/qemu-mon.sock,server,nowait -serial file:installer-serial.log >/dev/null 2>&1 &
+          Q=$!; mkdir -p installer-shots
+          for t in 60 100 140; do sleep $(( t == 60 ? 60 : 40 )); echo "screendump installer-shots/installer-${t}s.ppm" | socat - UNIX-CONNECT:/tmp/qemu-mon.sock >/dev/null 2>&1 || true; done
+          kill $Q 2>/dev/null || true
+          for f in installer-shots/*.ppm; do [ -f "$f" ] && convert "$f" "${f%.ppm}.png" && rm -f "$f"; done
+          ls -la installer-shots
+          grep -iE "product.img|updates|anaconda" installer-serial.log 2>/dev/null | head -5 || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: installer-screens
+          path: installer-shots/
+          if-no-files-found: ignore
+
       - name: Package ISO for release (split)
         run: |
           mkdir -p release && cd release

@@ -1,0 +1,24 @@
+/* Genesis: the installer wears the same colours as the desktop it installs. Placed on the install medium
+ * as /images/product.img, this file overlays /usr/share/anaconda/pixmaps/fedora.css -- the stylesheet the
+ * installer's base profile loads -- so no profile switch is needed. The selectors are the stock ones. */
+@define-color genesis #0b0f14;
+@define-color genesis_accent #5fb5bd;
+
+.logo-sidebar {
+    background-image: url('/usr/share/anaconda/pixmaps/sidebar-bg.png');
+    background-color: @genesis;
+    background-repeat: no-repeat;
+}
+.logo {
+    background-image: url('/usr/share/anaconda/pixmaps/sidebar-logo.png');
+    background-position: 50% 20px;
+    background-repeat: no-repeat;
+    background-color: transparent;
+}
+.product-logo { background-image: none; background-color: transparent; }
+AnacondaSpokeWindow #nav-box {
+    background-color: @genesis;
+    background-image: url('/usr/share/anaconda/pixmaps/topbar-bg.png');
+    background-repeat: repeat;
+    color: white;
+}
