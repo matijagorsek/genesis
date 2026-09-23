@@ -209,6 +209,10 @@ RUN set -eux; \
     rm -f /usr/share/homebrew.tar.zst; \
     systemctl disable brew-setup.service 2>/dev/null || true; rm -f /usr/lib/systemd/system/brew-setup.service /usr/lib/systemd/system/*.wants/brew-setup.service; \
     find /usr/share/doc -mindepth 1 -maxdepth 1 ! -name genesis -exec rm -rf {} +; \
+    # dnf removes what a package owns and leaves the directory if anything unowned is in it -- a cache, a
+    # .directory file -- which is how the first build of this failed its own check with the packages gone
+    find /usr/share/wallpapers -mindepth 1 -maxdepth 1 ! -name Genesis ! -name Next -exec rm -rf {} +; \
+    rm -rf /usr/share/icons/oxygen; \
     dnf5 clean all; \
     [ -d /usr/share/wallpapers/Genesis ] && [ -d /usr/share/wallpapers/Next ] && [ -s /usr/share/doc/genesis/manual.html ]; \
     after=$(du -sm /usr | cut -f1); echo "genesis: /usr was ${before} MB, is ${after} MB: $((before - after)) MB less"
