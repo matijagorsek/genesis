@@ -3,7 +3,7 @@
   "categories": [
     {"name": "Browse", "apps": [
       {"id": "firefox", "title": "Firefox", "why": "The browser that ships; already here.", "kind": "here", "ref": "firefox"},
-      {"id": "chromium", "title": "Chromium", "why": "For the sites that only work in Chrome; no Google account baked in.", "kind": "flatpak", "ref": "org.chromium.Chromium"},
+      {"id": "chromium", "title": "Chromium", "why": "For the sites that only work in Chrome; no Google account baked in. Already here.", "kind": "here", "ref": "chromium"},
       {"id": "brave", "title": "Brave", "why": "Chrome's engine with ads and trackers blocked out of the box.", "kind": "flatpak", "ref": "com.brave.Browser"}
     ]},
     {"name": "Write and plan", "apps": [

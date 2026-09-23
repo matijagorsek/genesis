@@ -109,6 +109,7 @@ grep -q "v1/embeddings" /usr/bin/genesis-index && python3 -c "import numpy" 2>/d
 [ -d /usr/share/plasma/look-and-feel/org.genesis.desktop ] && grep -q org.genesis.desktop /usr/share/kde-settings/kde-profile/default/xdg/kdeglobals && ok "Genesis look-and-feel default" || fail "look-and-feel"
 [ -f /usr/share/wallpapers/Genesis/contents/images/2560x1600.png ] && ok "wallpaper" || fail "wallpaper"
 python3 -c "import json; json.load(open('/usr/share/genesis/apps.json'))" 2>/dev/null && ok "app catalogue" || fail "app catalogue"
+{ [ ! -e /usr/share/homebrew.tar.zst ] && [ ! -d /usr/share/wallpapers/Coast ] && [ ! -d /usr/share/icons/oxygen ]; } && ok "image without the base furniture (wallpapers, oxygen, homebrew)" || fail "image without the base furniture"
 [ -s /usr/share/doc/genesis/manual.html ] && ok "the manual is on the machine" || fail "the manual is on the machine"
 [ -s /usr/share/genesis/changes.txt ] && ok "change log in the image ($(wc -l < /usr/share/genesis/changes.txt) lines)" || fail "change log in the image"
 [ -f /usr/share/icons/hicolor/scalable/apps/genesis.svg ] && ok "icon" || fail "icon"

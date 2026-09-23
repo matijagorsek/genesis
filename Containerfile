@@ -190,6 +190,29 @@ RUN set -eux; \
     [ -e /usr/bin/growpart ] || ln -s ../sbin/growpart /usr/bin/growpart; \
     dnf5 clean all
 
+# ---- what the base carries that Genesis does not use: every megabyte here is on every install and in --
+# ---- every upgrade download. Measured on the first real laptop, 23 Sep: about a gigabyte. ------------
+# Fedora's and KDE's wallpaper collections (Genesis ships its own; "Next" stays, it belongs to Breeze and
+# is the lock screen's fallback; the small f44-backgrounds packages stay because kde-settings-plasma, and
+# through it plasma-desktop, require them -- a dry run on the laptop showed the whole desktop going with them), the Oxygen style and icons (Breeze and Papirus are the ones in use),
+# rclone (nothing in Genesis calls it; backups are rsync), the Homebrew tarball the base unpacks at boot
+# (toolchains live in genesis-toolbox containers), and package documentation (licences stay in
+# /usr/share/licenses; the manual stays in /usr/share/doc/genesis). --no-autoremove, because dnf would
+# otherwise take "unneeded" dependencies with it and that is a decision, not a cleanup.
+RUN set -eux; \
+    before=$(du -sm /usr | cut -f1); \
+    dnf5 remove -y --no-autoremove \
+      fedora-workstation-backgrounds \
+      plasma-workspace-wallpapers plasma-wallpapers-dynamic plasma-wallpapers-dynamic-builder \
+      plasma-wallpapers-dynamic-builder-fish-completion plasma-wallpapers-dynamic-builder-bash-completion plasma-wallpapers-dynamic-builder-zsh-completion \
+      plasma-oxygen oxygen-icon-theme rclone 2>&1 | tail -2; \
+    rm -f /usr/share/homebrew.tar.zst; \
+    systemctl disable brew-setup.service 2>/dev/null || true; rm -f /usr/lib/systemd/system/brew-setup.service /usr/lib/systemd/system/*.wants/brew-setup.service; \
+    find /usr/share/doc -mindepth 1 -maxdepth 1 ! -name genesis -exec rm -rf {} +; \
+    dnf5 clean all; \
+    [ -d /usr/share/wallpapers/Genesis ] && [ -d /usr/share/wallpapers/Next ] && [ -s /usr/share/doc/genesis/manual.html ]; \
+    after=$(du -sm /usr | cut -f1); echo "genesis: /usr was ${before} MB, is ${after} MB: $((before - after)) MB less"
+
 # Piper: local text-to-speech (static upstream build with its espeak-ng data and onnxruntime)
 RUN set -eux; \
     mkdir -p /usr/lib/genesis; \
