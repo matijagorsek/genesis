@@ -41,7 +41,7 @@ def test_it_says_the_hard_parts_plainly():
 
 def test_the_front_page_shows_only_pictures_that_exist_and_keeps_its_downloads():
     html = (ROOT / "docs/index.html").read_text()
-    for src in re.findall(r'<img src="([^"]+)"', html):
+    for src in re.findall(r'<img src="([^"]+)"', html) + re.findall(r'<source src="([^"]+)"', html) + re.findall(r'poster="([^"]+)"', html):
         assert (ROOT / "docs" / src).is_file(), f"the front page shows {src} and it is not in docs/"
     ids = set(re.findall(r'id="([^"]+)"', html))
     for anchor in re.findall(r'href="#([^"]+)"', html):

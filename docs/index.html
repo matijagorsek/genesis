@@ -43,8 +43,8 @@ a.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)
 .made .name.in{opacity:1;transform:none}
 .made .meta{color:var(--mute);font-size:13px;margin-top:4px}
 .swatches{display:flex;gap:5px}.swatches b{width:18px;height:34px;border-radius:5px;display:block;border:1px solid rgba(0,0,0,.25);transition:background var(--t)}
-.shotbox{position:relative;margin-top:14px;border-radius:12px;overflow:hidden;border:1px solid var(--line);aspect-ratio:16/9;background:linear-gradient(135deg,var(--near),var(--bg) 40%,var(--far));transition:background var(--t)}
-.shotbox img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .9s ease}.shotbox img.on{opacity:1}
+.shotbox{position:relative;margin-top:14px;border-radius:12px;overflow:hidden;border:1px solid var(--line);aspect-ratio:8/3;background:var(--near)}
+.shotbox video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
 .shotbox .cap{position:absolute;left:10px;bottom:10px;font-size:12px;color:var(--ink2);background:color-mix(in srgb,var(--bg) 80%,transparent);padding:4px 9px;border-radius:7px}
 .hint{color:var(--mute);font-size:13px;margin-top:12px;display:flex;gap:14px;flex-wrap:wrap}.hint kbd{margin-right:4px}
 .proof{color:var(--mute);font-size:13px;margin-top:8px}
@@ -116,9 +116,9 @@ pre b{color:var(--ink);font-weight:500}pre .d{color:var(--acc)}pre .ok{color:#7f
       <div><div class="name" id="lookname">&nbsp;</div><div class="meta" id="lookmeta">&nbsp;</div></div>
       <div class="swatches" id="sw"></div>
     </div>
-    <div class="shotbox" id="shotbox"><span class="cap" id="cap">the wallpaper it would draw</span></div>
+    <div class="shotbox" id="shotbox"><video autoplay muted loop playsinline poster="screens/looks/make-poster.jpg" aria-label="The real desktop changing between three looks"><source src="screens/looks/make.webm" type="video/webm"></video><span class="cap" id="cap">the real desktop, three looks, captured on the laptop</span></div>
     <div class="hint"><span><kbd>space</kbd>next look</span><span><kbd>click</kbd>same</span></div>
-    <p class="proof">Every palette here was produced by the 4B model on one laptop, from exactly these words, and checked so the text reads. For two of the moods, an earlier run's look was applied to the real desktop and photographed. Twenty seconds each.</p>
+    <p class="proof">Every palette here was produced by the 4B model on one laptop, from exactly these words, and checked so the text reads. The clip is the real desktop on that laptop going dark → autumn → foggy, captured frame by frame; the change itself is instant, the fade is the video's. Twenty seconds each.</p>
   </div>
 </div>
 
@@ -242,11 +242,7 @@ function wear(p){
   r.setProperty('--far', css(mix(bg,ac,p.dark?.5:.4))); r.setProperty('--near', css(mix(bg,fg,.04)));
   document.getElementById('sw').innerHTML = p.term.map(t => `<b style="background:${t}"></b>`).join('');
   const n = document.getElementById('lookname'); n.textContent = p.name; n.classList.remove('in'); void n.offsetWidth; n.classList.add('in');
-  document.getElementById('lookmeta').textContent = (p.dark ? 'dark' : 'light') + ' · ' + p.bg + ' on ' + p.accent + (SHOTS[p.mood] ? ' · the same words, applied to a real desktop, below' : '');
-  const box = document.getElementById('shotbox'), cap = document.getElementById('cap');
-  box.querySelectorAll('img').forEach(i => i.classList.remove('on'));
-  if (SHOTS[p.mood]) { let img = box.querySelector(`img[data-m="${p.mood}"]`); if (!img) { img = new Image(); img.src = SHOTS[p.mood]; img.dataset.m = p.mood; img.alt = 'The real desktop wearing ' + p.name; box.insertBefore(img, cap); } requestAnimationFrame(() => img.classList.add('on')); cap.textContent = 'the real desktop, made from the same words'; }
-  else cap.textContent = 'the wallpaper it would draw';
+  document.getElementById('lookmeta').textContent = (p.dark ? 'dark' : 'light') + ' · ' + p.bg + ' on ' + p.accent + (SHOTS[p.mood] ? ' · one of the three in the clip below' : '');
 }
 let i = -1, typing = false, timer;
 function type(text, done){ const el = document.getElementById('typed'); el.textContent=''; let k=0; typing=true;
