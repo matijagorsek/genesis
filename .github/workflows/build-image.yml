@@ -612,11 +612,14 @@ jobs:
           OWNER: ${{ github.repository_owner }}
         run: |
           set -uo pipefail
-          sudo apt-get install -y -q xorriso >/dev/null 2>&1 || true
+          # this runner has neither skopeo nor xorriso; the first run of this step found out by shipping nothing
+          sudo apt-get update -q >/dev/null 2>&1 || true
+          sudo apt-get install -y -q xorriso skopeo >/dev/null 2>&1 || echo "::warning::apt could not install xorriso/skopeo"
+          command -v skopeo >/dev/null || { echo "::warning::no skopeo on this runner; the ISO ships without models"; exit 0; }
           echo "${{ secrets.GITHUB_TOKEN }}" | oras login ghcr.io -u ${{ github.actor }} --password-stdin >/dev/null 2>&1 || true
           mkdir -p payload/genesis-models pdef
-          if ! skopeo copy --remove-signatures "docker://ghcr.io/$OWNER/genesis-packs:tiny" "oci:pdef:tiny" >/dev/null 2>&1; then
-            echo "::warning::the signed tiny pack could not be fetched; the ISO ships without models"; exit 0; fi
+          if ! skopeo copy --remove-signatures "docker://ghcr.io/$OWNER/genesis-packs:tiny" "oci:pdef:tiny" 2>skopeo.err; then
+            echo "::warning::the signed tiny pack could not be fetched; the ISO ships without models: $(tail -2 skopeo.err | tr '\n' ' ')"; exit 0; fi
           python3 - <<'PY' > files.tsv || { echo "::warning::the tiny pack definition could not be read; the ISO ships without models"; exit 0; }
           import json, os
           idx = json.load(open("pdef/index.json")); m = idx["manifests"][0]["digest"].split(":",1)[1]
@@ -672,13 +675,15 @@ jobs:
         continue-on-error: true
         run: |
           set -uo pipefail
-          sudo apt-get install -y -q qemu-system-x86 ovmf socat imagemagick >/dev/null 2>&1
+          sudo apt-get update -q >/dev/null 2>&1 || true
+          sudo apt-get install -y -q qemu-system-x86 ovmf socat imagemagick >/dev/null 2>&1 || { echo "::warning::apt could not install qemu/ovmf/socat/imagemagick; no installer photograph"; exit 0; }
           iso=$(ls out/bootiso/*.iso | head -1); FW=/usr/share/ovmf/OVMF.fd; [ -f "$FW" ] || FW=/usr/share/OVMF/OVMF.fd
+          [ -f "$FW" ] || { echo "::warning::no OVMF firmware; no installer photograph"; exit 0; }
           if [ -r /dev/kvm ] && [ -w /dev/kvm ]; then ACCEL="-enable-kvm -cpu host"; else ACCEL="-cpu max"; fi
           nohup qemu-system-x86_64 $ACCEL -m 4096 -smp 2 -bios "$FW" -cdrom "$iso" -boot d -display none -vga std \
             -monitor unix:/tmp/qemu-mon.sock,server,nowait -serial file:installer-serial.log >/dev/null 2>&1 &
           Q=$!; mkdir -p installer-shots
-          for t in 60 100 140; do sleep $(( t == 60 ? 60 : 40 )); echo "screendump installer-shots/installer-${t}s.ppm" | socat - UNIX-CONNECT:/tmp/qemu-mon.sock >/dev/null 2>&1 || true; done
+          for t in 60 100 140; do sleep $(( t == 60 ? 60 : 40 )); kill -0 $Q 2>/dev/null || { echo "qemu exited early"; break; }; echo "screendump installer-shots/installer-${t}s.ppm" | socat - UNIX-CONNECT:/tmp/qemu-mon.sock 2>&1 | tail -1 || true; done
           kill $Q 2>/dev/null || true
           for f in installer-shots/*.ppm; do [ -f "$f" ] && convert "$f" "${f%.ppm}.png" && rm -f "$f"; done
           ls -la installer-shots
