@@ -19,6 +19,7 @@ a{color:var(--acc)}
 
 /* the hero is the feature: the whole page wears the palette the model made for the words being typed */
 .hero{position:relative;min-height:92vh;display:grid;grid-template-columns:1.05fr 1fr;gap:40px;align-items:center;max-width:1180px;margin:0 auto;padding:6vh 6vw 4vh}
+.hero>*{min-width:0}
 @media (max-width:900px){.hero{grid-template-columns:1fr;min-height:auto;padding-top:8vh}}
 .wall{position:fixed;inset:0;z-index:-2;background:linear-gradient(135deg,var(--near) 0%,var(--bg) 35%,color-mix(in srgb,var(--bg) 60%,var(--far)) 70%,var(--far) 100%);transition:background var(--t) ease}
 .wall:after{content:"";position:absolute;inset:0;background:radial-gradient(70% 60% at 85% 90%,color-mix(in srgb,var(--acc) 22%,transparent),transparent 70%);transition:background var(--t) ease}
@@ -51,7 +52,7 @@ a.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)
 section{max-width:1180px;margin:0 auto;padding:9vh 6vw 2vh;position:relative}
 h2{font-size:clamp(28px,3.6vw,46px);line-height:1.05;letter-spacing:-.025em;margin:0 0 14px;font-weight:800;max-width:22ch}
 .sub{font-size:clamp(17px,1.5vw,20px);color:var(--ink2);max-width:58ch;margin:0 0 30px;transition:color var(--t)}
-.split{display:grid;grid-template-columns:1.1fr 1fr;gap:40px;align-items:center}.split.flip>*:first-child{order:2}
+.split{display:grid;grid-template-columns:1.1fr 1fr;gap:40px;align-items:center}.split>*{min-width:0}.split.flip>*:first-child{order:2}
 @media (max-width:860px){.split{grid-template-columns:1fr}.split.flip>*:first-child{order:0}}
 .split h3{font-size:clamp(24px,2.6vw,34px);letter-spacing:-.02em;margin:0 0 10px;line-height:1.1}
 .split p{color:var(--ink2);max-width:48ch}
