@@ -62,14 +62,34 @@ def crash_detail(pid):
     }, ""
 
 
+def journal_around(when_text, seconds=30):
+    """The journal's own lines around the moment. Given to the model in the question, because the first real
+    crash handed to it showed what happens otherwise: it read the system load instead of the journal and
+    invented a kernel race for a process that had simply been sent a signal."""
+    m = re.search(r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})", when_text or "")
+    if not m:
+        return ""
+    try:
+        import datetime
+        t = datetime.datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S")
+        since, until = (t - datetime.timedelta(seconds=seconds)).strftime("%Y-%m-%d %H:%M:%S"), (t + datetime.timedelta(seconds=seconds)).strftime("%Y-%m-%d %H:%M:%S")
+        out = subprocess.run(["journalctl", "--no-pager", "-o", "short", "--since", since, "--until", until, "-n", "60"], capture_output=True, text=True, timeout=60).stdout
+        return "\n".join(out.splitlines()[-40:])
+    except Exception:
+        return ""
+
+
 def crash_question(d):
+    journal = journal_around(d.get("when", ""))
     return (
         f"{d['program']} stopped unexpectedly on this computer and I would like to know why, in plain words.\n\n"
         f"Signal: {d['signal']}\nCommand: {d['command']}\nWhen: {d['when']}\n"
         + (f"\nStack trace:\n{d['stack']}\n" if d["stack"] else "\nNo stack trace was kept.\n")
-        + "\nLook at the journal around that time with the tools you have, say what most likely went wrong, "
-          "and say whether it is something I should do anything about. If it looks like it will happen again, "
-          "say what would stop it. Do not guess at a cause you cannot see evidence for."
+        + (f"\nThe journal around that moment:\n{journal}\n" if journal else "\nThe journal has nothing else around that moment.\n")
+        + "\nAnswer only from what is above. Say what it shows, whether it matters to me, and what would stop it if "
+          "it will happen again. If what is above does not show why, say exactly that -- \"the record does not show "
+          "why\" -- and do not propose a cause; a guess that sounds confident is worse than no answer. A signal sent "
+          "by another process, or by a person, looks like a crash and is not one."
     )
 
 
@@ -79,9 +99,10 @@ def unit_question(u):
         f"When: {u['when']}\n"
         + (f"\nWhat systemd says about it:\n{u['status']}\n" if u["status"] else "")
         + f"\nThe last lines of its log:\n{u['log']}\n"
-        + "\nSay what most likely went wrong, whether it matters to me, and what would fix it if it does. "
-          "If it is going to keep failing, say so. Do not guess at a cause you cannot see evidence for, and do "
-          "not tell me to reinstall anything."
+        + "\nAnswer only from what is above. Say what it shows, whether it matters to me, and what would fix it if it "
+          "does. If it is going to keep failing, say so. If what is above does not show why, say exactly that -- "
+          "\"the record does not show why\" -- and do not propose a cause; a guess that sounds confident is worse "
+          "than no answer. Do not tell me to reinstall anything."
     )
 
 

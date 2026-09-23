@@ -93,8 +93,11 @@ def test_the_question_says_what_it_knows_and_asks_for_no_more(monkeypatch):
     assert ok, err
     q = sent["/api/sessions/s1/prompt"]["text"]
     assert "okular" in q and "SEGV" in q and "qt_assert" in q
+    # the first real answer invented a kernel race for a process that had been sent a signal: the question now
+    # carries the journal itself and names the acceptable answer when there is no cause to see
+    assert "the record does not show why" in q and "sent by another process" in q
     assert "plain words" in q
-    assert "Do not guess" in q, "a small model asked about a crash will invent a cause if it is not told not to"
+    assert "do not propose a cause" in q, "a small model asked about a crash will invent a cause if it is not told not to"
     # the window takes a URL and has never taken a --session flag; inventing one opened nothing at all
     assert opened["cmd"][0] == "genesis-window"
     assert opened["cmd"][1].startswith("http://127.0.0.1:11520/?session=")
