@@ -21,6 +21,12 @@ a{color:var(--acc)}
 .hero{position:relative;min-height:92vh;display:grid;grid-template-columns:1.05fr 1fr;gap:40px;align-items:center;max-width:1180px;margin:0 auto;padding:6vh 6vw 4vh}
 .hero>*{min-width:0}
 @media (max-width:900px){.hero{grid-template-columns:1fr;min-height:auto;padding-top:8vh}}
+/* the real desktop, full width, behind the first screen: the clip made on the laptop, darkened so the words read */
+.stage{position:absolute;inset:0;z-index:-1;overflow:hidden;pointer-events:none}
+.stage video{width:100%;height:100%;object-fit:cover;display:block;opacity:.42;filter:saturate(1.1)}
+.stage:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,color-mix(in srgb,var(--bg) 35%,transparent) 0%,color-mix(in srgb,var(--bg) 55%,transparent) 55%,var(--bg) 100%);transition:background var(--t)}
+.herowrap{position:relative}
+@media (prefers-reduced-motion:reduce){.stage video{display:none}}
 .wall{position:fixed;inset:0;z-index:-2;background:linear-gradient(135deg,var(--near) 0%,var(--bg) 35%,color-mix(in srgb,var(--bg) 60%,var(--far)) 70%,var(--far) 100%);transition:background var(--t) ease}
 .wall:after{content:"";position:absolute;inset:0;background:radial-gradient(70% 60% at 85% 90%,color-mix(in srgb,var(--acc) 22%,transparent),transparent 70%);transition:background var(--t) ease}
 .k{color:var(--acc);letter-spacing:.2em;text-transform:uppercase;font-weight:800;font-size:12px;margin:0 0 14px;transition:color var(--t)}
@@ -101,6 +107,8 @@ pre b{color:var(--ink);font-weight:500}pre .d{color:var(--acc)}pre .ok{color:#7f
   <nav><a href="manual.html">Your first hour</a><a href="#make">Make</a><a href="#ask">Ask</a><a href="#kept">Kept</a><a href="#honest">Honest</a><a href="https://github.com/matijagorsek/genesis">Source</a><a class="dl" href="#download">Download</a></nav>
 </div></div>
 
+<div class="herowrap">
+<div class="stage" aria-hidden="true"><video autoplay muted loop playsinline poster="screens/looks/make-poster.jpg"><source src="screens/looks/make.webm" type="video/webm"></video></div>
 <div class="hero">
   <div>
     <p class="k">A Linux desktop · Fedora bootc · KDE Plasma</p>
@@ -118,8 +126,9 @@ pre b{color:var(--ink);font-weight:500}pre .d{color:var(--acc)}pre .ok{color:#7f
     </div>
     <div class="shotbox" id="shotbox"><video autoplay muted loop playsinline poster="screens/looks/make-poster.jpg" aria-label="The real desktop changing between three looks"><source src="screens/looks/make.webm" type="video/webm"></video><span class="cap" id="cap">the real desktop, three looks, captured on the laptop</span></div>
     <div class="hint"><span><kbd>space</kbd>next look</span><span><kbd>click</kbd>same</span></div>
-    <p class="proof">Every palette here was produced by the 4B model on one laptop, from exactly these words, and checked so the text reads. The clip is the real desktop on that laptop going dark → autumn → foggy, captured frame by frame; the change itself is instant, the fade is the video's. Twenty seconds each.</p>
+    <p class="proof">Every palette here was produced by the 4B model on one laptop, from exactly these words, and checked so the text reads. The clip — here and behind these words — is the real desktop on that laptop going dark → autumn → foggy, captured frame by frame; the change itself is instant, the fade is the video's. Twenty seconds each.</p>
   </div>
+</div>
 </div>
 
 <section id="make">

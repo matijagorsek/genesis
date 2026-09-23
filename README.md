@@ -33,7 +33,7 @@ permission-gated and undoable.
 - [Design brief](https://matijagorsek.github.io/genesis/genesis-brief.html) and [design plan](https://matijagorsek.github.io/genesis/genesis-design-plan.html) — what Genesis is meant to be
 - [Review of 17 Sep](https://matijagorsek.github.io/genesis/genesis-review.html) — good, bad, missing, new
 - [What to build next](https://matijagorsek.github.io/genesis/genesis-next-plan.html) and [the wow plan](https://matijagorsek.github.io/genesis/genesis-wow-plan.html)
-- [Walkthrough](https://matijagorsek.github.io/genesis/genesis-walkthrough.html) · [decision log](docs/decisions.md) · [first install on real hardware](docs/first-hardware-install.md)
+- [Walkthrough](https://matijagorsek.github.io/genesis/genesis-walkthrough.html) · [decision log](docs/decisions.md) ([by theme](docs/decisions-index.md)) · [first install on real hardware](docs/first-hardware-install.md)
 
 ## Phases, so far
 
