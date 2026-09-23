@@ -635,8 +635,11 @@ jobs:
           n=0; total=0
           while IFS=$'\t' read -r role name sha size; do
             d="payload/genesis-models/$role"; mkdir -p "$d"
-            if ! oras pull -o "$d" "ghcr.io/$OWNER/genesis-models:$sha" >/dev/null 2>&1; then echo "::warning::not mirrored, not shipped: $role/$name"; continue; fi
-            f=$(ls -S "$d" | head -1); [ "$f" = "$name" ] || mv "$d/$f" "$d/$name"
+            # each pull into a folder of its own: picking "the largest file in the role's folder" renamed the
+            # 2B model to mmproj on the second file and then threw it away for a checksum mismatch
+            t=$(mktemp -d)
+            if ! oras pull -o "$t" "ghcr.io/$OWNER/genesis-models:$sha" >/dev/null 2>&1; then echo "::warning::not mirrored, not shipped: $role/$name"; rm -rf "$t"; continue; fi
+            f=$(ls -S "$t" | head -1); mv "$t/$f" "$d/$name"; rm -rf "$t"
             got=$(sha256sum "$d/$name" | cut -d" " -f1)
             if [ "$got" != "$sha" ]; then echo "::error::checksum mismatch for $role/$name; not shipped"; rm -f "$d/$name"; continue; fi
             n=$((n+1)); total=$((total + size)); echo "  shipped $role/$name ($((size/1048576)) MB)"
@@ -668,7 +671,9 @@ jobs:
           xorriso -indev "$iso" -outdev "${iso}.new" -boot_image any replay -map product.img /images/product.img -- 2>&1 | tail -2
           mv "${iso}.new" "$iso"
           xorriso -indev "$iso" -find /images -type f -- 2>/dev/null | grep -q product.img && echo "product.img is on the ISO" || echo "::warning::product.img did not land on the ISO"
-          echo "--- the installer's files:"; xorriso -indev "$iso" -find /images /EFI /genesis-models -maxdepth 2 -- 2>/dev/null | head -24
+          # a listing, never a verdict: xorriso exits non-zero for a path that is not there, and with pipefail that
+          # failed this step, skipped the photograph and left the release without an ISO
+          echo "--- the installer's files:"; { xorriso -indev "$iso" -find /images /EFI /genesis-models -maxdepth 2 -- 2>/dev/null || true; } | head -24 || true
           rm -rf product product.img
 
       # The only test there is for an installer's look: boot the ISO and photograph it. Ninety seconds in,
