@@ -1,0 +1,111 @@
+---
+// The one layout: head, design tokens, the top bar, the footer. Pages put their sections in the slot.
+// Tokens are CSS custom properties on :root so the palette island can re-colour the whole page by
+// setting a handful of them; the same tokens are the desktop's own (GenesisDark.colors).
+interface Props {
+  title: string;
+  description: string;
+  /** Pages that ship inside the image (the manual) use relative asset paths so they open offline. */
+  offline?: boolean;
+}
+const { title, description, offline = false } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const href = (p: string) => (offline ? p : `${base}/${p}`);
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>{title}</title>
+  <meta name="description" content={description} />
+  <meta property="og:title" content={title} />
+  <meta property="og:description" content={description} />
+  <meta property="og:image" content="https://matijagorsek.github.io/genesis/screens/latest/04-desktop.png" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='26' fill='none' stroke='%235fb5bd' stroke-width='6'/%3E%3Ccircle cx='32' cy='32' r='9' fill='%235fb5bd'/%3E%3C/svg%3E" />
+  {!offline && <link rel="preconnect" href="https://fonts.googleapis.com" />}
+  {!offline && <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=IBM+Plex+Mono&display=swap" />}
+</head>
+<body>
+  <header class="top">
+    <div class="in">
+      <a class="logo" href={href('index.html')}><i></i>Genesis</a>
+      <nav>
+        <a href={href('manual.html')}>Your first hour</a>
+        <a href={href('index.html#make')}>Make</a>
+        <a href={href('index.html#ask')}>Ask</a>
+        <a href={href('index.html#kept')}>Kept</a>
+        <a href={href('decisions.html')}>Decisions</a>
+        <a href="https://github.com/matijagorsek/genesis">Source</a>
+        <a class="dl" href={href('index.html#download')}>Download</a>
+      </nav>
+    </div>
+  </header>
+  <slot />
+  <footer class="foot">
+    Alpha. Genesis is a Fedora Remix and is not endorsed by the Fedora Project. Source, images and the decision log:
+    <a href="https://github.com/matijagorsek/genesis">github.com/matijagorsek/genesis</a>.
+  </footer>
+</body>
+</html>
+
+<style is:global>
+  :root{--bg:#0b0f14;--panel:#161d27;--line:#232c37;--ink:#eef3f8;--ink2:#a9b4c1;--mute:#6f7a89;--acc:#5fb5bd;--far:#1c3a3e;--near:#0e1319;--t:1.1s}
+  @media (prefers-color-scheme:light){:root[data-scheme="auto"]{--bg:#f6f8fa;--panel:#ffffff;--line:#dfe5ec;--ink:#111820;--ink2:#3d4a58;--mute:#6f7a89;--acc:#2f8f98;--far:#cfe6e8;--near:#eef2f5}}
+  *{box-sizing:border-box}html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:Manrope,system-ui,-apple-system,"Segoe UI",sans-serif;font-size:17px;line-height:1.6;overflow-x:hidden;transition:background var(--t) ease,color var(--t) ease}
+  a{color:var(--acc)}
+  .top{position:sticky;top:0;z-index:5;backdrop-filter:blur(14px);background:color-mix(in srgb,var(--bg) 72%,transparent);border-bottom:1px solid var(--line);transition:background var(--t) ease}
+  .top .in{max-width:1180px;margin:0 auto;padding:12px 6vw;display:flex;align-items:center;gap:22px}
+  .logo{display:flex;align-items:center;gap:10px;font-weight:800;color:var(--ink);text-decoration:none}
+  .logo i{width:20px;height:20px;border-radius:50%;border:3px solid var(--acc);position:relative;display:inline-block}.logo i:after{content:"";position:absolute;inset:4px;border-radius:50%;background:var(--acc)}
+  .top nav{margin-left:auto;display:flex;gap:18px;font-size:14px}.top nav a{color:var(--ink2);text-decoration:none}.top nav a:hover{color:var(--ink)}
+  .top nav a.dl{color:var(--bg);background:var(--acc);padding:6px 12px;border-radius:8px;font-weight:800}
+  @media (max-width:700px){.top nav a:not(.dl){display:none}}
+  section{max-width:1180px;margin:0 auto;padding:9vh 6vw 2vh;position:relative}
+  .k{color:var(--acc);letter-spacing:.2em;text-transform:uppercase;font-weight:800;font-size:12px;margin:0 0 14px;transition:color var(--t)}
+  h2{font-size:clamp(28px,3.6vw,46px);line-height:1.05;letter-spacing:-.025em;margin:0 0 14px;font-weight:800;max-width:22ch}
+  .sub{font-size:clamp(17px,1.5vw,20px);color:var(--ink2);max-width:58ch;margin:0 0 30px;transition:color var(--t)}
+  kbd{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:13px;background:var(--panel);border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;padding:1px 7px;color:var(--ink)}
+  code{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:14px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:var(--ink)}
+  pre{background:color-mix(in srgb,var(--bg) 70%,black);border:1px solid var(--line);border-radius:12px;padding:16px 18px;overflow-x:auto;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:13.5px;color:var(--ink2);margin:0;line-height:1.55}
+  pre b{color:var(--ink);font-weight:500}pre .d{color:var(--acc)}pre .ok{color:#7fd39a}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+  .card{background:color-mix(in srgb,var(--panel) 90%,transparent);border:1px solid var(--line);border-radius:14px;padding:22px;transition:background var(--t),border-color var(--t),transform .25s}
+  .card:hover{transform:translateY(-3px);border-color:var(--acc)}
+  .card h3{margin:0 0 8px;font-size:19px;letter-spacing:-.01em}.card p{margin:0;color:var(--ink2);font-size:15.5px}
+  .card .n{font-family:"IBM Plex Mono",ui-monospace,monospace;color:var(--acc);font-size:12px;letter-spacing:.14em;margin-bottom:10px}
+  .split{display:grid;grid-template-columns:1.1fr 1fr;gap:40px;align-items:center}.split>*{min-width:0}.split.flip>*:first-child{order:2}
+  @media (max-width:860px){.split{grid-template-columns:1fr}.split.flip>*:first-child{order:0}}
+  .split h3{font-size:clamp(24px,2.6vw,34px);letter-spacing:-.02em;margin:0 0 10px;line-height:1.1}.split p{color:var(--ink2);max-width:48ch}
+  .tilt{perspective:1200px}.tilt img{width:100%;display:block;border-radius:14px;border:1px solid var(--line);box-shadow:0 40px 100px rgba(0,0,0,.5);transition:transform .15s ease-out;will-change:transform}
+  .r{opacity:0;transform:translateY(22px);transition:opacity .8s ease,transform .8s ease}.r.in{opacity:1;transform:none}
+  .foot{color:var(--mute);font-size:13px;max-width:1180px;margin:0 auto;padding:6vh 6vw 8vh;border-top:1px solid var(--line)}
+  @media (prefers-reduced-motion:reduce){.r{opacity:1;transform:none;transition:none}.tilt img{transform:none!important}:root{--t:0s}}
+</style>
+
+<script>
+  // Reveal on scroll and count-up, page-wide; nothing moves for people who asked that nothing move.
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const els = document.querySelectorAll<HTMLElement>('.r');
+  if (!reduce && 'IntersectionObserver' in window) {
+    const io = new IntersectionObserver((es) => es.forEach((e) => {
+      if (!e.isIntersecting) return;
+      const el = e.target as HTMLElement; el.classList.add('in'); io.unobserve(el);
+      el.querySelectorAll<HTMLElement>('[data-count]').forEach((b) => {
+        const to = Number(b.dataset.count); const t0 = performance.now();
+        const tick = (now: number) => { const k = Math.min(1, (now - t0) / 1400); b.textContent = String(Math.round(to * (1 - Math.pow(1 - k, 3)))); if (k < 1) requestAnimationFrame(tick); };
+        requestAnimationFrame(tick);
+      });
+    }), { rootMargin: '0px 0px -8% 0px' });
+    els.forEach((el) => io.observe(el));
+  } else {
+    els.forEach((el) => el.classList.add('in'));
+    document.querySelectorAll<HTMLElement>('[data-count]').forEach((b) => (b.textContent = b.dataset.count ?? ''));
+  }
+  document.querySelectorAll<HTMLElement>('.tilt').forEach((t) => {
+    const img = t.querySelector('img'); if (!img || reduce) return;
+    t.addEventListener('mousemove', (e) => { const r = t.getBoundingClientRect(); const x = (e.clientX - r.left) / r.width - 0.5, y = (e.clientY - r.top) / r.height - 0.5; img.style.transform = `rotateY(${x * 10}deg) rotateX(${-y * 10}deg) scale(1.02)`; });
+    t.addEventListener('mouseleave', () => { img.style.transform = ''; });
+  });
+</script>

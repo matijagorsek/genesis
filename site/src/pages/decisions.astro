@@ -1,0 +1,54 @@
+---
+// The decision log, by theme, built from docs/decisions.md at build time -- the same grouping as
+// tools/decisions-index.py, so the site and the Markdown index never disagree.
+import Base from '../layouts/Base.astro';
+import { readFileSync } from 'node:fs';
+
+const THEMES: Array<[string, RegExp]> = [
+  ['Models and the router', /\b(llama|router|llama-swap|model service|gguf|pack|ngl|vulkan|gpu|cpu|token|residency|swap|measure|genesis-pick-device|wrapper|embed)\b/i],
+  ['First run and the installer', /\b(first run|wizard|install|installer|iso|anaconda|kickstart|account|firstuser|rootpw|usb)\b/i],
+  ['Updates, channels and the canary', /\b(canary|stable|testing|bootc|upgrade|rollback|promot|release|channel|staged|update)\b/i],
+  ['The maker and the assistant', /\b(maker|agent|agentd|session|chat|prompt|tool call|permission|broker|sandbox|bwrap|undo|mode)\b/i],
+  ['Crashes, failures and explaining the machine', /\b(crash|coredump|segv|failed service|journal|genesis-crash|explain|failed unit)\b/i],
+  ['Looks, apps and the desktop', /\b(theme|look|palette|wallpaper|konsole|plasma|kde|catalogue|flatpak|flathub|genesis-apps|desktop|icon)\b/i],
+  ['Battery and hardware', /\b(battery|plug|power|laptop|nouveau|nvidia|amd|intel|arm64|apple silicon|hardware)\b/i],
+  ['Building, testing and CI', /\b(build|ci|workflow|test|pytest|guard|shellcheck|runner|github actions|image size|containerfile|arm64 build)\b/i],
+  ['Words: README, manual, site, decisions', /\b(readme|manual|front page|landing|site|docs|decision log|screenshot|video|clip)\b/i],
+  ['Security and privacy', /\b(security|privacy|token|secret|password|leak|traversal|hostile|signed|cosign|policy|nothing leaves)\b/i],
+];
+
+const log = readFileSync(new URL('../../../docs/decisions.md', import.meta.url), 'utf8');
+type Row = { n: number; date: string; first: string; text: string };
+const rows: Row[] = [];
+for (const line of log.split('\n')) {
+  const m = line.match(/^\| (\d+) \| (\d{4}-\d{2}-\d{2}) \| (.+?) \| (\w+) \|\s*$/);
+  if (!m) continue;
+  const text = m[3].trim();
+  let first = text.split(/(?<=[.!?])\s/, 1)[0];
+  if (first.length > 220) first = first.slice(0, 217).trimEnd() + '…';
+  rows.push({ n: Number(m[1]), date: m[2], first, text });
+}
+const groups: Array<[string, Row[]]> = THEMES.map(([t, re]) => [t, rows.filter((r) => re.test(r.text)).sort((a, b) => b.n - a.n)]);
+groups.push(['Everything else', rows.filter((r) => !THEMES.some(([, re]) => re.test(r.text))).sort((a, b) => b.n - a.n)]);
+---
+<Base title="Genesis · the decisions, by theme" description="Every decision in the Genesis log, grouped by what it is about, with the mistakes.">
+  <section>
+    <p class="k">The decisions</p>
+    <h2>{rows.length} of them, with the mistakes.</h2>
+    <p class="sub">The <a href="https://github.com/matijagorsek/genesis/blob/main/docs/decisions.md">log</a> is in the order things happened. Here it is by what each row is about — a row can appear under more than one theme — with the first sentence of each. The site builds this from the log, so it is never older than it.</p>
+    <nav class="themes">{groups.filter(([, r]) => r.length).map(([t, r]) => <a href={`#${t.toLowerCase().replace(/[^a-z]+/g, '-')}`}>{t} <span>{r.length}</span></a>)}</nav>
+    {groups.filter(([, r]) => r.length).map(([t, r]) => (
+      <div class="theme">
+        <h3 id={t.toLowerCase().replace(/[^a-z]+/g, '-')}>{t} <span>{r.length}</span></h3>
+        <ol>{r.map((row) => <li><b>{row.n}</b> <time>{row.date}</time> {row.first}</li>)}</ol>
+      </div>
+    ))}
+  </section>
+</Base>
+
+<style>
+  .themes{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 30px}.themes a{font-size:13px;color:var(--ink);text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:5px 12px}.themes a span{color:var(--mute);margin-left:4px}.themes a:hover{border-color:var(--acc)}
+  .theme h3{font-size:22px;margin:36px 0 10px;letter-spacing:-.01em}.theme h3 span{color:var(--mute);font-weight:500;font-size:15px;margin-left:8px}
+  .theme ol{list-style:none;padding:0;margin:0}.theme li{color:var(--ink2);padding:7px 0;border-top:1px solid var(--line);max-width:90ch;font-size:15.5px}
+  .theme li b{color:var(--acc);font-family:"IBM Plex Mono",ui-monospace,monospace;margin-right:8px}.theme li time{color:var(--mute);font-size:12.5px;margin-right:8px}
+</style>

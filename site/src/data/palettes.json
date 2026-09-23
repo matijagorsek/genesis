@@ -1,0 +1,146 @@
+[
+ {
+  "mood": "foggy morning by the sea",
+  "name": "Mist  Sand",
+  "dark": false,
+  "bg": "#8a9b9d",
+  "fg": "#2b2d2e",
+  "accent": "#4a4a48",
+  "term": [
+   "#151718",
+   "#524f4a",
+   "#4b4f4b",
+   "#575046",
+   "#52585d",
+   "#525150",
+   "#455056",
+   "#f3f5f5"
+  ]
+ },
+ {
+  "mood": "warm autumn library at night",
+  "name": "AmberOwl",
+  "dark": true,
+  "bg": "#2d2421",
+  "fg": "#e8c38c",
+  "accent": "#d4a574",
+  "term": [
+   "#1b1614",
+   "#a37b62",
+   "#a89f81",
+   "#d0c09e",
+   "#9c7a64",
+   "#b89574",
+   "#8a7560",
+   "#efd5ae"
+  ]
+ },
+ {
+  "mood": "neon city after rain",
+  "name": "Midnight Neon",
+  "dark": true,
+  "bg": "#181c29",
+  "fg": "#c6c6c6",
+  "accent": "#7dd3fc",
+  "term": [
+   "#0e1119",
+   "#cf8b7f",
+   "#a6e3a1",
+   "#f9e0a5",
+   "#98c3f9",
+   "#ca9ee6",
+   "#74c7ec",
+   "#d7d7d7"
+  ]
+ },
+ {
+  "mood": "first snow at dawn",
+  "name": "Frost Dawn",
+  "dark": false,
+  "bg": "#e6e4ea",
+  "fg": "#4a4850",
+  "accent": "#807172",
+  "term": [
+   "#222223",
+   "#968b90",
+   "#6c686d",
+   "#968586",
+   "#8c858e",
+   "#968586",
+   "#968b90",
+   "#fcfcfd"
+  ]
+ },
+ {
+  "mood": "desert at golden hour",
+  "name": "Golden Dune",
+  "dark": false,
+  "bg": "#e0d8b0",
+  "fg": "#3c3826",
+  "accent": "#826447",
+  "term": [
+   "#22201a",
+   "#857142",
+   "#8c8156",
+   "#9f815a",
+   "#857768",
+   "#857142",
+   "#857142",
+   "#fcfbf7"
+  ]
+ },
+ {
+  "mood": "deep forest after a storm",
+  "name": "Stormwood",
+  "dark": true,
+  "bg": "#2b303b",
+  "fg": "#cfc9b8",
+  "accent": "#7b8e96",
+  "term": [
+   "#1a1d23",
+   "#948e98",
+   "#909085",
+   "#e0d49f",
+   "#5e82a0",
+   "#9e7d98",
+   "#98d3d3",
+   "#ddd9cd"
+  ]
+ },
+ {
+  "mood": "old paper and ink",
+  "name": "Aged Parchment",
+  "dark": false,
+  "bg": "#e8d5b5",
+  "fg": "#2b2018",
+  "accent": "#8f5733",
+  "term": [
+   "#23201b",
+   "#8a6e55",
+   "#5c4d38",
+   "#85724d",
+   "#5a6b7c",
+   "#7c5a6b",
+   "#6b7c5a",
+   "#fdfbf8"
+  ]
+ },
+ {
+  "mood": "midnight ocean",
+  "name": "Midnight Depths",
+  "dark": true,
+  "bg": "#192835",
+  "fg": "#c6d5e1",
+  "accent": "#7aa2f7",
+  "term": [
+   "#0f1820",
+   "#7aa2f7",
+   "#89b4fa",
+   "#e5e7eb",
+   "#86efac",
+   "#f9e2af",
+   "#f38ba8",
+   "#d7e2ea"
+  ]
+ }
+]

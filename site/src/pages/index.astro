@@ -1,0 +1,135 @@
+---
+import Base from '../layouts/Base.astro';
+import Hero from '../components/Hero.astro';
+import Downloads from '../components/Downloads.astro';
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+
+// real output, captured on the laptop with 0.2.237 staged over 0.2.230
+const term: Array<[string, '' | 'd' | 'b' | 'ok']> = [
+  ['$ genesis-upgrade-notes', 'd'],
+  ['# Update ready: Genesis 0.2.230 → 0.2.237', 'b'],
+  ['## What you would notice', 'b'],
+  ['- Kernel 7.1.8 → 7.1.10', ''], ['- Graphics (Mesa) 26.2.2 → 26.2.3', ''], ['- systemd 259.8 → 259.9', ''], ['- Audio (PipeWire) 1.6.8 → 1.6.9', ''],
+  ['## Everything else', 'b'], ['- 125 packages updated, 5 added, 0 removed', ''],
+  ['', ''],
+  ['$ genesis-apps install localsend', 'd'],
+  ['installed LocalSend: it is in the menu now.', 'ok'],
+  ['', ''],
+  ['$ genesis-power status', 'd'],
+  ['power: battery', ''], ['loaded now: fast', ''],
+];
+---
+<Base title="Genesis · the desktop with the assistant inside" description="A complete Linux desktop with a language model that lives on the machine. It makes things, explains things, and nothing leaves your computer.">
+  <Hero />
+
+  <section id="make">
+    <div class="split r">
+      <div class="tilt"><img src={`${base}/screens/fresh-run/03-pomodoro-made-by-the-2B-model.png`} alt="The maker, having built a pomodoro timer: steps on the left, the running app on the right" loading="lazy" /></div>
+      <div>
+        <p class="k">Make</p>
+        <h3><kbd>Meta</kbd>+<kbd>Space</kbd>, say it, press Enter.</h3>
+        <p>"A checklist app that saves to a file." "A pomodoro timer with a bell." "Rename the photos in this folder by the date they were taken." Every step shows as it happens, the thing runs in a preview, and <b>Install as app</b> puts it in your menu. This one was built by the smallest model on a fresh machine.</p>
+        <p>Before anything outside the project, a card with a plain verb: <i>Genesis wants to install a package.</i> Allow once, or not now. Every job is snapshotted first, so Undo takes the whole thing back.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="ask">
+    <div class="split flip r">
+      <pre class="term" id="term" data-lines={JSON.stringify(term)}></pre>
+      <div>
+        <p class="k">Ask</p>
+        <h3>Your computer explains itself.</h3>
+        <p>The same model that makes things reads the machine — the journal, the package database, the hardware. Not a chatbot bolted on the side. What you see on the left is real output, captured on a real laptop with a real update waiting.</p>
+      </div>
+    </div>
+    <div class="grid" style="margin-top:36px">
+      <div class="card r"><div class="n">CRASH</div><h3>A program stops. It says why.</h3><p>One notification, one button. The program, the signal and the stack go to the model here, which reads the journal around that moment and answers in plain words. A crash dump carries the paths a program had open — exactly why it never leaves.</p></div>
+      <div class="card r"><div class="n">SERVICE</div><h3>"backup.service failed" becomes "your disk wasn't plugged in."</h3><p>Ten times more common than a crash, and just as opaque without this. Same offer, same door.</p></div>
+      <div class="card r"><div class="n">SCREEN</div><h3>Draw a box on anything.</h3><p><kbd>Meta</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd>: an error, a chart, a form — asked about with a vision model on this machine. Select text and right-click for the same.</p></div>
+      <div class="card r"><div class="n">VOICE · PHONE</div><h3>Speak, or send it from your phone.</h3><p><kbd>Meta</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> listens. Share text starting with "ask" from the phone and the answer comes back as a notification. Anything that would install, delete or send is shown first and needs Enter.</p></div>
+      <div class="card r"><div class="n">BATTERY</div><h3>It follows the plug.</h3><div class="plug"><div class="lap"></div><div class="cable"></div><div class="models"><b></b><b></b><b></b></div></div><p>Unplug a laptop and the big models are put away; every question goes to the small one, and the assistant gets shorter rather than quiet. Plug in, and they're back. Only a desktop that owns both the model and the machine can do this.</p></div>
+      <div class="card r"><div class="n">MEASURED</div><h3>It measures your machine instead of guessing.</h3><p>First run generates a few tokens on every device — CPU, each GPU — and keeps what was actually fastest. On the first real laptop that was the processor, not the built-in graphics, by three to one.</p></div>
+    </div>
+  </section>
+
+  <section id="desktop">
+    <p class="k">The desktop</p>
+    <h2>Captured by the build. Not a mockup.</h2>
+    <p class="sub">Every release boots itself in a virtual machine and photographs what came up. This is the latest.</p>
+    <div class="tilt r"><img src={`${base}/screens/latest/04-desktop.png`} alt="The Genesis desktop, captured automatically from the latest release" loading="lazy" /></div>
+  </section>
+
+  <section id="kept">
+    <p class="k">Kept</p>
+    <h2>Updates like an appliance. A stable channel that's tested by asking.</h2>
+    <p class="sub">Genesis is an image, not a pile of packages. Updates are fetched in the background and applied when you restart — never on their own — and the image you were on stays as the rollback, every time.</p>
+    <div class="grid">
+      <div class="card r"><div class="n">NIGHTLY CANARY</div><h3>Stable only moves after a machine proved it.</h3><p>Every night a machine installed a week ago is upgraded to the new image, rebooted, goes through first run by itself, and is asked a question. A build that does not answer never reaches you.</p></div>
+      <div class="card r"><div class="n">ROLLBACK</div><h3>Pick the previous entry in the boot menu.</h3><p>That's the whole procedure. Nothing to reinstall.</p></div>
+      <div class="card r"><div class="n">CATALOGUE</div><h3>Fifty apps with a reason each.</h3><p>Not a store with forty thousand. One answer per need, one word to install — <code>genesis-apps install obsidian</code> — and the assistant reads the same list. The image underneath is never touched.</p></div>
+      <div class="card r"><div class="n">SIGNED</div><h3>Images signed, packs signed, downloads checked.</h3><p>Every image carries a cosign signature; every model pack definition is signed and every download is checked against it.</p></div>
+    </div>
+  </section>
+
+  <section id="leaves">
+    <div class="pledge r">
+      <p class="k">What leaves the machine</p>
+      <h2>Nothing, by default.</h2>
+      <p>The models run here. The crash you ask about, the screen you draw a box on, the files you opt in — none of it is uploaded, because there is nowhere for it to go. Genesis makes three kinds of connection on its own, and that's the list:</p>
+      <ul><li>Fetching updates</li><li>Downloading the model pack you chose</li><li>Installing the apps you asked for</li><li>…and one clearly labelled exception: Claude Code with your own account, off until you sign in</li></ul>
+      <p>Some things it never does whatever you answer: read your keys and passwords, wipe disks, change the base system. Refused by rules, not by the model's judgement.</p>
+    </div>
+  </section>
+
+  <section id="honest">
+    <p class="k">Honest</p>
+    <h2>Proven on one laptop. Here's what that means.</h2>
+    <p class="sub">Everything above was run on a real machine before it was written here, and the things that failed when it was — and there were several — are in the <a href={`${base}/decisions.html`}>decision log</a> with what was done. What has not happened yet is the second machine, and NVIDIA, AMD and Intel Arc have never been tried. If you have one, you'd be the first, and the hardware report is one command.</p>
+    <div class="numbers r">
+      <div class="num"><b data-count="208" id="n-decisions">0</b><span>decisions written down, with the mistakes</span></div>
+      <div class="num"><b data-count="57">0</b><span>tests that pin what a real machine taught</span></div>
+      <div class="num"><b>1</b><span>real laptop everything has been proven on</span></div>
+      <div class="num"><b>0</b><span>accounts, uploads, telemetry</span></div>
+    </div>
+  </section>
+
+  <Downloads />
+</Base>
+
+<script>
+  // the terminal types real captured output, once it scrolls into view
+  const el = document.getElementById('term') as HTMLPreElement | null;
+  if (el) {
+    const lines: Array<[string, string]> = JSON.parse(el.dataset.lines ?? '[]');
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const put = (t: string, cls: string) => { const s = document.createElement(cls === 'b' ? 'b' : 'span'); if (cls === 'd' || cls === 'ok') s.className = cls; s.textContent = t; el.appendChild(s); el.appendChild(document.createTextNode('\n')); };
+    let row = 0;
+    const line = () => { if (row >= lines.length) return; const [t, cls] = lines[row++]; put(t, cls); setTimeout(line, t.startsWith('$') ? 700 : t ? 90 : 300); };
+    if (reduce) lines.forEach(([t, c]) => put(t, c));
+    else { const io = new IntersectionObserver((es) => { if (es[0].isIntersecting) { io.disconnect(); line(); } }); io.observe(el); }
+  }
+  // the decisions count, from the log itself, so the number is never older than the log
+  fetch('https://raw.githubusercontent.com/matijagorsek/genesis/main/docs/decisions.md').then((r) => r.text()).then((t) => {
+    const m = t.match(/^\| (\d+) \|/gm); const b = document.getElementById('n-decisions');
+    if (m && b) { b.dataset.count = m[m.length - 1].replace(/\D/g, ''); if (b.closest('.in')) b.textContent = b.dataset.count; }
+  }).catch(() => {});
+</script>
+
+<style>
+  .term{min-height:290px}
+  .plug{display:flex;align-items:center;gap:10px;margin:14px 0 4px;height:44px}
+  .plug .lap{width:54px;height:34px;border:2px solid var(--ink2);border-radius:5px;position:relative}.plug .lap:after{content:"";position:absolute;left:-6px;right:-6px;bottom:-7px;height:4px;background:var(--ink2);border-radius:2px}
+  .plug .cable{height:2px;background:var(--acc);width:70px;transform-origin:left;animation:cable 6s ease-in-out infinite}
+  .plug .models{display:flex;gap:5px}.plug .models b{display:block;border-radius:4px;background:var(--acc);height:22px;width:22px;animation:shrink 6s ease-in-out infinite}
+  .plug .models b:nth-child(2){animation-name:small}
+  @keyframes cable{0%,40%{transform:scaleX(1);opacity:1}50%,90%{transform:scaleX(.2);opacity:.3}100%{transform:scaleX(1);opacity:1}}
+  @keyframes shrink{0%,40%{transform:scale(1);opacity:1}50%,90%{transform:scale(.2);opacity:.15}100%{transform:scale(1);opacity:1}}
+  @keyframes small{0%,100%{transform:scale(1);opacity:1}}
+  .pledge{background:linear-gradient(135deg,color-mix(in srgb,var(--acc) 14%,transparent),color-mix(in srgb,var(--far) 40%,transparent));border:1px solid var(--line);border-radius:20px;padding:40px clamp(20px,5vw,60px)}
+  .pledge h2{max-width:none}.pledge p{color:var(--ink2);max-width:62ch}
+  .pledge ul{columns:2;column-gap:40px;padding-left:20px;color:var(--ink2)}@media (max-width:700px){.pledge ul{columns:1}}
+  .numbers{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-top:22px}
+  .num{border-left:2px solid var(--acc);padding:4px 16px}.num b{display:block;font-size:38px;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums}.num span{color:var(--mute);font-size:14px}
+  @media (prefers-reduced-motion:reduce){.plug *{animation:none!important}}
+</style>

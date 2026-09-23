@@ -1,0 +1,20 @@
+{
+  "name": "genesis-site",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "node scripts/prebuild.mjs && astro dev",
+    "build": "node scripts/prebuild.mjs && astro build",
+    "preview": "astro preview",
+    "check": "astro check"
+  },
+  "dependencies": {
+    "astro": "^5.0.0"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.0",
+    "@types/node": "^26.6.2",
+    "typescript": "^5.5.0"
+  }
+}

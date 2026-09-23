@@ -137,7 +137,7 @@ permd-policy:
 probe fake="":
     cd src && cargo run -q -p genesis-probe -- --packs ../packs {{ if fake != "" { "--fake " + fake } else { "" } }}
 
-# Run the first-run wizard locally (real hardware profile, scratch writes) on http://127.0.0.1:11510
+# Run the first-run wizard locally (real hardware profile, scratch writes); it opens in the browser
 firstrun:
     prototype/firstrun-dev.sh
 
@@ -149,7 +149,7 @@ agent text mode="auto_edit" project=".":
 tx *args:
     cd src && cargo run -q -p genesis-txd -- {{args}}
 
-# Run the agent daemon + workspace UI locally on http://127.0.0.1:11520 (router must be up: just up)
+# Run the agent daemon + workspace UI locally; it opens in the browser (router must be up: just up)
 workspace:
     prototype/agentd-dev.sh
 

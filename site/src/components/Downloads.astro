@@ -1,0 +1,79 @@
+---
+// The download cards come from the releases API at load: each file from the newest release that has it,
+// because the disk image and the ISO are built by different jobs and the ISO often lands later.
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+---
+<section id="download">
+  <p class="k">Download</p>
+  <h2>Get Genesis.</h2>
+  <p class="sub">Alpha. Try it in a virtual machine first; install it on a machine you can afford to experiment with. Read <a href={`${base}/manual.html`}>your first hour</a> before you do — it tells you the moments that look wrong and aren't.</p>
+  <div class="grid" id="dl"></div>
+  <div class="how">
+    <h3>Which file do I need?</h3>
+    <ul>
+      <li><b>PC or laptop (x86_64):</b> the installer ISO writes Genesis to a machine or a VM. The qcow2 disk boots directly in QEMU, virt-manager or UTM.</li>
+      <li><b>Apple Silicon Mac:</b> the arm64 disk runs natively in a VM (UTM, or QEMU with Apple's hypervisor) at full speed, models included.</li>
+    </ul>
+    <p>Downloads are split into parts because of GitHub's 2 GB limit. Join them:</p>
+    <pre>cat genesis-VERSION.qcow2.zst.*.part | zstd -d -o disk.qcow2
+cat genesis-VERSION.iso.*.part &gt; genesis.iso</pre>
+    <p><b>One thing to expect while installing:</b> the step called <i>"Deployment starting"</i> takes <b>10 to 30 minutes with a progress bar that does not move</b>. It is writing about 13 GB to your disk and it is not stuck. <code>Ctrl+Alt+F3</code> for a shell where <code>top</code> shows the copy running; <code>Ctrl+Alt+F6</code> goes back.</p>
+    <p>The joined ISO is about <b>9 GB</b> (it carries the smallest model pack, so the first boot answers offline), so a <b>USB stick of 16 GB or more</b> is needed. Write it with Fedora Media Writer, or <code>sudo dd if=genesis.iso of=/dev/sdX bs=4M status=progress oflag=sync</code> — the whole stick is overwritten. Nothing is downloaded during the install: the ISO carries the whole system, so the machine can be offline until the first boot.</p>
+    <h3>Hardware</h3>
+    <ul>
+      <li><b>Any x86_64 PC:</b> the standard image. At first run Genesis measures this machine and keeps whichever device was actually fastest.</li>
+      <li><b>NVIDIA, Turing or newer</b> (GTX 16xx, RTX 20xx and later): install the standard image, then <code>sudo bootc switch ghcr.io/matijagorsek/genesis:stable-nvidia</code> and restart. Untested on real hardware so far.</li>
+      <li><b>NVIDIA, Maxwell or Pascal</b> (GTX 9xx, GTX 10xx): <b>do not switch to the NVIDIA flavour.</b> The open kernel modules do not support these cards; the standard image runs them through Mesa.</li>
+      <li><b>No usable GPU:</b> Genesis still works. The wizard picks a small pack; replies take seconds, app building is slow or limited, and every pack card says what to expect.</li>
+      <li><b>Apple Silicon Mac:</b> the arm64 flavour in a VM, natively. Models run on the CPU inside the VM.</li>
+      <li><b>Tested so far:</b> one Intel laptop, virtual machines on x86_64 and Apple Silicon. Real hardware reports are welcome: <code>genesis-report --send</code>, or open a "Hardware report" issue.</li>
+    </ul>
+    <p class="foot-note">The prebuilt <b>qcow2 disks are for trying Genesis in a virtual machine</b>: they carry a known account, <code>genesis / genesis</code>, so the boot tests and the weekly evaluation can drive them. That password is only accepted from inside a virtual machine's own network; a bridged test disk on a real network refuses it. The <b>installer ISO has no account at all</b> — it asks you to make one, and Genesis asks again on the console if the installer did not.</p>
+  </div>
+</section>
+
+<script>
+  type Asset = { name: string; size: number; browser_download_url: string };
+  type Release = { tag_name: string; published_at: string; assets?: Asset[] };
+  (async function () {
+    const isMac = /Mac/.test(navigator.platform) && navigator.userAgent.includes('Mac');
+    const arm = /arm|aarch64/i.test(navigator.userAgent);
+    const rel = document.getElementById('rel'); const dl = document.getElementById('dl');
+    if (!dl) return;
+    try {
+      const r = await fetch('https://api.github.com/repos/matijagorsek/genesis/releases?per_page=20'); const rels: Release[] = await r.json();
+      const newestWith = (p: (n: string) => boolean) => rels.find((x) => x.assets?.some((a) => p(a.name)));
+      const isISO = (n: string) => n.includes('.iso.'); const isX86 = (n: string) => n.includes('.qcow2.zst.') && !n.includes('arm64'); const isA64 = (n: string) => n.includes('arm64.qcow2.zst.');
+      const main = newestWith(isX86) || rels[0]; if (!main) throw new Error('no releases');
+      const tag = main.tag_name; if (rel) rel.textContent = 'Latest release: ' + tag + ' · ' + new Date(main.published_at).toLocaleDateString();
+      const relISO = newestWith(isISO), relA64 = newestWith(isA64);
+      const x86 = (main.assets ?? []).filter((a) => isX86(a.name));
+      const iso = relISO ? (relISO.assets ?? []).filter((a) => isISO(a.name)) : [];
+      const a64 = relA64 ? (relA64.assets ?? []).filter((a) => isA64(a.name)) : [];
+      const card = (title: string, tag2: string, desc: string, assets: Asset[], rec: boolean, from?: Release) => {
+        const d = document.createElement('div'); d.className = 'card' + (rec ? ' rec' : '');
+        d.innerHTML = `<div class="tag">${tag2}</div><h3>${title}</h3><p>${desc}</p>`;
+        if (!assets.length) { d.innerHTML += '<p class="files">not in this release</p>'; return d; }
+        const sums = (from ?? main).assets?.find((a) => a.name === 'SHA256SUMS.' + (assets[0].name.includes('arm64') ? 'qcow2-arm64' : assets[0].name.includes('.iso.') ? 'iso' : 'qcow2'));
+        d.innerHTML += assets.map((a, i) => `<a class="btn" href="${a.browser_download_url}">Part ${i + 1} · ${(a.size / 1e9).toFixed(1)} GB</a>`).join('') + (sums ? `<p class="files"><a href="${sums.browser_download_url}">${sums.name}</a></p>` : '');
+        return d;
+      };
+      const ver = (r2?: Release) => (r2 && r2.tag_name !== tag ? ' · from ' + r2.tag_name : '');
+      if (isMac || arm) dl.appendChild(card('Apple Silicon Mac', 'arm64 disk · native speed' + ver(relA64), "Runs in UTM or QEMU with Apple's hypervisor. Boots to the login screen in under a minute.", a64, arm, relA64));
+      dl.appendChild(card('PC installer', 'x86_64 ISO' + ver(relISO), 'Install Genesis on a machine or in a VM.', iso, !arm, relISO));
+      dl.appendChild(card('PC disk image', 'x86_64 qcow2', 'Boot directly in QEMU, virt-manager or UTM.', x86, false));
+      if (!(isMac || arm)) dl.appendChild(card('Apple Silicon Mac', 'arm64 disk · native speed' + ver(relA64), "Runs in UTM or QEMU with Apple's hypervisor.", a64, false, relA64));
+    } catch {
+      if (rel) rel.innerHTML = 'Releases: <a href="https://github.com/matijagorsek/genesis/releases">github.com/matijagorsek/genesis/releases</a>';
+    }
+  })();
+</script>
+
+<style>
+  .how{color:var(--ink2)}.how h3{color:var(--ink);font-size:22px;margin:30px 0 8px}.how p,.how li{max-width:72ch}
+  .foot-note{font-size:14px;color:var(--mute)}
+  :global(.card.rec){border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset}
+  :global(.tag){display:inline-block;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--acc);font-weight:800;margin-bottom:8px}
+  :global(.files){font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12.5px;color:var(--mute);margin-top:10px;word-break:break-all}:global(.files a){color:var(--ink2)}
+  :global(.card a.btn){display:inline-block;background:var(--acc);color:var(--bg);font-weight:800;text-decoration:none;margin:8px 6px 4px 0;padding:9px 14px;font-size:14px;border-radius:10px}
+</style>

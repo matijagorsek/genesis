@@ -1,0 +1,37 @@
+---
+// "Your first hour": the sections from the content collection, in order. This page also ships inside the
+// image under Help, so it uses relative paths for its pictures and no web fonts (Base's offline mode).
+import Base from '../layouts/Base.astro';
+import { getCollection, render } from 'astro:content';
+const sections = (await getCollection('manual')).sort((a, b) => a.data.number - b.data.number);
+const rendered = await Promise.all(sections.map(async (s) => ({ ...s.data, Content: (await render(s)).Content })));
+---
+<Base title="Genesis · your first hour" description="What happens in the first hour with Genesis, in the order it happens, with the moments that look wrong but aren't." offline>
+  <div class="wrap">
+    <p class="k">Genesis · the manual</p>
+    <h1>Your first hour.</h1>
+    <p class="lead">Genesis is a complete Linux desktop with an assistant that lives on the machine. This is what happens in the first hour, in the order it happens, with the moments that look wrong but aren't. Nothing here needs an account, and nothing here leaves your computer.</p>
+    <nav class="toc"><ol>{rendered.map((s) => <li><a href={`#${s.slug}`}>{s.title}</a></li>)}</ol></nav>
+    {rendered.map(({ title, number, slug, Content }) => (
+      <article>
+        <h2 id={slug}><small>{number}</small>{title}</h2>
+        <Content />
+      </article>
+    ))}
+    <p class="foot-line">Genesis is built on Fedora bootc and KDE Plasma. Everything above was checked on a real machine before it was written down; where it says a thing takes a while, that is how long it took.</p>
+  </div>
+</Base>
+
+<style is:global>
+  .wrap{max-width:860px;margin:0 auto;padding:6vh 6vw 10vh}
+  .wrap h1{font-size:clamp(34px,5vw,56px);line-height:1.05;letter-spacing:-.03em;margin:0 0 14px;font-weight:800}
+  .wrap .lead{font-size:clamp(17px,1.6vw,20px);color:var(--ink2);max-width:60ch;margin:0 0 26px}
+  .toc{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 20px;margin:0 0 40px}
+  .toc ol{margin:0;padding-left:22px;columns:2;column-gap:28px}@media (max-width:600px){.toc ol{columns:1}}.toc li{margin:3px 0;break-inside:avoid}.toc a{color:var(--ink);text-decoration:none}.toc a:hover{color:var(--acc)}
+  .wrap h2{font-size:26px;margin:52px 0 6px;letter-spacing:-.01em;scroll-margin-top:20px;max-width:none}
+  .wrap h2 small{display:block;color:var(--mute);font-size:13px;letter-spacing:.14em;text-transform:uppercase;font-weight:800;margin-bottom:6px}
+  .wrap p,.wrap li{color:var(--ink2);max-width:70ch}.wrap b{color:var(--ink)}
+  .wrap figure{margin:18px 0 22px}.wrap figure img{width:100%;border-radius:12px;border:1px solid var(--line);display:block}.wrap figcaption{color:var(--mute);font-size:13px;margin-top:8px}
+  .wrap .note{border-left:3px solid var(--acc);padding:8px 16px;background:var(--panel);border-radius:0 10px 10px 0;margin:16px 0}.wrap .note p{margin:6px 0}
+  .foot-line{color:var(--mute);font-size:13px;margin-top:60px;border-top:1px solid var(--line);padding-top:16px}
+</style>

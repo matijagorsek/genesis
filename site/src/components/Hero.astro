@@ -1,0 +1,93 @@
+---
+// The first screen is the feature: a prompt types itself and the whole page wears the palette the model on
+// the laptop produced for those words. Eight palettes, real, in src/data/palettes.json; the clip behind
+// and inside is the real desktop going dark → autumn → foggy, captured frame by frame.
+import palettes from '../data/palettes.json';
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+---
+<div class="herowrap">
+  <div class="stage" aria-hidden="true">
+    <video autoplay muted loop playsinline poster={`${base}/screens/looks/make-poster.jpg`}><source src={`${base}/screens/looks/make.webm`} type="video/webm" /></video>
+  </div>
+  <div class="hero">
+    <div>
+      <p class="k">A Linux desktop · Fedora bootc · KDE Plasma</p>
+      <h1>The desktop with the <em>assistant inside.</em></h1>
+      <p class="lead">A complete computer, and a model that lives on it. Say what you want and it makes it. Ask what went wrong and it tells you. Describe a look and the whole desktop follows — this page is wearing one right now.</p>
+      <div class="cta"><a class="btn" href="#download">Download</a><a class="btn ghost" href={`${base}/manual.html`}>Read your first hour</a></div>
+      <p class="relline" id="rel">Loading the latest release…</p>
+    </div>
+    <div class="maker" id="maker" title="Click, or press space, for the next look">
+      <div class="bar"><i></i><i></i><i></i></div>
+      <div class="prompt"><span class="d">$</span> genesis-theme make <span class="q">"</span><span id="typed"></span><span class="q">"</span><span class="cur"></span></div>
+      <div class="made">
+        <div><div class="name" id="lookname">&nbsp;</div><div class="meta" id="lookmeta">&nbsp;</div></div>
+        <div class="swatches" id="sw"></div>
+      </div>
+      <div class="shotbox"><video autoplay muted loop playsinline poster={`${base}/screens/looks/make-poster.jpg`} aria-label="The real desktop changing between three looks"><source src={`${base}/screens/looks/make.webm`} type="video/webm" /></video><span class="cap">the real desktop, three looks, captured on the laptop</span></div>
+      <div class="hint"><span><kbd>space</kbd>next look</span><span><kbd>click</kbd>same</span></div>
+      <p class="proof">Every palette here was produced by the 4B model on one laptop, from exactly these words, and checked so the text reads. The clip — here and behind these words — is the real desktop on that laptop going dark → autumn → foggy, captured frame by frame; the change itself is instant, the fade is the video's. Twenty seconds each.</p>
+    </div>
+  </div>
+</div>
+
+<script define:vars={{ palettes }}>
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+  const css = (c) => `rgb(${c.join(',')})`;
+  function wear(p) {
+    const bg = hex(p.bg), fg = hex(p.fg), ac = hex(p.accent);
+    const r = document.documentElement.style;
+    r.setProperty('--bg', css(bg)); r.setProperty('--panel', css(mix(bg, fg, .06))); r.setProperty('--line', css(mix(bg, fg, .16)));
+    r.setProperty('--ink', css(fg)); r.setProperty('--ink2', css(mix(fg, bg, .28))); r.setProperty('--mute', css(mix(fg, bg, .5))); r.setProperty('--acc', css(ac));
+    r.setProperty('--far', css(mix(bg, ac, p.dark ? .5 : .4))); r.setProperty('--near', css(mix(bg, fg, .04)));
+    document.getElementById('sw').innerHTML = p.term.map((t) => `<b style="background:${t}"></b>`).join('');
+    const n = document.getElementById('lookname'); n.textContent = p.name; n.classList.remove('in'); void n.offsetWidth; n.classList.add('in');
+    document.getElementById('lookmeta').textContent = (p.dark ? 'dark' : 'light') + ' · ' + p.bg + ' on ' + p.accent;
+  }
+  let i = -1, typing = false, timer;
+  function type(text, done) {
+    const el = document.getElementById('typed'); el.textContent = ''; let k = 0; typing = true;
+    if (reduce) { el.textContent = text; typing = false; done(); return; }
+    (function step() { el.textContent = text.slice(0, ++k); if (k < text.length) setTimeout(step, 28 + Math.random() * 40); else { typing = false; setTimeout(done, 450); } })();
+  }
+  function next() { if (typing || !palettes.length) return; clearTimeout(timer); i = (i + 1) % palettes.length; const p = palettes[i]; type(p.mood, () => { wear(p); timer = setTimeout(next, 7000); }); }
+  document.getElementById('maker').addEventListener('click', next);
+  addEventListener('keydown', (e) => { if (e.code === 'Space' && !/input|textarea/i.test(e.target.tagName)) { e.preventDefault(); next(); } });
+  setTimeout(next, 900);
+</script>
+
+<style>
+  .herowrap{position:relative}
+  .stage{position:absolute;inset:0;z-index:-1;overflow:hidden;pointer-events:none}
+  .stage video{width:100%;height:100%;object-fit:cover;display:block;opacity:.42;filter:saturate(1.1)}
+  .stage:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,color-mix(in srgb,var(--bg) 35%,transparent) 0%,color-mix(in srgb,var(--bg) 55%,transparent) 55%,var(--bg) 100%);transition:background var(--t)}
+  .hero{position:relative;min-height:92vh;display:grid;grid-template-columns:1.05fr 1fr;gap:40px;align-items:center;max-width:1180px;margin:0 auto;padding:6vh 6vw 4vh}
+  .hero>*{min-width:0}
+  @media (max-width:900px){.hero{grid-template-columns:1fr;min-height:auto;padding-top:8vh}}
+  h1{font-size:clamp(40px,6.4vw,84px);line-height:.98;letter-spacing:-.035em;margin:0 0 20px;font-weight:800;max-width:13ch}
+  h1 em{font-style:normal;color:var(--acc);transition:color var(--t)}
+  .lead{font-size:clamp(17px,1.7vw,21px);color:var(--ink2);max-width:50ch;margin:0 0 26px;transition:color var(--t)}
+  .cta{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px}
+  .btn{display:inline-block;background:var(--acc);color:var(--bg);font-weight:800;padding:13px 20px;border-radius:12px;text-decoration:none;font-size:16px;transition:background var(--t),color var(--t)}
+  .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}.btn.ghost:hover{border-color:var(--acc)}
+  .relline{color:var(--mute);font-size:13.5px;font-family:"IBM Plex Mono",ui-monospace,monospace}
+  .maker{background:color-mix(in srgb,var(--panel) 85%,transparent);border:1px solid var(--line);border-radius:18px;padding:18px 18px 16px;backdrop-filter:blur(10px);box-shadow:0 30px 80px rgba(0,0,0,.35);transition:background var(--t),border-color var(--t)}
+  .maker .bar{display:flex;gap:6px;margin-bottom:12px}.maker .bar i{width:10px;height:10px;border-radius:50%;background:var(--line);display:block}
+  .prompt{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:clamp(13px,1.4vw,16px);color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .prompt .d{color:var(--acc)}.prompt .q{color:var(--ink2)}
+  .cur{display:inline-block;width:.6ch;height:1.1em;background:var(--ink);vertical-align:-2px;margin-left:1px;animation:blink 1s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+  .made{margin-top:14px;display:grid;grid-template-columns:1fr auto;gap:12px;align-items:end;min-height:78px}
+  .made .name{font-size:clamp(22px,2.6vw,30px);font-weight:800;letter-spacing:-.02em;line-height:1.05;opacity:0;transform:translateY(6px);transition:opacity .5s,transform .5s}
+  .made :global(.name.in){opacity:1;transform:none}
+  .made .meta{color:var(--mute);font-size:13px;margin-top:4px}
+  .swatches{display:flex;gap:5px}.swatches :global(b){width:18px;height:34px;border-radius:5px;display:block;border:1px solid rgba(0,0,0,.25);transition:background var(--t)}
+  .shotbox{position:relative;margin-top:14px;border-radius:12px;overflow:hidden;border:1px solid var(--line);aspect-ratio:8/3;background:var(--near)}
+  .shotbox video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+  .shotbox .cap{position:absolute;left:10px;bottom:10px;font-size:12px;color:var(--ink2);background:color-mix(in srgb,var(--bg) 80%,transparent);padding:4px 9px;border-radius:7px}
+  .hint{color:var(--mute);font-size:13px;margin-top:12px;display:flex;gap:14px;flex-wrap:wrap}.hint kbd{margin-right:4px}
+  .proof{color:var(--mute);font-size:13px;margin-top:8px}
+  @media (prefers-reduced-motion:reduce){.stage video{display:none}.cur{animation:none}}
+</style>

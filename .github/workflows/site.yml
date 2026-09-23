@@ -1,0 +1,61 @@
+name: site
+
+# The site: Astro, static, built from site/ and published to GitHub Pages by this workflow. The manual
+# it builds is also written back into docs/manual.html so the image can carry it under Help with no
+# toolchain of its own -- the same way the screenshots come back after every release.
+
+on:
+  push:
+    branches: [main]
+    paths: ['site/**', 'docs/decisions.md', 'docs/screens/**', '.github/workflows/site.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: site
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - name: Build
+        working-directory: site
+        run: |
+          npm ci --no-audit --no-fund
+          npm run check
+          npm run build
+          node scripts/check.mjs
+      # The manual, back into the repo for the image (Containerfile copies docs/manual.html and the
+      # screens it shows). A commit only when it changed, and [skip ci] so the image does not rebuild
+      # for it -- the next image build picks it up.
+      - name: The manual, for the image
+        run: |
+          cp site/dist/manual.html docs/manual.html
+          git config user.name "genesis-site"; git config user.email "genesis-site@users.noreply.github.com"
+          git add docs/manual.html
+          git diff --cached --quiet || git commit -q -m "site: the built manual, for the image [skip ci]"
+          git push -q || true
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/dist
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
