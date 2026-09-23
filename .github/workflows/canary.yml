@@ -132,8 +132,24 @@ jobs:
               echo "STARTUP-BROKEN" ;;
             *) startup=ok ;;
           esac
-          # The second tier only runs when a model is on disk, and then it is the real thing: ask the
-          # router the same question a person would and require words back.
+          # The second tier used to run only when a model happened to be on disk, and no canary machine ever
+          # had one: they start from a release disk that has not been through first run. So the canary goes
+          # through first run itself, the way a person does -- the wizard's own API, the smallest pack, the
+          # small model first -- and then asks. A few gigabytes a night is what it costs to promise that every
+          # image on the stable channel is one that answered a question.
+          echo "--- first run: choosing the tiny pack through the wizard"
+          chosen=$(vm 'tok=$(echo genesis | sudo -S cat /run/genesis/firstrun.token 2>/dev/null); curl -s -m 30 -X POST -H "X-Genesis-Token: $tok" -H "Content-Type: application/json" -d "{\"pack\":\"tiny\",\"force\":true}" 127.0.0.1:11510/api/choose' 2>/dev/null || true)
+          echo "the wizard said: ${chosen:0:200}"
+          for i in $(seq 1 90); do
+            st=$(vm 'curl -s -m 10 127.0.0.1:11510/api/state' 2>/dev/null | python3 -c 'import sys,json; d=json.load(sys.stdin); p=d.get("progress",{}); print(p.get("state",""), p.get("percent", p.get("pct","")), sep=" ")' 2>/dev/null || echo "?")
+            case "$st" in done*|idle*) [ "$i" -gt 1 ] && break ;; esac
+            if vm 'ls /var/lib/genesis/models/fast/*.gguf >/dev/null 2>&1' && [ "$i" -gt 6 ]; then break; fi
+            [ $((i % 6)) -eq 0 ] && echo "  $(( i * 10 ))s: $st"
+            sleep 10
+          done
+          echo "first run: $st after $(( i * 10 ))s; models on disk: $(vm 'ls /var/lib/genesis/models/ 2>/dev/null | tr "\n" " "')"
+          # The second tier: with a model on disk it is the real thing -- ask the router the same question a
+          # person would and require words back. Without one it is a failure now, not a skip.
           if vm 'ls /var/lib/genesis/models/*/*.gguf >/dev/null 2>&1'; then
             for i in $(seq 1 24); do
               answer=$(vm 'curl -s -m 120 -H "Content-Type: application/json" -d "{\"model\":\"fast\",\"messages\":[{\"role\":\"user\",\"content\":\"Say hello.\"}],\"max_tokens\":16}" 127.0.0.1:8080/v1/chat/completions' 2>/dev/null || true)
@@ -142,8 +158,9 @@ jobs:
             done
             [ -n "$answer" ] || { echo "--- it did not answer; what the machine says:"; vm 'echo genesis | sudo -S journalctl -u genesis-router --no-pager -n 30 2>/dev/null' || true; }
           else
-            echo "no model on disk (this machine has not been through first run), so only the startup check applies"
-            answer="no-model"
+            echo "no model on disk after first run: the download did not happen or did not finish"
+            vm 'echo genesis | sudo -S journalctl -u genesis-firstrun --no-pager -n 30 2>/dev/null' || true
+            answer=""
           fi
           vm 'echo genesis | sudo -S systemctl poweroff' >/dev/null 2>&1 || true
           sleep 10; kill $QEMU 2>/dev/null || true
@@ -152,7 +169,7 @@ jobs:
           [ "$before" != "$after" ] || { echo "the version did not change: the upgrade did not take"; exit 1; }
           [ -n "$wizard" ] || { echo "the wizard API did not answer after the upgrade"; exit 1; }
           [ "$startup" = ok ] || { echo "the configured server command cannot start: no model can load on this image"; exit 1; }
-          [ -n "$answer" ] || { echo "a model is installed but the assistant never answered"; exit 1; }
+          [ -n "$answer" ] || { echo "the assistant never answered: no image reaches stable without answering a question"; exit 1; }
           if [ -n "$fails" ]; then echo "::warning::self-check reported a failure after the upgrade: $fails"; fi
           echo "canary: $before -> $after, wizard answers, self-check ran, the server command starts${answer:+, assistant: $answer}"
       - uses: actions/upload-artifact@v4
@@ -162,7 +179,7 @@ jobs:
           path: canary-serial.log
       # A red canary holds the stable tag (see build-image.yml), and used to tell nobody. Now it opens an
       # issue, or adds to the open one; a green canary closes it.
-      # Promotion: the machine that upgraded to :testing came up, the wizard answered, the self-check ran.
+      # Promotion: the machine that upgraded to :testing came up, went through first run, and the assistant answered.
       # The same digest becomes :stable for every flavour (the arm64 and NVIDIA images are the same commit
       # and not canary-tested: the x86 image is the proxy). Retagging keeps the cosign signature valid,
       # because it is attached to the digest.
