@@ -28,9 +28,30 @@ def made_projects():
     return sorted(set(out))
 
 
+SKIP_DIRS = {"node_modules", "target", ".venv", "__pycache__"}
+
+
+def travels(ti):
+    """Dependency folders re-install and previews are logs; neither goes in. Matched on path parts, because
+    the directory entry itself has no trailing slash and the first version let it through empty."""
+    parts = ti.name.split("/")
+    if any(part in SKIP_DIRS for part in parts) or parts[-1] == ".genesis-preview.log":
+        return None
+    return ti
+
+
 def add(tar, path, arc):
     if os.path.exists(path):
-        tar.add(path, arcname=arc, filter=lambda ti: None if any(x in ti.name for x in ("node_modules/", "/target/", "/.venv/", "__pycache__/", ".genesis-preview.log")) else ti)
+        tar.add(path, arcname=arc, filter=travels)
+
+
+def inside(rel):
+    """A member name that stays where it belongs: relative, and never climbing out. The first hostile
+    archive tried projects/../../x and became a project called '..' -- the check ran on the renamed path,
+    after the '..' had already been treated as a name."""
+    if not rel or rel.startswith("/") or os.path.isabs(rel):
+        return False
+    return not any(part == ".." for part in rel.split("/"))
 
 
 def export(dest):
@@ -63,6 +84,9 @@ def restore(path):
     restored = {"projects": [], "config": [], "skipped": []}
     with tarfile.open(path) as tar:
         for m in tar.getmembers():
+            rel0 = m.name.split("/", 1)[1] if "/" in m.name else ""
+            if m.name.startswith(("projects/", "config/", "state/", "data/")) and (not inside(rel0) or m.issym() or m.islnk()):
+                restored["skipped"].append(m.name); continue
             if m.name.startswith("projects/"):
                 rel = m.name.split("/", 1)[1]
                 top = rel.split("/", 1)[0]
@@ -72,17 +96,17 @@ def restore(path):
                     rel = rel.replace(top, top2, 1); target_top = os.path.join(HOME, top2)
                 dest = os.path.join(HOME, rel)
                 if not os.path.realpath(dest).startswith(HOME): restored["skipped"].append(m.name); continue
-                m.name = rel; tar.extract(m, HOME)
+                m.name = rel; tar.extract(m, HOME, filter="data")
                 if top not in restored["projects"]: restored["projects"].append(top)
                 open(os.path.join(target_top, ".genesis-restored"), "a").close() if os.path.isdir(target_top) else None
             elif m.name.startswith("config/"):
                 rel = m.name.split("/", 1)[1]; dest = os.path.join(CONF, rel)
                 if not os.path.realpath(dest).startswith(os.path.realpath(CONF)): restored["skipped"].append(m.name); continue
-                m.name = rel; tar.extract(m, CONF); restored["config"].append(rel)
+                m.name = rel; tar.extract(m, CONF, filter="data"); restored["config"].append(rel)
             elif m.name.startswith("state/"):
-                rel = m.name.split("/", 1)[1]; m.name = rel; tar.extract(m, STATE)
+                rel = m.name.split("/", 1)[1]; m.name = rel; tar.extract(m, STATE, filter="data")
             elif m.name.startswith("data/"):
-                rel = m.name.split("/", 1)[1]; m.name = rel; tar.extract(m, DATA)
+                rel = m.name.split("/", 1)[1]; m.name = rel; tar.extract(m, DATA, filter="data")
     for top in restored["projects"]:
         for d in (os.path.join(HOME, top), os.path.join(HOME, top + "-restored")):
             f = os.path.join(d, ".genesis-restored")

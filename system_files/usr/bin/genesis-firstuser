@@ -21,11 +21,15 @@ humans_in() {  # $1: passwd-format text on stdin
   awk -F: '$3 >= 1000 && $3 < 60000 && $7 !~ /(nologin|false|sync|shutdown|halt)$/ { n++ } END { print n + 0 }'
 }
 
+# The account file is /etc/passwd; the tests point this at a file of their own, because they must run the
+# script for real -- it is the thing that decides whether a stranger at the console gets an administrator.
+PASSWD=${GENESIS_PASSWD:-/etc/passwd}
+
 should_ask() {
-  [ -r /etc/passwd ] || { echo "genesis-firstuser: /etc/passwd cannot be read; leaving this machine alone" >&2; return 1; }
-  grep -q '^root:' /etc/passwd || { echo "genesis-firstuser: /etc/passwd has no root entry, so it is not to be trusted; leaving this machine alone" >&2; return 1; }
+  [ -r "$PASSWD" ] || { echo "genesis-firstuser: $PASSWD cannot be read; leaving this machine alone" >&2; return 1; }
+  grep -q '^root:' "$PASSWD" || { echo "genesis-firstuser: $PASSWD has no root entry, so it is not to be trusted; leaving this machine alone" >&2; return 1; }
   local from_file from_nss
-  from_file=$(humans_in < /etc/passwd)
+  from_file=$(humans_in < "$PASSWD")
   from_nss=$(getent passwd 2>/dev/null | humans_in)
   if [ "$from_file" != "0" ] || [ "$from_nss" != "0" ]; then
     return 1   # somebody can log in; nothing to do
@@ -68,7 +72,7 @@ for _ in 1 2 3 4 5; do
     exit 1
   fi
   if [[ "$name" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]; then
-    if getent passwd "$name" >/dev/null 2>&1 || grep -q "^$name:" /etc/passwd 2>/dev/null; then
+    if getent passwd "$name" >/dev/null 2>&1 || grep -q "^$name:" "$PASSWD" 2>/dev/null; then
       echo "  That name is already taken on this machine."; name=""; continue
     fi
     break
