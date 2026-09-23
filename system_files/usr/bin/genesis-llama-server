@@ -34,9 +34,11 @@ done
 # written directly and followed to stderr alongside, which keeps $! honest.
 "$LLAMA" "$@" 2>>"$log" &
 child=$!
-tail -n +1 -f "$log" >&2 &
+# --pid: the tailer ends itself once the child is gone, after the last lines. Killing it on exit lost the one
+# line that mattered -- the exception llama-server dies with when it is unloaded -- on the first real image.
+tail -n +1 -f --pid="$child" "$log" >&2 &
 tailer=$!
-trap 'kill "$tailer" 2>/dev/null; rm -f "$log"' EXIT
+trap 'wait "$tailer" 2>/dev/null; rm -f "$log"' EXIT
 # wait returns early when a signal arrives, so wait again until the child is really gone
 while :; do
   wait "$child"; rc=$?

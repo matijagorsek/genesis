@@ -17,7 +17,10 @@ sys.path.insert(0, "/usr/lib/genesis")
 
 # Programs whose crashes are not worth interrupting somebody about: things that crash on the way down,
 # and the parts of Genesis whose own failures are reported elsewhere.
-IGNORE = {"plasmashell", "kwin_wayland", "xdg-desktop-portal", "gnome-keyring-d", "pipewire", "wireplumber"}
+IGNORE = {"plasmashell", "kwin_wayland", "xdg-desktop-portal", "gnome-keyring-d", "pipewire", "wireplumber",
+          # the model server belongs to the router, not to the person, and it aborts on every idle unload:
+          # the first morning on a real image offered to explain it, which is the opposite of the point
+          "llama-server", "llama-swap"}
 
 # A service that fails is ten times more common than a program that crashes, and just as opaque: "Failed
 # with result 'exit-code'" says nothing to anybody. The same offer applies. What is not offered: units
@@ -39,6 +42,14 @@ def notify(title, body, *, urgency="normal", action=None):
         return ""
 
 
+def mine(d):
+    """A crash is offered to the person whose process it was. A daemon's crash -- the model server, a system
+    service -- is not theirs to explain, and the failed-service offer covers what a person should hear about.
+    The owner comes from the crash record: the journal lines the watcher follows do not carry it."""
+    uid = (d or {}).get("uid", "")
+    return not uid or uid == str(os.getuid())
+
+
 def crash_detail(pid):
     """What the machine knows about one crash: the program, the signal, and the stack if it was kept."""
     try:
@@ -53,6 +64,7 @@ def crash_detail(pid):
     if m and m.group(1):
         stack = "\n".join(m.group(1).splitlines()[:25])
     return {
+        "uid": (field("UID").split(" ")[0] if field("UID") else ""),
         "program": os.path.basename(field("Executable") or field("Command Line").split(" ")[0] or "a program"),
         "command": field("Command Line"),
         "signal": field("Signal"),
@@ -244,7 +256,7 @@ def watch():
         seen.add(pid)
         time.sleep(2)  # let systemd-coredump finish writing before asking about it
         d, _ = crash_detail(pid)
-        if d and d["program"] not in IGNORE:
+        if d and d["program"] not in IGNORE and mine(d):
             offer(d)
     return 0
 

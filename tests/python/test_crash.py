@@ -102,3 +102,16 @@ def test_the_question_says_what_it_knows_and_asks_for_no_more(monkeypatch):
     assert opened["cmd"][0] == "genesis-window"
     assert opened["cmd"][1].startswith("http://127.0.0.1:11520/?session=")
     assert not any(a.startswith("--session") for a in opened["cmd"])
+
+
+def test_only_the_persons_own_crashes_are_offered(monkeypatch):
+    gc = load()
+    monkeypatch.setattr(gc.os, "getuid", lambda: 1000)
+    assert gc.mine({"uid": "1000"})
+    assert not gc.mine({"uid": "957"}), "the model server runs as the router user: not the person's to explain"
+    assert gc.mine({}), "a record that does not say is not thrown away"
+    # the uid is read off the real record's "UID: 1000 (matija)" line
+    monkeypatch.setattr(gc.subprocess, "run", lambda cmd, **k: types.SimpleNamespace(stdout=REAL))
+    d, _ = gc.crash_detail("4242")
+    assert d["uid"] == "1000"
+    assert "llama-server" in gc.IGNORE, "and never the model server, whoever it runs as"
