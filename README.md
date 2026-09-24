@@ -78,6 +78,9 @@ How Genesis got here, in the order it happened. The decision log has the detail 
   when a service fails — a backup that did not run, a mount that did not come up — which is ten times more
   common than a crash and just as opaque: "Failed with result 'exit-code'" becomes "your backup disk was
   not plugged in". The units systemd makes for a session or a launched program are not offered.
+- **Every ISO is installed before it ships.** After each release a machine installs the ISO onto a blank
+  disk with nobody at the keyboard, boots what was installed with no way out to the internet, and asks it a
+  question. The first release to pass installed in 15 minutes and answered 20 seconds after its first boot.
 - **A manual for the first hour.** [Your first hour](https://matijagorsek.github.io/genesis/manual.html):
   what happens, in the order it happens, with the moments that look wrong but aren't — the installer's
   silence, the first run, the key, when it asks, when something breaks, what leaves the machine. It is
