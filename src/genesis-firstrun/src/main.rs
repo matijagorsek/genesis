@@ -340,6 +340,14 @@ fn handle(app: &Arc<App>, mut req: Request) -> Result<bool> {
 }
 
 /// Write the router config from what is on this machine now, without the wizard.
+/// The small always-loaded model is on the disk: any .gguf under models/fast that is not a vision projector.
+fn has_small_model(models_dir: &std::path::Path) -> bool {
+    std::fs::read_dir(models_dir.join("fast")).map(|rd| rd.flatten().any(|e| {
+        let n = e.file_name().to_string_lossy().to_string();
+        n.ends_with(".gguf") && !n.starts_with("mmproj") && e.metadata().map(|m| m.len() > 1_000_000).unwrap_or(false)
+    })).unwrap_or(false)
+}
+
 fn render_router_now(cli: &Cli) -> Result<()> {
     if !cli.models_dir.is_dir() {
         tracing::info!("no models on this machine yet; nothing to write");
@@ -392,6 +400,16 @@ fn main() -> Result<()> {
     // never reaches it. That machine has its models and its router config and is ready to use — and the
     // wizard would offer to set it up again at every boot for the rest of its life. Setting up is what
     // finishing means, so a machine that is set up is finished.
+    // A machine installed from the ISO arrives with the smallest pack already on its disk (the kickstart
+    // copies it in), and no router config, because that is written when a download finishes and there was
+    // no download. Without this it would show the pack wizard and have no assistant until somebody chose a
+    // pack it already had. Models on the disk and no config means: write the config for them now and start
+    // the model service, so the first boot answers, offline. The machine is then set up, which the block
+    // below recognises. Measuring the devices happens at the next config refresh, as it would after an update.
+    if !cli.router_out.exists() && has_small_model(&cli.models_dir) {
+        tracing::info!("the small model is on the disk and there is no router config: writing it for the models this machine already has");
+        render_router_now(&cli)?;
+    }
     if cli.router_out.exists() && cli.models_dir.join("fast").is_dir() {
         if let Some(d) = cli.done_marker.parent() { std::fs::create_dir_all(d)?; }
         std::fs::write(&cli.done_marker, format!("{}\n", now()))?;
@@ -464,4 +482,20 @@ fn same_origin(req: &Request, listen: &str) -> bool {
 fn free_bytes(dir: &std::path::Path) -> u64 {
     std::process::Command::new("df").args(["--output=avail", "-B1"]).arg(dir).output().ok()
         .and_then(|o| String::from_utf8_lossy(&o.stdout).lines().nth(1).and_then(|l| l.trim().parse().ok())).unwrap_or(0)
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn a_small_model_on_the_disk_is_recognised_and_a_projector_alone_is_not() {
+        let d = tempfile::tempdir().unwrap();
+        assert!(!super::has_small_model(d.path()), "no fast folder");
+        std::fs::create_dir_all(d.path().join("fast")).unwrap();
+        std::fs::write(d.path().join("fast/mmproj-F16.gguf"), vec![0u8; 2_000_000]).unwrap();
+        assert!(!super::has_small_model(d.path()), "a vision projector is not a model");
+        std::fs::write(d.path().join("fast/partial.gguf"), b"x").unwrap();
+        assert!(!super::has_small_model(d.path()), "a stub is not a model");
+        std::fs::write(d.path().join("fast/Qwen3.5-2B-Q4_K_M.gguf"), vec![0u8; 2_000_000]).unwrap();
+        assert!(super::has_small_model(d.path()));
+    }
 }
