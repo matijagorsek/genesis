@@ -587,6 +587,21 @@ jobs:
           sudo podman tag $IMAGE:${{ needs.image.outputs.tag }} $IMAGE:0.1
           sudo podman tag $IMAGE:${{ needs.image.outputs.tag }} $IMAGE:stable
 
+      # The kickstart is checked against this Fedora's own parser before anything is built: a section the
+      # installer does not know is an ISO that cannot install, and the first one of those shipped for two days.
+      - name: Validate the kickstart
+        run: |
+          set -euo pipefail
+          python3 -m pip install -q pykickstart >/dev/null 2>&1 || sudo apt-get install -y -q pykickstart >/dev/null 2>&1 || true
+          python3 - <<'PY' > ks.cfg
+          import tomllib; print(tomllib.load(open("iso/config-iso.toml","rb"))["customizations"]["installer"]["kickstart"]["contents"])
+          PY
+          ver=$(grep -oE "^FEDORA_REF=.*fedora-bootc-([0-9]+)" .github/base-pins.env | grep -oE "[0-9]+$" || echo 44)
+          echo "kickstart, checked as F$ver:"; cat ks.cfg | grep -vE "^\s*#|^\s*$"
+          # -e, or it says nothing and exits 0 whatever it finds. And it knows %anaconda when the installer does
+          # not: this catches a typo, not a section the installer has dropped -- the photograph catches that.
+          ksvalidator -e -v "F$ver" ks.cfg || ksvalidator -e ks.cfg
+
       - name: Build installer ISO
         run: |
           mkdir -p out
@@ -679,7 +694,6 @@ jobs:
       # The only test there is for an installer's look: boot the ISO and photograph it. Ninety seconds in,
       # Anaconda's language screen is up; the picture is attached to the run. No install happens.
       - name: Photograph the installer
-        continue-on-error: true
         run: |
           set -uo pipefail
           sudo apt-get update -q >/dev/null 2>&1 || true
@@ -697,7 +711,8 @@ jobs:
           kill $Q 2>/dev/null || true
           for f in installer-shots/*.ppm; do [ -f "$f" ] && convert "$f" "${f%.ppm}.png" && rm -f "$f"; done
           ls -la installer-shots
-          grep -iE "product.img|updates|anaconda" installer-serial.log 2>/dev/null | head -5 || true
+          grep -iE "product.img|updates|anaconda|kickstart|problem occurred" installer-serial.log 2>/dev/null | head -8 || true
+          if grep -qiE "problem occurred on line|Unknown kickstart|Pane is dead" installer-serial.log 2>/dev/null; then echo "::error::the installer stopped on its kickstart; see the photograph"; exit 1; fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:

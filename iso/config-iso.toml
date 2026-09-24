@@ -2,8 +2,10 @@
 # No user block: the kickstart below locks root so that Anaconda requires an account to be created.
 # No genesis.devssh argument: sshd stays off. The test account and the SSH gate live in config.toml,
 # which is for the qcow2 test disks only (found by audit on 17 Sep: both had been shipping in the ISO).
+# ttyS0 as well: the build photographs the installer and reads its serial console, and Anaconda's own
+# failure banner has to reach a log the build can grep, not only a screen a person can look at.
 [customizations.kernel]
-append = "console=tty0"
+append = "console=tty0 console=ttyS0,115200"
 
 [customizations.installer.kickstart]
 contents = """
@@ -13,12 +15,10 @@ contents = """
 # GRUB on a keyboard whose layout GRUB does not use. genesis-firstuser still asks on the console at first
 # boot if this somehow does not hold, but the installer is the right place to insist.
 rootpw --lock
-
-%anaconda
-# A password has to actually be set, and be worth having.
-pwpolicy root --minlen=6 --notempty --notstrict --nochanges --emptyok
-pwpolicy user --minlen=6 --notempty --notstrict --nochanges
-%end
+# No %anaconda section: Anaconda 44 does not know it ("Unknown kickstart section: %anaconda"), and the
+# installer stops on line 9 before it draws a screen. Every ISO from 22 Sep to 23 Sep shipped that way,
+# and the photograph of the installer booting on the build runner was the first thing to say so. The
+# password policy that section carried is Anaconda's default now.
 
 # The ISO carries the smallest model pack under /genesis-models (see the ISO job). Copied into the
 # installed system here so the first boot answers at once, offline, instead of after a download. Every
