@@ -662,7 +662,8 @@ jobs:
           [ "$n" -gt 0 ] || { echo "::warning::no model file could be shipped; the ISO is as before"; exit 0; }
           ls -d payload/genesis-models/fast/*.gguf >/dev/null 2>&1 || { echo "::warning::the small model itself is missing; the ISO ships without models"; exit 0; }
           iso=$(ls out/bootiso/*.iso | head -1)
-          xorriso -indev "$iso" -outdev "${iso}.new" -boot_image any replay -map payload/genesis-models /genesis-models -- 2>&1 | tail -3
+          xorriso -indev "$iso" -outdev "${iso}.new" -boot_image any replay -map payload/genesis-models /genesis-models -- > xorriso.log 2>&1 || { tail -5 xorriso.log; rm -f "${iso}.new"; echo "::error::xorriso could not rewrite the ISO; a half-made ISO must not replace the good one, so the job stops"; exit 1; }
+          tail -3 xorriso.log
           mv "${iso}.new" "$iso"
           echo "--- on the ISO now:"; xorriso -indev "$iso" -find /genesis-models -type f -- 2>/dev/null | head -12
           echo "--- ISO with $n model files ($((total/1048576)) MB): $(du -h "$iso" | cut -f1)"
@@ -683,7 +684,8 @@ jobs:
           ( cd product && find . -type f | cpio -o -H newc --quiet | gzip -9 ) > product.img
           ls -la product.img | awk '{print $5, "bytes of product.img"}'
           iso=$(ls out/bootiso/*.iso | head -1)
-          xorriso -indev "$iso" -outdev "${iso}.new" -boot_image any replay -map product.img /images/product.img -- 2>&1 | tail -2
+          xorriso -indev "$iso" -outdev "${iso}.new" -boot_image any replay -map product.img /images/product.img -- > xorriso.log 2>&1 || { tail -5 xorriso.log; rm -f "${iso}.new"; echo "::error::xorriso could not rewrite the ISO; a half-made ISO must not replace the good one, so the job stops"; exit 1; }
+          tail -3 xorriso.log
           mv "${iso}.new" "$iso"
           xorriso -indev "$iso" -find /images -type f -- 2>/dev/null | grep -q product.img && echo "product.img is on the ISO" || echo "::warning::product.img did not land on the ISO"
           # a listing, never a verdict: xorriso exits non-zero for a path that is not there, and with pipefail that
@@ -713,6 +715,13 @@ jobs:
           ls -la installer-shots
           grep -iE "product.img|updates|anaconda|kickstart|problem occurred" installer-serial.log 2>/dev/null | head -8 || true
           if grep -qiE "problem occurred on line|Unknown kickstart|Pane is dead" installer-serial.log 2>/dev/null; then echo "::error::the installer stopped on its kickstart; see the photograph"; exit 1; fi
+          # and a verdict for the good case too, not only the known bad one: the installer's graphical screen is
+          # a picture of tens of kilobytes; a black screen or a text console is a few. A machine that never got
+          # there -- qemu gone, or stuck in the initrd -- fails here instead of shipping.
+          last=installer-shots/installer-300s.png
+          [ -f "$last" ] || { echo "::error::no photograph at five minutes: the installer machine did not stay up"; exit 1; }
+          size=$(stat -c %s "$last"); echo "installer at five minutes: $size bytes"
+          [ "$size" -gt 20000 ] || { echo "::error::at five minutes the screen is blank or a text console ($size bytes), not the installer"; exit 1; }
       - uses: actions/upload-artifact@v4
         if: always()
         with:

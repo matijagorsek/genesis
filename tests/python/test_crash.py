@@ -115,3 +115,29 @@ def test_only_the_persons_own_crashes_are_offered(monkeypatch):
     d, _ = gc.crash_detail("4242")
     assert d["uid"] == "1000"
     assert "llama-server" in gc.IGNORE, "and never the model server, whoever it runs as"
+
+
+# what the user manager wrote when a service failed, verbatim from the first real laptop
+FAILED_UNIT = {"MESSAGE": "genesis-probe-fail-test.service: Failed with result 'exit-code'.",
+               "MESSAGE_ID": "d9b373ed55a64feb8242e02dbe79a49c", "USER_UNIT": "genesis-probe-fail-test.service",
+               "_PID": "3756", "_COMM": "systemd", "CODE_FUNC": "unit_log_failure"}
+
+
+def test_a_failed_service_is_recognised_and_the_noise_is_not():
+    gc = load()
+    assert gc.unit_from_entry(dict(FAILED_UNIT, USER_UNIT="backup.service")) == "backup.service"
+    assert gc.unit_from_entry(dict(FAILED_UNIT, MESSAGE_ID="39f53479d3a045ac8e11786248231fbf")) is None, "a start is not a failure"
+    for noisy in ("run-r1a2b3.service", "session-2.scope", "user@1000.service", "app-org.kde.kate@abc.service"):
+        assert gc.unit_from_entry(dict(FAILED_UNIT, USER_UNIT=noisy)) is None, noisy
+
+
+def test_each_watcher_takes_only_its_own_managers_units():
+    gc = load()
+    user_fail = dict(FAILED_UNIT, USER_UNIT="backup.service")
+    sys_fail = {k: v for k, v in FAILED_UNIT.items() if k != "USER_UNIT"}; sys_fail["UNIT"] = "NetworkManager.service"
+    assert gc.unit_from_entry(user_fail, user=True) == "backup.service"
+    assert gc.unit_from_entry(user_fail, user=False) is None, "the system watcher must not offer a user unit too"
+    assert gc.unit_from_entry(sys_fail, user=False) == "NetworkManager.service"
+    assert gc.unit_from_entry(sys_fail, user=True) is None
+    src = SRC.read_text()
+    assert '["--user"] if user else ["--system"]' in src, "the system watcher reads only the system journal"

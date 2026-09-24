@@ -148,11 +148,16 @@ def offer(d):
         notify("Genesis could not look at that crash", err[:160], urgency="critical")
 
 
-def unit_from_entry(entry):
-    """The unit a journal entry is about, and whether it is one worth a person's attention."""
+def unit_from_entry(entry, user=None):
+    """The unit a journal entry is about, and whether it is one worth a person's attention. With `user`
+    given, only the matching manager's field counts: a system unit carries UNIT, a user unit USER_UNIT, and
+    reading either from either watcher offered every failed user service twice."""
     if entry.get("MESSAGE_ID") != UNIT_MESSAGE_ID:
         return None
-    unit = entry.get("UNIT") or entry.get("USER_UNIT") or ""
+    if user is None:
+        unit = entry.get("UNIT") or entry.get("USER_UNIT") or ""
+    else:
+        unit = (entry.get("USER_UNIT") if user else entry.get("UNIT")) or ""
     if not unit or unit.startswith(UNIT_IGNORE_PREFIX):
         return None
     return unit
@@ -219,7 +224,7 @@ def last(argv_pid=None):
 def watch_units(user):
     """Follow one manager for services that fail. One offer per unit for as long as this runs: a service
     with Restart= that keeps failing would otherwise ask every ten seconds."""
-    scope = ["--user"] if user else []
+    scope = ["--user"] if user else ["--system"]
     seen = set()
     p = subprocess.Popen(["journalctl"] + scope + ["-f", "-o", "json", f"MESSAGE_ID={UNIT_MESSAGE_ID}", "--since", "now"],
                          stdout=subprocess.PIPE, text=True)
@@ -228,7 +233,7 @@ def watch_units(user):
             entry = json.loads(line)
         except ValueError:
             continue
-        unit = unit_from_entry(entry)
+        unit = unit_from_entry(entry, user)
         if not unit or unit in seen:
             continue
         seen.add(unit)

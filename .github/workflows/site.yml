@@ -7,7 +7,7 @@ name: site
 on:
   push:
     branches: [main]
-    paths: ['site/**', 'docs/decisions.md', 'docs/screens/**', '.github/workflows/site.yml']
+    paths: ['site/**', 'docs/decisions.md', 'docs/screens/**', 'system_files/usr/share/genesis/apps.json', '.github/workflows/site.yml']
   workflow_dispatch:
 
 permissions:

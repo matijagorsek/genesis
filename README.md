@@ -213,7 +213,7 @@ Download the latest `genesis-<version>.qcow2.zst.*.part` files from a release, j
 
 ```bash
 cat genesis-*.qcow2.zst.*.part | zstd -d -o disk.qcow2
-just boot iso/output/disk.qcow2        # QEMU, EFI; test user genesis / genesis
+just boot disk.qcow2                   # QEMU, EFI; test user genesis / genesis
 qemu-img resize disk.qcow2 40G         # optional: room for a bigger model pack; the root grows on boot
 ```
 
@@ -311,7 +311,7 @@ own maker, palette and `ask` stay local.
 - **Reviewed rules.** The permission policy is exercised by an adversarial test battery (keys read through a
   shell, login files, code piped from the network, disk wipes); every rule change must keep it green.
 - **Nothing secret in git.** CI fails if a credential-like string is committed; disks, run logs and local
-  state are ignored. Model weights are downloaded at first run, never shipped.
+  state are ignored. Model weights are downloaded at first run, except the smallest pack, which the installer ISO carries so a fresh install answers offline; the disk images carry none.
 - **Signed images, enforced.** Every pushed image is signed twice: keyless with the GitHub identity (verify
   with the `cosign` command above) and with the Genesis release key. Installed systems ship the public key
   and a container policy that refuses unsigned or tampered updates.

@@ -47,3 +47,12 @@ def test_a_signal_reaches_the_child(tmp_path):
     except subprocess.TimeoutExpired:
         p.kill(); pytest.fail("the wrapper did not stop when told to")
     assert "child got TERM" in err, err
+
+
+def test_a_gpu_crash_by_signal_falls_back_to_the_cpu(tmp_path):
+    # the first start dies with SIGABRT after a Vulkan out-of-memory error; the second (no GPU) runs clean
+    fake_server(tmp_path, 'for a in "$@"; do [ "$a" = "none" ] && { echo "cpu run" >&2; exit 0; }; done\n'
+                          'echo "terminate called after throwing an instance of vk::OutOfDeviceMemoryError" >&2; kill -ABRT $$\n')
+    r = run(tmp_path, ["--port", "1", "-ngl", "99", "-dev", "Vulkan0", "-m", "x.gguf"])
+    assert "runs on the CPU instead" in r.stderr and "cpu run" in r.stderr, r.stderr
+    assert r.returncode == 0

@@ -238,8 +238,16 @@ fn handle(app: &Arc<App>, mut req: Request) -> Result<bool> {
                             let render_done = render.clone();
                             let render_done_again = render.clone();
                             let done_marker = app.cli.done_marker.clone();
+                            // While the pack downloads, say so on the disk: the small model lands first and the
+                            // router config is written then, so "config and a small model" does not mean "set
+                            // up" until this is gone -- a reboot mid-download used to mark first run complete
+                            // and the rest of the pack never came.
+                            let downloading = downloading_marker(&app.cli);
+                            if let Some(d) = downloading.parent() { let _ = std::fs::create_dir_all(d); }
+                            let _ = std::fs::write(&downloading, format!("{}\n", pack.id));
                             let on_done: Box<dyn FnOnce() -> Result<()> + Send> = Box::new(move || {
                                 render_done()?;
+                                let _ = std::fs::remove_file(&downloading);
                                 // The models are here and the config is written: this machine is set up,
                                 // whether or not anybody reached the last page of the wizard. Waiting for
                                 // that page is why a machine that was finished downloading kept offering
@@ -340,6 +348,29 @@ fn handle(app: &Arc<App>, mut req: Request) -> Result<bool> {
 }
 
 /// Write the router config from what is on this machine now, without the wizard.
+/// Written when a pack starts downloading and removed when it has finished.
+fn downloading_marker(cli: &Cli) -> std::path::PathBuf {
+    cli.done_marker.with_file_name("first-run-downloading")
+}
+
+/// Measure which device this machine runs models fastest on, if nobody has yet, and write the router config
+/// again with the answer. A machine set up from the ISO never goes through the wizard's download, which is
+/// where this otherwise happens, and without it would choose its device from GPU names for good.
+fn measure_and_render(cli: &Cli) {
+    let device = std::path::Path::new("/var/lib/genesis/device.json");
+    if device.exists() || cli.render_router { return; }
+    match std::process::Command::new("/usr/bin/genesis-pick-device").arg("--json").output() {
+        Ok(o) if o.status.success() => {
+            if std::fs::write(device, &o.stdout).is_ok() {
+                tracing::info!("measured this machine; rendering the router again");
+                let _ = render_router_now(cli);
+            }
+        }
+        Ok(o) => tracing::warn!(status = ?o.status, "could not measure this machine; keeping what the hardware said"),
+        Err(e) => tracing::warn!(error = %e, "could not run genesis-pick-device"),
+    }
+}
+
 /// The small always-loaded model is on the disk: any .gguf under models/fast that is not a vision projector.
 fn has_small_model(models_dir: &std::path::Path) -> bool {
     std::fs::read_dir(models_dir.join("fast")).map(|rd| rd.flatten().any(|e| {
@@ -405,15 +436,16 @@ fn main() -> Result<()> {
     // no download. Without this it would show the pack wizard and have no assistant until somebody chose a
     // pack it already had. Models on the disk and no config means: write the config for them now and start
     // the model service, so the first boot answers, offline. The machine is then set up, which the block
-    // below recognises. Measuring the devices happens at the next config refresh, as it would after an update.
+    // below recognises, and measured there.
     if !cli.router_out.exists() && has_small_model(&cli.models_dir) {
         tracing::info!("the small model is on the disk and there is no router config: writing it for the models this machine already has");
         render_router_now(&cli)?;
     }
-    if cli.router_out.exists() && cli.models_dir.join("fast").is_dir() {
+    if cli.router_out.exists() && cli.models_dir.join("fast").is_dir() && !downloading_marker(&cli).exists() {
         if let Some(d) = cli.done_marker.parent() { std::fs::create_dir_all(d)?; }
         std::fs::write(&cli.done_marker, format!("{}\n", now()))?;
         tracing::info!("this machine has its models and its router config already; marking first run complete rather than offering to do it again");
+        measure_and_render(&cli);
         return Ok(());
     }
     let server = Server::http(&cli.listen).map_err(|e| anyhow::anyhow!("listen {}: {}", cli.listen, e))?;

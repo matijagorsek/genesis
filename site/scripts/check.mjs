@@ -14,7 +14,7 @@ for (const page of pages) {
   const html = readFileSync(join(dist, page), 'utf8');
   const ids = new Set([...html.matchAll(/ id="([^"]+)"/g)].map((m) => m[1]));
   for (const [, anchor] of html.matchAll(/href="#([^"]+)"/g)) if (!ids.has(anchor)) fail(`${page}: #${anchor} goes nowhere`);
-  for (const [, src] of html.matchAll(/(?:src|poster)="([^"]+\.(?:png|jpg|webm|svg))"/g)) {
+  for (const [, src] of html.matchAll(/(?:src|poster)="([^"]+\.(?:png|jpg|jpeg|webp|avif|webm|svg))"/g)) {
     const rel = src.replace(/^\/genesis\//, '').replace(/^\//, '');
     if (!existsSync(join(dist, rel))) fail(`${page}: ${src} is not in dist`);
   }

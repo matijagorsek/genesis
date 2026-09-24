@@ -42,8 +42,16 @@ def status():
 
 
 def deploy_dir(entry):
-    ck = (entry or {}).get("ostree", {}).get("checksum")
-    return os.path.join(DEPLOY, ck + ".0") if ck else None
+    """Where a deployment lives: <deploy dir>/<checksum>.<serial>. The serial is not always 0 -- a kernel
+    argument change or a redeploy of the same checksum makes .1 -- and assuming it was meant the notes said
+    "not on the disk yet" for ever. The stateroot is taken from the status too, for the same reason."""
+    o = (entry or {}).get("ostree", {})
+    ck = o.get("checksum")
+    if not ck:
+        return None
+    serial = o.get("deploySerial", 0)
+    base = DEPLOY if not o.get("stateroot") or o.get("stateroot") == "default" else os.path.join(os.path.dirname(os.path.dirname(DEPLOY)), o["stateroot"], "deploy")
+    return os.path.join(base, f"{ck}.{serial}")
 
 
 def image_version(root):

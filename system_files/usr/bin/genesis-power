@@ -46,6 +46,11 @@ def source(root=SUPPLY):
     for name in supplies:
         p = os.path.join(root, name)
         kind = read(os.path.join(p, "type"))
+        # a mouse, a keyboard or a game controller reports its own battery with scope "Device"; only the
+        # machine's own battery says whether the machine is unplugged. A desktop with a wireless mouse was
+        # being called "on battery" for good.
+        if read(os.path.join(p, "scope")) == "Device":
+            continue
         if kind == "Battery":
             # a battery that reports no capacity at all is a slot, not a battery (docks and UPS drivers do this)
             if read(os.path.join(p, "present")) != "0":
@@ -65,7 +70,7 @@ def source(root=SUPPLY):
     # a battery and no mains supply reported at all: go by what the battery says about itself
     for name in supplies:
         p = os.path.join(root, name)
-        if read(os.path.join(p, "type")) == "Battery":
+        if read(os.path.join(p, "type")) == "Battery" and read(os.path.join(p, "scope")) != "Device":
             return "battery" if read(os.path.join(p, "status")) == "Discharging" else "ac"
     return "ac"
 

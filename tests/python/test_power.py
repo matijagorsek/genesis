@@ -117,3 +117,12 @@ def test_a_person_can_turn_it_off(tmp_path, monkeypatch):
     assert router.unloaded == [] and "off" in out, "saver off means the coder stays on battery"
     m.set_saving(True)
     assert m.saving_enabled()
+
+
+def test_a_peripheral_battery_is_not_the_machines(tmp_path, monkeypatch):
+    m = load(tmp_path, monkeypatch)
+    # a desktop with a Logitech receiver: no mains supply reported, one Device-scoped battery discharging
+    assert m.source(supply(tmp_path / "a", hidpp_battery_0={"type": "Battery", "scope": "Device", "status": "Discharging"})) == "none"
+    # a laptop on battery with a wireless mouse: the laptop's own battery decides
+    assert m.source(supply(tmp_path / "b", BAT0={"type": "Battery", "scope": "System", "status": "Discharging"},
+                          hidpp_battery_0={"type": "Battery", "scope": "Device", "status": "Full"})) == "battery"

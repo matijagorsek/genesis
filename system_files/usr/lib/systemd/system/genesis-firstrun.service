@@ -20,6 +20,17 @@ StateDirectory=genesis
 ProtectHome=yes
 PrivateTmp=yes
 NoNewPrivileges=yes
+# root, because /etc/genesis and /var/lib/genesis are system-owned -- and only able to write there. Anything
+# that tricks it into writing elsewhere hits a read-only file system instead.
+ProtectSystem=strict
+ConfigurationDirectory=genesis
+ConfigurationDirectoryMode=0755
+ReadWritePaths=-/run/genesis
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
 
 [Install]
 WantedBy=multi-user.target

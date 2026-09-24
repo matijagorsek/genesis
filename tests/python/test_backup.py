@@ -58,7 +58,7 @@ def test_restore_into_a_fresh_home_puts_it_all_back(tmp_path, monkeypatch):
     f = b.export(str(tmp_path / "out"))["file"]
     new = tmp_path / "new-home"; new.mkdir(); b2 = load(new, monkeypatch)
     r = b2.restore(f)
-    assert sorted(r["projects"]) == ["Projects", "checklist"] and r["skipped"] == []
+    assert sorted(r["projects"]) == ["Projects/timer", "checklist"] and r["skipped"] == []
     assert (new / "checklist/app.py").read_text() == "print(1)"
     assert (new / "Projects/timer/index.html").read_text() == "<b>"
     assert (new / ".config/genesis/settings.json").read_text() == '{"mode": "trusted"}'
@@ -85,3 +85,13 @@ def test_a_hostile_archive_cannot_write_outside_home(tmp_path, monkeypatch):
     r = b.restore(str(evil))
     assert not (tmp_path / "outside.txt").exists() and not (tmp_path / "outside2.txt").exists()
     assert len(r["skipped"]) == 2, r
+
+
+def test_a_project_under_a_folder_that_exists_restores_into_that_folder(tmp_path, monkeypatch):
+    home = a_home(tmp_path); b = load(home, monkeypatch)
+    f = b.export(str(tmp_path / "out"))["file"]
+    new = tmp_path / "new-home"; (new / "Projects" / "other").mkdir(parents=True); b2 = load(new, monkeypatch)
+    r = b2.restore(f)
+    assert (new / "Projects/timer/index.html").read_text() == "<b>", "timer goes into the existing ~/Projects"
+    assert not (new / "Projects-restored").exists(), "the whole folder is not renamed"
+    assert (new / "Projects/other").is_dir()

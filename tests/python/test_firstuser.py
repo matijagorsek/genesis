@@ -23,7 +23,7 @@ def bin_dir(tmp_path, nss_humans="", passwd_fails=0):
     d = tmp_path / "bin"; d.mkdir(exist_ok=True); log = tmp_path / "calls"
     def fake(name, body):
         f = d / name; f.write_text("#!/bin/bash\n" + body); f.chmod(f.stat().st_mode | stat.S_IEXEC)
-    fake("getent", f'echo "getent $*" >> {log}\nif [ "$1" = passwd ] && [ -z "$2" ]; then printf "%s" "{ROOT_LINE}{SYSTEM}{nss_humans}"; exit 0; fi\nexit 2\n')
+    fake("getent", f'echo "getent $*" >> {log}\n[ -e {tmp_path}/nss-down ] && exit 2\nif [ "$1" = passwd ] && [ -z "$2" ]; then printf "%s" "{ROOT_LINE}{SYSTEM}{nss_humans}"; exit 0; fi\nif [ "$1" = passwd ] && [ "$2" = root ]; then echo "{ROOT_LINE.strip()}"; exit 0; fi\nexit 2\n')
     fake("useradd", f'echo "useradd $*" >> {log}\nexit 0\n')
     fake("userdel", f'echo "userdel $*" >> {log}\nexit 0\n')
     fake("restorecon", f'echo "restorecon $*" >> {log}\nexit 0\n')
@@ -92,3 +92,9 @@ def test_three_failed_passwords_take_the_account_away_again(tmp_path):
     assert r.returncode == 1
     assert sum(1 for l in calls.splitlines() if l == "passwd matija") == 3 and "userdel -r matija" in calls
     assert "account was removed" in r.stdout
+
+
+def test_a_user_database_that_does_not_answer_means_nothing_happens(tmp_path):
+    (tmp_path / "nss-down").write_text("")
+    r, calls = run(tmp_path, ROOT_LINE + SYSTEM, stdin="intruder\n")
+    assert r.returncode == 0 and "useradd" not in calls and "not answering" in r.stderr

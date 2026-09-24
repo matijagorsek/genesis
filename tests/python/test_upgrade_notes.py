@@ -102,3 +102,11 @@ def test_nothing_staged_and_one_notification_per_image(tmp_path, monkeypatch):
     assert m.notify_once(c, digest) == "already said", "the same staged image is announced once, however often the status file is rewritten"
     assert len(sent) == 1 and sent[0][0] == "notify-send" and "7.1.10" in " ".join(sent[0])
     assert m.notify_once(c, "sha256:other") == "said", "a newer staged image is news again"
+
+
+def test_the_deployment_serial_comes_from_the_status(tmp_path, monkeypatch):
+    m = load(tmp_path, monkeypatch)
+    d = m.deploy_dir({"ostree": {"checksum": "abc", "deploySerial": 1, "stateroot": "default"}})
+    assert d.endswith("/abc.1"), d
+    assert m.deploy_dir({"ostree": {"checksum": "abc"}}).endswith("/abc.0")
+    assert m.deploy_dir({}) is None

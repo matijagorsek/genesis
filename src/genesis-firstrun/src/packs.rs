@@ -35,7 +35,14 @@ pub struct PackModel {
     pub offload: bool,
 }
 
+/// A pack id or a model role is a name: lowercase letters, digits and dashes. It is joined onto paths by a
+/// process running as root, and "../../dev/shm/x" as a pack id loaded a file any local user could write.
+pub fn is_name(s: &str) -> bool {
+    !s.is_empty() && s.len() <= 64 && s.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+}
+
 pub fn load_pack(dir: &Path, id: &str) -> Result<Pack> {
+    if !is_name(id) { anyhow::bail!("not a pack name: {:?}", id); }
     let p = dir.join(format!("{}.json", id));
     let text = std::fs::read_to_string(&p).with_context(|| format!("reading pack {}", p.display()))?;
     Ok(serde_json::from_str(&text)?)
@@ -92,7 +99,8 @@ pub fn signed_pack(id: &str) -> Option<SignedPack> {
 
 /// Plan from a signed definition: no registry call, exact files, checksums to verify against.
 pub fn plan_signed(sp: &SignedPack, models_dir: &Path) -> Vec<PlannedFile> {
-    sp.files.iter().map(|f| {
+    // a file whose role is not a plain name is left out rather than written somewhere it names
+    sp.files.iter().filter(|f| is_name(&f.role)).map(|f| {
         let base = Path::new(&f.name).file_name().map(|s| s.to_string_lossy().to_string()).unwrap_or(f.name.clone());
         PlannedFile {
             role: f.role.clone(), repo: f.repo.clone(), filename: base.clone(), size: f.size,
@@ -155,7 +163,7 @@ pub fn plan(pack: &Pack, models_dir: &Path, lister: &dyn Fn(&str) -> Result<Vec<
                 filename: base.clone(),
                 size,
                 url: format!("https://huggingface.co/{}/resolve/main/{}", m.repo, f),
-                dest: models_dir.join(&m.role).join(&base).display().to_string(),
+                dest: { if !is_name(&m.role) { anyhow::bail!("not a role name: {:?}", m.role); } models_dir.join(&m.role).join(&base).display().to_string() },
                 sha256: None,
             });
         }
@@ -524,5 +532,15 @@ mod tests {
         assert!(y.contains("members: [ fast, fim, embed ]"));
         assert!(y.contains("  rerank:"));
         assert!(y.contains("members: [ code, rerank ]"));
+    }
+}
+
+#[cfg(test)]
+mod name_tests {
+    #[test]
+    fn a_pack_or_role_name_is_never_a_path() {
+        for ok in ["tiny", "gpu-16", "mac-36-q5", "fast"] { assert!(super::is_name(ok), "{}", ok); }
+        for bad in ["", "../x", "../../dev/shm/evil", "a/b", "Tiny", "x.json", "fast ", "..", "/etc"] { assert!(!super::is_name(bad), "{:?}", bad); }
+        assert!(super::load_pack(std::path::Path::new("/nonexistent"), "../../etc/passwd").is_err());
     }
 }

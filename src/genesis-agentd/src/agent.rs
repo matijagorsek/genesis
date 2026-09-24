@@ -119,6 +119,9 @@ pub(crate) fn on_battery_saving_at(supply: &std::path::Path, conf: &std::path::P
     let (mut battery, mut mains_online, mut discharging) = (false, None, false);
     for e in entries.flatten() {
         let d = e.path();
+        // a peripheral's own battery (a wireless mouse, a controller) has scope "Device" and says nothing
+        // about whether the machine is unplugged
+        if read(d.join("scope")) == "Device" { continue; }
         match read(d.join("type")).as_str() {
             "Battery" => { if read(d.join("present")) != "0" { battery = true; if read(d.join("status")) == "Discharging" { discharging = true; } } }
             "Mains" | "USB" => match read(d.join("online")).as_str() {
@@ -1041,6 +1044,11 @@ mod compact_tests {
         assert!(on_battery_saving_at(&t.path().join("s"), &conf), "unplugged laptop saves");
         std::fs::write(t.path().join("s/AC0/online"), "1").unwrap();
         assert!(!on_battery_saving_at(&t.path().join("s"), &conf), "plugged in does not");
+        // a desktop with a wireless mouse: its battery is a Device, and the desktop is not on battery
+        let m = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(m.path().join("hidpp_battery_0")).unwrap();
+        for (k, v) in [("type", "Battery"), ("scope", "Device"), ("status", "Discharging")] { std::fs::write(m.path().join("hidpp_battery_0").join(k), v).unwrap(); }
+        assert!(!on_battery_saving_at(m.path(), &conf), "a mouse battery is not the machine's");
         std::fs::write(t.path().join("s/AC0/online"), "0").unwrap();
         std::fs::write(&conf, "saver=off\n").unwrap();
         assert!(!on_battery_saving_at(&t.path().join("s"), &conf), "genesis-power off is respected");

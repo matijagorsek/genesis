@@ -58,7 +58,7 @@ keeps downloading behind it.
 The first time you log in, a window asks three things:
 
 1. **Which models.** Genesis measures the machine and recommends the biggest model pack that fits. Take
-   the recommended one; it downloads in the background (about 2 GB for the smallest, more for GPUs).
+   the recommended one; it downloads in the background (3.8 GB for the smallest, more for GPUs). A machine installed from the ISO already has the smallest pack and skips this.
    You can keep using the desktop meanwhile.
 2. **Privacy.** Local only is the default. Leave it.
 3. **Your phone.** Optional. Install KDE Connect on the phone, same Wi-Fi, accept the code on both

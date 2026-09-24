@@ -82,23 +82,27 @@ def listing(path):
 
 def restore(path):
     restored = {"projects": [], "config": [], "skipped": []}
+    placed = {}
     with tarfile.open(path) as tar:
+        names = tar.getnames()
+        projects = json.load(tar.extractfile("manifest.json")).get("projects", []) if "manifest.json" in names else []
         for m in tar.getmembers():
             rel0 = m.name.split("/", 1)[1] if "/" in m.name else ""
             if m.name.startswith(("projects/", "config/", "state/", "data/")) and (not inside(rel0) or m.issym() or m.islnk()):
                 restored["skipped"].append(m.name); continue
             if m.name.startswith("projects/"):
                 rel = m.name.split("/", 1)[1]
-                top = rel.split("/", 1)[0]
-                target_top = os.path.join(HOME, top)
-                if os.path.exists(target_top) and not os.path.exists(os.path.join(target_top, ".genesis-restored")):
-                    top2 = top + "-restored"
-                    rel = rel.replace(top, top2, 1); target_top = os.path.join(HOME, top2)
+                # the project this member belongs to, from the archive's own list: a clash is decided at the
+                # project's folder, not at the first part of its path -- restoring Projects/timer where
+                # ~/Projects exists moved every project into ~/Projects-restored
+                proj = next((p for p in sorted(projects, key=len, reverse=True) if rel == p or rel.startswith(p + "/")), rel.split("/", 1)[0])
+                if proj not in placed:
+                    placed[proj] = proj + "-restored" if os.path.exists(os.path.join(HOME, proj)) else proj
+                rel = placed[proj] + rel[len(proj):]
                 dest = os.path.join(HOME, rel)
                 if not os.path.realpath(dest).startswith(HOME): restored["skipped"].append(m.name); continue
                 m.name = rel; tar.extract(m, HOME, filter="data")
-                if top not in restored["projects"]: restored["projects"].append(top)
-                open(os.path.join(target_top, ".genesis-restored"), "a").close() if os.path.isdir(target_top) else None
+                if placed[proj] not in restored["projects"]: restored["projects"].append(placed[proj])
             elif m.name.startswith("config/"):
                 rel = m.name.split("/", 1)[1]; dest = os.path.join(CONF, rel)
                 if not os.path.realpath(dest).startswith(os.path.realpath(CONF)): restored["skipped"].append(m.name); continue
@@ -107,10 +111,6 @@ def restore(path):
                 rel = m.name.split("/", 1)[1]; m.name = rel; tar.extract(m, STATE, filter="data")
             elif m.name.startswith("data/"):
                 rel = m.name.split("/", 1)[1]; m.name = rel; tar.extract(m, DATA, filter="data")
-    for top in restored["projects"]:
-        for d in (os.path.join(HOME, top), os.path.join(HOME, top + "-restored")):
-            f = os.path.join(d, ".genesis-restored")
-            if os.path.exists(f): os.remove(f)
     return restored
 
 

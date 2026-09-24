@@ -30,6 +30,9 @@ should_ask() {
   grep -q '^root:' "$PASSWD" || { echo "genesis-firstuser: $PASSWD has no root entry, so it is not to be trusted; leaving this machine alone" >&2; return 1; }
   local from_file from_nss
   from_file=$(humans_in < "$PASSWD")
+  # NSS that cannot answer is "cannot tell", not "nobody": an empty answer from a directory service that is
+  # not up yet would otherwise read as an empty machine and offer an administrator account to the console
+  getent passwd root >/dev/null 2>&1 || { echo "genesis-firstuser: the user database is not answering; leaving this machine alone" >&2; return 1; }
   from_nss=$(getent passwd 2>/dev/null | humans_in)
   if [ "$from_file" != "0" ] || [ "$from_nss" != "0" ]; then
     return 1   # somebody can log in; nothing to do
