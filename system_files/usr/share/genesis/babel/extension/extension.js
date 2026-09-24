@@ -31,12 +31,14 @@ function api(method, p, body) {
 // Nothing leaves the machine: the router only listens on 127.0.0.1.
 const completion = { enabled: true, model: null, modelsAt: 0, downUntil: 0, last: { key: "", text: "" }, sb: null, out: null };
 function clog(m) { try { if (!completion.out) completion.out = vscode.window.createOutputChannel("Genesis completion"); completion.out.appendLine(new Date().toISOString().slice(11, 19) + " " + m); } catch {} }
+// the key the model service requires (/etc/genesis/router.key); a development router takes none
+function routerAuth() { try { const k = require("fs").readFileSync("/etc/genesis/router.key", "utf8").trim(); return k ? { Authorization: "Bearer " + k } : {}; } catch { return {}; } }
 function routerBase() { return new URL(vscode.workspace.getConfiguration("genesis").get("router") || "http://127.0.0.1:8080"); }
 function routerJson(method, p, body, ms, signal) {
   const base = routerBase();
   return new Promise((resolve) => {
     const data = body ? JSON.stringify(body) : null;
-    const req = http.request({ host: base.hostname, port: base.port || 80, path: p, method, headers: { "Content-Type": "application/json", ...(data ? { "Content-Length": Buffer.byteLength(data) } : {}) }, timeout: ms }, (res) => {
+    const req = http.request({ host: base.hostname, port: base.port || 80, path: p, method, headers: { "Content-Type": "application/json", ...routerAuth(), ...(data ? { "Content-Length": Buffer.byteLength(data) } : {}) }, timeout: ms }, (res) => {
       let t = ""; res.on("data", (c) => t += c); res.on("end", () => { try { resolve({ status: res.statusCode, body: JSON.parse(t || "{}") }); } catch { resolve({ status: res.statusCode, body: {} }); } });
     });
     req.on("error", () => resolve({ status: 0, body: {} }));

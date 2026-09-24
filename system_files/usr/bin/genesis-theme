@@ -18,6 +18,18 @@ small model will call a light palette dark and put grey on grey, and a desktop i
 import argparse, json, os, re, subprocess, sys, time, urllib.request
 
 ROUTER = os.environ.get("GENESIS_ROUTER", "http://127.0.0.1:8080")
+
+def _router_headers(extra=None):
+    """The model service requires the key in /etc/genesis/router.key (a development router takes none)."""
+    h = dict(extra or {})
+    try:
+        k = open(os.environ.get("GENESIS_ROUTER_KEY_FILE", "/etc/genesis/router.key")).read().strip()
+        if k:
+            h["Authorization"] = "Bearer " + k
+    except OSError:
+        pass
+    return h
+
 HOME = os.path.expanduser("~")
 DATA = os.environ.get("XDG_DATA_HOME", os.path.join(HOME, ".local", "share"))
 STATE = os.path.join(os.environ.get("XDG_STATE_HOME", os.path.join(HOME, ".local", "state")), "genesis")
@@ -100,7 +112,7 @@ def ask_model(mood, timeout=240):
                           "a readable foreground, one accent, and the eight terminal colours in order black red green yellow "
                           "blue magenta cyan white, all as #rrggbb, all tinted toward the mood."}]}
     req = urllib.request.Request(f"{ROUTER}/v1/chat/completions", data=json.dumps(body).encode(),
-                                 headers={"Content-Type": "application/json"}, method="POST")
+                                 headers=_router_headers({"Content-Type": "application/json"}), method="POST")
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return json.loads(json.load(r)["choices"][0]["message"]["content"])
 

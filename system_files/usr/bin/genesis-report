@@ -118,9 +118,22 @@ say "Is the GPU actually used"
 say "How fast it answers"
 { python3 - <<'PYX' 2>&1
 import json, time, urllib.request
+import os
+
+
+def _router_headers(extra=None):
+    """The model service requires the key in /etc/genesis/router.key (a development router takes none)."""
+    h = dict(extra or {})
+    try:
+        k = open(os.environ.get("GENESIS_ROUTER_KEY_FILE", "/etc/genesis/router.key")).read().strip()
+        if k:
+            h["Authorization"] = "Bearer " + k
+    except OSError:
+        pass
+    return h
 
 def get(url, body=None, timeout=300):
-    req = urllib.request.Request(url, data=json.dumps(body).encode() if body else None, headers={"Content-Type": "application/json"})
+    req = urllib.request.Request(url, data=json.dumps(body).encode() if body else None, headers=_router_headers({"Content-Type": "application/json"}) if ":8080" in url else {"Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return json.load(r)
 

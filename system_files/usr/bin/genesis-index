@@ -23,6 +23,18 @@ except ImportError:  # pure Python fallback: fine up to a few thousand chunks
     np = None
 
 ROUTER = os.environ.get("GENESIS_ROUTER", "http://127.0.0.1:8080")
+
+def _router_headers(extra=None):
+    """The model service requires the key in /etc/genesis/router.key (a development router takes none)."""
+    h = dict(extra or {})
+    try:
+        k = open(os.environ.get("GENESIS_ROUTER_KEY_FILE", "/etc/genesis/router.key")).read().strip()
+        if k:
+            h["Authorization"] = "Bearer " + k
+    except OSError:
+        pass
+    return h
+
 EMBED_MODEL = "embed"
 EMBED_CHARS = 1500
 
@@ -68,7 +80,7 @@ def embed(texts, timeout=300):
     if not texts:
         return []
     body = json.dumps({"model": EMBED_MODEL, "input": [t[:EMBED_CHARS] for t in texts]}).encode()
-    req = urllib.request.Request(ROUTER + "/v1/embeddings", data=body, headers={"Content-Type": "application/json"})
+    req = urllib.request.Request(ROUTER + "/v1/embeddings", data=body, headers=_router_headers({"Content-Type": "application/json"}))
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r:
             data = json.load(r)["data"]
@@ -246,7 +258,7 @@ def rerank(c, query, hits, n):
         t = c.execute("select text from chunks where path=? and ord=?", (h["path"], h["chunk"])).fetchone()
         docs.append((t[0] if t else h["snippet"])[:EMBED_CHARS])
     body = json.dumps({"model": "rerank", "query": query, "documents": docs, "top_n": len(docs)}).encode()
-    req = urllib.request.Request(ROUTER + "/v1/rerank", data=body, headers={"Content-Type": "application/json"})
+    req = urllib.request.Request(ROUTER + "/v1/rerank", data=body, headers=_router_headers({"Content-Type": "application/json"}))
     try:
         with urllib.request.urlopen(req, timeout=120) as r:
             results = json.load(r).get("results", [])

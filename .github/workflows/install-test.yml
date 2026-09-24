@@ -145,7 +145,7 @@ jobs:
           models=$(vm 'ls /var/lib/genesis/models/fast/*.gguf 2>/dev/null | wc -l')
           answer=""
           for i in $(seq 1 30); do
-            answer=$(vm 'curl -s -m 120 -H "Content-Type: application/json" -d "{\"model\":\"fast\",\"messages\":[{\"role\":\"user\",\"content\":\"Say hello in five words.\"}],\"max_tokens\":20}" 127.0.0.1:8080/v1/chat/completions' 2>/dev/null || true)
+            answer=$(vm 'curl -s -m 120 -H "Authorization: Bearer $(cat /etc/genesis/router.key 2>/dev/null)" -H "Content-Type: application/json" -d "{\"model\":\"fast\",\"messages\":[{\"role\":\"user\",\"content\":\"Say hello in five words.\"}],\"max_tokens\":20}" 127.0.0.1:8080/v1/chat/completions' 2>/dev/null || true)
             case "$answer" in *'"content"'*) echo "the assistant answered after about $(( i * 20 ))s of asking"; break ;; esac
             answer=""; sleep 20
           done

@@ -110,7 +110,7 @@ How Genesis got here, in the order it happened. The decision log has the detail 
   VLC, GIMP, Krita preinstalled as Flatpaks once online. Genesis identity: Genesis Dark colour scheme,
   "First Light" wallpaper, Inter and IBM Plex Mono, Papirus icons, a centered floating dock, splash and
   boot watermark, login screen.
-- **Local models as an OS service**: llama.cpp (Vulkan) behind llama-swap on `127.0.0.1:8080`,
+- **Local models as an OS service**: llama.cpp (Vulkan) behind llama-swap on `127.0.0.1:8080`, which requires the key in `/etc/genesis/router.key` (any local program can read it, no web page can),
   one OpenAI-compatible endpoint; model packs per hardware tier (`packs/`), chosen at first run.
   **How a model runs is measured, not guessed**: `genesis-pick-device` generates a few tokens with the
   GPU devices taken away, then on each device the machine offers, and keeps the fastest arrangement that

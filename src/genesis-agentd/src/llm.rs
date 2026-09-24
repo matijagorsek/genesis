@@ -138,3 +138,10 @@ impl Client {
         Ok(Reply { message: choice.message, finish_reason: choice.finish_reason.unwrap_or_default(), usage: parsed.usage })
     }
 }
+
+/// The key the model service requires (see genesis-firstrun, packs::with_api_key). A machine without one --
+/// a development router -- takes any key, so "local" is sent then.
+pub fn router_key() -> String {
+    std::fs::read_to_string(std::env::var("GENESIS_ROUTER_KEY_FILE").unwrap_or_else(|_| "/etc/genesis/router.key".into()))
+        .ok().map(|k| k.trim().to_string()).filter(|k| !k.is_empty()).unwrap_or_else(|| "local".into())
+}

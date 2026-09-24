@@ -35,6 +35,26 @@ pub struct PackModel {
     pub offload: bool,
 }
 
+/// The model service requires this key on every request (llama-swap `apiKeys`). Anything that can read
+/// /etc/genesis/router.key -- every local program -- can use the models; a web page cannot, and a web page
+/// reaching 127.0.0.1:8080 by DNS rebinding was, until this, able to run them and read their logs.
+pub fn with_api_key(yaml: &str, key: &str) -> String {
+    if key.is_empty() { return yaml.to_string(); }
+    format!("apiKeys:\n  - \"{}\"\n{}", key, yaml)
+}
+
+/// The key, made once: 32 random bytes as hex, readable by local programs, never by a browser.
+pub fn ensure_router_key(path: &Path) -> String {
+    if let Ok(k) = std::fs::read_to_string(path) { let k = k.trim().to_string(); if k.len() >= 32 { return k; } }
+    let mut buf = [0u8; 32];
+    if let Ok(mut f) = std::fs::File::open("/dev/urandom") { use std::io::Read; let _ = f.read_exact(&mut buf); }
+    let k: String = buf.iter().map(|b| format!("{:02x}", b)).collect();
+    if let Some(d) = path.parent() { let _ = std::fs::create_dir_all(d); }
+    use std::os::unix::fs::OpenOptionsExt;
+    if let Ok(mut f) = std::fs::OpenOptions::new().write(true).create(true).truncate(true).mode(0o644).open(path) { use std::io::Write; let _ = f.write_all(k.as_bytes()); }
+    k
+}
+
 /// A pack id or a model role is a name: lowercase letters, digits and dashes. It is joined onto paths by a
 /// process running as root, and "../../dev/shm/x" as a pack id loaded a file any local user could write.
 pub fn is_name(s: &str) -> bool {
@@ -537,6 +557,16 @@ mod tests {
 
 #[cfg(test)]
 mod name_tests {
+    #[test]
+    fn the_router_config_carries_the_key() {
+        let y = super::with_api_key("healthCheckTimeout: 600\n", "abc123");
+        assert!(y.starts_with("apiKeys:\n  - \"abc123\"\n") && y.ends_with("healthCheckTimeout: 600\n"));
+        assert_eq!(super::with_api_key("x\n", ""), "x\n", "no key, no line");
+        let d = tempfile::tempdir().unwrap(); let p = d.path().join("router.key");
+        let k = super::ensure_router_key(&p);
+        assert_eq!(k.len(), 64); assert_eq!(super::ensure_router_key(&p), k, "made once, then kept");
+    }
+
     #[test]
     fn a_pack_or_role_name_is_never_a_path() {
         for ok in ["tiny", "gpu-16", "mac-36-q5", "fast"] { assert!(super::is_name(ok), "{}", ok); }

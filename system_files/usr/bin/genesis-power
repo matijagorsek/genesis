@@ -17,6 +17,18 @@ A desktop has no battery and is left alone. A person who wants the coder on batt
 import argparse, json, os, subprocess, sys, time, urllib.request
 
 ROUTER = os.environ.get("GENESIS_ROUTER", "http://127.0.0.1:8080")
+
+def _router_headers(extra=None):
+    """The model service requires the key in /etc/genesis/router.key (a development router takes none)."""
+    h = dict(extra or {})
+    try:
+        k = open(os.environ.get("GENESIS_ROUTER_KEY_FILE", "/etc/genesis/router.key")).read().strip()
+        if k:
+            h["Authorization"] = "Bearer " + k
+    except OSError:
+        pass
+    return h
+
 SUPPLY = os.environ.get("GENESIS_POWER_SUPPLY", "/sys/class/power_supply")
 CONF = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), "genesis", "power")
 # the model that stays: the small one the router keeps loaded
@@ -87,7 +99,7 @@ def set_saving(on):
 
 def running():
     try:
-        with urllib.request.urlopen(f"{ROUTER}/running", timeout=5) as r:
+        with urllib.request.urlopen(urllib.request.Request(f"{ROUTER}/running", headers=_router_headers()), timeout=5) as r:
             return [m.get("model", "") for m in json.load(r).get("running", [])]
     except Exception:
         return []
@@ -100,7 +112,7 @@ def put_away_big_models():
         if not m or m in KEEP:
             continue
         try:
-            req = urllib.request.Request(f"{ROUTER}/api/models/unload/{m}", method="POST")
+            req = urllib.request.Request(f"{ROUTER}/api/models/unload/{m}", method="POST", headers=_router_headers())
             with urllib.request.urlopen(req, timeout=30) as r:
                 if r.status == 200:
                     gone.append(m)

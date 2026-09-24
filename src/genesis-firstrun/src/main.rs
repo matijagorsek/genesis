@@ -215,7 +215,8 @@ fn handle(app: &Arc<App>, mut req: Request) -> Result<bool> {
                                 tuning.device = std::fs::read_to_string("/var/lib/genesis/device.json").ok()
                                     .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
                                     .and_then(|v| v.get("device").and_then(|d| d.as_str()).map(|s| s.to_string()));
-                                let yaml = packs::render_router_tuned(&models_dir, 10001, tuning)?;
+                                let key = packs::ensure_router_key(&router_out.with_file_name("router.key"));
+                                let yaml = packs::with_api_key(&packs::render_router_tuned(&models_dir, 10001, tuning)?, &key);
                                 if let Some(d) = router_out.parent() {
                                     std::fs::create_dir_all(d)?;
                                 }
@@ -396,7 +397,8 @@ fn render_router_now(cli: &Cli) -> Result<()> {
     tuning.device = std::fs::read_to_string("/var/lib/genesis/device.json").ok()
         .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
         .and_then(|v| v.get("device").and_then(|d| d.as_str()).map(|s| s.to_string()));
-    let yaml = packs::render_router_tuned(&cli.models_dir, 10001, tuning)?;
+    let key = packs::ensure_router_key(&cli.router_out.with_file_name("router.key"));
+    let yaml = packs::with_api_key(&packs::render_router_tuned(&cli.models_dir, 10001, tuning)?, &key);
     let same = std::fs::read_to_string(&cli.router_out).map(|old| old == yaml).unwrap_or(false);
     if same {
         tracing::info!("the router config already says what it should; leaving it alone");

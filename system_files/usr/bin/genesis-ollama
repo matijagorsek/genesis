@@ -13,12 +13,24 @@ import json, os, sys, time, urllib.request, urllib.error
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ROUTER = os.environ.get("GENESIS_ROUTER", "http://127.0.0.1:8080")
+
+def _router_headers(extra=None):
+    """The model service requires the key in /etc/genesis/router.key (a development router takes none)."""
+    h = dict(extra or {})
+    try:
+        k = open(os.environ.get("GENESIS_ROUTER_KEY_FILE", "/etc/genesis/router.key")).read().strip()
+        if k:
+            h["Authorization"] = "Bearer " + k
+    except OSError:
+        pass
+    return h
+
 PORT = int(os.environ.get("GENESIS_OLLAMA_PORT", "11434"))
 
 
 def router(path, body=None, stream=False, timeout=600):
     data = json.dumps(body).encode() if body is not None else None
-    req = urllib.request.Request(ROUTER + path, data=data, headers={"Content-Type": "application/json"})
+    req = urllib.request.Request(ROUTER + path, data=data, headers=_router_headers({"Content-Type": "application/json"}))
     return urllib.request.urlopen(req, timeout=timeout)
 
 
@@ -187,7 +199,7 @@ class H(BaseHTTPRequestHandler):
         body = None
         if method == "POST":
             n = int(self.headers.get("Content-Length", 0) or 0); body = self.rfile.read(n)
-        req = urllib.request.Request(ROUTER + self.path, data=body, method=method, headers={"Content-Type": self.headers.get("Content-Type", "application/json")})
+        req = urllib.request.Request(ROUTER + self.path, data=body, method=method, headers=_router_headers({"Content-Type": self.headers.get("Content-Type", "application/json")}))
         try:
             with urllib.request.urlopen(req, timeout=600) as r:
                 self.send_response(r.status)

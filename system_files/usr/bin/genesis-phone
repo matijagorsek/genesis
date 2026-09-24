@@ -22,6 +22,18 @@ import json, os, re, subprocess, sys, time, urllib.parse, urllib.request, uuid
 BUS = ["busctl", "--user", "--json=short"]
 DAEMON = ["org.kde.kdeconnect", "/modules/kdeconnect", "org.kde.kdeconnect.daemon"]
 ENDPOINT = os.environ.get("GENESIS_ENDPOINT", "http://127.0.0.1:8080/v1")
+
+def _router_headers(extra=None):
+    """The model service requires the key in /etc/genesis/router.key (a development router takes none)."""
+    h = dict(extra or {})
+    try:
+        k = open(os.environ.get("GENESIS_ROUTER_KEY_FILE", "/etc/genesis/router.key")).read().strip()
+        if k:
+            h["Authorization"] = "Bearer " + k
+    except OSError:
+        pass
+    return h
+
 AGENTD = os.environ.get("GENESIS_AGENTD", "http://127.0.0.1:11520")
 sys.path.insert(0, "/usr/lib/genesis")
 try:
@@ -197,7 +209,7 @@ def clipboard_text():
 
 def pick_model():
     try:
-        with urllib.request.urlopen(ENDPOINT.rstrip("/") + "/models", timeout=8) as r:
+        with urllib.request.urlopen(urllib.request.Request(ENDPOINT.rstrip("/") + "/models", headers=_router_headers()), timeout=8) as r:
             ids = [m.get("id") for m in json.load(r).get("data", [])]
     except Exception:
         return "auto"
@@ -211,7 +223,7 @@ def ask_model(text):
     body = json.dumps({"model": pick_model(), "temperature": 0.3, "max_tokens": 220, "messages": [
         {"role": "system", "content": "You are Genesis, a local assistant on the user's computer, answering a short question sent from their phone. Reply in at most three sentences, plain text, no markdown."},
         {"role": "user", "content": text}]}).encode()
-    req = urllib.request.Request(ENDPOINT.rstrip("/") + "/chat/completions", data=body, headers={"content-type": "application/json"})
+    req = urllib.request.Request(ENDPOINT.rstrip("/") + "/chat/completions", data=body, headers=_router_headers({"content-type": "application/json"}))
     with urllib.request.urlopen(req, timeout=180) as r:
         return json.load(r)["choices"][0]["message"]["content"].strip()
 

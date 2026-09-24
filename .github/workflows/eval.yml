@@ -132,7 +132,7 @@ jobs:
           for i in $(seq 1 60); do vm 'curl -s -m 10 127.0.0.1:11510/api/state' | grep -q '"packs"' && break; sleep 5; done
           t_choose=$(date +%s)
           vm 'T=$(echo genesis | sudo -S cat /run/genesis/firstrun.token 2>/dev/null); curl -s -m 20 -H "X-Genesis-Token: $T" -H "Content-Type: application/json" -d "{\"pack\":\"tiny\",\"force\":true}" 127.0.0.1:11510/api/choose; echo'
-          for i in $(seq 1 120); do vm 'curl -s -m 10 127.0.0.1:8080/v1/models' 2>/dev/null | grep -q '"fast"' && { echo "small model serving $(( $(date +%s) - t_choose )) s after the choice"; break; }; sleep 10; done
+          for i in $(seq 1 120); do vm 'curl -s -m 10 -H "Authorization: Bearer $(cat /etc/genesis/router.key 2>/dev/null)" 127.0.0.1:8080/v1/models' 2>/dev/null | grep -q '"fast"' && { echo "small model serving $(( $(date +%s) - t_choose )) s after the choice"; break; }; sleep 10; done
           for i in $(seq 1 240); do
             st=$(vm 'curl -s -m 10 127.0.0.1:11510/api/state' | python3 -c 'import sys,json; p=json.load(sys.stdin).get("progress",{}); print(p.get("state",""), p.get("error","") or "")' 2>/dev/null || echo "?")
             echo "  $st"
@@ -148,7 +148,7 @@ jobs:
           fi
           # the maker is a user service: an SSH login has a user manager, but nothing started the daemons yet
           vm 'systemctl --user start genesis-permd genesis-agentd; sleep 3; systemctl --user is-active genesis-permd genesis-agentd'
-          for i in $(seq 1 60); do vm 'curl -s -m 10 127.0.0.1:8080/v1/models' | grep -q '"fast"' && break; sleep 10; done
+          for i in $(seq 1 60); do vm 'curl -s -m 10 -H "Authorization: Bearer $(cat /etc/genesis/router.key 2>/dev/null)" 127.0.0.1:8080/v1/models' | grep -q '"fast"' && break; sleep 10; done
           vm 'cat > /tmp/eval-makes.py' < prototype/eval-makes.py
           vm "python3 /tmp/eval-makes.py --shard $SHARD --of $OF --out /tmp/results.json --timeout 1500" 2>eval-progress.log | tee eval-summary.md
           vm 'cat /tmp/results.json' > results.json

@@ -60,7 +60,7 @@ pub fn transcribe(endpoint: &str, image: &Path) -> Result<String> {
             ]}
         ]
     });
-    let resp = ureq::post(&format!("{}/chat/completions", endpoint.trim_end_matches('/'))).timeout(std::time::Duration::from_secs(300)).send_json(body).map_err(|e| anyhow!("vision model: {}", e))?;
+    let resp = ureq::post(&format!("{}/chat/completions", endpoint.trim_end_matches('/'))).set("Authorization", &format!("Bearer {}", crate::llm::router_key())).timeout(std::time::Duration::from_secs(300)).send_json(body).map_err(|e| anyhow!("vision model: {}", e))?;
     let v: serde_json::Value = resp.into_json()?;
     Ok(v.pointer("/choices/0/message/content").and_then(|c| c.as_str()).unwrap_or("").to_string())
 }

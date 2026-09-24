@@ -49,7 +49,7 @@ fn ask_model_mode(cli: &Cli, question: &str, fix: bool) -> Result<String> {
         ]
     });
     let resp: serde_json::Value = ureq::post(&format!("{}/chat/completions", cli.endpoint.trim_end_matches('/')))
-        .set("Authorization", "Bearer local").timeout(std::time::Duration::from_secs(600)).send_json(body)
+        .set("Authorization", &format!("Bearer {}", std::fs::read_to_string("/etc/genesis/router.key").map(|k| k.trim().to_string()).unwrap_or_else(|_| "local".into()))).timeout(std::time::Duration::from_secs(600)).send_json(body)
         .map_err(|e| anyhow!("the local model service did not answer ({}). Is Genesis set up? Open Genesis Settings.", e))?
         .into_json().context("bad reply from the model service")?;
     let text = resp["choices"][0]["message"]["content"].as_str().unwrap_or("").trim().to_string();

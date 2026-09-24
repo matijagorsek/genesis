@@ -132,7 +132,7 @@ fn main() -> Result<()> {
             let id = uuid::Uuid::new_v4().to_string();
             broker.lock().unwrap().open_session(&id, mode, vec![project.display().to_string()], "cli")?;
             let shared = new_shared(&id, mode, &project.display().to_string(), &cli.model);
-            let mut agent = Agent::new(Client { endpoint: cli.endpoint.clone(), model: cli.model.clone(), api_key: "local".into() }, broker.clone(), id.clone(), project.clone(), shared.clone());
+            let mut agent = Agent::new(Client { endpoint: cli.endpoint.clone(), model: cli.model.clone(), api_key: llm::router_key() }, broker.clone(), id.clone(), project.clone(), shared.clone());
             agent.prompt_timeout = std::time::Duration::from_secs(1);
             agent.tx_store = Store::open(default_store()).ok();
             // headless: auto-resolve prompts per --prompts and print events as they happen
@@ -526,7 +526,7 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
             let v: serde_json::Value = serde_json::from_str(&body).unwrap_or(serde_json::Value::Null);
             let (instr, text) = (v.get("instruction").and_then(|i| i.as_str()).unwrap_or(""), v.get("text").and_then(|t| t.as_str()).unwrap_or(""));
             if text.trim().is_empty() { return Ok(req.respond(json_response(&serde_json::json!({"error": "nothing selected"}), 400))?); }
-            let client = Client { endpoint: d.endpoint.clone(), model: served_model_for(&d.endpoint, &d.model, "chat"), api_key: "local".into() };
+            let client = Client { endpoint: d.endpoint.clone(), model: served_model_for(&d.endpoint, &d.model, "chat"), api_key: llm::router_key() };
             let msgs = vec![llm::Message::system(instr.to_string()), llm::Message::user(agent::cut_at_char(text, 8000).to_string())];
             match client.chat(&msgs, &serde_json::json!([]), 0.2) {
                 Ok(r) => json_response(&serde_json::json!({"text": r.message.content.unwrap_or_default().trim()}), 200),
@@ -636,7 +636,7 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
                     d.broker.lock().unwrap().open_session(&id, mode, vec![project.display().to_string()], "api")?;
                     let model = served_model_for(&d.endpoint, &d.model, if n.kind == "chat" { "chat" } else { "make" });
                     let shared = new_shared(&id, mode, &project.display().to_string(), &model);
-                    let mut agent = Agent::new(Client { endpoint: d.endpoint.clone(), model, api_key: "local".into() }, d.broker.clone(), id.clone(), project, shared.clone());
+                    let mut agent = Agent::new(Client { endpoint: d.endpoint.clone(), model, api_key: llm::router_key() }, d.broker.clone(), id.clone(), project, shared.clone());
                     agent.tx_store = Store::open(default_store()).ok();
                     if n.kind == "chat" { agent.kind = "chat".into(); }
                     d.sessions.lock().unwrap().insert(id.clone(), (shared, Arc::new(Mutex::new(Some(agent)))));
@@ -1210,7 +1210,7 @@ fn system_overview(d: &Arc<Daemon>) -> serde_json::Value {
         }
     }
     let router = d.endpoint.trim_end_matches("/v1").to_string();
-    let running = ureq::get(&format!("{}/running", router)).timeout(std::time::Duration::from_secs(2)).call().ok().and_then(|r| r.into_json::<serde_json::Value>().ok());
+    let running = ureq::get(&format!("{}/running", router)).set("Authorization", &format!("Bearer {}", llm::router_key())).timeout(std::time::Duration::from_secs(2)).call().ok().and_then(|r| r.into_json::<serde_json::Value>().ok());
     let history: Vec<serde_json::Value> = Store::open(default_store()).ok().and_then(|s| s.list().ok()).unwrap_or_default().into_iter().rev().take(30)
         .map(|t| {
             // what the person asked for, when the job left a note of it, so the list is readable
@@ -1237,7 +1237,7 @@ fn system_overview(d: &Arc<Daemon>) -> serde_json::Value {
 fn served_model(endpoint: &str, wanted: &str) -> String { served_model_for(endpoint, wanted, "make") }
 
 pub(crate) fn served_model_for(endpoint: &str, wanted: &str, kind: &str) -> String {
-    let list = ureq::get(&format!("{}/models", endpoint.trim_end_matches('/'))).timeout(std::time::Duration::from_secs(8)).call().ok()
+    let list = ureq::get(&format!("{}/models", endpoint.trim_end_matches('/'))).set("Authorization", &format!("Bearer {}", llm::router_key())).timeout(std::time::Duration::from_secs(8)).call().ok()
         .and_then(|r| r.into_json::<serde_json::Value>().ok())
         .and_then(|v| v.get("data").and_then(|d| d.as_array()).map(|a| a.iter().filter_map(|m| m.get("id").and_then(|i| i.as_str()).map(|s| s.to_string())).collect::<Vec<_>>()));
     // On battery, with saving on, everything goes to the small always-loaded model -- including a model
@@ -1287,7 +1287,7 @@ fn run_queued(d: &Arc<Daemon>, item: &queue::Item) -> Result<()> {
     d.broker.lock().unwrap().open_session(&id, mode, vec![project.display().to_string()], "queue")?;
     let model = served_model_for(&d.endpoint, &d.model, "make");
     let shared = new_shared(&id, mode, &project.display().to_string(), &model);
-    let mut agent = Agent::new(Client { endpoint: d.endpoint.clone(), model, api_key: "local".into() }, d.broker.clone(), id.clone(), project, shared.clone());
+    let mut agent = Agent::new(Client { endpoint: d.endpoint.clone(), model, api_key: llm::router_key() }, d.broker.clone(), id.clone(), project, shared.clone());
     agent.tx_store = Store::open(default_store()).ok();
     let slot = Arc::new(Mutex::new(Some(agent)));
     d.sessions.lock().unwrap().insert(id.clone(), (shared.clone(), slot.clone()));
@@ -1443,7 +1443,7 @@ fn chat_session_for(d: &Arc<Daemon>, c: &chat::Chat) -> Result<String> {
     d.broker.lock().unwrap().open_session(&id, mode, vec![project.display().to_string()], "chat")?;
     let model = served_model_for(&d.endpoint, &d.model, "chat");
     let shared = new_shared(&id, mode, &project.display().to_string(), &model);
-    let mut agent = Agent::new(Client { endpoint: d.endpoint.clone(), model, api_key: "local".into() }, d.broker.clone(), id.clone(), project, shared.clone());
+    let mut agent = Agent::new(Client { endpoint: d.endpoint.clone(), model, api_key: llm::router_key() }, d.broker.clone(), id.clone(), project, shared.clone());
     agent.tx_store = Store::open(default_store()).ok();
     agent.kind = "chat".into();
     agent.messages[0] = crate::llm::Message::system(agent::SYSTEM_PROMPT_CHAT);
@@ -1527,7 +1527,7 @@ fn vision_answer(endpoint: &str, question: &str, png_b64: &str) -> anyhow::Resul
             ]}
         ]
     });
-    let resp = ureq::post(&format!("{}/chat/completions", endpoint.trim_end_matches('/'))).timeout(std::time::Duration::from_secs(240)).send_json(body);
+    let resp = ureq::post(&format!("{}/chat/completions", endpoint.trim_end_matches('/'))).set("Authorization", &format!("Bearer {}", llm::router_key())).timeout(std::time::Duration::from_secs(240)).send_json(body);
     match resp {
         Ok(r) => {
             let v: serde_json::Value = r.into_json()?;
@@ -1606,7 +1606,7 @@ fn openable(p: &str) -> anyhow::Result<std::path::PathBuf> {
 
 /// Is the model router answering at all (quick, 1.5 s)? The badge and the start page say so before a job is started.
 fn router_ok(endpoint: &str) -> bool {
-    ureq::get(&format!("{}/models", endpoint.trim_end_matches('/'))).timeout(std::time::Duration::from_millis(1500)).call().is_ok()
+    ureq::get(&format!("{}/models", endpoint.trim_end_matches('/'))).set("Authorization", &format!("Bearer {}", llm::router_key())).timeout(std::time::Duration::from_millis(1500)).call().is_ok()
 }
 
 /// The pairing code for the phone app: what genesis-companiond encodes, plus the QR as a PNG (qrencode).
