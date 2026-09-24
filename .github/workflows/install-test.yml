@@ -19,10 +19,6 @@ on:
         description: 'true = only print the ISO boot config and embedded kickstart'
         default: 'false'
 
-concurrency:
-  group: install-test
-  cancel-in-progress: true
-
 permissions:
   contents: read
   issues: write
@@ -30,6 +26,12 @@ permissions:
 jobs:
   install:
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    # on the job, not the workflow: a build that was superseded ends "cancelled", starts this workflow, and
+    # is skipped -- and at workflow level even a skipped run took the group and cancelled a real test that
+    # was twenty minutes into an install
+    concurrency:
+      group: install-test
+      cancel-in-progress: false
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
