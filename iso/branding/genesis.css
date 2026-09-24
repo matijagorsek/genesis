@@ -1,4 +1,6 @@
-/* Genesis: the installer wears the same colours as the desktop it installs. Placed on the install medium
+/* Genesis: the installer wears the same colours as the desktop it installs. The sidebar mark is the ring
+ * and dot alone, in the light of the two gradient colours: the app icon's dark rounded square, on the dark
+ * sidebar, was a dark square (seen in the first photograph of a working installer). Placed on the install medium
  * as /images/product.img, this file overlays /usr/share/anaconda/pixmaps/fedora.css -- the stylesheet the
  * installer's base profile loads -- so no profile switch is needed. The selectors are the stock ones. */
 @define-color genesis #0b0f14;
