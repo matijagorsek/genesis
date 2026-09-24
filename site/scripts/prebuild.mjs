@@ -10,4 +10,8 @@ for (const d of ['latest', 'fresh-run', 'more', 'phone', 'looks', 'installer']) 
 }
 mkdirSync(resolve(root, 'site/src/content/decisions'), { recursive: true });
 copyFileSync(resolve(root, 'docs/decisions.md'), resolve(root, 'site/src/content/decisions/log.md'));
-console.log('prebuild: screens and the decision log copied in');
+// the catalogue the machine ships, for the live widget on the front page
+mkdirSync(resolve(root, 'site/src/data'), { recursive: true });
+copyFileSync(resolve(root, 'system_files/usr/share/genesis/apps.json'), resolve(root, 'site/src/data/apps.json'));
+await import('./og.mjs');
+console.log('prebuild: screens, the decision log, the catalogue and the share card');

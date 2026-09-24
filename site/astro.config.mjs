@@ -8,5 +8,7 @@ export default defineConfig({
   base: '/genesis',
   output: 'static',
   trailingSlash: 'ignore',
-  build: { format: 'file', assets: 'assets' },
+  // styles inline in every page: the manual also lives inside the image, opened as a file, where an
+  // absolute stylesheet link is a page with no styling at all
+  build: { format: 'file', assets: 'assets', inlineStylesheets: 'always' },
 });

@@ -1,0 +1,52 @@
+---
+// The catalogue, live: the same apps.json the machine ships, searchable on the page. Type "notes" and
+// get Obsidian with its reason -- which is the whole argument for a catalogue over a store.
+import cat from '../data/apps.json';
+type App = { id: string; title: string; why: string; kind: string; ref: string; category: string };
+const apps: App[] = cat.categories.flatMap((c: any) => c.apps.map((a: any) => ({ ...a, category: c.name })));
+const count = apps.length;
+---
+<div class="cat" id="catalogue" data-apps={JSON.stringify(apps)}>
+  <div class="n">CATALOGUE</div>
+  <h3>{count} apps with a reason each. Try it.</h3>
+  <p>Not a store with forty thousand. One answer per need — type what you need, not what it's called — and one word to install. The assistant reads the same list.</p>
+  <label class="search"><span class="d">$</span> genesis-apps search <input id="catq" type="search" placeholder="notes" autocomplete="off" spellcheck="false" aria-label="search the catalogue" /></label>
+  <ul id="catlist" aria-live="polite"></ul>
+  <p class="how"><code>genesis-apps install <span id="catpick">obsidian</span></code> — that's the whole install. Apps install for you; the image is never touched.</p>
+</div>
+
+<script>
+  const root = document.getElementById('catalogue');
+  if (root) {
+    type App = { id: string; title: string; why: string; kind: string; category: string };
+    const apps: App[] = JSON.parse(root.dataset.apps ?? '[]');
+    const q = document.getElementById('catq') as HTMLInputElement, list = document.getElementById('catlist')!, pick = document.getElementById('catpick')!;
+    const show = (term: string) => {
+      const t = term.trim().toLowerCase();
+      const hits = (t ? apps.filter((a) => [a.id, a.title, a.why, a.category].join(' ').toLowerCase().includes(t)) : apps.slice(0, 6)).slice(0, 6);
+      list.innerHTML = hits.map((a) => `<li><b>${a.id}</b><span class="k2">${a.kind === 'here' ? 'already here' : a.kind}</span><em>${a.title}</em><span>${a.why}</span></li>`).join('') || '<li class="none">nothing in the catalogue — <code>genesis-apps search</code> looks on Flathub next</li>';
+      if (hits[0]) pick.textContent = hits[0].id;
+    };
+    show(''); q.addEventListener('input', () => show(q.value));
+    // a demo that types itself once, so the tile is never empty when it scrolls into view
+    const demo = ['notes', 'photo', 'password', 'game'];
+    let started = false;
+    const io = new IntersectionObserver((es) => { if (es[0].isIntersecting && !started) { started = true; io.disconnect(); let i = 0, k = 0; const step = () => { if (document.activeElement === q) return; const w = demo[i]; q.value = w.slice(0, ++k); show(q.value); if (k < w.length) setTimeout(step, 90); else if (++i < demo.length) { k = 0; setTimeout(step, 1600); } }; setTimeout(step, 600); } });
+    io.observe(root);
+  }
+</script>
+
+<style>
+  .cat h3{margin:0 0 8px;font-size:22px;letter-spacing:-.01em}.cat p{color:var(--ink2);font-size:15.5px;margin:0 0 14px;max-width:60ch}
+  .cat .n{font-family:"IBM Plex Mono",ui-monospace,monospace;color:var(--acc);font-size:12px;letter-spacing:.14em;margin-bottom:10px}
+  .search{display:flex;align-items:center;gap:8px;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:14px;background:color-mix(in srgb,var(--bg) 70%,black);border:1px solid var(--line);border-radius:10px;padding:10px 14px;color:var(--ink2)}
+  .search .d{color:var(--acc)}.search input{flex:1;min-width:0;background:transparent;border:0;outline:0;color:var(--ink);font:inherit}
+  #catlist{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:6px}
+  #catlist :global(li){display:grid;grid-template-columns:auto auto 1fr;gap:4px 12px;align-items:baseline;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:color-mix(in srgb,var(--panel) 80%,transparent);font-size:14px}
+  #catlist :global(li b){font-family:"IBM Plex Mono",ui-monospace,monospace;color:var(--acc);font-weight:500}
+  #catlist :global(li .k2){font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+  #catlist :global(li em){font-style:normal;color:var(--ink);font-weight:700}
+  #catlist :global(li > span:last-child){grid-column:1/-1;color:var(--ink2)}
+  #catlist :global(li.none){grid-template-columns:1fr;color:var(--mute)}
+  .cat .how{margin:12px 0 0;font-size:14px;color:var(--mute)}
+</style>

@@ -26,6 +26,7 @@ for (const needle of ['id="dl"', 'id="rel"', 'api.github.com/repos/matijagorsek/
 const manual = readFileSync(join(dist, 'manual.html'), 'utf8');
 if (/href="https:\/\/fonts\./.test(manual)) fail('manual.html loads web fonts; it must open offline');
 if (/src="\/genesis\//.test(manual)) fail('manual.html has absolute picture paths; the image copy would break');
+if (/<link rel="stylesheet" href="\//.test(manual)) fail('manual.html links an absolute stylesheet; opened as a file in the image it would be unstyled');
 for (const phrase of ['10 to 30 minutes', "It isn't", 'Nothing restarts on its own', 'Nothing, by default', 'It is working, not stuck', 'rollback'])
   if (!manual.includes(phrase)) fail(`manual.html lost: ${phrase}`);
 const mb = (p) => statSync(p).size / 1e6;
