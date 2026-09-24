@@ -129,6 +129,7 @@ COPY docs/screens/latest/02-login.png docs/screens/latest/03-first-run.png /usr/
 COPY docs/screens/fresh-run/03-pomodoro-made-by-the-2B-model.png /usr/share/doc/genesis/screens/fresh-run/
 COPY docs/screens/more/02-screen-region-asked.png docs/screens/more/03-settings.png /usr/share/doc/genesis/screens/more/
 COPY docs/screens/phone/05-phone-replies.png /usr/share/doc/genesis/screens/phone/
+COPY docs/screens/installer/anaconda-wearing-genesis.png /usr/share/doc/genesis/screens/installer/
 # the release notes people read in Settings > Updates come from the repository's own notes
 COPY docs/releases/0.2.md /usr/share/genesis/release-notes.md
 COPY packs/ /usr/share/genesis/packs/

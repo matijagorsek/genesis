@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 const root = resolve(new URL('..', import.meta.url).pathname, '..');
 const from = resolve(root, 'docs/screens'), to = resolve(root, 'site/public/screens');
 rmSync(to, { recursive: true, force: true }); mkdirSync(to, { recursive: true });
-for (const d of ['latest', 'fresh-run', 'more', 'phone', 'looks']) {
+for (const d of ['latest', 'fresh-run', 'more', 'phone', 'looks', 'installer']) {
   if (existsSync(resolve(from, d))) cpSync(resolve(from, d), resolve(to, d), { recursive: true });
 }
 mkdirSync(resolve(root, 'site/src/content/decisions'), { recursive: true });
