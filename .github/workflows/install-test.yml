@@ -77,3 +77,93 @@ jobs:
             if xorriso -osirrox on -indev genesis.iso -extract "$k" embedded.ks >/dev/null 2>&1; then echo "--- embedded kickstart $k:"; cat embedded.ks; echo "EMBEDDED_KS=$k" >> "$GITHUB_ENV"; break; fi
           done
           ls -la vmlinuz initrd.img 2>/dev/null
+          xorriso -osirrox on -indev genesis.iso -extract /osbuild-base.ks base.ks >/dev/null 2>&1 && { echo "--- osbuild-base.ks:"; cat base.ks; }
+
+      # The test kickstart includes the ISO's own, unchanged, and adds only what an unattended install needs:
+      # a disk, an account, power off when done, and SSH so the checks can ask the installed machine things.
+      # Everything the product ships -- the image, the %post that copies the models -- runs as it would on a
+      # person's machine.
+      - name: Install, unattended
+        if: github.event.inputs.discover != 'true'
+        run: |
+          set -uo pipefail
+          cd iso
+          cat > test.ks <<'KS'
+          %include /run/install/repo/osbuild.ks
+          text
+          zerombr
+          clearpart --all --initlabel
+          autopart --noswap
+          user --name=gtest --groups=wheel --password=genesis-install-test --plaintext
+          poweroff
+          %post --log=/var/log/genesis-install-test.log
+          systemctl enable sshd
+          mkdir -p /etc/ssh/sshd_config.d
+          printf 'PasswordAuthentication yes\n' > /etc/ssh/sshd_config.d/99-install-test.conf
+          %end
+          KS
+          sed -i 's/^          //' test.ks
+          echo "--- the test kickstart:"; cat test.ks
+          ( python3 -m http.server 8000 --bind 127.0.0.1 >/dev/null 2>&1 & echo $! > httpd.pid )
+          qemu-img create -f qcow2 disk.qcow2 48G >/dev/null
+          FW=/usr/share/ovmf/OVMF.fd; [ -f "$FW" ] || FW=/usr/share/OVMF/OVMF.fd
+          cp /usr/share/OVMF/OVMF_VARS_4M.fd vars.fd 2>/dev/null || true
+          start=$(date +%s)
+          timeout 3600 qemu-system-x86_64 -enable-kvm -cpu host -m 6144 -smp 4 -bios "$FW" \
+            -drive file=disk.qcow2,if=virtio,format=qcow2 -cdrom genesis.iso \
+            -kernel vmlinuz -initrd initrd.img \
+            -append "inst.stage2=hd:LABEL=Container-Installer-x86_64 inst.ks=http://10.0.2.2:8000/test.ks inst.text console=ttyS0,115200" \
+            -netdev user,id=n0 -device virtio-net-pci,netdev=n0 \
+            -display none -serial file:install-serial.log -monitor none
+          rc=$?; kill "$(cat httpd.pid)" 2>/dev/null || true
+          echo "installer exited with $rc after $(( ( $(date +%s) - start ) / 60 )) min"
+          echo "--- the end of the installer's console:"; tail -40 install-serial.log | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g'
+          grep -qiE "problem occurred|Unknown kickstart|Pane is dead|installation failed|traceback" install-serial.log && { echo "::error::the installer failed; see its console above"; exit 1; }
+          [ "$rc" -eq 0 ] || { echo "::error::the installer did not power off on its own (exit $rc)"; exit 1; }
+          qemu-img info disk.qcow2 | grep -E "disk size"
+
+      # The installed machine, booted with no way out to the internet: user-mode networking with restrict=on
+      # reaches nothing but the forwarded SSH port. Whatever it answers, it answers with what is on its disk.
+      - name: Boot what was installed, offline, and ask it
+        if: github.event.inputs.discover != 'true'
+        run: |
+          set -uo pipefail
+          cd iso
+          FW=/usr/share/ovmf/OVMF.fd; [ -f "$FW" ] || FW=/usr/share/OVMF/OVMF.fd
+          nohup qemu-system-x86_64 -enable-kvm -cpu host -m 6144 -smp 4 -bios "$FW" \
+            -drive file=disk.qcow2,if=virtio,format=qcow2 \
+            -netdev user,id=n0,restrict=on,hostfwd=tcp:127.0.0.1:2222-:22 -device virtio-net-pci,netdev=n0 \
+            -display none -serial file:boot-serial.log -monitor none >qemu.out 2>&1 &
+          Q=$!
+          vm() { sshpass -p genesis-install-test ssh -p 2222 -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR gtest@127.0.0.1 "$@"; }
+          for i in $(seq 1 90); do vm true 2>/dev/null && break; kill -0 $Q 2>/dev/null || { echo "::error::the installed machine did not stay up"; tail -30 boot-serial.log; exit 1; }; sleep 10; done
+          vm true || { echo "::error::no SSH from the installed machine after 15 minutes"; tail -40 boot-serial.log; exit 1; }
+          echo "up after about $(( i * 10 ))s"
+          echo "--- what it is:"; vm 'grep -E "^(PRETTY_NAME|IMAGE_VERSION)=" /etc/os-release'
+          echo "--- is it offline? (it must not reach the internet)"; vm 'curl -s -m 8 -o /dev/null -w "%{http_code}" https://ghcr.io || echo " no way out: good"'
+          echo "--- the models the ISO put on the disk:"; vm 'ls -la /var/lib/genesis/models/*/ 2>&1; echo; echo genesis-install-test | sudo -S cat /var/log/genesis-models-from-iso.log 2>/dev/null'
+          models=$(vm 'ls /var/lib/genesis/models/fast/*.gguf 2>/dev/null | wc -l')
+          answer=""
+          for i in $(seq 1 30); do
+            answer=$(vm 'curl -s -m 120 -H "Content-Type: application/json" -d "{\"model\":\"fast\",\"messages\":[{\"role\":\"user\",\"content\":\"Say hello in five words.\"}],\"max_tokens\":20}" 127.0.0.1:8080/v1/chat/completions' 2>/dev/null || true)
+            case "$answer" in *'"content"'*) echo "the assistant answered after about $(( i * 20 ))s of asking"; break ;; esac
+            answer=""; sleep 20
+          done
+          echo "--- router config: $(vm 'ls -la /etc/genesis/router.yaml 2>&1')"
+          echo "--- first run: $(vm 'ls /var/lib/genesis/first-run-done 2>&1; systemctl is-active genesis-firstrun genesis-router 2>&1 | paste -sd" "')"
+          echo "--- first run said:"; vm 'echo genesis-install-test | sudo -S journalctl -b -u genesis-firstrun --no-pager -o cat 2>/dev/null | tail -12'
+          vm 'echo genesis-install-test | sudo -S systemctl poweroff' >/dev/null 2>&1 || true
+          sleep 10; kill $Q 2>/dev/null || true
+          echo "answer: ${answer:0:300}"
+          [ "$models" -gt 0 ] || { echo "::error::no model on the installed disk: the kickstart's copy did not happen"; exit 1; }
+          [ -n "$answer" ] || { echo "::error::the installed machine has its models and did not answer, offline"; exit 1; }
+          echo "install-test: $TAG installed unattended, booted offline, $models small-model file(s) on disk, and answered"
+
+      - uses: actions/upload-artifact@v4
+        if: always() && github.event.inputs.discover != 'true'
+        with:
+          name: install-test-consoles
+          path: |
+            iso/install-serial.log
+            iso/boot-serial.log
+          if-no-files-found: ignore
