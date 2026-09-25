@@ -1,0 +1,50 @@
+name: speed
+
+# How fast the models answer on a CPU, with and without speculative decoding: the llama.cpp build the
+# image ships, the models the CPU pack ships, the router's own flags, on a four-core runner -- a
+# reasonable stand-in for a laptop with no usable GPU. By hand, when a change to how models run needs a
+# number rather than a belief (decision 100 said a drafter slows a CPU down; nobody had measured it).
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bench:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - name: llama.cpp, the build the image ships
+        run: |
+          set -euo pipefail
+          b=$(grep -m1 '^ARG LLAMA_CPP_BUILD=' Containerfile | cut -d= -f2)
+          sum=$(grep -m1 '^ARG LLAMA_CPP_SHA256=' Containerfile | cut -d= -f2)
+          curl -fsSL --retry 5 -o llama.tgz "https://github.com/ggml-org/llama.cpp/releases/download/$b/llama-$b-bin-ubuntu-vulkan-x64.tar.gz"
+          echo "$sum  llama.tgz" | sha256sum -c -
+          mkdir llama && tar -xzf llama.tgz -C llama --strip-components=1
+          sudo apt-get update -q >/dev/null; sudo apt-get install -y -q libvulkan1 >/dev/null
+          echo "LD_LIBRARY_PATH=$PWD/llama" >> "$GITHUB_ENV"
+          LD_LIBRARY_PATH=$PWD/llama ./llama/llama-server --version 2>&1 | tail -2
+          nproc; free -g | head -2
+      - name: The models
+        run: |
+          set -euo pipefail
+          mkdir -p models && cd models
+          for f in 9B/Qwen3.5-9B-Q4_K_M 4B/Qwen3.5-4B-Q4_K_M 2B/Qwen3.5-2B-Q4_K_M 0.8B/Qwen3.5-0.8B-Q4_K_M; do
+            size=${f%%/*}; name=${f#*/}
+            curl -fsSL --retry 5 -o "$name.gguf" "https://huggingface.co/unsloth/Qwen3.5-$size-GGUF/resolve/main/$name.gguf"
+          done
+          ls -la
+      - name: Measure
+        run: python3 tools/speed-bench.py --server "$PWD/llama/llama-server" --models "$PWD/models" --out speed.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: speed
+          path: |
+            speed.json
+            speed.logs/
+          if-no-files-found: ignore
