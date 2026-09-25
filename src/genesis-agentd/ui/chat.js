@@ -4,6 +4,8 @@ const GENESIS_TOKEN='__GENESIS_TOKEN__';(function(){const f=window.fetch.bind(wi
   function localise(root){if(!I18N[LANG])return;const walk=document.createTreeWalker(root||document.body,NodeFilter.SHOW_TEXT);let n;while((n=walk.nextNode())){const raw=n.nodeValue.trim();if(raw&&T[raw])n.nodeValue=n.nodeValue.replace(raw,T[raw])}(root||document).querySelectorAll('[placeholder],[title],[aria-label]').forEach(el=>{for(const a of ['placeholder','title','aria-label']){const v=el.getAttribute(a);if(v&&T[v])el.setAttribute(a,T[v])}})}
   localise();
   const $=s=>document.querySelector(s);const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  // read chat's opening into the model while the question is still being typed (agent::warm)
+  fetch('/api/warm',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'chat'})}).catch(()=>{});
   async function api(p,body,method){const r=await fetch(p,body?{method:method||'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:(method?{method}:{}));try{return await r.json()}catch{return {}}}
   // plain text with code fences and inline code; everything else stays literal
   function render(text){const parts=String(text).split(/```/);return parts.map((p,i)=>i%2?'<pre>'+esc(p.replace(/^[a-z]*\n/,''))+'</pre>':esc(p).replace(/`([^`\n]+)`/g,'<code>$1</code>')).join('')}

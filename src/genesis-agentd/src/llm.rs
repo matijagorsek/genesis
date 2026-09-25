@@ -104,6 +104,17 @@ impl Client {
         }
     }
 
+    /// Have the model read these messages and tools and say one token: what it read stays in its cache.
+    /// Patient, because this is the call that loads a model that was not loaded.
+    pub fn warm(&self, messages: &[Message], tools: &Value) -> Result<()> {
+        let body = serde_json::json!({"model": self.model, "messages": messages, "tools": tools, "tool_choice": "auto", "max_tokens": 1, "temperature": 0.0, "stream": false});
+        ureq::post(&format!("{}/chat/completions", self.endpoint.trim_end_matches('/')))
+            .set("Authorization", &format!("Bearer {}", self.api_key))
+            .timeout(std::time::Duration::from_secs(900))
+            .send_json(body).map_err(|e| anyhow!("warm-up: {}", e))?;
+        Ok(())
+    }
+
     fn chat_once_with(&self, messages: &[Message], tools: &Value, temperature: f64, tool_choice: &str) -> Result<Reply> {
         let body = serde_json::json!({
             "model": self.model,

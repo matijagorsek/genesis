@@ -186,6 +186,22 @@ fn main() -> Result<()> {
             }
             tracing::info!(listen = %listen, endpoint = %cli.endpoint, model = %cli.model, "genesis-agentd serving");
             let d = Arc::new(Daemon { endpoint: cli.endpoint.clone(), model: cli.model.clone(), broker, sessions: Mutex::new(HashMap::new()), listen: listen.to_string(), token: load_or_create_token("agentd"), chat_sessions: Mutex::new(HashMap::new()) });
+            // At login the model service may still be starting: once it answers, read the chat opening into
+            // the always-loaded small model, so the first question of the day waits only for itself.
+            {
+                let endpoint = cli.endpoint.clone();
+                let wanted = cli.model.clone();
+                std::thread::spawn(move || {
+                    for _ in 0..45 {
+                        if router_ok(&endpoint) {
+                            let model = served_model_for(&endpoint, &wanted, "chat");
+                            warm_in_background(&endpoint, &model, "chat");
+                            return;
+                        }
+                        std::thread::sleep(std::time::Duration::from_secs(20));
+                    }
+                });
+            }
             // make it while I sleep: the queue runner, once a minute
             {
                 let d = d.clone();
@@ -648,6 +664,16 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
                 Err(e) => json_response(&serde_json::json!({"error": e.to_string()}), 400),
             }
         }
+        // The maker or the palette has opened: read the opening of the job it is about to start into the
+        // model the job will use, while the person is still typing. Answers at once; the reading happens
+        // behind it. A page that opens again within a minute does not ask twice.
+        (Method::Post, ["api", "warm"]) => {
+            let v: serde_json::Value = serde_json::from_str(&body).unwrap_or(serde_json::Value::Null);
+            let kind = if v.get("kind").and_then(|k| k.as_str()) == Some("chat") { "chat" } else { "make" };
+            let model = served_model_for(&d.endpoint, &d.model, kind);
+            let started = warm_in_background(&d.endpoint, &model, kind);
+            json_response(&serde_json::json!({"warming": started, "model": model, "kind": kind}), 200)
+        }
         (Method::Get, ["api", "sessions"]) => {
             let list: Vec<serde_json::Value> = d.sessions.lock().unwrap().values().map(|(s, _)| { let i = s.info.lock().unwrap(); serde_json::json!({"id": i.id, "mode": i.mode, "project": i.project, "state": i.state, "transaction": i.transaction}) }).collect();
             json_response(&list, 200)
@@ -825,6 +851,23 @@ mod tests {
             }
         });
         format!("http://{}/v1", addr)
+    }
+
+    #[test]
+    fn the_warm_up_reads_exactly_what_a_job_starts_with() {
+        // a warm-up that read anything else would save nothing: the cache holds tokens, not intentions
+        for kind in ["make", "chat"] {
+            let proj = tempfile::tempdir().unwrap();
+            let ep = fake_llm(vec![serde_json::json!({"role":"assistant","content":"done"})]);
+            let (mut agent, _) = setup(proj.path(), Mode::AutoEdit, ep);
+            if kind == "chat" { agent.kind = "chat".into(); }
+            agent.run("hello").unwrap();
+            let (opening, _tools) = agent::opening(kind, &agent.client.model);
+            let sent: Vec<serde_json::Value> = agent.messages.iter().take(opening.len()).map(|m| serde_json::to_value(m).unwrap()).collect();
+            let warmed: Vec<serde_json::Value> = opening.iter().map(|m| serde_json::to_value(m).unwrap()).collect();
+            assert_eq!(sent, warmed, "{}: the first request does not start with the warm-up's opening", kind);
+            assert_eq!(serde_json::to_value(agent::tools_for(kind == "chat", agent::compact_model(&agent.client.model))).unwrap(), _tools);
+        }
     }
 
     fn setup(project: &std::path::Path, mode: Mode, endpoint: String) -> (Agent, Arc<Shared>) {
@@ -1295,6 +1338,29 @@ pub(crate) fn served_model_for(endpoint: &str, wanted: &str, kind: &str) -> Stri
         Some(ids) if !ids.is_empty() => pick_model(&ids, wanted, kind, battery),
         _ => wanted.to_string(),
     }
+}
+
+static WARMED: std::sync::LazyLock<Mutex<HashMap<String, std::time::Instant>>> = std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
+
+/// Start a warm-up (agent::warm) unless the same model was warmed for the same kind of job in the last
+/// minute. Returns whether one was started.
+fn warm_in_background(endpoint: &str, model: &str, kind: &str) -> bool {
+    let key = format!("{} {}", kind, model);
+    {
+        let mut w = WARMED.lock().unwrap();
+        if w.get(&key).map(|t| t.elapsed() < std::time::Duration::from_secs(60)).unwrap_or(false) { return false; }
+        w.insert(key, std::time::Instant::now());
+    }
+    let client = Client { endpoint: endpoint.to_string(), model: model.to_string(), api_key: llm::router_key() };
+    let kind = kind.to_string();
+    std::thread::spawn(move || {
+        let t = std::time::Instant::now();
+        match agent::warm(&client, &kind) {
+            Ok(()) => tracing::info!(model = %client.model, kind = %kind, secs = t.elapsed().as_secs(), "warmed: the opening of a job is read"),
+            Err(e) => tracing::warn!(%e, model = %client.model, "warm-up failed; the first job reads its opening itself"),
+        }
+    });
+    true
 }
 
 /// The choice itself, apart from the network, so it can be pinned.

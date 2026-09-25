@@ -26,6 +26,8 @@
       try{const r=await fetch('/api/transcribe',{method:'POST',headers:{'content-type':'audio/wav'},body:wavEncode(chunks,rate)});const j=await r.json();if(j.error)throw new Error(j.error);target.value=(target.value?target.value+' ':'')+j.text;target.placeholder='';if(onDone&&j.text)onDone(j.text)}catch(err){target.placeholder='Could not transcribe: '+err.message}}
     btn.addEventListener('pointerdown',start);btn.addEventListener('pointerup',stop);btn.addEventListener('keydown',e=>{if((e.key===' '||e.key==='Enter')&&!e.repeat){e.preventDefault();start(e)}});btn.addEventListener('keyup',e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();stop(e)}});btn.addEventListener('pointerleave',stop);
   }
+  // read the maker's opening into the model while the request is still being typed (agent::warm)
+  fetch('/api/warm',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'make'})}).catch(()=>{});
   fetch('/api/health').then(r=>r.json()).then(h=>{if(h.voice){document.getElementById('micAsk').hidden=false;document.getElementById('micSteer').hidden=false}}).catch(()=>{});
   // Voice output: Piper on this machine reads the maker's replies aloud when the speaker is on.
   let speakOn=false;try{speakOn=localStorage.getItem('genesis.speak')==='1'}catch(e){}

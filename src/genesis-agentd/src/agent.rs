@@ -91,6 +91,39 @@ pub fn tool_schemas_chat() -> Value {
     Value::Array(all.as_array().unwrap().iter().filter(|t| keep.contains(&t["function"]["name"].as_str().unwrap_or(""))).cloned().collect())
 }
 
+/// The tools a job of this kind offers the model.
+pub fn tools_for(chat: bool, compact: bool) -> Value {
+    let mut tools = if chat { tool_schemas_chat() } else if compact { tool_schemas_compact() } else { tool_schemas() };
+    // A small model gets the maker's own tools only: the system server's nineteen schemas cost about
+    // nine hundred tokens of a sixteen-thousand-token window on every single request, and a 2B model
+    // does not need printers or Bluetooth to build a checklist. Chat and the bigger models keep them.
+    if !compact || chat {
+        tools.as_array_mut().unwrap().extend(crate::mcp::tool_schemas());
+    }
+    tools
+}
+
+/// What every job of a kind starts with, before the person's own words: the instructions, the worked
+/// example a small model gets, and the tools -- 1000 to 2800 tokens. `run` starts from exactly this, and
+/// so does `warm`, which is the point: a warm-up that read anything else would save nothing.
+pub fn opening(kind: &str, model: &str) -> (Vec<Message>, Value) {
+    let chat = kind == "chat";
+    let compact = compact_model(model);
+    let mut messages = vec![Message::system(if chat { SYSTEM_PROMPT_CHAT } else if compact { SYSTEM_PROMPT_COMPACT } else { SYSTEM_PROMPT })];
+    if !chat && compact && std::env::var("GENESIS_NO_EXAMPLE").is_err() { messages.extend(worked_example()); }
+    (messages, tools_for(chat, compact))
+}
+
+/// Read a job's opening into the model before the job, so the first answer waits only for the person's
+/// own words. A laptop reads a prompt at 17 tokens a second: the maker's opening alone was 110 seconds
+/// before the first word, every time a model had just been loaded. Measured on the 27B, a warmed first
+/// request read 24 tokens instead of 1869 -- the server keeps what it read, and its checkpoints on the
+/// hybrid Qwen3.5 layers land where the real request goes on from there (tools/prefill-bench.py).
+pub fn warm(client: &Client, kind: &str) -> Result<()> {
+    let (messages, tools) = opening(kind, &client.model);
+    client.warm(&messages, &tools)
+}
+
 pub fn compact_model(model: &str) -> bool {
     let m = model.to_lowercase();
     m == "fast" || m == "auto" || m.contains("tiny") || m.contains("-2b") || m.contains("-4b") || cpu_only_machine()
@@ -437,13 +470,7 @@ impl Agent {
         else { self.messages.push(Message::user(format!("Project directory: {}\n\nTask: {}", self.project.display(), text))); }
         // the user's MCP tools join every tool set: they are few, plainly described, and the way a small
         // model answers "is an update waiting?" or "install VLC" on a CPU-only machine
-        let mut tools = if chat { tool_schemas_chat() } else if compact { tool_schemas_compact() } else { tool_schemas() };
-        // A small model gets the maker's own tools only: the system server's nineteen schemas cost about
-        // nine hundred tokens of a sixteen-thousand-token window on every single request, and a 2B model
-        // does not need printers or Bluetooth to build a checklist. Chat and the bigger models keep them.
-        if !compact || chat {
-            tools.as_array_mut().unwrap().extend(crate::mcp::tool_schemas());
-        }
+        let tools = tools_for(chat, compact);
         let mut final_text = String::new();
         for turn in 0..self.max_turns {
             if self.shared.stopped() { return self.finish_stopped(); }
@@ -1057,5 +1084,22 @@ mod compact_tests {
         assert!(!on_battery_saving_at(d.path(), &d.path().join("none")));
         let n = tool_schemas_compact().as_array().unwrap().len();
         assert!(n >= 8 && n < tool_schemas().as_array().unwrap().len());
+    }
+}
+
+#[cfg(test)]
+mod dump_opening {
+    /// Not a check: writes what the first request of each kind of job carries, for tools/prefill-bench.py
+    #[test]
+    #[ignore]
+    fn dump() {
+        use super::*;
+        let mut tf = tool_schemas(); tf.as_array_mut().unwrap().extend(crate::mcp::tool_schemas());
+        let mut tc = tool_schemas_chat(); tc.as_array_mut().unwrap().extend(crate::mcp::tool_schemas());
+        let mut cm = vec![Message::system(SYSTEM_PROMPT_COMPACT)]; cm.extend(worked_example());
+        let full = serde_json::json!({"messages": [Message::system(SYSTEM_PROMPT)], "tools": tf});
+        let compact = serde_json::json!({"messages": cm, "tools": tool_schemas_compact()});
+        let chat = serde_json::json!({"messages": [Message::system(SYSTEM_PROMPT_CHAT)], "tools": tc});
+        std::fs::write("/w/opening.json", serde_json::json!({"make": full, "make-compact": compact, "chat": chat}).to_string()).unwrap();
     }
 }
