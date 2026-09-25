@@ -348,6 +348,10 @@ pub struct Agent {
     pub noop_writes: usize,
     /// completion checks asked in this run (at most two)
     pub completion_checks: u8,
+    /// the end of the last run's output when it failed, empty after a clean one
+    pub last_run_failure: String,
+    /// writes in a row that put back exactly what the file held
+    pub identical_writes: usize,
     /// Project directory the maker tools currently target (set by scaffold).
     pub active_project: Option<PathBuf>,
     /// "make" (the maker, default) or "chat" (the assistant: chat prompt, read-only tools, the user's MCP tools).
@@ -376,7 +380,7 @@ fn resolve_path(project: &Path, p: &str) -> PathBuf {
 
 impl Agent {
     pub fn new(client: Client, broker: Arc<Mutex<Broker>>, session_id: String, project: PathBuf, shared: Arc<Shared>) -> Self {
-        Agent { client, broker, session_id, project, shared, max_turns: 40, prompt_timeout: Duration::from_secs(600), messages: vec![Message::system(SYSTEM_PROMPT)], tx_store: None, tx: None, previews: maker::Previews::default(), active_project: None, browser: None, last_prompt: String::new(), scaffolded: false, edited_after_scaffold: false, nudged: false, writes_since_run: 0, nudged_writes: false, last_write: String::new(), last_run: String::new(), same_run_streak: 0, last_failure: String::new(), failure_streak: 0, ran_clean: false, same_file_streak: 0, runs_since_write: 0, total_writes: 0, noop_writes: 0, completion_checks: 0, kind: "make".into() }
+        Agent { client, broker, session_id, project, shared, max_turns: 40, prompt_timeout: Duration::from_secs(600), messages: vec![Message::system(SYSTEM_PROMPT)], tx_store: None, tx: None, previews: maker::Previews::default(), active_project: None, browser: None, last_prompt: String::new(), scaffolded: false, edited_after_scaffold: false, nudged: false, writes_since_run: 0, nudged_writes: false, last_write: String::new(), last_run: String::new(), same_run_streak: 0, last_failure: String::new(), failure_streak: 0, ran_clean: false, same_file_streak: 0, runs_since_write: 0, total_writes: 0, noop_writes: 0, completion_checks: 0, last_run_failure: String::new(), identical_writes: 0, kind: "make".into() }
     }
 
     /// The plan card: what the job will touch and the steps, before anything runs. One short model call
@@ -482,7 +486,8 @@ impl Agent {
         self.shared.push(Event::UserPrompt { text: text.into() });
         self.shared.set_state("running");
         self.last_prompt = text.to_string();
-        self.scaffolded = false; self.edited_after_scaffold = false; self.nudged = false; self.writes_since_run = 0; self.nudged_writes = false; self.last_write.clear(); self.same_file_streak = 0; self.last_run.clear(); self.same_run_streak = 0; self.last_failure.clear(); self.failure_streak = 0; self.ran_clean = false; self.runs_since_write = 0; self.total_writes = 0; self.noop_writes = 0; self.completion_checks = 0;
+        self.scaffolded = false; self.edited_after_scaffold = false; self.nudged = false; self.writes_since_run = 0; self.nudged_writes = false; self.last_write.clear(); self.same_file_streak = 0; self.last_run.clear(); self.same_run_streak = 0; self.last_failure.clear(); self.failure_streak = 0; self.ran_clean = false; self.runs_since_write = 0; self.total_writes = 0; self.noop_writes = 0; self.completion_checks = 0; self.identical_writes = 0;
+        self.last_run_failure = std::env::var("GENESIS_TEST_LAST_RUN_FAILURE").ok().filter(|_| cfg!(test)).unwrap_or_default();
         let compact = compact_model(&self.client.model);
         let chat = self.kind == "chat";
         if chat { if self.messages.first().map(|m| m.content.as_deref() != Some(SYSTEM_PROMPT_CHAT)).unwrap_or(true) { self.messages[0] = Message::system(SYSTEM_PROMPT_CHAT); } }
@@ -693,6 +698,20 @@ impl Agent {
                     self.shared.set_state("error");
                     return Err(anyhow!(msg));
                 }
+                // Six times the same file back, unchanged, after being told what the run said: the model has
+                // nothing else to try. Sixteen of these took the word counter ten minutes to reach the stop
+                // below. Say what it was stuck on.
+                if !chat && is_write && self.identical_writes >= 6 {
+                    self.shared.push(Event::ToolResult { id: call.id.clone(), ok, summary: text.chars().take(200).collect() });
+                    let msg = if self.last_run_failure.is_empty() {
+                        "Genesis stopped this job: the model wrote the same file back six times without changing it. What was made is kept, and Undo takes it back.".to_string()
+                    } else {
+                        format!("Genesis stopped this job: the model wrote the same file back six times without changing it, and the program still ends with: {}. What was made is kept, and Undo takes it back.", self.last_run_failure.lines().last().unwrap_or(""))
+                    };
+                    self.shared.push(Event::Error { text: msg.clone() });
+                    self.shared.set_state("error");
+                    return Err(anyhow!(msg));
+                }
                 // Eighteen changes and the program has still never run clean: this is not a job that is
                 // nearly there. It ended at the turn limit instead, twenty-six writes and ten minutes later,
                 // with nothing to show the person (the checklist make). Stop and say so.
@@ -734,6 +753,14 @@ impl Agent {
                     return Ok(done);
                 }
                 // a clean run after changes is the finish line: say so, small models otherwise keep polishing
+                if is_run {
+                    // what a failed run ended with, for the model that writes the same file back afterwards
+                    if ok && run_was_clean(&text) { self.last_run_failure.clear(); }
+                    else {
+                        let tail: Vec<&str> = text.lines().map(|l| l.trim_end()).filter(|l| !l.trim().is_empty()).collect();
+                        self.last_run_failure = tail[tail.len().saturating_sub(3)..].join("\n").chars().take(400).collect();
+                    }
+                }
                 if !chat && is_run && ok && self.edited_after_scaffold && run_was_clean(&text) {
                     self.ran_clean = true;
                     text.push_str("\n[It ran without an error. If it does what the user asked, stop changing files and reply with the summary now.]");
@@ -1071,8 +1098,16 @@ impl Agent {
                 let content = s("content");
                 // writing back exactly what was there is not progress (small models do this with templates)
                 if std::fs::read_to_string(&p).map(|old| old == content).unwrap_or(false) {
+                    self.identical_writes += 1;
+                    // After a failed run this is the loop the word counter went round sixteen times: the model
+                    // believes its code is right, writes it back unchanged, and is told only "run it", which
+                    // fails the same way. Tell it what the run said and what can change the outcome.
+                    if !self.last_run_failure.is_empty() {
+                        return Ok(format!("{} already holds exactly this: nothing changed, so the last run's error is still there:\n{}\nWriting the same file again cannot fix that. Change the code so that error goes away -- or, if it only failed because it was started without the input it needs (a file name, an argument), run it with an example input through shell, for example `python3 {} README.md`, and reply with the summary if that works.", p.display(), self.last_run_failure, p.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_default()));
+                    }
                     return Ok(format!("{} already holds exactly this, so it is written ({} bytes). Do not write it again: run the program now (preview_start), and reply with the summary if the run is clean.", p.display(), content.len()));
                 }
+                self.identical_writes = 0;
                 self.edited_after_scaffold = true;
                 std::fs::write(&p, &content).map_err(|e| anyhow!("{}: {}", p.display(), e))?;
                 Ok(format!("wrote {} ({} bytes)", p.display(), content.len()))

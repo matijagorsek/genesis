@@ -901,6 +901,29 @@ mod tests {
     }
 
     #[test]
+    fn the_same_file_back_after_a_failed_run_is_told_what_failed_and_stops_at_six() {
+        // the word counter: it believed its code, wrote it back sixteen times, and was only told "run it"
+        let proj = tempfile::tempdir().unwrap();
+        let w = || tool_call("write_file", serde_json::json!({"path": "wc.py", "content": "import sys\nprint(len(open(sys.argv[1]).read().split()))\n"}));
+        let mut script = vec![w()];
+        for _ in 0..7 { script.push(w()); }
+        let (mut agent, shared) = setup(proj.path(), Mode::AutoEdit, fake_llm(script));
+        agent.last_run_failure = "IndexError: list index out of range".into();
+        // the run that failed happened before; keep it through run()'s reset
+        let failure = agent.last_run_failure.clone();
+        std::env::set_var("GENESIS_TEST_LAST_RUN_FAILURE", &failure);
+        let r = agent.run("a word counter");
+        std::env::remove_var("GENESIS_TEST_LAST_RUN_FAILURE");
+        let e = r.expect_err("six identical writes end the job");
+        assert!(e.to_string().contains("same file back six times"), "{}", e);
+        assert!(e.to_string().contains("IndexError"), "and say what it was stuck on: {}", e);
+        let said = agent.messages.iter().filter_map(|m| m.content.clone()).collect::<Vec<_>>().join("\n");
+        assert!(said.contains("the last run's error is still there") && said.contains("run it with an example input"), "{}", said);
+        let ev = shared.info.lock().unwrap().events.clone();
+        assert_eq!(ev.iter().filter(|e| matches!(e, Event::ToolCall { .. })).count(), 7, "stopped at the sixth identical write, not the sixteenth");
+    }
+
+    #[test]
     fn the_warm_up_reads_exactly_what_a_job_starts_with() {
         // a warm-up that read anything else would save nothing: the cache holds tokens, not intentions
         for kind in ["make", "chat"] {
@@ -1370,9 +1393,15 @@ fn system_overview(d: &Arc<Daemon>) -> serde_json::Value {
 fn served_model(endpoint: &str, wanted: &str) -> String { served_model_for(endpoint, wanted, "make") }
 
 pub(crate) fn served_model_for(endpoint: &str, wanted: &str, kind: &str) -> String {
-    let list = ureq::get(&format!("{}/models", endpoint.trim_end_matches('/'))).set("Authorization", &format!("Bearer {}", llm::router_key())).timeout(std::time::Duration::from_secs(8)).call().ok()
-        .and_then(|r| r.into_json::<serde_json::Value>().ok())
-        .and_then(|v| v.get("data").and_then(|d| d.as_array()).map(|a| a.iter().filter_map(|m| m.get("id").and_then(|i| i.as_str()).map(|s| s.to_string())).collect::<Vec<_>>()));
+    // The list is asked for three times before giving up on it: once it failed for a moment (the router
+    // restarting as the job began) and the fallback, the command line's "code", is not served by the tiny
+    // pack -- the job died at once on "no router for requested model".
+    let mut list = None;
+    for attempt in 0..3 {
+        list = served_models(endpoint);
+        if list.as_ref().map(|l: &Vec<String>| !l.is_empty()).unwrap_or(false) { break; }
+        if attempt < 2 { std::thread::sleep(std::time::Duration::from_secs(3)); }
+    }
     // On battery, with saving on, everything goes to the small always-loaded model -- including a model
     // named on the command line, because "code" is the default there and a laptop unplugged should not
     // start a 9B model for a question a 4B answers. genesis-power puts the big ones away at the same moment.
@@ -1385,6 +1414,12 @@ pub(crate) fn served_model_for(endpoint: &str, wanted: &str, kind: &str) -> Stri
         Some(ids) if !ids.is_empty() => pick_model(&ids, wanted, kind, battery),
         _ => wanted.to_string(),
     }
+}
+
+fn served_models(endpoint: &str) -> Option<Vec<String>> {
+    ureq::get(&format!("{}/models", endpoint.trim_end_matches('/'))).set("Authorization", &format!("Bearer {}", llm::router_key())).timeout(std::time::Duration::from_secs(8)).call().ok()
+        .and_then(|r| r.into_json::<serde_json::Value>().ok())
+        .and_then(|v| v.get("data").and_then(|d| d.as_array()).map(|a| a.iter().filter_map(|m| m.get("id").and_then(|i| i.as_str()).map(|s| s.to_string())).collect::<Vec<_>>()))
 }
 
 static WARMED: std::sync::LazyLock<Mutex<HashMap<String, std::time::Instant>>> = std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));

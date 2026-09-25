@@ -50,6 +50,11 @@ impl Message {
     }
 }
 
+thread_local! {
+    /// a seed for one call only: the retry after an unreadable tool call must not repeat the same draw
+    static SEED: std::cell::Cell<Option<i64>> = const { std::cell::Cell::new(None) };
+}
+
 pub struct Client {
     pub endpoint: String,
     pub model: String,
@@ -100,8 +105,29 @@ impl Client {
                 std::thread::sleep(std::time::Duration::from_secs(5));
                 self.chat_once_with(messages, tools, temperature, tool_choice)
             }
+            // A tool call the server could not read as JSON ended the whole job: the 2B's pomodoro, one
+            // broken reply after two good writes. It is one bad draw, not a broken job; ask again, with
+            // another seed so it is not the same draw, twice at most.
+            Err(e) if e.to_string().contains("Failed to parse tool call") => {
+                let mut last = e;
+                for attempt in 1..=2 {
+                    tracing::warn!(attempt, "the model's tool call could not be read; asking again");
+                    match self.chat_once_seeded(messages, tools, temperature, tool_choice, 7 + attempt) {
+                        Err(e) if e.to_string().contains("Failed to parse tool call") => last = e,
+                        other => return other,
+                    }
+                }
+                Err(last)
+            }
             other => other,
         }
+    }
+
+    fn chat_once_seeded(&self, messages: &[Message], tools: &Value, temperature: f64, tool_choice: &str, seed: i64) -> Result<Reply> {
+        SEED.with(|s| s.set(Some(seed)));
+        let r = self.chat_once_with(messages, tools, temperature, tool_choice);
+        SEED.with(|s| s.set(None));
+        r
     }
 
     /// Have the model read these messages and tools and say one token: what it read stays in its cache.
@@ -157,7 +183,7 @@ impl Client {
             "temperature": temperature,
             // a fixed seed unless the machine asks for otherwise: two runs of the same tree should be
             // comparable, or a change cannot be told apart from the sampler's mood
-            "seed": std::env::var("GENESIS_SEED").ok().and_then(|v| v.parse::<i64>().ok()).unwrap_or(7),
+            "seed": SEED.with(|s| s.get()).or_else(|| std::env::var("GENESIS_SEED").ok().and_then(|v| v.parse::<i64>().ok())).unwrap_or(7),
             "stream": true,
             "return_progress": true,
             "stream_options": {"include_usage": true},
