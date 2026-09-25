@@ -57,6 +57,15 @@ impl Drop for KeepAwake {
 /// file, run it, say what it is — is worth more than another paragraph of rules. It sits in the cached
 /// part of the conversation, so it is paid for once per session, not per turn.
 /// Does a run's output look like it worked? The same keywords everywhere, so "clean" means one thing.
+/// A run that failed only for want of input: argv read past its end, or argparse's usage error.
+pub fn needs_input(text: &str) -> bool {
+    let t = text.to_lowercase();
+    (t.contains("indexerror") && t.contains("sys.argv"))
+        || t.contains("the following arguments are required")
+        || (t.contains("usage:") && (t.contains("error: ") || t.contains("exit 2") || t.contains("exit=2")))
+        || (t.contains("filenotfounderror") && t.contains("sys.argv"))
+}
+
 fn run_was_clean(text: &str) -> bool {
     !["Traceback", "Error", "error:", "FAILED", "exit=1", "exit=2"].iter().any(|k| text.contains(k))
 }
@@ -764,6 +773,12 @@ impl Agent {
                 }
                 // a clean run after changes is the finish line: say so, small models otherwise keep polishing
                 if is_run {
+                    // A script started with no arguments that wants one fails with a traceback about argv or
+                    // argparse's usage line, and a small model reads that as a bug in code that is right. Say
+                    // what it is, next to the output.
+                    if !run_was_clean(&text) && needs_input(&text) {
+                        text.push_str("\n[This failed only because the program was started without the input it expects. That is not a bug in it: run it with an example input through shell (for example with a file name or the arguments it asks for), and reply with the summary if that works.]");
+                    }
                     // what a failed run ended with, for the model that writes the same file back afterwards
                     if ok && run_was_clean(&text) { self.last_run_failure.clear(); }
                     else {
@@ -1127,7 +1142,14 @@ impl Agent {
                 let p = resolve_path(&self.project, &s("path"));
                 let text = std::fs::read_to_string(&p).map_err(|e| anyhow!("{}: {}", p.display(), e))?;
                 let old = s("old_text");
-                if old == s("new_text") { return Ok("not written: old_text and new_text are the same, so this edit changes nothing; make the actual change, or run the program if it is already right".into()); }
+                if old == s("new_text") {
+                    // the checklist's version of the word counter's loop: a failed run, then edits that change
+                    // nothing, because the model believes the code is right
+                    if !self.last_run_failure.is_empty() {
+                        return Ok(format!("not written: old_text and new_text are the same, so this edit changes nothing, and the last run's error is still there:\n{}\nChange the code so that error goes away -- or, if it only failed because it was started without the input it needs (a file name, an argument), run it with an example input through shell, and reply with the summary if that works.", self.last_run_failure));
+                    }
+                    return Ok("not written: old_text and new_text are the same, so this edit changes nothing; make the actual change, or run the program if it is already right".into());
+                }
                 let n = text.matches(&old).count();
                 if n != 1 {
                     return Err(anyhow!("old_text found {} times in {}; it must match exactly once", n, p.display()));
@@ -1202,5 +1224,15 @@ mod dump_opening {
         let compact = serde_json::json!({"messages": cm, "tools": tool_schemas_compact()});
         let chat = serde_json::json!({"messages": [Message::system(SYSTEM_PROMPT_CHAT)], "tools": tc});
         std::fs::write("/w/opening.json", serde_json::json!({"make": full, "make-compact": compact, "chat": chat}).to_string()).unwrap();
+    }
+}
+
+#[cfg(test)]
+mod needs_input_tests {
+    #[test]
+    fn a_script_that_wants_an_argument_is_not_a_bug() {
+        assert!(super::needs_input("Traceback (most recent call last):\n  File \"wc.py\", line 3, in <module>\n    path = sys.argv[1]\nIndexError: list index out of range"));
+        assert!(super::needs_input("usage: todo.py [-h] {add,done,list} ...\ntodo.py: error: the following arguments are required: cmd"));
+        assert!(!super::needs_input("Traceback (most recent call last):\n  File \"x.py\", line 2\nNameError: name 'foo' is not defined"));
     }
 }
