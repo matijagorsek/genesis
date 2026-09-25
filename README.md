@@ -245,7 +245,8 @@ How Genesis got here, in the order it happened. The decision log has the detail 
   them, so a change to the prompts or tools shows as a number ([eval.yml](.github/workflows/eval.yml)).
   A fixed seed, and two things scored apart: whether a make **finished**, and whether what it made is
   what was **asked for**. Best so far: **10 finished, 9 correct** (20 Sep); since 25 Sep the club
-  website must have all three pages it asks for, not two. The ten makes are split over five
+  website must have all three pages it asks for, not two, and the first run under that rule scored
+  **9 finished, 8 correct**. Between runs of the same tree the score moves between 6 and 9. The ten makes are split over five
   machines and the maker under test is built and dropped into the last release's VM, so an answer takes
   about twenty minutes instead of two and a half hours; the weekly run boots the shipped image with the
   shipped binary, because that is the only run that tests what a person would install. Every make also
