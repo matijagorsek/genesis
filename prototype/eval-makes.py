@@ -94,6 +94,18 @@ def one(name, prompt, timeout):
     row["calls"] = [brief(e) for e in ev if e["kind"] == "tool_call"][:60]
     row["errors"] = [e.get("summary", "")[:160] for e in ev if e["kind"] == "tool_result" and not e.get("ok", True)][:10]
     row["errors"] += ["session: " + e.get("text", "")[:160] for e in ev if e["kind"] == "error"][:3]
+    # the whole make in order, each call beside the start of what came back, and what Genesis said: a
+    # write that "wrote nothing new" counts as a success above, and three of those end a make
+    row["timeline"] = []
+    for e in ev:
+        k = e["kind"]
+        if k == "tool_call":
+            row["timeline"].append("> " + brief(e))
+        elif k == "tool_result":
+            row["timeline"].append(("  ok  " if e.get("ok", True) else "  ERR ") + e.get("summary", "")[:110].replace("\n", " "))
+        elif k in ("assistant", "error"):
+            row["timeline"].append(f"  [{k}] " + e.get("text", "")[:110].replace("\n", " "))
+    row["timeline"] = row["timeline"][:120]
     row["summary"] = next((e["text"] for e in reversed(ev) if e["kind"] == "assistant"), "")[:200].replace("\n", " ")
     row["seconds"] = int(time.time() - t0)
     # what the machine had left when this make ended: the two failures that say "the model service is gone"
