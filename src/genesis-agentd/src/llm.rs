@@ -50,6 +50,12 @@ impl Message {
     }
 }
 
+/// The model service is going away or coming back: nothing about the request itself.
+fn restarting(e: &str) -> bool {
+    ["Connection Failed", "Unexpected EOF", "connection refused", "Connection refused", "exited prematurely", "returned 502", "returned 503", "proxy error"]
+        .iter().any(|k| e.contains(k))
+}
+
 thread_local! {
     /// a seed for one call only: the retry after an unreadable tool call must not repeat the same draw
     static SEED: std::cell::Cell<Option<i64>> = const { std::cell::Cell::new(None) };
@@ -84,26 +90,29 @@ impl Client {
     /// One retry when the model service is not there for a moment: it swaps models, and can be restarted
     /// under us (the evaluation lost two makes to a restart). A second refusal is reported as before.
     pub fn chat(&self, messages: &[Message], tools: &Value, temperature: f64) -> Result<Reply> {
-        match self.chat_once(messages, tools, temperature) {
-            Err(e) if e.to_string().contains("Connection Failed") || e.to_string().contains("Unexpected EOF") || e.to_string().contains("connection refused") => {
-                std::thread::sleep(std::time::Duration::from_secs(5));
-                self.chat_once(messages, tools, temperature)
-            }
-            other => other,
-        }
-    }
-
-    fn chat_once(&self, messages: &[Message], tools: &Value, temperature: f64) -> Result<Reply> {
-        self.chat_once_with(messages, tools, temperature, "auto")
+        self.chat_with(messages, tools, temperature, "auto")
     }
 
     /// `tool_choice` is "required" while the job has produced nothing: a small model otherwise answers with
     /// a description of what it would do, and the loop spends a turn telling it off.
     pub fn chat_with(&self, messages: &[Message], tools: &Value, temperature: f64, tool_choice: &str) -> Result<Reply> {
         match self.chat_once_with(messages, tools, temperature, tool_choice) {
-            Err(e) if e.to_string().contains("Connection Failed") || e.to_string().contains("Unexpected EOF") || e.to_string().contains("connection refused") => {
-                std::thread::sleep(std::time::Duration::from_secs(5));
-                self.chat_once_with(messages, tools, temperature, tool_choice)
+            // The model service restarting under us is a pause, not a failure. First run restarts it once it
+            // has measured the machine, and the refresh after an upgrade does the same: the evaluation lost
+            // four makes in a night to exactly this -- "upstream command exited prematurely" for the
+            // requests in flight, then a 502 on EOF -- and so would anybody asking their first question as
+            // setup finished. Wait for it, a minute and a quarter at most.
+            Err(e) if restarting(&e.to_string()) => {
+                let mut last = e;
+                for wait in [5u64, 10, 15, 20, 25] {
+                    tracing::warn!(wait, error = %last, "the model service is not answering; waiting for it");
+                    std::thread::sleep(std::time::Duration::from_secs(wait));
+                    match self.chat_once_with(messages, tools, temperature, tool_choice) {
+                        Err(e) if restarting(&e.to_string()) => last = e,
+                        other => return other,
+                    }
+                }
+                Err(last)
             }
             // A tool call the server could not read as JSON ended the whole job: the 2B's pomodoro, one
             // broken reply after two good writes. It is one bad draw, not a broken job; ask again, with
@@ -349,5 +358,19 @@ mod tests {
     fn a_server_error_in_the_stream_is_an_error() {
         let mut acc = super::Streamed::default();
         assert!(acc.add(r#"{"error":{"code":500,"message":"failed to parse"}}"#).is_err());
+    }
+}
+
+#[cfg(test)]
+mod restart_tests {
+    #[test]
+    fn a_restarting_model_service_is_waited_for_and_a_bad_request_is_not() {
+        for e in ["model endpoint returned 500: {\"src\":\"llama-swap\",\"error\":{\"message\":\"unspecific error: upstream command exited prematurely\"}}",
+                  "model endpoint returned 502: ", "model endpoint unreachable: Connection Failed: Connect error: Connection refused"] {
+            assert!(super::restarting(e), "{}", e);
+        }
+        for e in ["model endpoint returned 400: bad request", "model endpoint returned 500: Failed to parse tool call arguments as JSON"] {
+            assert!(!super::restarting(e), "{}", e);
+        }
     }
 }
