@@ -156,6 +156,12 @@ How Genesis got here, in the order it happened. The decision log has the detail 
   updates, apps from Flathub, printer setup, power profile, Bluetooth, audio, day and night. Settings > Tools lists them; add yours in `~/.config/genesis/mcp.json`.
 - **Ollama-compatible door** on `127.0.0.1:11434` (`genesis-ollama`): apps and editors that speak Ollama's
   API use the pack's models with no setup; `/v1/*` passes straight to the router.
+- **Faster answers, the same answers.** The small, cheap guess at what comes next, checked by the big model
+  in one pass: text already in the conversation, and on the big packs the model's own prediction layers.
+  The maker hands a file back with a change at 63 tokens a second on the 27B instead of 8 to 14, and new
+  code comes 1.2 to 1.3 times faster; on a four-core CPU a rewrite is a quarter faster. What comes out is
+  what the big model would have said — checked, not assumed. Measured with the build and models Genesis
+  ships ([speed.yml](.github/workflows/speed.yml)); the draft model that made a CPU 40% slower is not used there.
 - **The assistant follows the plug.** Pull the cable out of a laptop and the big models are put away;
   every request goes to the small always-loaded one, and the assistant gets shorter rather than quiet.
   Plug back in and they are allowed to load again. Nobody else can do this, because nobody else has both

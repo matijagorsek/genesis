@@ -223,6 +223,35 @@ pub fn tuning_for(cores: u32, gpu_names: &[String], compute_ready: bool, vram_mb
     Tuning { threads, ngl: if worth_offloading { 99 } else { 0 }, budget_mb: 0, device: None }
 }
 
+/// Does this model file carry its own multi-token-prediction layers? They are named in the header
+/// (`blk.N.nextn.eh_proj`), which comes before the weights, so the first megabytes answer it.
+pub fn has_mtp(path: &Path) -> bool {
+    use std::io::Read;
+    let mut head = Vec::new();
+    std::fs::File::open(path).and_then(|f| f.take(48 << 20).read_to_end(&mut head)).is_ok()
+        && head.windows(15).any(|w| w == b".nextn.eh_proj.")
+}
+
+/// Speculative decoding for one model: the small model guesses a few tokens ahead and the big one checks
+/// them all in one pass, so what comes out is what the big model would have said, sooner. Measured with
+/// the build and the models Genesis ships (tools/speed-bench.py, decision 217):
+///   n-gram: guesses from text already in the conversation. A file handed back with a change is almost
+///           all such text: the 27B rewrote one 63 tokens a second against 8 to 14 without it, the 9B on
+///           a four-core CPU 1.23 times faster. Costs nothing when there is nothing to match.
+///   MTP:    the model's own prediction layers, when its file carries them: the 27B wrote new code 1.2 to
+///           1.3 times faster, 87% of guesses accepted.
+///   a draft model: a pack may still ship one (role "draft"); MTP wins when both are there.
+/// Every combination gave the same greedy answer as none at all.
+fn speculation(model: &Path, draft: Option<&str>) -> String {
+    if has_mtp(model) {
+        " --spec-type ngram-mod,draft-mtp".to_string()
+    } else if let Some(d) = draft {
+        format!(" --spec-type ngram-mod,draft-simple -md {} --spec-draft-n-max 16 --spec-draft-n-min 4", d)
+    } else {
+        " --spec-type ngram-mod".to_string()
+    }
+}
+
 pub fn render_router(models_dir: &Path, port_base: u16) -> Result<String> {
     render_router_tuned(models_dir, port_base, Tuning { threads: 4, ngl: 99, budget_mb: 0, device: None })
 }
@@ -263,19 +292,22 @@ pub fn render_router_tuned(models_dir: &Path, port_base: u16, t: Tuning) -> Resu
     // llama.cpp can shift the KV cache instead of reprocessing everything after the change. Prompt
     // processing is 17 tokens a second on the first real laptop's CPU, so a 4000-token conversation costs
     // four minutes before the first word of the answer; anything that avoids redoing it is worth more
-    // there than on a machine with a card.
+    // there than on a machine with a card. It only works for models whose cache can shift: llama-server
+    // turns it off, with a warning in the log, for a model with a vision projector and for the hybrid
+    // Qwen3.5 and later models (their recurrent layers cannot shift), which is every fast and code model
+    // in the packs today (decision 217). It stays for the completion model and for any pack that changes.
     let mut hot = Vec::new();
     let mut big = Vec::new();
     if let Some(f) = find("fast", false) {
         let mm = find("fast", true).map(|m| format!(" --mmproj {}", m)).unwrap_or_default();
-        y.push_str(&format!("  fast:\n    cmd: |\n      ${{server}} -m {}{}\n      -c 16384 --cache-reuse 256 --temp 0.7 --top-p 0.8 --top-k 20 --reasoning off\n    aliases: [ \"auto\", \"genesis-fast\" ]\n    ttl: 0\n\n", f, mm));
+        let spec = speculation(Path::new(&f), None);
+        y.push_str(&format!("  fast:\n    cmd: |\n      ${{server}} -m {}{}{}\n      -c 16384 --cache-reuse 256 --temp 0.7 --top-p 0.8 --top-k 20 --reasoning off\n    aliases: [ \"auto\", \"genesis-fast\" ]\n    ttl: 0\n\n", f, mm, spec));
         hot.push("fast");
     }
     if let Some(f) = find("code", false) {
         let mm = find("code", true).map(|m| format!(" --mmproj {}", m)).unwrap_or_default();
-        // speculative decoding: a pack may ship a small draft model for the coder (role "draft"); llama.cpp
-        // then proposes tokens with it and the big model verifies, roughly doubling generation on dense models
-        let draft = find("draft", false).filter(|_| t.ngl > 0).map(|d| format!(" -md {} --draft-max 16 --draft-min 4", d)).unwrap_or_default();
+        // a draft model only with a GPU, until one is measured to help on a CPU
+        let draft = speculation(Path::new(&f), find("draft", false).filter(|_| t.ngl > 0).as_deref());
         y.push_str(&format!("  code:\n    cmd: |\n      ${{big}} -m {}{}{}\n      -c {} --cache-reuse 256 --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0.0 --reasoning auto --reasoning-budget {}\n      --cache-type-k q8_0 --cache-type-v q8_0\n    aliases: [ \"genesis-code\" ]\n    ttl: 600\n\n", f, mm, draft, if t.ngl == 0 { 8192 } else { 32768 }, if t.ngl == 0 { 512 } else { 4096 }));
         big.push("code");
     }
@@ -361,6 +393,29 @@ mod tests {
         // unified memory has no separate pool to run out of
         let t = tuning_for(8, &["Apple M4 Max GPU (unified memory)".into()], true, 0, true);
         assert_eq!(t.ngl, 99);
+    }
+
+    #[test]
+    fn every_model_that_writes_gets_the_speculation_that_was_measured() {
+        let dir = tempfile::tempdir().unwrap();
+        for (role, f, body) in [("fast", "a.gguf", b"GGUF...blk.31.attn_q.weight".to_vec()),
+                                ("code", "b.gguf", b"GGUF...blk.64.nextn.eh_proj.weight".to_vec()),
+                                ("draft", "c.gguf", b"GGUF".to_vec())] {
+            std::fs::create_dir_all(dir.path().join(role)).unwrap();
+            std::fs::write(dir.path().join(role).join(f), body).unwrap();
+        }
+        let gpu = Tuning { threads: 8, ngl: 99, budget_mb: 0, device: None };
+        let y = render_router_tuned(dir.path(), 5800, gpu.clone()).unwrap();
+        let line = |role: &str| y.lines().skip_while(|l| l.trim() != format!("{}:", role)).nth(2).unwrap_or("").to_string();
+        assert!(line("fast").contains("--spec-type ngram-mod") && !line("fast").contains("mtp"), "fast: {}", line("fast"));
+        assert!(line("code").contains("--spec-type ngram-mod,draft-mtp"), "the coder's own MTP layers win over a draft model: {}", line("code"));
+        assert!(!y.contains("--draft-max"), "llama.cpp removed --draft-max; a server given it does not start");
+        // no MTP in the coder's file: the draft model, with the flags this llama.cpp takes, and only with a GPU
+        std::fs::write(dir.path().join("code/b.gguf"), b"GGUF plain").unwrap();
+        let y = render_router_tuned(dir.path(), 5800, gpu).unwrap();
+        assert!(y.contains("--spec-type ngram-mod,draft-simple -md") && y.contains("--spec-draft-n-max 16"), "{}", y);
+        let cpu = render_router_tuned(dir.path(), 5800, Tuning { threads: 4, ngl: 0, budget_mb: 0, device: Some("none".into()) }).unwrap();
+        assert!(!cpu.contains("-md ") && cpu.contains("--spec-type ngram-mod"), "a CPU keeps n-gram and no draft model: {}", cpu);
     }
 
     #[test]
@@ -500,7 +555,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         for (role, f) in [("code", "b.gguf"), ("draft", "d.gguf")] { std::fs::create_dir_all(dir.path().join(role)).unwrap(); std::fs::write(dir.path().join(role).join(f), b"x").unwrap(); }
         let gpu = render_router_tuned(dir.path(), 10001, Tuning { threads: 4, ngl: 99, budget_mb: 0, device: None }).unwrap();
-        assert!(gpu.contains("-md ") && gpu.contains("--draft-max 16"));
+        assert!(gpu.contains("-md ") && gpu.contains("--spec-draft-n-max 16"), "the flag this llama.cpp takes: it removed --draft-max, and a server given it does not start");
         let cpu = render_router_tuned(dir.path(), 10001, Tuning { threads: 4, ngl: 0, budget_mb: 0, device: None }).unwrap();
         assert!(!cpu.contains("-md "), "no draft on CPU: it would slow generation down");
         // the big models leave -ngl to llama.cpp's fit on a GPU, and stay on the CPU explicitly without one
