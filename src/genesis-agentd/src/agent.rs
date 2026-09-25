@@ -66,6 +66,19 @@ pub fn needs_input(text: &str) -> bool {
         || (t.contains("filenotfounderror") && t.contains("sys.argv"))
 }
 
+/// The file a failed run looked for and did not find, when it is a plain data file the program reads
+/// (not a module, not something under /usr): "FileNotFoundError: ... No such file or directory: 'x'".
+pub fn missing_input_file(text: &str) -> Option<String> {
+    let at = text.find("FileNotFoundError")?;
+    let rest = &text[at..];
+    let q = rest.find("No such file or directory: ")? + "No such file or directory: ".len();
+    let quoted = rest[q..].trim_start_matches(['\'', '"']);
+    let path: String = quoted.chars().take_while(|c| *c != '\'' && *c != '"' && *c != '\n').collect();
+    let name = std::path::Path::new(&path).file_name()?.to_string_lossy().to_string();
+    if path.is_empty() || path.starts_with("/usr") || path.starts_with("/etc") || name.ends_with(".py") { return None; }
+    Some(name)
+}
+
 fn run_was_clean(text: &str) -> bool {
     !["Traceback", "Error", "error:", "FAILED", "exit=1", "exit=2"].iter().any(|k| text.contains(k))
 }
@@ -776,8 +789,14 @@ impl Agent {
                     // A script started with no arguments that wants one fails with a traceback about argv or
                     // argparse's usage line, and a small model reads that as a bug in code that is right. Say
                     // what it is, next to the output.
-                    if !run_was_clean(&text) && needs_input(&text) {
-                        text.push_str("\n[This failed only because the program was started without the input it expects. That is not a bug in it: run it with an example input through shell (for example with a file name or the arguments it asks for), and reply with the summary if that works.]");
+                    if !run_was_clean(&text) {
+                        if let Some(f) = missing_input_file(&text) {
+                            // the word counter read a fixed input.txt that was never there, and wrote its own
+                            // code back six times: the program is fine, the file it reads is missing
+                            text.push_str(&format!("\n[The program is looking for {}, which does not exist. That is not a bug in the code: create a small example {} with write_file (or have the program take the file name as an argument), then run it again.]", f, f));
+                        } else if needs_input(&text) {
+                            text.push_str("\n[This failed only because the program was started without the input it expects. That is not a bug in it: run it with an example input through shell (for example with a file name or the arguments it asks for), and reply with the summary if that works.]");
+                        }
                     }
                     // what a failed run ended with, for the model that writes the same file back afterwards
                     if ok && run_was_clean(&text) { self.last_run_failure.clear(); }
@@ -1234,5 +1253,7 @@ mod needs_input_tests {
         assert!(super::needs_input("Traceback (most recent call last):\n  File \"wc.py\", line 3, in <module>\n    path = sys.argv[1]\nIndexError: list index out of range"));
         assert!(super::needs_input("usage: todo.py [-h] {add,done,list} ...\ntodo.py: error: the following arguments are required: cmd"));
         assert!(!super::needs_input("Traceback (most recent call last):\n  File \"x.py\", line 2\nNameError: name 'foo' is not defined"));
+        assert_eq!(super::missing_input_file("Traceback (most recent call last):\n  File \"wordcount.py\", line 4\nFileNotFoundError: [Errno 2] No such file or directory: '/var/home/genesis/Projects/eval/wordcount/input.txt'").as_deref(), Some("input.txt"));
+        assert_eq!(super::missing_input_file("FileNotFoundError: [Errno 2] No such file or directory: '/usr/share/dict/words'"), None);
     }
 }
