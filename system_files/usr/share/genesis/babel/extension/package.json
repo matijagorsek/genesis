@@ -134,8 +134,8 @@
       "properties": {
         "genesis.agentd": {
           "type": "string",
-          "default": "http://127.0.0.1:11520",
-          "description": "The Genesis maker daemon on this machine."
+          "default": "",
+          "description": "The Genesis maker daemon. Empty: this user's own, on this machine."
         },
         "genesis.router": {
           "type": "string",

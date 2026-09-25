@@ -14,7 +14,7 @@ KCM.SimpleKCM {
     function api(method, path, body, cb) {
         var x = new XMLHttpRequest()
         x.onreadystatechange = function() { if (x.readyState === XMLHttpRequest.DONE) { var j = null; try { j = JSON.parse(x.responseText) } catch (e) {}; cb(x.status, j) } }
-        x.open(method, "http://127.0.0.1:11520" + path)
+        x.open(method, "http://127.0.0.1:" + (typeof genesisPort !== "undefined" ? genesisPort : 11520) + path)
         x.setRequestHeader("X-Genesis-Token", typeof genesisToken !== "undefined" ? genesisToken : "")
         if (body) { x.setRequestHeader("Content-Type", "application/json"); x.send(JSON.stringify(body)) } else { x.send() }
     }

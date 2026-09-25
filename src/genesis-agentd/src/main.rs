@@ -1,7 +1,7 @@
 //! genesis-agentd: the Genesis agent daemon.
 //!
 //!   genesis-agentd run --project DIR [--mode auto_edit] "task"   headless run, events on stderr, answer on stdout
-//!   genesis-agentd serve                                        local API on 127.0.0.1:11520
+//!   genesis-agentd serve                                        local API on 127.0.0.1, this user's port (in $XDG_RUNTIME_DIR/genesis/agentd.port)
 //!
 //! API:
 //!   POST /api/sessions                {mode, project}            -> {id}
@@ -84,8 +84,9 @@ enum Cmd {
     },
     /// Serve the local API.
     Serve {
-        #[arg(long, default_value = "127.0.0.1:11520")]
-        listen: String,
+        /// Default: this user's own port on 127.0.0.1 (see `user_port`), written to the runtime directory.
+        #[arg(long)]
+        listen: Option<String>,
     },
 }
 
@@ -169,7 +170,20 @@ fn main() -> Result<()> {
             }
         }
         Cmd::Serve { listen } => {
-            let server = Server::http(&listen).map_err(|e| anyhow!("listen {}: {}", listen, e))?;
+            let asked = listen.is_some();
+            let listen = listen.unwrap_or_else(|| format!("127.0.0.1:{}", user_port(unsafe { libc::getuid() })));
+            // this user's port, unless something else on the machine took it; then any free one -- the
+            // port file below is where every client looks, so the number itself does not matter
+            let server = match Server::http(&listen) {
+                Ok(s) => s,
+                Err(e) if !asked => { tracing::warn!(%e, listen = %listen, "this user's port is taken; using a free one"); Server::http("127.0.0.1:0").map_err(|e| anyhow!("listen: {}", e))? }
+                Err(e) => return Err(anyhow!("listen {}: {}", listen, e)),
+            };
+            let listen = match server.server_addr() { tiny_http::ListenAddr::IP(a) => a.to_string(), _ => listen };
+            if let Some(p) = port_file() {
+                if let Some(dir) = p.parent() { let _ = std::fs::create_dir_all(dir); }
+                let _ = std::fs::write(&p, listen.rsplit(':').next().unwrap_or(""));
+            }
             tracing::info!(listen = %listen, endpoint = %cli.endpoint, model = %cli.model, "genesis-agentd serving");
             let d = Arc::new(Daemon { endpoint: cli.endpoint.clone(), model: cli.model.clone(), broker, sessions: Mutex::new(HashMap::new()), listen: listen.to_string(), token: load_or_create_token("agentd"), chat_sessions: Mutex::new(HashMap::new()) });
             // make it while I sleep: the queue runner, once a minute
@@ -266,6 +280,15 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
     // user's runtime directory; no browser can reach it, so the Host and Origin checks (which exist for
     // browsers) do not apply. The token is still required, exactly as over the port.
     let over_socket = req.remote_addr().is_none();
+    // The loopback port is shared by every account on the machine. It answers only the user it belongs
+    // to: the kernel's socket table says who opened the connection. Before this, a second person logged
+    // in on the same computer could read the first one's sessions with a bare GET.
+    if let Some(peer) = req.remote_addr() {
+        let ours: u16 = d.listen.rsplit(':').next().and_then(|p| p.parse().ok()).unwrap_or(0);
+        if !peer_is_us(peer.port(), ours) {
+            return req.respond(json_response(&serde_json::json!({"error": "forbidden: this daemon belongs to another user"}), 403)).map_err(|e| anyhow!(e));
+        }
+    }
     if !over_socket && !same_origin(&req, &d.listen) {
         return req.respond(json_response(&serde_json::json!({"error": "forbidden: not a Genesis origin"}), 403)).map_err(|e| anyhow!(e));
     }
@@ -747,6 +770,26 @@ mod tests {
         assert_eq!(super::pick_model(&with_chat, "code", "chat", false), "chat");
         assert_eq!(super::pick_model(&ids, "claude-sonnet-5", "make", false), "code", "a name that is not served: the preference order");
         assert_eq!(super::pick_model(&["tiny".to_string()], "code", "chat", false), "code", "nothing preferred is served: the name as given, as before");
+    }
+
+    #[test]
+    fn the_port_answers_only_its_own_user() {
+        // a real table: the daemon listening on 11520 (uid 1000), a client of uid 1001 on port 41000
+        // connected to it, and the daemon's end of that connection
+        let table = "  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n\
+   0: 0100007F:2D00 00000000:0000 0A 00000000:00000000 00:00000000 00000000  1000        0 1 1 0 100 0 0 10 0\n\
+   1: 0100007F:A028 0100007F:2D00 01 00000000:00000000 00:00000000 00000000  1001        0 2 1 0 20 4 30 10 -1\n\
+   2: 0100007F:2D00 0100007F:A028 01 00000000:00000000 00:00000000 00000000  1000        0 3 1 0 20 4 30 10 -1\n";
+        assert_eq!(super::loopback_peer_uid(table, 41000, 11520), Some(1001), "the client's own row, not the daemon's");
+        assert_eq!(super::loopback_peer_uid(table, 41001, 11520), None);
+        assert_eq!(super::user_port(1000), 11520);
+        assert_ne!(super::user_port(1001), super::user_port(1000));
+        assert!((12000..20000).contains(&super::user_port(60001)));
+        // a real connection: this process on both ends, so the peer is us
+        let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let ours = l.local_addr().unwrap().port();
+        let c = std::net::TcpStream::connect(("127.0.0.1", ours)).unwrap();
+        assert!(super::peer_is_us(c.local_addr().unwrap().port(), ours));
     }
 
     use super::*;
@@ -1576,7 +1619,40 @@ fn page_token<'a>(d: &'a Daemon, req: &Request) -> &'a str {
 /// until someone adds it here on purpose.
 fn open_get(path: &[&str]) -> bool {
     matches!(path, [""] | ["index.html"] | ["workspace"] | ["palette"] | ["chat"] | ["settings"] | ["favicon.ico"]
-        | ["api", "health"] | ["api", "system"] | ["api", "sessions"] | ["api", "sessions", _])
+        | ["api", "health"])
+}
+
+/// Each account its own port: the first user keeps 11520, every other one gets 12000 + uid mod 8000, so
+/// two people logged in at once each have a daemon (the second one's used to fail to start, and its
+/// windows talked to the first one's). Clients read the port from the runtime directory, not from here.
+pub fn user_port(uid: u32) -> u16 {
+    if uid == 1000 { 11520 } else { 12000 + (uid % 8000) as u16 }
+}
+
+/// $XDG_RUNTIME_DIR/genesis/agentd.port: the port this user's daemon listens on, for every client.
+fn port_file() -> Option<std::path::PathBuf> {
+    std::env::var("XDG_RUNTIME_DIR").ok().map(|r| std::path::PathBuf::from(r).join("genesis").join("agentd.port"))
+}
+
+/// The uid that owns the client end of a loopback connection, from a /proc/net/tcp table: the client's
+/// socket is the row whose local port is the peer's and whose remote port is ours.
+fn loopback_peer_uid(table: &str, peer_port: u16, our_port: u16) -> Option<u32> {
+    let port = |s: &str| s.rsplit(':').next().and_then(|p| u16::from_str_radix(p, 16).ok());
+    table.lines().skip(1).find_map(|line| {
+        let f: Vec<&str> = line.split_whitespace().collect();
+        if f.len() > 7 && port(f[1]) == Some(peer_port) && port(f[2]) == Some(our_port) { f[7].parse().ok() } else { None }
+    })
+}
+
+/// Did this user open the connection? Unknown counts as no, on Linux; elsewhere (a developer's Mac)
+/// there is no table to read and the old checks stand alone.
+fn peer_is_us(peer_port: u16, our_port: u16) -> bool {
+    if !cfg!(target_os = "linux") { return true; }
+    let me = unsafe { libc::getuid() };
+    ["/proc/net/tcp", "/proc/net/tcp6"].iter()
+        .filter_map(|t| std::fs::read_to_string(t).ok())
+        .find_map(|t| loopback_peer_uid(&t, peer_port, our_port))
+        .map(|uid| uid == me).unwrap_or(false)
 }
 
 /// $XDG_RUNTIME_DIR/genesis/agentd.sock: the door for local programs, which the sandbox cannot see.
@@ -1687,8 +1763,9 @@ fn url_decode(s: &str) -> String {
 mod query_tests {
     #[test]
     fn gets_are_closed_unless_listed() {
-        for open in [vec![""], vec!["palette"], vec!["api", "health"], vec!["api", "sessions"], vec!["api", "sessions", "abc"]] { assert!(super::open_get(&open), "{:?} should be open", open); }
-        for closed in [vec!["api", "companion"], vec!["api", "backup"], vec!["api", "policy", "rules"], vec!["api", "chats"], vec!["api", "chats", "x"], vec!["api", "queue"], vec!["api", "history", "t", "changes"], vec!["api", "mcp"], vec!["api", "activity"], vec!["api", "index"], vec!["api", "made"], vec!["api", "notices"], vec!["api", "phone"], vec!["api", "anything-new"]] {
+        for open in [vec![""], vec!["palette"], vec!["api", "health"]] { assert!(super::open_get(&open), "{:?} should be open", open); }
+        // what someone asked and what came back: a session is nobody else's business, and the panel reads with the token
+        for closed in [vec!["api", "sessions"], vec!["api", "sessions", "abc"], vec!["api", "system"], vec!["api", "companion"], vec!["api", "backup"], vec!["api", "policy", "rules"], vec!["api", "chats"], vec!["api", "chats", "x"], vec!["api", "queue"], vec!["api", "history", "t", "changes"], vec!["api", "mcp"], vec!["api", "activity"], vec!["api", "index"], vec!["api", "made"], vec!["api", "notices"], vec!["api", "phone"], vec!["api", "anything-new"]] {
             assert!(!super::open_get(&closed), "{:?} must need the token", closed);
         }
     }

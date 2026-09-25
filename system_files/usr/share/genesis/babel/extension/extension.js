@@ -11,8 +11,14 @@ function token() {
   try { return fs.readFileSync(path.join(rt, "genesis", "agentd.token"), "utf8").trim(); } catch { return ""; }
 }
 
+// every account has its own maker daemon, on the port it writes next to its token
+function agentdPort() {
+  const rt = process.env.XDG_RUNTIME_DIR || "/tmp";
+  try { return parseInt(fs.readFileSync(path.join(rt, "genesis", "agentd.port"), "utf8").trim(), 10) || 11520; } catch { return 11520; }
+}
+
 function api(method, p, body) {
-  const base = new URL(vscode.workspace.getConfiguration("genesis").get("agentd") || "http://127.0.0.1:11520");
+  const base = new URL(vscode.workspace.getConfiguration("genesis").get("agentd") || ("http://127.0.0.1:" + agentdPort()));
   return new Promise((resolve) => {
     const data = body ? JSON.stringify(body) : null;
     const req = http.request({ host: base.hostname, port: base.port || 80, path: p, method, headers: {

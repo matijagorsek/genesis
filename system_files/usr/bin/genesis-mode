@@ -6,7 +6,7 @@ set -u
 tok=$(cat "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/genesis/agentd.token" 2>/dev/null || true)
 sock="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/genesis/agentd.sock"
 # the socket in the runtime directory when it is there (a sandboxed command cannot reach it), else the port
-if [ -S "$sock" ]; then curl_args=(--unix-socket "$sock"); api=http://localhost; else curl_args=(); api=http://127.0.0.1:11520; fi
+if [ -S "$sock" ]; then curl_args=(--unix-socket "$sock"); api=http://localhost; else curl_args=(); api=http://127.0.0.1:$(cat "$XDG_RUNTIME_DIR/genesis/agentd.port" 2>/dev/null || echo 11520); fi
 cur=$(curl "${curl_args[@]}" -s -m 5 -H "X-Genesis-Token: $tok" "$api/api/settings" 2>/dev/null | python3 -c 'import sys,json; print(json.load(sys.stdin).get("default_mode","auto_edit"))' 2>/dev/null || echo auto_edit)
 label() { case "$1" in assist) echo "Ask: asks before every change";; auto_edit) echo "Trusted: works inside the project on its own";; autonomous) echo "Hands-off: also outside the project, everything snapshotted";; esac; }
 want=""

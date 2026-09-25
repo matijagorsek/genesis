@@ -34,7 +34,14 @@ def _router_headers(extra=None):
         pass
     return h
 
-AGENTD = os.environ.get("GENESIS_AGENTD", "http://127.0.0.1:11520")
+def _agentd_port():
+    """This user's maker daemon port (each account has its own), from the runtime directory."""
+    try:
+        return int(open(os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/run/user/%d" % os.getuid()), "genesis", "agentd.port")).read().strip())
+    except (OSError, ValueError):
+        return 11520
+
+AGENTD = os.environ.get("GENESIS_AGENTD", "http://127.0.0.1:%d" % _agentd_port())
 sys.path.insert(0, "/usr/lib/genesis")
 try:
     import genesis_local  # the unix socket when it is there

@@ -30,10 +30,24 @@ PlasmoidItem {
     toolTipMainText: alive ? "Genesis · on this machine" : "Genesis · starting"
     toolTipSubText: alive ? ((running > 0 ? running + " running · " : "") + "Model " + model + (netDomains.length ? " · network used: " + netDomains.join(", ") : " · no network used") + (staged ? " · update ready, restart to apply" : "")) : "The local agent service is not running yet"
 
+    // Reads go over this user's Unix socket, with the token: the loopback port answers only its own user,
+    // and session lists are no longer open to a bare GET. Each read is its own source (the engine merges
+    // identical ones), and its callback waits in `pending` until the output arrives.
+    property var pending: ({})
+    property int seq: 0
+    readonly property string curl: "curl -fsS -m 5 --unix-socket \"$XDG_RUNTIME_DIR/genesis/agentd.sock\" -H \"X-Genesis-Token: $(cat \"$XDG_RUNTIME_DIR/genesis/agentd.token\")\" "
+    P5Support.DataSource {
+        id: reader; engine: "executable"
+        onNewData: function(source, data) {
+            var cb = root.pending[source]; delete root.pending[source]; disconnectSource(source)
+            var j = null; try { j = JSON.parse(data["stdout"]) } catch (e) {}
+            if (cb) cb(j)
+        }
+    }
     function get(path, cb) {
-        var x = new XMLHttpRequest()
-        x.onreadystatechange = function() { if (x.readyState === XMLHttpRequest.DONE) { try { cb(x.status === 200 ? JSON.parse(x.responseText) : null) } catch (e) { cb(null) } } }
-        x.open("GET", "http://127.0.0.1:11520" + path); x.send()
+        var src = root.curl + "http://localhost" + path + " # " + (++root.seq)
+        root.pending[src] = cb
+        reader.connectSource(src)
     }
     function refresh() {
         get("/api/health", function(h) {
@@ -72,12 +86,12 @@ PlasmoidItem {
     // Stop what is running, from the panel, without opening anything
     function stopRunning() {
         if (runningId === "") return
-        modeRunner.connectSource("sh -lc 'curl -s -X POST -H \"X-Genesis-Token: $(cat $XDG_RUNTIME_DIR/genesis/agentd.token)\" http://127.0.0.1:11520/api/sessions/" + runningId + "/stop'")
+        modeRunner.connectSource(root.curl + "-X POST http://localhost/api/sessions/" + runningId + "/stop")
     }
 
     function undoLast() {
         if (lastJobId === "") return
-        modeRunner.connectSource("sh -lc 'curl -s -X POST -H \"X-Genesis-Token: $(cat $XDG_RUNTIME_DIR/genesis/agentd.token)\" http://127.0.0.1:11520/api/history/" + lastJobId + "/undo'")
+        modeRunner.connectSource(root.curl + "-X POST http://localhost/api/history/" + lastJobId + "/undo")
     }
 
     P5Support.DataSource { id: exec; engine: "executable"; onNewData: function(source) { disconnectSource(source) } }

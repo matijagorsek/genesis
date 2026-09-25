@@ -35,14 +35,29 @@
 // XDG_RUNTIME_DIR, which the sandbox does not see (it has a tmpfs over /run).
 class TokenInterceptor : public QWebEngineUrlRequestInterceptor {
 public:
-    explicit TokenInterceptor(QByteArray t, QObject *parent) : QWebEngineUrlRequestInterceptor(parent), token(std::move(t)) {}
+    explicit TokenInterceptor(QByteArray t, int p, QObject *parent) : QWebEngineUrlRequestInterceptor(parent), token(std::move(t)), port(p) {}
     void interceptRequest(QWebEngineUrlRequestInfo &info) override {
         const QUrl u = info.requestUrl();
-        if (!token.isEmpty() && u.host() == "127.0.0.1" && u.port() == 11520) info.setHttpHeader("X-Genesis-Token", token);
+        if (!token.isEmpty() && u.host() == "127.0.0.1" && u.port() == port) info.setHttpHeader("X-Genesis-Token", token);
     }
 private:
     QByteArray token;
+    int port;
 };
+
+// Every account has its own maker daemon on its own port, written to the runtime directory. Menus, the
+// panel and the scripts all say http://127.0.0.1:11520/ -- the maker's address as a name -- and this
+// window turns it into this user's port, so none of them has to know the number.
+static int agentdPort() {
+    QFile f(qEnvironmentVariable("XDG_RUNTIME_DIR") + "/genesis/agentd.port");
+    if (f.open(QIODevice::ReadOnly)) { bool ok = false; const int p = QString::fromUtf8(f.readAll()).trimmed().toInt(&ok); if (ok && p > 0) return p; }
+    return 11520;
+}
+static QString toThisUser(QString url) {
+    QUrl u(url);
+    if (u.host() == "127.0.0.1" && u.port() == 11520) { u.setPort(agentdPort()); return u.toString(); }
+    return url;
+}
 
 /// Dark or light, as the desktop has it: a web view inside a Qt app reports the Qt palette, which is not
 /// the Plasma colour scheme, so it rendered light pages on a dark desktop. The pages take it from the URL.
@@ -106,8 +121,9 @@ int main(int argc, char **argv) {
     if (!url.startsWith("http://127.0.0.1") && !url.startsWith("http://localhost"))
         return 2; // local surfaces only
 
-    // wait briefly for the local service to come up (first login races the daemons)
-    for (int i = 0; i < 60 && !reachable(url); ++i)
+    // wait briefly for the local service to come up (first login races the daemons); the port file is
+    // read again on every try, because at first login the daemon may not have written it yet
+    for (int i = 0; i < 60 && !reachable(url = toThisUser(url)); ++i)
         QThread::sleep(1);
 
     auto *win = new QMainWindow;
@@ -131,7 +147,7 @@ int main(int argc, char **argv) {
         QUrlQuery q(u.query());
         if (!q.hasQueryItem("theme")) { q.addQueryItem("theme", desktopTheme()); u.setQuery(q); url = u.toString(); }
     }
-    view->page()->profile()->setUrlRequestInterceptor(new TokenInterceptor(agentdToken(), win));
+    view->page()->profile()->setUrlRequestInterceptor(new TokenInterceptor(agentdToken(), agentdPort(), win));
     view->load(QUrl(url));
     win->setCentralWidget(view);
     // a comfortable window, not a screen-filling one: 78% of the screen, capped, centered

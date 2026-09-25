@@ -1,5 +1,5 @@
 [Unit]
-Description=Genesis agent daemon (local API on 127.0.0.1:11520)
+Description=Genesis agent daemon (local API on 127.0.0.1, this user's own port)
 Documentation=https://github.com/matijagorsek/genesis
 After=graphical-session.target genesis-permd.service
 PartOf=graphical-session.target

@@ -31,9 +31,9 @@ use tiny_http::{Header, Method, Request, Response, Server, SslConfig};
 struct Cli {
     #[arg(long, default_value = "0.0.0.0:11530", env = "GENESIS_COMPANION_LISTEN")]
     listen: String,
-    /// The maker daemon this proxies to.
-    #[arg(long, default_value = "http://127.0.0.1:11520", env = "GENESIS_AGENTD")]
-    agentd: String,
+    /// The maker daemon this proxies to. Default: this user's, at the port it wrote to the runtime directory.
+    #[arg(long, env = "GENESIS_AGENTD")]
+    agentd: Option<String>,
     /// Print the pairing payload (what the QR encodes) and exit.
     #[arg(long)]
     pairing: bool,
@@ -94,6 +94,13 @@ fn pairing_payload(c: &Pairing, port: u16) -> serde_json::Value {
         "v": 1, "name": std::fs::read_to_string("/etc/hostname").map(|s| s.trim().to_string()).unwrap_or_else(|_| "genesis".into()),
         "hosts": lan_addresses(), "port": port, "fp": c.fingerprint, "token": c.token,
     })
+}
+
+/// This user's maker daemon: each account has its own, on the port it wrote to the runtime directory.
+fn agentd_url() -> String {
+    let rt = std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".into());
+    let port = std::fs::read_to_string(format!("{}/genesis/agentd.port", rt)).ok().and_then(|p| p.trim().parse::<u16>().ok()).unwrap_or(11520);
+    format!("http://127.0.0.1:{}", port)
 }
 
 fn agentd_token() -> String {
@@ -200,11 +207,20 @@ fn main() -> Result<()> {
     let pairing = load_or_create_pairing()?;
     let port: u16 = cli.listen.rsplit(':').next().and_then(|p| p.parse().ok()).unwrap_or(11530);
     if cli.pairing { println!("{}", pairing_payload(&pairing, port)); return Ok(()); }
-    let server = Server::https(&cli.listen, SslConfig { certificate: pairing.cert_pem.clone().into_bytes(), private_key: pairing.key_pem.clone().into_bytes() })
-        .map_err(|e| anyhow!("listen {}: {}", cli.listen, e))?;
+    let server = match Server::https(&cli.listen, SslConfig { certificate: pairing.cert_pem.clone().into_bytes(), private_key: pairing.key_pem.clone().into_bytes() }) {
+        Ok(s) => s,
+        // one phone port per machine (it is the one the firewall opens): when a second person logs in,
+        // the first one keeps the phone link, and this one says so and stays down instead of restarting
+        Err(e) if e.to_string().to_lowercase().contains("in use") => {
+            tracing::warn!(listen = %cli.listen, "the phone port is in use, by another user on this machine; the phone link stays with them");
+            return Ok(());
+        }
+        Err(e) => return Err(anyhow!("listen {}: {}", cli.listen, e)),
+    };
     tracing::info!(listen = %cli.listen, fingerprint = %pairing.fingerprint, "genesis-companiond serving (TLS, bearer token)");
     for mut req in server.incoming_requests() {
-        let resp = handle(&mut req, &pairing, &cli.agentd);
+        let agentd = cli.agentd.clone().unwrap_or_else(agentd_url);
+        let resp = handle(&mut req, &pairing, &agentd);
         let _ = req.respond(resp);
     }
     Ok(())

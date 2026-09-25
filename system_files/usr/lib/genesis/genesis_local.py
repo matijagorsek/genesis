@@ -14,6 +14,14 @@ def token():
         return ""
 
 
+def port():
+    """This user's port: every account has its own daemon, and it writes where it listens."""
+    try:
+        return int(open(os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/run/user/%d" % os.getuid()), "genesis", "agentd.port")).read().strip())
+    except (OSError, ValueError):
+        return 11520
+
+
 def socket_path():
     return os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/run/user/%d" % os.getuid()), "genesis", "agentd.sock")
 
@@ -35,7 +43,7 @@ def call(method, path, body=None, timeout=60):
     data = json.dumps(body).encode() if body is not None else None
     headers = {"Content-Type": "application/json", "X-Genesis-Token": token()}
     sock = socket_path()
-    conn = _UnixConnection(sock, timeout) if os.path.exists(sock) else http.client.HTTPConnection("127.0.0.1", 11520, timeout=timeout)
+    conn = _UnixConnection(sock, timeout) if os.path.exists(sock) else http.client.HTTPConnection("127.0.0.1", port(), timeout=timeout)
     try:
         conn.request(method, path, body=data, headers=headers)
         raw = conn.getresponse().read()

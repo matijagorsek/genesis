@@ -26,7 +26,7 @@ fi
 sel="${sel:0:6000}"
 
 sock="$run/agentd.sock"
-if [ -S "$sock" ]; then C=(curl --unix-socket "$sock"); api=http://localhost; else C=(curl); api=http://127.0.0.1:11520; fi
+if [ -S "$sock" ]; then C=(curl --unix-socket "$sock"); api=http://localhost; else C=(curl); api=http://127.0.0.1:$(cat "$XDG_RUNTIME_DIR/genesis/agentd.port" 2>/dev/null || echo 11520); fi
 tok="$(cat "$run/agentd.token" 2>/dev/null || true)"
 wav="$(mktemp -t genesis-read-XXXXXX.wav)"
 trap 'rm -f "$wav"' EXIT

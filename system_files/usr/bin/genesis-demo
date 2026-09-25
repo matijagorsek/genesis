@@ -9,7 +9,7 @@
 set -u
 tok=$(cat "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/genesis/agentd.token" 2>/dev/null || true)
 sock="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/genesis/agentd.sock"
-if [ -S "$sock" ]; then C=(curl --unix-socket "$sock"); api=http://localhost; else C=(curl); api=http://127.0.0.1:11520; fi
+if [ -S "$sock" ]; then C=(curl --unix-socket "$sock"); api=http://localhost; else C=(curl); api=http://127.0.0.1:$(cat "$XDG_RUNTIME_DIR/genesis/agentd.port" 2>/dev/null || echo 11520); fi
 say() { notify-send -a Genesis -i genesis -t 6000 "$1" "$2" 2>/dev/null; echo "== $1: $2"; }
 "${C[@]}" -s -m 5 -H "X-Genesis-Token: $tok" "$api/api/health" | grep -q '"router_ok":true' || { say "Genesis" "The local models are not running yet. Open Set up models first."; exit 1; }
 say "1 · On this machine" "Watch the badge in the dock: model loaded, no network used. Pull the cable if you like."
