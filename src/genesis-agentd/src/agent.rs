@@ -584,11 +584,21 @@ impl Agent {
                 // The third rewrite of one file with no run in between: the evaluation showed a 2B model ignores
                 // being told to run it (and ignores a refused write), so Genesis runs the program itself and
                 // puts the output in front of the model. The decision is taken away, not argued about.
-                let result = if !chat && is_write && self.same_file_streak >= 3 {
+                // The same goes for a file written back exactly as it is, the second time, when nothing has run
+                // since the last real change: the to-do list alternated todo.py and todo.json, each unchanged,
+                // and never once ran either -- every streak above resets on a different path.
+                let unchanged_again = call.function.name == "write_file" && self.identical_writes >= 1 && self.runs_since_write == 0
+                    && std::fs::read_to_string(resolve_path(&self.project, args.get("path").and_then(|p| p.as_str()).unwrap_or(""))).map(|o| Some(o.as_str()) == args.get("content").and_then(|c| c.as_str())).unwrap_or(false);
+                let result = if !chat && is_write && (self.same_file_streak >= 3 || unchanged_again) {
                     let wrote = self.execute(&call.id, &call.function.name, &args);
                     let ran = self.execute(&call.id, "preview_start", &json!({}));
                     self.same_file_streak = 0; // writes_since_run keeps counting: the hard stop still guards a model that never settles
+                    self.runs_since_write += 1;
                     let out = match ran { Ok(t) => t, Err(e) => format!("ERROR: {}", e) };
+                    if run_was_clean(&out) { self.last_run_failure.clear(); } else {
+                        let tail: Vec<&str> = out.lines().map(|l| l.trim_end()).filter(|l| !l.trim().is_empty()).collect();
+                        self.last_run_failure = tail[tail.len().saturating_sub(3)..].join("\n").chars().take(400).collect();
+                    }
                     // The evaluation showed the model keeps editing even with a clean run in front of it
                     // (36 edits to a working word counter). So a clean run here is the end of the job:
                     // Genesis says what was made and stops, instead of arguing with a 2B model.
@@ -611,7 +621,7 @@ impl Agent {
                         self.shared.set_state("done");
                         return Ok(text);
                     } else {
-                    wrote.map(|w| format!("{}\n[You changed this file three times without running it, so Genesis ran it for you. Output:]\n{}\n[If this shows no error and does what the user asked, reply with the summary now. Otherwise fix only what this output shows.]", w, out.chars().take(1500).collect::<String>()))
+                    wrote.map(|w| format!("{}\n[{}, so Genesis ran it for you. Output:]\n{}\n[If this shows no error and does what the user asked, reply with the summary now. Otherwise fix only what this output shows.]", w, if unchanged_again { "Nothing changed and nothing has run" } else { "You changed this file three times without running it" }, out.chars().take(1500).collect::<String>()))
                     }
                 } else { self.execute(&call.id, &call.function.name, &args) };
                 let (ok, mut text) = match result {

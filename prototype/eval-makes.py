@@ -100,7 +100,7 @@ def one(name, prompt, timeout):
         return f"{e['name']}({str(v)[:40]})"
     row["calls"] = [brief(e) for e in ev if e["kind"] == "tool_call"][:60]
     row["errors"] = [e.get("summary", "")[:160] for e in ev if e["kind"] == "tool_result" and not e.get("ok", True)][:10]
-    row["errors"] += ["session: " + e.get("text", "")[:160] for e in ev if e["kind"] == "error"][:3]
+    row["errors"] += ["session: " + e.get("text", "")[:900] for e in ev if e["kind"] == "error"][:3]
     # the whole make in order, each call beside the start of what came back, and what Genesis said: a
     # write that "wrote nothing new" counts as a success above, and three of those end a make
     row["timeline"] = []

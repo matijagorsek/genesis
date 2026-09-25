@@ -169,6 +169,8 @@ jobs:
           vm 'cat /tmp/results.json' > results.json
           # what the model server said, for a make that timed out or went round in circles
           vm 'echo genesis | sudo -S journalctl -u genesis-router --no-pager -o cat 2>/dev/null | tail -3000' > router.log || true
+          # and what the model servers themselves printed, which llama-swap keeps (a crash, a parse failure)
+          vm 'curl -s -m 20 -H "Authorization: Bearer $(cat /etc/genesis/router.key 2>/dev/null)" 127.0.0.1:8080/logs' > upstream.log || true
           vm 'echo genesis | sudo -S systemctl poweroff' >/dev/null 2>&1 || true
           sleep 10; kill $QEMU 2>/dev/null || true
       - uses: actions/upload-artifact@v4
@@ -181,6 +183,7 @@ jobs:
             eval-progress.log
             eval-serial.log
             router.log
+            upstream.log
 
   report:
     needs: makes

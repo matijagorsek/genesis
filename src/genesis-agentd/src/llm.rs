@@ -110,9 +110,11 @@ impl Client {
             // another seed so it is not the same draw, twice at most.
             Err(e) if e.to_string().contains("Failed to parse tool call") => {
                 let mut last = e;
-                for attempt in 1..=2 {
+                // at the maker's 0.2 a new seed alone drew the same broken call twice more (pomodoro), so the
+                // retries are warmer as well
+                for (attempt, warmer) in [(1i64, 0.6f64), (2, 0.9)] {
                     tracing::warn!(attempt, "the model's tool call could not be read; asking again");
-                    match self.chat_once_seeded(messages, tools, temperature, tool_choice, 7 + attempt) {
+                    match self.chat_once_seeded(messages, tools, warmer.max(temperature), tool_choice, 7 + attempt) {
                         Err(e) if e.to_string().contains("Failed to parse tool call") => last = e,
                         other => return other,
                     }
@@ -197,7 +199,7 @@ impl Client {
             Ok(r) => r,
             Err(ureq::Error::Status(code, r)) => {
                 let text = r.into_string().unwrap_or_default();
-                return Err(anyhow!("model endpoint returned {}: {}", code, text.chars().take(300).collect::<String>()));
+                return Err(anyhow!("model endpoint returned {}: {}", code, text.chars().take(900).collect::<String>()));
             }
             Err(e) => return Err(anyhow!("model endpoint unreachable: {}", e)),
         };
