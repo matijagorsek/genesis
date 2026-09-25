@@ -346,6 +346,8 @@ pub struct Agent {
     /// model alternating a no-op edit with a preview ran to the turn limit twice. These are counted for
     /// the whole job instead.
     pub noop_writes: usize,
+    /// completion checks asked in this run (at most two)
+    pub completion_checks: u8,
     /// Project directory the maker tools currently target (set by scaffold).
     pub active_project: Option<PathBuf>,
     /// "make" (the maker, default) or "chat" (the assistant: chat prompt, read-only tools, the user's MCP tools).
@@ -374,7 +376,7 @@ fn resolve_path(project: &Path, p: &str) -> PathBuf {
 
 impl Agent {
     pub fn new(client: Client, broker: Arc<Mutex<Broker>>, session_id: String, project: PathBuf, shared: Arc<Shared>) -> Self {
-        Agent { client, broker, session_id, project, shared, max_turns: 40, prompt_timeout: Duration::from_secs(600), messages: vec![Message::system(SYSTEM_PROMPT)], tx_store: None, tx: None, previews: maker::Previews::default(), active_project: None, browser: None, last_prompt: String::new(), scaffolded: false, edited_after_scaffold: false, nudged: false, writes_since_run: 0, nudged_writes: false, last_write: String::new(), last_run: String::new(), same_run_streak: 0, last_failure: String::new(), failure_streak: 0, ran_clean: false, same_file_streak: 0, runs_since_write: 0, total_writes: 0, noop_writes: 0, kind: "make".into() }
+        Agent { client, broker, session_id, project, shared, max_turns: 40, prompt_timeout: Duration::from_secs(600), messages: vec![Message::system(SYSTEM_PROMPT)], tx_store: None, tx: None, previews: maker::Previews::default(), active_project: None, browser: None, last_prompt: String::new(), scaffolded: false, edited_after_scaffold: false, nudged: false, writes_since_run: 0, nudged_writes: false, last_write: String::new(), last_run: String::new(), same_run_streak: 0, last_failure: String::new(), failure_streak: 0, ran_clean: false, same_file_streak: 0, runs_since_write: 0, total_writes: 0, noop_writes: 0, completion_checks: 0, kind: "make".into() }
     }
 
     /// The plan card: what the job will touch and the steps, before anything runs. One short model call
@@ -435,6 +437,35 @@ impl Agent {
         if compact_model(&self.client.model) { 4_000 } else { 24_000 }
     }
 
+    /// Before a make is called finished: which parts of what was asked do the files not do yet? A small
+    /// model declares victory early -- "a website for a club with three pages" ended with one page, run
+    /// clean -- and every guard in this loop is about stopping, none about whether the request is met.
+    /// One short question on the conversation as it is, its answer held to a schema by the server's
+    /// grammar; the conversation is in the model's cache, so it costs the question and the answer. At
+    /// most twice a run, and a check that fails or cannot be read never holds a job back.
+    fn missing_parts(&mut self, tools: &Value) -> Vec<String> {
+        if self.kind == "chat" || self.completion_checks >= 2 || std::env::var("GENESIS_NO_COMPLETION_CHECK").is_ok() { return Vec::new(); }
+        self.completion_checks += 1;
+        let schema = json!({"type": "object", "properties": {"parts": {"type": "array", "maxItems": 12, "items": {"type": "object",
+            "properties": {"part": {"type": "string", "maxLength": 120}, "done": {"type": "boolean"}}, "required": ["part", "done"]}}}, "required": ["parts"]});
+        let mut msgs = self.messages.clone();
+        msgs.push(Message::user(format!("Before this is called finished: split the request below into its separate parts -- each page, feature, command or file that was asked for -- and say for each whether the files written so far already do it. Compact JSON only.\n\nRequest: {}", self.last_prompt)));
+        match self.client.check_json(&msgs, tools, &schema, 400) {
+            Ok(v) => v.get("parts").and_then(|p| p.as_array()).map(|a| a.iter()
+                .filter(|x| x.get("done").and_then(|d| d.as_bool()) == Some(false))
+                .filter_map(|x| x.get("part").and_then(|p| p.as_str()).map(|p| p.trim().chars().take(120).collect::<String>()))
+                .filter(|p| !p.is_empty()).take(6).collect()).unwrap_or_default(),
+            Err(e) => { tracing::warn!(%e, "completion check failed; finishing as the model said"); Vec::new() }
+        }
+    }
+
+    /// Say what is missing, to the person and to the model, and let the loop go on.
+    fn not_finished_yet(&mut self, missing: &[String]) {
+        self.shared.push(Event::Assistant { text: format!("Not finished yet: {}. Carrying on.", missing.join("; ")) });
+        self.messages.push(Message::user(format!("Not finished yet. The request also asked for: {}. Make these now, run it once, and then reply with the summary.", missing.join("; "))));
+        self.same_file_streak = 0;
+    }
+
     fn finish_stopped(&mut self) -> Result<String> {
         self.shared.push(Event::Assistant { text: "Stopped. What was made so far is kept; Undo takes it back.".into() });
         self.shared.set_state("done");
@@ -450,7 +481,7 @@ impl Agent {
         self.shared.push(Event::UserPrompt { text: text.into() });
         self.shared.set_state("running");
         self.last_prompt = text.to_string();
-        self.scaffolded = false; self.edited_after_scaffold = false; self.nudged = false; self.writes_since_run = 0; self.nudged_writes = false; self.last_write.clear(); self.same_file_streak = 0; self.last_run.clear(); self.same_run_streak = 0; self.last_failure.clear(); self.failure_streak = 0; self.ran_clean = false; self.runs_since_write = 0; self.total_writes = 0; self.noop_writes = 0;
+        self.scaffolded = false; self.edited_after_scaffold = false; self.nudged = false; self.writes_since_run = 0; self.nudged_writes = false; self.last_write.clear(); self.same_file_streak = 0; self.last_run.clear(); self.same_run_streak = 0; self.last_failure.clear(); self.failure_streak = 0; self.ran_clean = false; self.runs_since_write = 0; self.total_writes = 0; self.noop_writes = 0; self.completion_checks = 0;
         let compact = compact_model(&self.client.model);
         let chat = self.kind == "chat";
         if chat { if self.messages.first().map(|m| m.content.as_deref() != Some(SYSTEM_PROMPT_CHAT)).unwrap_or(true) { self.messages[0] = Message::system(SYSTEM_PROMPT_CHAT); } }
@@ -504,6 +535,13 @@ impl Agent {
                 self.messages.push(Message::user("You scaffolded the template but did not change any file. The template is only a starting point: now implement what was asked (edit the generated files so the program actually does it), run it once to check, and only then finish.".to_string()));
                 continue;
             }
+            if calls.is_empty() && !chat {
+                let missing = self.missing_parts(&tools);
+                if !missing.is_empty() {
+                    self.not_finished_yet(&missing);
+                    continue;
+                }
+            }
             if calls.is_empty() {
                 let _ = self.commit();
                 if let Some(p) = self.active_project.clone() { maker::record_recipe(&p, None, text); }
@@ -549,7 +587,14 @@ impl Agent {
                     // (36 edits to a working word counter). So a clean run here is the end of the job:
                     // Genesis says what was made and stops, instead of arguing with a 2B model.
                     let clean = wrote.is_ok() && !["Traceback", "Error", "error:", "ERROR", "FAILED", "exit=1", "exit=2", "SyntaxError"].iter().any(|k| out.contains(k));
-                    if clean {
+                    // Clean is not the same as finished: the club site ran clean with one page of three, and
+                    // this was where the job ended. Ask first; what is missing goes back to the model.
+                    let missing = if clean { self.missing_parts(&tools) } else { Vec::new() };
+                    if clean && !missing.is_empty() {
+                        self.shared.push(Event::ToolResult { id: call.id.clone(), ok: true, summary: out.chars().take(200).collect() });
+                        self.shared.push(Event::Assistant { text: format!("It runs without errors, and it is not finished yet: {}. Carrying on.", missing.join("; ")) });
+                        wrote.map(|w| format!("{}\n[Genesis ran it for you: it runs without errors. It is not finished: the request also asked for {}. Make those now, then run it once.]", w, missing.join("; ")))
+                    } else if clean {
                         self.shared.push(Event::ToolResult { id: call.id.clone(), ok: true, summary: out.chars().take(200).collect() });
                         let url = self.shared.info.lock().unwrap().preview_url.clone();
                         let text = format!("It is made and it runs without errors{}. Tell me what to change, or press Install to put it in your app menu.", url.map(|u| format!(" (preview: {})", u)).unwrap_or_default());
@@ -559,8 +604,9 @@ impl Agent {
                         self.shared.push(Event::Done { turns: turn + 1 });
                         self.shared.set_state("done");
                         return Ok(text);
-                    }
+                    } else {
                     wrote.map(|w| format!("{}\n[You changed this file three times without running it, so Genesis ran it for you. Output:]\n{}\n[If this shows no error and does what the user asked, reply with the summary now. Otherwise fix only what this output shows.]", w, out.chars().take(1500).collect::<String>()))
+                    }
                 } else { self.execute(&call.id, &call.function.name, &args) };
                 let (ok, mut text) = match result {
                     Ok(t) => (true, t),

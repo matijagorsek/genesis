@@ -29,7 +29,7 @@ CHECKS = {
     "pomodoro": lambda d: any("html" in f for f in d),
     "wordcount": lambda d: True,
     "rename": lambda d: True,
-    "club": lambda d: sum(1 for f in d if f.endswith(".html")) >= 2,
+    "club": lambda d: sum(1 for f in d if f.endswith(".html")) >= 3,  # three pages were asked for
     "json-flag": lambda d: True,
     "temperature": lambda d: any("html" in f for f in d),
     "todo-cli": lambda d: True,

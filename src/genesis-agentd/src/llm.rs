@@ -115,6 +115,22 @@ impl Client {
         Ok(())
     }
 
+    /// A question whose answer must be JSON of this schema (the server holds the reply to it with a
+    /// grammar). The tools go along, unused, because they are part of the conversation the model already
+    /// read: leave them out and the prompt no longer matches the cache, and all of it is read again.
+    pub fn check_json(&self, messages: &[Message], tools: &Value, schema: &Value, max_tokens: u32) -> Result<Value> {
+        let body = serde_json::json!({"model": self.model, "messages": messages, "tools": tools, "tool_choice": "none",
+            "response_format": {"type": "json_schema", "json_schema": {"name": "check", "schema": schema}},
+            "max_tokens": max_tokens, "temperature": 0.0, "seed": 7, "stream": false});
+        let resp = ureq::post(&format!("{}/chat/completions", self.endpoint.trim_end_matches('/')))
+            .set("Authorization", &format!("Bearer {}", self.api_key))
+            .timeout(std::time::Duration::from_secs(300))
+            .send_json(body).map_err(|e| anyhow!("check: {}", e))?;
+        let parsed: ChatResponse = resp.into_json().context("parsing the check")?;
+        let text = parsed.choices.into_iter().next().and_then(|c| c.message.content).unwrap_or_default();
+        serde_json::from_str(text.trim()).context("the check's answer is not JSON")
+    }
+
     fn chat_once_with(&self, messages: &[Message], tools: &Value, temperature: f64, tool_choice: &str) -> Result<Reply> {
         let body = serde_json::json!({
             "model": self.model,

@@ -162,6 +162,10 @@ How Genesis got here, in the order it happened. The decision log has the detail 
   code comes 1.2 to 1.3 times faster; on a four-core CPU a rewrite is a quarter faster. What comes out is
   what the big model would have said — checked, not assumed. Measured with the build and models Genesis
   ships ([speed.yml](.github/workflows/speed.yml)); the draft model that made a CPU 40% slower is not used there.
+- **It finishes what you asked for.** Before a make is called done, Genesis asks the model one short
+  question — which parts of the request do the files not do yet? — with the answer held to a schema by the
+  model service. What is missing goes back to the model, and you see it: "Not finished yet: the events
+  page. Carrying on." A club website asked for with three pages used to end, run clean, with one.
 - **The first word comes sooner.** A job's fixed opening — the instructions and the tools, one to two
   thousand tokens that a laptop takes a minute or two to read — is read ahead: at login for chat, and
   the moment the maker or the palette opens, while you are still typing. The first request then reads

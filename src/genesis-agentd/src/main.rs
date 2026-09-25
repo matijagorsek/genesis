@@ -854,6 +854,28 @@ mod tests {
     }
 
     #[test]
+    fn a_make_that_stops_early_is_told_what_is_missing() {
+        // the club site: one page of three, and "done". The check finds the rest; the job carries on.
+        let proj = tempfile::tempdir().unwrap();
+        let check = |about: bool| serde_json::json!({"role": "assistant", "content": serde_json::json!({"parts": [{"part": "home page", "done": true}, {"part": "about page", "done": about}]}).to_string()});
+        let ep = fake_llm(vec![
+            tool_call("write_file", serde_json::json!({"path": "index.html", "content": "<h1>Club</h1>"})),
+            serde_json::json!({"role": "assistant", "content": "made it"}),
+            check(false),
+            tool_call("write_file", serde_json::json!({"path": "about.html", "content": "<h1>About</h1>"})),
+            serde_json::json!({"role": "assistant", "content": "made both pages"}),
+            check(true),
+        ]);
+        let (mut agent, shared) = setup(proj.path(), Mode::AutoEdit, ep);
+        let out = agent.run("a website for a club with a home page and an about page").unwrap();
+        assert_eq!(out, "made both pages");
+        assert!(proj.path().join("about.html").exists(), "the missing page was made");
+        let ev = shared.info.lock().unwrap().events.clone();
+        assert!(ev.iter().any(|e| matches!(e, Event::Assistant { text } if text.contains("Not finished yet: about page"))), "the person sees why it went on");
+        assert!(agent.messages.iter().any(|m| m.content.as_deref().map(|c| c.contains("also asked for: about page")).unwrap_or(false)));
+    }
+
+    #[test]
     fn the_warm_up_reads_exactly_what_a_job_starts_with() {
         // a warm-up that read anything else would save nothing: the cache holds tokens, not intentions
         for kind in ["make", "chat"] {
