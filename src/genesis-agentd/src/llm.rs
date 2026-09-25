@@ -140,7 +140,15 @@ impl Client {
         serde_json::from_str(text.trim()).context("the check's answer is not JSON")
     }
 
+    /// One model call, streamed. A fixed limit on the whole call could not tell a model that has stopped
+    /// from one that is slowly writing a long file: the 2B writing a pomodoro app on a four-core CPU ran
+    /// past five minutes and was cut off mid-file, in make after make (decision 223). So the answer
+    /// streams, and the limit is on silence: the server sends a progress note after each batch of the
+    /// prompt it reads and then every token, and a call that sends nothing for two minutes has stalled.
+    /// Before the first byte the wait is long, because that is where a model that was not loaded loads.
+    /// A server that answers in one piece instead (the tests' fake model) is read as before.
     fn chat_once_with(&self, messages: &[Message], tools: &Value, temperature: f64, tool_choice: &str) -> Result<Reply> {
+        let secs = |var: &str, default: u64| std::env::var(var).ok().and_then(|v| v.parse().ok()).unwrap_or(default);
         let body = serde_json::json!({
             "model": self.model,
             "messages": messages,
@@ -150,18 +158,16 @@ impl Client {
             // a fixed seed unless the machine asks for otherwise: two runs of the same tree should be
             // comparable, or a change cannot be told apart from the sampler's mood
             "seed": std::env::var("GENESIS_SEED").ok().and_then(|v| v.parse::<i64>().ok()).unwrap_or(7),
-            "stream": false,
+            "stream": true,
+            "return_progress": true,
+            "stream_options": {"include_usage": true},
         });
         let url = format!("{}/chat/completions", self.endpoint.trim_end_matches('/'));
-        let resp = ureq::post(&url)
-            .set("Authorization", &format!("Bearer {}", self.api_key))
-            // Half an hour for one model call meant a job could sit there doing nothing for longer than
-            // anyone would wait, and longer than the evaluation's own patience: one make spent 25 minutes
-            // after seven writes without a single further tool call. A 2B model on a CPU answers a turn in
-            // seconds to a couple of minutes; five is generous, and a machine that needs more can say so.
-            .timeout(std::time::Duration::from_secs(std::env::var("GENESIS_LLM_TIMEOUT").ok().and_then(|v| v.parse().ok()).unwrap_or(300)))
-            .send_json(body);
-        let resp = match resp {
+        let first_byte = std::time::Duration::from_secs(secs("GENESIS_LLM_LOAD_TIMEOUT", 900));
+        let silence = std::time::Duration::from_secs(secs("GENESIS_LLM_SILENCE", 120));
+        let whole = std::time::Duration::from_secs(secs("GENESIS_LLM_TIMEOUT", 3600));
+        let agent = ureq::AgentBuilder::new().timeout_connect(std::time::Duration::from_secs(10)).timeout_read(first_byte).build();
+        let resp = match agent.post(&url).set("Authorization", &format!("Bearer {}", self.api_key)).send_json(body) {
             Ok(r) => r,
             Err(ureq::Error::Status(code, r)) => {
                 let text = r.into_string().unwrap_or_default();
@@ -169,9 +175,89 @@ impl Client {
             }
             Err(e) => return Err(anyhow!("model endpoint unreachable: {}", e)),
         };
-        let parsed: ChatResponse = resp.into_json().context("parsing chat completion")?;
-        let choice = parsed.choices.into_iter().next().ok_or_else(|| anyhow!("no choices in response"))?;
-        Ok(Reply { message: choice.message, finish_reason: choice.finish_reason.unwrap_or_default(), usage: parsed.usage })
+        if !resp.content_type().contains("event-stream") {
+            let parsed: ChatResponse = resp.into_json().context("parsing chat completion")?;
+            let choice = parsed.choices.into_iter().next().ok_or_else(|| anyhow!("no choices in response"))?;
+            return Ok(Reply { message: choice.message, finish_reason: choice.finish_reason.unwrap_or_default(), usage: parsed.usage });
+        }
+        // the lines are read on their own thread, so silence can be timed here
+        let (tx, rx) = std::sync::mpsc::channel::<Option<String>>();
+        let reader = resp.into_reader();
+        std::thread::spawn(move || {
+            use std::io::BufRead;
+            for line in std::io::BufReader::new(reader).lines() {
+                match line {
+                    Ok(l) => if let Some(data) = l.strip_prefix("data:") { if tx.send(Some(data.trim().to_string())).is_err() { return; } },
+                    Err(_) => break,
+                }
+            }
+            let _ = tx.send(None);
+        });
+        let started = std::time::Instant::now();
+        let mut acc = Streamed::default();
+        loop {
+            if started.elapsed() > whole {
+                return Err(anyhow!("the model took more than {} minutes over one answer", whole.as_secs() / 60));
+            }
+            match rx.recv_timeout(silence) {
+                Ok(Some(data)) if data == "[DONE]" => break,
+                Ok(Some(data)) => acc.add(&data)?,
+                Ok(None) => break,
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => return Err(anyhow!("the model went silent for {} seconds: nothing read, nothing written", silence.as_secs())),
+                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
+            }
+        }
+        acc.reply()
+    }
+}
+
+/// An answer put together from its stream: text and tool calls arrive in pieces, a tool call's arguments
+/// in many, keyed by the call's index.
+#[derive(Default)]
+struct Streamed {
+    content: String,
+    calls: Vec<ToolCall>,
+    finish_reason: String,
+    usage: Option<Value>,
+    any: bool,
+}
+
+impl Streamed {
+    fn add(&mut self, data: &str) -> Result<()> {
+        let v: Value = match serde_json::from_str(data) { Ok(v) => v, Err(_) => return Ok(()) };
+        if let Some(e) = v.get("error") {
+            return Err(anyhow!("model endpoint returned an error: {}", e.to_string().chars().take(300).collect::<String>()));
+        }
+        if let Some(u) = v.get("usage").filter(|u| !u.is_null()) { self.usage = Some(u.clone()); }
+        let Some(choice) = v.get("choices").and_then(|c| c.as_array()).and_then(|a| a.first()) else { return Ok(()) };
+        if let Some(f) = choice.get("finish_reason").and_then(|f| f.as_str()) { self.finish_reason = f.to_string(); }
+        let Some(delta) = choice.get("delta") else { return Ok(()) };
+        if let Some(t) = delta.get("content").and_then(|c| c.as_str()) { self.content.push_str(t); self.any = true; }
+        for tc in delta.get("tool_calls").and_then(|t| t.as_array()).into_iter().flatten() {
+            self.any = true;
+            let i = tc.get("index").and_then(|i| i.as_u64()).unwrap_or(0) as usize;
+            while self.calls.len() <= i {
+                self.calls.push(ToolCall { id: String::new(), kind: "function".into(), function: FunctionCall { name: String::new(), arguments: String::new() } });
+            }
+            let c = &mut self.calls[i];
+            if let Some(id) = tc.get("id").and_then(|x| x.as_str()) { if !id.is_empty() { c.id = id.to_string(); } }
+            if let Some(f) = tc.get("function") {
+                if let Some(n) = f.get("name").and_then(|x| x.as_str()) { c.function.name.push_str(n); }
+                if let Some(a) = f.get("arguments").and_then(|x| x.as_str()) { c.function.arguments.push_str(a); }
+            }
+        }
+        Ok(())
+    }
+
+    fn reply(self) -> Result<Reply> {
+        if !self.any && self.finish_reason.is_empty() {
+            return Err(anyhow!("no choices in response"));
+        }
+        let calls: Vec<ToolCall> = self.calls.into_iter().filter(|c| !c.function.name.is_empty()).enumerate()
+            .map(|(i, mut c)| { if c.id.is_empty() { c.id = format!("call_{}", i); } c }).collect();
+        let message = Message { role: "assistant".into(), content: if self.content.is_empty() && !calls.is_empty() { None } else { Some(self.content) },
+            tool_calls: if calls.is_empty() { None } else { Some(calls) }, tool_call_id: None, name: None };
+        Ok(Reply { message, finish_reason: self.finish_reason, usage: self.usage })
     }
 }
 
@@ -180,4 +266,60 @@ impl Client {
 pub fn router_key() -> String {
     std::fs::read_to_string(std::env::var("GENESIS_ROUTER_KEY_FILE").unwrap_or_else(|_| "/etc/genesis/router.key".into()))
         .ok().map(|k| k.trim().to_string()).filter(|k| !k.is_empty()).unwrap_or_else(|| "local".into())
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn a_real_stream_becomes_the_tool_call_it_was() {
+        // captured from llama-server b10901: progress notes while it reads, then a write_file call in pieces
+        let sse = include_str!("../testdata/tool-call.sse");
+        let mut acc = super::Streamed::default();
+        for line in sse.lines() {
+            if let Some(d) = line.strip_prefix("data:") { if d.trim() == "[DONE]" { break; } acc.add(d.trim()).unwrap(); }
+        }
+        let r = acc.reply().unwrap();
+        let calls = r.message.tool_calls.expect("a tool call");
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].function.name, "write_file");
+        let args: serde_json::Value = serde_json::from_str(&calls[0].function.arguments).expect("the arguments, whole");
+        assert_eq!(args["path"], "hello.txt");
+        assert!(!calls[0].id.is_empty());
+        assert_eq!(r.finish_reason, "tool_calls");
+        assert!(r.usage.and_then(|u| u.get("completion_tokens").cloned()).is_some(), "usage, for the tokens-per-second figure");
+    }
+
+    #[test]
+    fn silence_is_a_stall_and_slow_is_not() {
+        use std::io::{Read, Write};
+        // a server that streams a token a second for three seconds, then says nothing more
+        let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = l.local_addr().unwrap();
+        std::thread::spawn(move || {
+            let (mut s, _) = l.accept().unwrap();
+            let mut buf = [0u8; 65536]; let _ = s.read(&mut buf);
+            let _ = write!(s, "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n\r\n");
+            for _ in 0..3 {
+                let _ = write!(s, "data: {{\"choices\":[{{\"index\":0,\"delta\":{{\"content\":\"a\"}}}}]}}\n\n");
+                let _ = s.flush();
+                std::thread::sleep(std::time::Duration::from_secs(1));
+            }
+            std::thread::sleep(std::time::Duration::from_secs(30));
+        });
+        std::env::set_var("GENESIS_LLM_SILENCE", "2");
+        let c = super::Client { endpoint: format!("http://{}/v1", addr), model: "m".into(), api_key: "k".into() };
+        let t = std::time::Instant::now();
+        let e = c.chat_once_with(&[super::Message::user("hi")], &serde_json::json!([]), 0.2, "auto").err().expect("a stall");
+        std::env::remove_var("GENESIS_LLM_SILENCE");
+        assert!(e.to_string().contains("went silent"), "{}", e);
+        // three seconds of tokens a second apart are not silence; the stall is caught two seconds after
+        let took = t.elapsed().as_secs_f64();
+        assert!(took > 4.0 && took < 10.0, "took {}", took);
+    }
+
+    #[test]
+    fn a_server_error_in_the_stream_is_an_error() {
+        let mut acc = super::Streamed::default();
+        assert!(acc.add(r#"{"error":{"code":500,"message":"failed to parse"}}"#).is_err());
+    }
 }

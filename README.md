@@ -173,7 +173,8 @@ How Genesis got here, in the order it happened. The decision log has the detail 
   thousand tokens that a laptop takes a minute or two to read — is read ahead: at login for chat, and
   the moment the maker or the palette opens, while you are still typing. The first request then reads
   only your words: 28 tokens instead of 924 in the measurement. After that, each turn reads only what is
-  new; the rest comes from the model's cache.
+  new; the rest comes from the model's cache. And slow is not taken for stuck: the answer streams, and
+  only two minutes of silence counts as a stall, so a small machine writing a long file gets to finish it.
 - **The assistant follows the plug.** Pull the cable out of a laptop and the big models are put away;
   every request goes to the small always-loaded one, and the assistant gets shorter rather than quiet.
   Plug back in and they are allowed to load again. Nobody else can do this, because nobody else has both
