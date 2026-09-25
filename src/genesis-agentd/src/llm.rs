@@ -106,8 +106,17 @@ impl Client {
 
     /// Have the model read these messages and tools and say one token: what it read stays in its cache.
     /// Patient, because this is the call that loads a model that was not loaded.
+    ///
+    /// It ends with a user message of its own because of where the model server keeps its place. On the
+    /// hybrid Qwen3.5 layers it can only resume from a checkpoint, and it makes one where the last user
+    /// message starts and a few tokens before the end. With the opening alone, the real request parts
+    /// from it before the last of those, and 537 of 924 tokens were read again; with a user message the
+    /// checkpoint is exactly where the real one begins, and 28 were (tools/prefill-bench.py, decision
+    /// 221). tool_choice "none": one token of a tool call cannot be parsed, and the 2B answered it with 500.
     pub fn warm(&self, messages: &[Message], tools: &Value) -> Result<()> {
-        let body = serde_json::json!({"model": self.model, "messages": messages, "tools": tools, "tool_choice": "auto", "max_tokens": 1, "temperature": 0.0, "stream": false});
+        let mut messages = messages.to_vec();
+        messages.push(Message::user("(getting ready)".to_string()));
+        let body = serde_json::json!({"model": self.model, "messages": messages, "tools": tools, "tool_choice": "none", "max_tokens": 1, "temperature": 0.0, "stream": false});
         ureq::post(&format!("{}/chat/completions", self.endpoint.trim_end_matches('/')))
             .set("Authorization", &format!("Bearer {}", self.api_key))
             .timeout(std::time::Duration::from_secs(900))

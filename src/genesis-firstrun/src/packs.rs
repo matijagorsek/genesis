@@ -242,8 +242,16 @@ pub fn has_mtp(path: &Path) -> bool {
 ///           1.3 times faster, 87% of guesses accepted.
 ///   a draft model: a pack may still ship one (role "draft"); MTP wins when both are there.
 /// Every combination gave the same greedy answer as none at all.
-fn speculation(model: &Path, draft: Option<&str>) -> String {
-    if has_mtp(model) {
+///
+/// Only with a GPU. On a CPU checking a guess costs about what writing it would, and the guesses n-gram
+/// makes are long (48 to 64 tokens): when the maker writes a new file beside a template it has just read,
+/// it keeps half-matching and being wrong. Whole makes on the 2B showed it where the timing benchmark
+/// had not -- pomodoro's first write ran past five minutes in all three evaluations with speculation on,
+/// and finished in the one with it off (decision 221).
+fn speculation(model: &Path, draft: Option<&str>, gpu: bool) -> String {
+    if !gpu {
+        String::new()
+    } else if has_mtp(model) {
         " --spec-type ngram-mod,draft-mtp".to_string()
     } else if let Some(d) = draft {
         format!(" --spec-type ngram-mod,draft-simple -md {} --spec-draft-n-max 16 --spec-draft-n-min 4", d)
@@ -300,14 +308,14 @@ pub fn render_router_tuned(models_dir: &Path, port_base: u16, t: Tuning) -> Resu
     let mut big = Vec::new();
     if let Some(f) = find("fast", false) {
         let mm = find("fast", true).map(|m| format!(" --mmproj {}", m)).unwrap_or_default();
-        let spec = speculation(Path::new(&f), None);
+        let spec = speculation(Path::new(&f), None, ngl > 0);
         y.push_str(&format!("  fast:\n    cmd: |\n      ${{server}} -m {}{}{}\n      -c 16384 --cache-reuse 256 --temp 0.7 --top-p 0.8 --top-k 20 --reasoning off\n    aliases: [ \"auto\", \"genesis-fast\" ]\n    ttl: 0\n\n", f, mm, spec));
         hot.push("fast");
     }
     if let Some(f) = find("code", false) {
         let mm = find("code", true).map(|m| format!(" --mmproj {}", m)).unwrap_or_default();
         // a draft model only with a GPU, until one is measured to help on a CPU
-        let draft = speculation(Path::new(&f), find("draft", false).filter(|_| t.ngl > 0).as_deref());
+        let draft = speculation(Path::new(&f), find("draft", false).as_deref(), ngl > 0);
         y.push_str(&format!("  code:\n    cmd: |\n      ${{big}} -m {}{}{}\n      -c {} --cache-reuse 256 --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0.0 --reasoning auto --reasoning-budget {}\n      --cache-type-k q8_0 --cache-type-v q8_0\n    aliases: [ \"genesis-code\" ]\n    ttl: 600\n\n", f, mm, draft, if t.ngl == 0 { 8192 } else { 32768 }, if t.ngl == 0 { 512 } else { 4096 }));
         big.push("code");
     }
@@ -415,7 +423,7 @@ mod tests {
         let y = render_router_tuned(dir.path(), 5800, gpu).unwrap();
         assert!(y.contains("--spec-type ngram-mod,draft-simple -md") && y.contains("--spec-draft-n-max 16"), "{}", y);
         let cpu = render_router_tuned(dir.path(), 5800, Tuning { threads: 4, ngl: 0, budget_mb: 0, device: Some("none".into()) }).unwrap();
-        assert!(!cpu.contains("-md ") && cpu.contains("--spec-type ngram-mod"), "a CPU keeps n-gram and no draft model: {}", cpu);
+        assert!(!cpu.contains("-md ") && !cpu.contains("--spec-type"), "a CPU guesses nothing ahead: it made whole makes slower: {}", cpu);
     }
 
     #[test]
