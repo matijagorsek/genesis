@@ -7,6 +7,10 @@ name: speed
 
 on:
   workflow_dispatch:
+    inputs:
+      only:
+        description: 'setups to run, separated by | (default: all)'
+        default: ''
 
 permissions:
   contents: read
@@ -39,6 +43,8 @@ jobs:
           done
           ls -la
       - name: Measure
+        env:
+          SPEED_ONLY: ${{ github.event.inputs.only }}
         run: python3 tools/speed-bench.py --server "$PWD/llama/llama-server" --models "$PWD/models" --out speed.json
       - uses: actions/upload-artifact@v4
         if: always()

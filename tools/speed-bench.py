@@ -1,7 +1,8 @@
 #!/usr/bin/python3
 """How fast the models answer on a CPU, with and without speculative decoding. Run by speed.yml.
 
-  speed-bench.py --server /path/llama-server --models DIR --out results.json
+  speed-bench.py --server /path/llama-server --models DIR --out results.json            the CPU pack
+  speed-bench.py --set gpu27 --server ... --models DIR --out results.json              the 27B coder on a GPU
 
 Each setup starts llama-server the way the router starts it on a machine with no GPU (-ngl 0 -dev none,
 the pack's own sampling), asks it the same three kinds of thing, and reads the server's own timings:
@@ -34,6 +35,7 @@ TASKS = {
 ROLE_ARGS = {
     "code": "-c 8192 --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0.0 --reasoning off --cache-type-k q8_0 --cache-type-v q8_0",
     "fast": "-c 16384 --temp 0.7 --top-p 0.8 --top-k 20 --reasoning off",
+    "code-gpu": "-c 32768 --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0.0 --reasoning off --cache-type-k q8_0 --cache-type-v q8_0",
 }
 
 
@@ -58,9 +60,9 @@ def ask(port, prompt, max_tokens, temperature=None):
     }
 
 
-def start(server, args, port, log):
-    cmd = [server, "--port", str(port), "--host", "127.0.0.1", "-ngl", "0", "-dev", "none", "-t", str(os.cpu_count() or 4),
-           "--jinja", "--flash-attn", "auto"] + args.split()
+def start(server, args, port, log, gpu=False):
+    place = [] if gpu else ["-ngl", "0", "-dev", "none", "-t", str(os.cpu_count() or 4)]
+    cmd = [server, "--port", str(port), "--host", "127.0.0.1"] + place + ["--jinja", "--flash-attn", "auto"] + args.split()
     print("  $", " ".join(cmd[1:]), flush=True)
     p = subprocess.Popen(cmd, stdout=log, stderr=subprocess.STDOUT)
     for _ in range(600):
@@ -82,6 +84,7 @@ def main():
     ap.add_argument("--server", required=True)
     ap.add_argument("--models", required=True)
     ap.add_argument("--out", required=True)
+    ap.add_argument("--set", default="cpu", choices=["cpu", "gpu27"])
     a = ap.parse_args()
     m = pathlib.Path(a.models)
     code, fast = m / "Qwen3.5-9B-Q4_K_M.gguf", m / "Qwen3.5-4B-Q4_K_M.gguf"
@@ -90,14 +93,28 @@ def main():
         # (name, role, target, extra args, tasks)
         ("9B, as shipped", "code", code, "", ["write", "edit"]),
         ("9B + n-gram", "code", code, "--spec-type ngram-mod", ["write", "edit"]),
-        ("9B + 0.8B draft, 8", "code", code, f"-md {d08} --draft-max 8 --draft-min 2", ["write", "edit"]),
-        ("9B + 0.8B draft, 16", "code", code, f"-md {d08} --draft-max 16 --draft-min 4", ["write", "edit"]),
-        ("9B + 0.8B draft + n-gram", "code", code, f"--spec-type ngram-mod,draft-simple -md {d08} --draft-max 8 --draft-min 2", ["write", "edit"]),
-        ("9B + 2B draft, 8", "code", code, f"-md {d2} --draft-max 8 --draft-min 2", ["write", "edit"]),
+        ("9B + 0.8B draft, 8", "code", code, f"-md {d08} --spec-draft-n-max 8 --spec-draft-n-min 2", ["write", "edit"]),
+        ("9B + 0.8B draft, 16", "code", code, f"-md {d08} --spec-draft-n-max 16 --spec-draft-n-min 4", ["write", "edit"]),
+        ("9B + 0.8B draft + n-gram", "code", code, f"--spec-type ngram-mod,draft-simple -md {d08} --spec-draft-n-max 8 --spec-draft-n-min 2", ["write", "edit"]),
+        ("9B + 2B draft, 8", "code", code, f"-md {d2} --spec-draft-n-max 8 --spec-draft-n-min 2", ["write", "edit"]),
         ("4B, as shipped", "fast", fast, "", ["answer", "edit"]),
         ("4B + n-gram", "fast", fast, "--spec-type ngram-mod", ["answer", "edit"]),
-        ("4B + 0.8B draft, 8", "fast", fast, f"-md {d08} --draft-max 8 --draft-min 2", ["answer", "edit"]),
+        ("4B + 0.8B draft, 8", "fast", fast, f"-md {d08} --spec-draft-n-max 8 --spec-draft-n-min 2", ["answer", "edit"]),
     ]
+    only = os.environ.get("SPEED_ONLY")
+    if a.set == "gpu27":
+        # the 27B coder of the big packs, and the multi-token-prediction head its publisher ships beside it
+        q27, mtp = m / "q27.gguf", m / "mtp.gguf"
+        setups = [
+            ("27B, as shipped", "code-gpu", q27, "", ["write", "edit"]),
+            ("27B + MTP", "code-gpu", q27, f"-md {mtp}", ["write", "edit"]),
+            ("27B + MTP + n-gram", "code-gpu", q27, f"--spec-type ngram-mod,draft-mtp -md {mtp}", ["write", "edit"]),
+            ("27B + n-gram", "code-gpu", q27, "--spec-type ngram-mod", ["write", "edit"]),
+            # the MTP layers are in the model file too; no second download if they work from there
+            ("27B + built-in MTP + n-gram", "code-gpu", q27, "--spec-type ngram-mod,draft-mtp", ["write", "edit"]),
+        ]
+    if only:
+        setups = [x for x in setups if x[0] in only.split("|")]
     results, port = [], 18200
     logdir = pathlib.Path(a.out).with_suffix(".logs"); logdir.mkdir(exist_ok=True)
     for name, role, target, extra, tasks in setups:
@@ -105,7 +122,7 @@ def main():
         print(f"== {name}", flush=True)
         with open(logdir / f"{port}.log", "w") as log:
             try:
-                p = start(a.server, f"-m {target} {ROLE_ARGS[role]} {extra}", port, log)
+                p = start(a.server, f"-m {target} {ROLE_ARGS[role]} {extra}", port, log, gpu=a.set == "gpu27")
             except RuntimeError as e:
                 print("  could not start:", e, flush=True)
                 results.append({"setup": name, "error": str(e)}); continue
@@ -117,7 +134,7 @@ def main():
                     print(f"  {task:6} {r['gen_tps']:6.2f} tok/s  ({r['gen_tokens']} tokens, drafted {r['drafted']}, accepted {r['accepted']}, {r['wall_s']} s)", flush=True)
                     results.append(r)
                 # speculation must not change the answer: the edit, greedy, once per setup of the coder
-                if role == "code" and ("n-gram" in name or "shipped" in name or name.endswith("draft, 8") and "0.8B" in name):
+                if role.startswith("code") and ("n-gram" in name or "MTP" in name or "shipped" in name or name.endswith("draft, 8") and "0.8B" in name):
                     g = ask(port, TASKS["edit"][0], 300, temperature=0)
                     results.append({"setup": name, "role": role, "task": "edit-greedy", "text": g["text"], "gen_tps": g["gen_tps"]})
             finally:
@@ -140,18 +157,19 @@ def main():
         lines.append(f"| {r['setup']} | {r['task']} | {r['gen_tps']:.2f} | {r['gen_tps'] / b:.2f}x | {r['drafted'] or ''} | {rate} |" if b else
                      f"| {r['setup']} | {r['task']} | {r['gen_tps']:.2f} | | | |")
     greedy = {r["setup"]: r["text"] for r in results if r.get("task") == "edit-greedy"}
-    ref = greedy.get("9B, as shipped")
+    shipped = "27B, as shipped" if a.set == "gpu27" else "9B, as shipped"
+    ref = greedy.get(shipped)
     if ref is not None:
         lines.append("")
         for s, t in greedy.items():
-            if s != "9B, as shipped":
+            if s != shipped:
                 same = t == ref
                 lines.append(f"- greedy edit, {s}: {'the same answer as without speculation' if same else 'DIFFERENT from the answer without speculation (first difference at character %d)' % next((i for i, (x, y) in enumerate(zip(t, ref)) if x != y), min(len(t), len(ref)))}")
     table = "\n".join(lines)
     print(table)
     if os.environ.get("GITHUB_STEP_SUMMARY"):
         with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
-            f.write(f"### Speed on this runner's CPU ({os.cpu_count()} threads)\n\n" + table + "\n")
+            f.write((f"### Speed on this runner's CPU ({os.cpu_count()} threads)" if a.set == "cpu" else "### The 27B coder on a GPU") + "\n\n" + table + "\n")
     return 0
 
 
