@@ -15,7 +15,14 @@ and no tool call ended in an error the model did not recover from. Permission pr
 """
 import json, os, subprocess, sys, time, urllib.request
 
-AGENTD = os.environ.get("GENESIS_AGENTD", "http://127.0.0.1:11520")
+def _agentd_port():
+    """This user's maker daemon (each account has its own port, written to the runtime directory)."""
+    try:
+        return int(open(os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/run/user/%d" % os.getuid()), "genesis", "agentd.port")).read().strip())
+    except (OSError, ValueError):
+        return 11520
+
+AGENTD = os.environ.get("GENESIS_AGENTD") or "http://127.0.0.1:%d" % _agentd_port()
 TOKEN = ""
 try:
     TOKEN = open(os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/run/user/%d" % os.getuid()), "genesis", "agentd.token")).read().strip()
@@ -156,7 +163,15 @@ def main(argv):
     if "--timeout" in argv: timeout = int(argv[argv.index("--timeout") + 1])
     if "--shard" in argv: shard = int(argv[argv.index("--shard") + 1])
     if "--of" in argv: of = int(argv[argv.index("--of") + 1])
-    health = api("/api/health")
+    # the daemon was started a moment ago: a shard asked before it was listening and lost both its makes
+    for _ in range(30):
+        try:
+            health = api("/api/health")
+            break
+        except OSError:
+            time.sleep(2)
+    else:
+        health = api("/api/health")
     rows = []
     mine = MAKES[:only][shard::of]
     if of > 1: print(f"shard {shard} of {of}: {', '.join(n for n, _ in mine)}", file=sys.stderr, flush=True)
