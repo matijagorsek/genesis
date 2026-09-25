@@ -25,6 +25,12 @@ on:
       releases_back:
         description: 'which release to test (0 = latest)'
         default: '0'
+      speculation:
+        description: 'on = the router as rendered; off = its --spec-type flags removed, to measure what speculation does to the makes'
+        default: 'on'
+      agentd_env:
+        description: 'extra environment for the maker under test, KEY=VALUE separated by spaces (e.g. GENESIS_NO_COMPLETION_CHECK=1)'
+        default: ''
 
 permissions:
   contents: read
@@ -107,6 +113,8 @@ jobs:
         env:
           SHARD: ${{ matrix.shard }}
           OF: ${{ needs.plan.outputs.count }}
+          SPECULATION: ${{ github.event.inputs.speculation || 'on' }}
+          AGENTD_ENV: ${{ github.event.inputs.agentd_env }}
         run: |
           set -o pipefail
           FW=/usr/share/ovmf/OVMF.fd; [ -f "$FW" ] || FW=/usr/share/OVMF/OVMF.fd
@@ -144,7 +152,14 @@ jobs:
           if [ -f newbin/genesis-agentd ]; then
             vm 'mkdir -p ~/.local/bin ~/.config/systemd/user/genesis-agentd.service.d; cat > ~/.local/bin/genesis-agentd && chmod +x ~/.local/bin/genesis-agentd' < newbin/genesis-agentd
             vm 'printf "[Service]\nExecStart=\nExecStart=%s/.local/bin/genesis-agentd serve\n" "$HOME" > ~/.config/systemd/user/genesis-agentd.service.d/under-test.conf; systemctl --user daemon-reload'
+            for kv in $AGENTD_ENV; do vm "printf 'Environment=%s\\n' '$kv' >> ~/.config/systemd/user/genesis-agentd.service.d/under-test.conf"; echo "maker under test with $kv"; done
+            vm 'systemctl --user daemon-reload'
             vm 'ls -l ~/.local/bin/genesis-agentd; echo "the maker under test is the build from this commit"'
+          fi
+          # speculation off, for an A/B of what it does to whole makes: the flags out of the rendered config
+          if [ "$SPECULATION" = off ]; then
+            vm 'echo genesis | sudo -S sh -c "sed -i -E \"s/ --spec-type [^ ]+//\" /etc/genesis/router.yaml && systemctl restart genesis-router"' && echo "speculation OFF for this run"
+            vm 'grep -c -- "--spec-type" /etc/genesis/router.yaml || true'
           fi
           # the maker is a user service: an SSH login has a user manager, but nothing started the daemons yet
           vm 'systemctl --user start genesis-permd genesis-agentd; sleep 3; systemctl --user is-active genesis-permd genesis-agentd'
@@ -152,6 +167,8 @@ jobs:
           vm 'cat > /tmp/eval-makes.py' < prototype/eval-makes.py
           vm "python3 /tmp/eval-makes.py --shard $SHARD --of $OF --out /tmp/results.json --timeout 1500" 2>eval-progress.log | tee eval-summary.md
           vm 'cat /tmp/results.json' > results.json
+          # what the model server said, for a make that timed out or went round in circles
+          vm 'echo genesis | sudo -S journalctl -u genesis-router --no-pager -o cat 2>/dev/null | tail -3000' > router.log || true
           vm 'echo genesis | sudo -S systemctl poweroff' >/dev/null 2>&1 || true
           sleep 10; kill $QEMU 2>/dev/null || true
       - uses: actions/upload-artifact@v4
@@ -163,6 +180,7 @@ jobs:
             eval-summary.md
             eval-progress.log
             eval-serial.log
+            router.log
 
   report:
     needs: makes
