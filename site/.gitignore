@@ -2,3 +2,4 @@ node_modules/
 dist/
 .astro/
 public/screens/
+public/genesis-*.html

@@ -13,5 +13,9 @@ copyFileSync(resolve(root, 'docs/decisions.md'), resolve(root, 'site/src/content
 // the catalogue the machine ships, for the live widget on the front page
 mkdirSync(resolve(root, 'site/src/data'), { recursive: true });
 copyFileSync(resolve(root, 'system_files/usr/share/genesis/apps.json'), resolve(root, 'site/src/data/apps.json'));
+// the design documents the README links to, at the addresses they had before the site was Astro
+for (const f of ['brief', 'design-plan', 'review', 'next-plan', 'wow-plan', 'walkthrough']) {
+  copyFileSync(resolve(root, `docs/genesis-${f}.html`), resolve(root, `site/public/genesis-${f}.html`));
+}
 await import('./og.mjs');
-console.log('prebuild: screens, the decision log, the catalogue and the share card');
+console.log('prebuild: screens, the decision log, the catalogue, the design documents and the share card');

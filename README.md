@@ -11,29 +11,38 @@ permission-gated and undoable.
 
 | | |
 |---|---|
-| ![Desktop](docs/screens/latest/04-desktop.png) | ![Login](docs/screens/latest/02-login.png) |
-| The desktop, captured by CI from the latest release | The login screen, same capture |
-| ![Maker](docs/screens/fresh-run/03-pomodoro-made-by-the-2B-model.png) | ![App menu](docs/screens/latest/05-app-menu.png) |
-| The maker after building a pomodoro timer on a fresh disk (2B model, CPU) | The application menu |
+| ![Desktop](docs/screens/latest/04-desktop.png) | ![Maker](docs/screens/fresh-run/03-pomodoro-made-by-the-2B-model.png) |
+| The desktop, captured by CI from the latest release | The maker after building a pomodoro timer on a fresh disk (2B model, CPU) |
+| ![A look made from words](docs/screens/looks/warm-autumn-library-at-night.png) | ![First run](docs/screens/latest/03-first-run.png) |
+| A look made by the model on the first real laptop from "warm autumn library at night" | First run, measuring what the machine can hold |
 
-**Start here: [how to use it](HOW-TO-USE.md)** — the user guide, with pictures.
-**[Download a release](https://matijagorsek.github.io/genesis/)** — ISO and disk images.
+**[The site](https://matijagorsek.github.io/genesis/)** — download the ISO, see it working.
+**[Your first hour](https://matijagorsek.github.io/genesis/manual.html)** — the manual: install, first run, the key, what leaves the machine.
+**[How to use it](HOW-TO-USE.md)** — the user guide, with pictures.
+
+Every release is built, boot-tested and **installed from its own ISO onto a blank disk by CI**, then
+booted with no network and asked a question, before anyone downloads it. The latest to pass: installed
+in 15 minutes, answered 20 seconds after its first boot.
 
 ### Screenshots
 
-- [Latest release](docs/screens/latest) — captured automatically by CI on every build
+- [Latest release](docs/screens/latest) — login, first run, desktop, app menu and chat, captured by CI on every build
+- [The installer](docs/screens/installer) — photographed by CI booting each release's ISO
+- [Looks made from words](docs/screens/looks) — two themes made by the local model on a real laptop, and [the clip](https://matijagorsek.github.io/genesis/screens/looks/make.webm)
 - [A fresh disk](docs/screens/fresh-run) — a downloaded release, as a new user sees it
-- [The phone app](docs/screens/phone) — pairing and replies, in the VM with an Android emulator
-- [Chat and the plan card](docs/screens/brief) — captured on 0.2.153
-- [Preview renderings](docs/screens/preview)
+- [More](docs/screens/more) — the signed pack list, asking about a screen region, settings
+- [The phone](docs/screens/phone) and [the companion app](docs/screens/phone-app) — pairing, replies, a job started from the phone
+- [Babel](docs/screens/babel), the IDE with the maker in the sidebar · [Media](docs/screens/media) · [chat and the plan card](docs/screens/brief)
+- [The first real machine](docs/screens/real) — early captures from the ASUS laptop
 
 ### Read more
 
 - [What changed, for people](docs/releases/0.2.md) — and [every build](https://github.com/matijagorsek/genesis/releases), with notes from the commits
+- [Decision log](https://matijagorsek.github.io/genesis/decisions.html) — every decision and why, [grouped by theme](docs/decisions-index.md) ([raw](docs/decisions.md))
 - [Design brief](https://matijagorsek.github.io/genesis/genesis-brief.html) and [design plan](https://matijagorsek.github.io/genesis/genesis-design-plan.html) — what Genesis is meant to be
 - [Review of 17 Sep](https://matijagorsek.github.io/genesis/genesis-review.html) — good, bad, missing, new
 - [What to build next](https://matijagorsek.github.io/genesis/genesis-next-plan.html) and [the wow plan](https://matijagorsek.github.io/genesis/genesis-wow-plan.html)
-- [Walkthrough](https://matijagorsek.github.io/genesis/genesis-walkthrough.html) · [decision log](docs/decisions.md) ([by theme](docs/decisions-index.md)) · [first install on real hardware](docs/first-hardware-install.md)
+- [Walkthrough](https://matijagorsek.github.io/genesis/genesis-walkthrough.html) · [first install on real hardware](docs/first-hardware-install.md) · [roadmap](ROADMAP.md)
 
 ## Phases, so far
 
@@ -53,53 +62,21 @@ How Genesis got here, in the order it happened. The decision log has the detail 
 | 8. What the machine makes possible | 19 Sep | Two investigations into what else could be delivered found three faults in the week's own work first: a shipped template test no correct program could pass, a context trimmer that made the model re-read the conversation every turn, and an evaluation that scored completion rather than correctness with no fixed seed. Fixed, then built: read the selection aloud, write down what is said in any recording (with subtitles), undo an app install from the panel, a job that survives the lid, three questions the computer answers about itself, an honest "I could not find that", and four changes aimed at the small model. |
 | 9. Measuring honestly | 19 Sep | The evaluation made cheap enough to use, and four faults it then found. An answer takes twenty minutes instead of two and a half hours: the ten makes run on five machines at once, and the binary under test is built and dropped into the last release rather than waiting an hour for an image. What that bought: a correct program thrown away because writing a file that was already right counted as a failure; a job that could run its whole life against a failing test without anything changing; a single model call allowed thirty minutes, so a stalled job looked exactly like a slow one and sat frozen; and the embedding model held in RAM for the life of a session on packs meant for machines with 4 to 8 GB. None of the last three show up in the score, and two of them would have been felt by anyone on real hardware. |
 | 10. The first real machine | 19 Sep | An ASUS laptop with an i7-6700HQ, 16 GB and an Intel HD 530, and five faults no virtual machine could have shown. It installed with **no account and no way to log in**, because the installer was trusted to insist on one and does not; Genesis now asks for an account on the console before the login screen. The CPU pack was refused on a 16 GB machine **by five megabytes**, because a machine sold as 16 GB reports 15.5 and the slack was half a gigabyte. That pack could not be downloaded at all: a model repository had become a 401, and one dead repository fails the whole plan. Offloading asked only whether a GPU exists, never whether it has memory, so every layer went to an integrated chip and llama.cpp crashed. And `-ngl 0` turned out not to mean "there is no GPU": with the devices still registered, generation ran at **0.32 tokens a second against 7.55** with them removed. The laptop now answers at 6.83. Every virtual machine has a virtio device that the old check correctly skipped, so none of this code had ever run. |
+| 11. Keeping its promises | 20 to 21 Sep | What was shipped on reasoning, measured on the laptop, and reasoning lost twice. The device choice measured for real; the no-account rescue run in a machine with no account, and a security pass over it that found three faults; a config refresh so an upgraded machine gets the new model settings; a release pipeline that could publish a fix and then take it back, closed. |
+| 12. Day to day | 22 Sep | The things a person meets on an ordinary day. The assistant follows the plug; a crash or a failed service explained by the model on the machine; a desktop theme made from a sentence; a catalogue of fifty apps instead of forty thousand; updates that say what is in them; the manual for the first hour; a canary that asks the freshly booted machine a question before `stable` moves. |
+| 13. Out of the box | 23 to 24 Sep | The install medium, looked at. The image 803 MB lighter; the ISO carrying the smallest model pack, so a machine answers before it has a network; the installer in Genesis colours, and photographed by CI — which is how a kickstart line that had killed the installer for eight releases was found and those ISOs pulled. Tests for the rescue and the backup; the site rebuilt; the decision log grouped by theme. |
+| 14. Proven end to end | 24 to 25 Sep | Four reviews at once, then their findings: the model service requires a key every local program can read and no web page can; model pack names can no longer climb out of their folder; the first-run service confined. Every released ISO installed unattended onto a blank disk, booted offline and asked a question. One assistant per account on a shared computer, each answering only its owner. |
 | Next | | Real hardware, more of it. See [ROADMAP.md](ROADMAP.md). |
 
 ## What works today (0.2)
 
-- **Bootable image and installer ISO**, built and boot-tested in CI on every push; releases carry a
-  qcow2 disk and the ISO ([Releases](https://github.com/matijagorsek/genesis/releases)). A weekly canary boots a release from a week
-  back and updates it to today's `testing` image; only a green canary moves `stable`, the channel installed
-  machines follow, so no push reaches a user's machine unseen. `bootc switch …:testing` follows every build.
-  An evaluation runs ten small makes on the tiny pack (the 2B model, CPU only) in fresh VMs and scores
-  them, so a change to the prompts or tools shows as a number ([eval.yml](.github/workflows/eval.yml)).
-  A fixed seed, and two things scored apart: whether a make **finished**, and whether what it made is
-  what was **asked for**. Best so far: **8 finished, 7 correct**. The ten makes are split over five
-  machines and the maker under test is built and dropped into the last release's VM, so an answer takes
-  about twenty minutes instead of two and a half hours; the weekly run boots the shipped image with the
-  shipped binary, because that is the only run that tests what a person would install. Every make also
-  records what was holding memory when it ended — that is how the embedding model was caught sitting in
-  RAM for the life of a session on the machines least able to spare it.
-- **When something crashes or a service fails, your own computer looks at why.** A program stopping unexpectedly offers a
-  notification; pressing it hands the crash — the program, the signal, the stack — to the model already
-  running on this machine, which reads the journal around it and says in plain words what went wrong and
-  whether it matters. A crash dump carries the arguments a program was given and the paths it had open,
-  which is exactly why this one does not leave: no account, no upload, no service. The same offer comes
-  when a service fails — a backup that did not run, a mount that did not come up — which is ten times more
-  common than a crash and just as opaque: "Failed with result 'exit-code'" becomes "your backup disk was
-  not plugged in". The units systemd makes for a session or a launched program are not offered.
-- **Every ISO is installed before it ships.** After each release a machine installs the ISO onto a blank
-  disk with nobody at the keyboard, boots what was installed with no way out to the internet, and asks it a
-  question. The first release to pass installed in 15 minutes and answered 20 seconds after its first boot.
-- **One computer, several people.** Each account has its own assistant, on its own local port, and that
-  port answers only the account it belongs to — the kernel says who opened each connection. A second
-  person logged in on the same machine used to find the assistant already taken, and could read the first
-  person's conversations.
-- **A manual for the first hour.** [Your first hour](https://matijagorsek.github.io/genesis/manual.html):
-  what happens, in the order it happens, with the moments that look wrong but aren't — the installer's
-  silence, the first run, the key, when it asks, when something breaks, what leaves the machine. It is
-  also on the machine, under Help, with no network needed.
-- **Updates that say what is in them.** An update that says "44.20260922.1" says nothing. When one is
-  staged, Genesis reads the two images on the disk — the one running and the one waiting — and says what
-  is different: kernel, graphics, desktop, audio, what was added, which parts of Genesis changed and the
-  commit lines they came with. Nothing fetched, nothing guessed: the staged image's package database is a
-  file on this disk. One notification per update, and "What is in it" hands the notes to the assistant
-  for a plain-words answer. `genesis-upgrade-notes` prints them.
-- **A catalogue, not a store.** Flathub has forty thousand things and Discover shows all of them.
-  `genesis-apps` is the fifty a person setting up a computer actually asks about — one answer per need,
-  with why it is the one — and `genesis-apps install obsidian` is the whole install. The assistant reads
-  the same list, so "what do I use for notes" is a line and "install it" is a word. Nothing on it is a
-  system change: Flatpaks per user, toolboxes as containers, the image untouched.
+### The desktop
+
+- **Complete desktop**: KDE Plasma 6 with Firefox, Dolphin, Konsole, Kate, Okular, Gwenview, Haruna,
+  Elisa, KCalc, Discover (Flatpak), Ark, Spectacle, System Monitor as RPMs; LibreOffice, Thunderbird,
+  VLC, GIMP, Krita preinstalled as Flatpaks once online. Genesis identity: Genesis Dark colour scheme,
+  "First Light" wallpaper, Inter and IBM Plex Mono, Papirus icons, a centered floating dock, splash and
+  boot watermark, login screen.
 - **A desktop that looks like whatever you say.** `genesis-theme make "foggy morning by the sea"` — or
   asking the assistant for it — and twenty seconds later every application, the panel, the terminal and
   the wallpaper are in a palette made for that, by the model on this machine, with `genesis-theme undo`
@@ -107,16 +84,32 @@ How Genesis got here, in the order it happened. The decision log has the detail 
   is read off the background it chose rather than what it claims, and text is pushed until it reads,
   because a small model will call a light palette dark and put grey on grey. Day and night are still one
   key. Nobody's list of themes is as long as what you can describe.
-- **The assistant follows the plug.** Pull the cable out of a laptop and the big models are put away;
-  every request goes to the small always-loaded one, and the assistant gets shorter rather than quiet.
-  Plug back in and they are allowed to load again. Nobody else can do this, because nobody else has both
-  the model and the machine: a cloud assistant does not know you unplugged, and a local one on another
-  distro has no say in what loads. A desktop is left alone; `genesis-power off` keeps the coder on battery.
-- **Complete desktop**: KDE Plasma 6 with Firefox, Dolphin, Konsole, Kate, Okular, Gwenview, Haruna,
-  Elisa, KCalc, Discover (Flatpak), Ark, Spectacle, System Monitor as RPMs; LibreOffice, Thunderbird,
-  VLC, GIMP, Krita preinstalled as Flatpaks once online. Genesis identity: Genesis Dark colour scheme,
-  "First Light" wallpaper, Inter and IBM Plex Mono, Papirus icons, a centered floating dock, splash and
-  boot watermark, login screen.
+- **A catalogue, not a store.** Flathub has forty thousand things and Discover shows all of them.
+  `genesis-apps` is the fifty a person setting up a computer actually asks about — one answer per need,
+  with why it is the one — and `genesis-apps install obsidian` is the whole install. The assistant reads
+  the same list, so "what do I use for notes" is a line and "install it" is a word. Nothing on it is a
+  system change: Flatpaks per user, toolboxes as containers, the image untouched.
+- **One door**: `Meta+Space` opens the palette, a small centered window that takes a typed request,
+  a spoken one (hold the mic), or the current selection (`Meta+Shift+Space`), and hands it to the maker.
+  `ask …` also works in KRunner.
+- **One door, two answers**: `Meta+Space` sends a request to make something to the maker and a question to
+  chat; `Stop` ends a job within a second and kills everything it started; the dock widget says what is
+  running and what changed last, and undoes it in one click.
+- **Genesis in System Settings** (a native module) and **Genesis Settings** (the same in the Genesis window): the
+  machine, models on disk, updates, the default autonomy
+  mode (Ask / Trusted / Hands-off), voice readiness, the measured tokens per second, the undo history,
+  and a Day / Night switch for the whole desktop (also `Meta+Shift+T`).
+- **Status widget** in the dock: model loaded, whether any job used the network, sandbox on, one click
+  to the maker.
+- **Languages**: the palette, the maker and the wizard follow the system language; English, German and
+  Slovenian today, and a language is one dictionary in the page.
+
+| ![A look made from "foggy morning by the sea"](docs/screens/looks/foggy-morning-by-the-sea.png) | ![Login](docs/screens/latest/02-login.png) |
+|---|---|
+| `genesis-theme make "foggy morning by the sea"` on the first real laptop. [Watch a look change](https://matijagorsek.github.io/genesis/screens/looks/make.webm) | The login screen, captured by CI from the latest release |
+
+### The assistant, on this machine
+
 - **Local models as an OS service**: llama.cpp (Vulkan) behind llama-swap on `127.0.0.1:8080`, which requires the key in `/etc/genesis/router.key` (any local program can read it, no web page can),
   one OpenAI-compatible endpoint; model packs per hardware tier (`packs/`), chosen at first run.
   **How a model runs is measured, not guessed**: `genesis-pick-device` generates a few tokens with the
@@ -136,44 +129,12 @@ How Genesis got here, in the order it happened. The decision log has the detail 
   proactive cards for projects that failed their last run or were never installed. Small models get a compact
   mode with a short strict script; the wizard says what each pack can do on this hardware. Templates: static web app,
   web app with a Python or Node backend, Python CLI and script, Rust CLI, a JSON API server, a GTK 4 desktop app.
-- **Permission broker** (`genesis-permd`): every tool call classified into tiers (read, write in
-  project, write elsewhere, system, secrets, never) and answered per session mode
-  (assist / auto-edit / autonomous). Hash-chained audit log. D-Bus `org.genesis.Permission1`.
-- **Undo** (`genesis-txd`): snapshots (btrfs or file pre-images) before risky changes;
-  `genesis-txd undo`.
-- **One door**: `Meta+Space` opens the palette, a small centered window that takes a typed request,
-  a spoken one (hold the mic), or the current selection (`Meta+Shift+Space`), and hands it to the maker.
-  `ask …` also works in KRunner.
-- **Genesis in System Settings** (a native module) and **Genesis Settings** (the same in the Genesis window): the
-  machine, models on disk, updates, the default autonomy
-  mode (Ask / Trusted / Hands-off), voice readiness, the measured tokens per second, the undo history,
-  and a Day / Night switch for the whole desktop (also `Meta+Shift+T`).
-- **Status widget** in the dock: model loaded, whether any job used the network, sandbox on, one click
-  to the maker.
 - **Chat**: an ordinary conversation with the assistant, kept on this machine and searchable across
   chats; ask about your documents (PDF, Office, Markdown by path), a photo (local vision model), this
   computer (through the system tools) or the web. The maker and the chat share the permission cards.
-- **One door, two answers**: `Meta+Space` sends a request to make something to the maker and a question to
-  chat; `Stop` ends a job within a second and kills everything it started; the dock widget says what is
-  running and what changed last, and undoes it in one click.
 - **Read and listen**: `Meta+Shift+R` reads the selection aloud in your language; right-click a recording
   or a video and Genesis writes down what is said, with subtitles, next to the file. Both run on the
   smallest machine, before any large model is downloaded.
-- **It says when it does not know**: a search of your own files that finds nothing is answered with that,
-  not with something the model remembers.
-- **Yours to see and delete**: Settings lists every place Genesis keeps something, with its size and a
-  delete button; voice audio is never kept.
-- **Ollama-compatible door** on `127.0.0.1:11434` (`genesis-ollama`): apps and editors that speak Ollama's
-  API use the pack's models with no setup; `/v1/*` passes straight to the router.
-- **Tools as MCP servers**: the maker's abilities extend with any program speaking the Model Context
-  Protocol; each server's tools carry a declared permission tier and go through the same cards. The
-  shipped `system` server makes the maker a careful administrator: status, network and wifi diagnosis,
-  updates, apps from Flathub, printer setup, power profile, Bluetooth, audio, day and night. Settings > Tools lists them; add yours in `~/.config/genesis/mcp.json`.
-- **Browser control**: the agent drives a headless Chromium with a throw-away profile (open, read,
-  click, type, screenshot). Page content is treated as untrusted and taints the session.
-- **Terminal**: `ask list the ten biggest files here` prints the command, says what it would touch
-  (reads only, changes files here, changes the system), and runs it when you confirm. In bash, type a
-  sentence and press `Ctrl+G` to replace it with the command.
 - **Voice**: hold-to-talk (whisper.cpp; the more accurate "small" model on machines with 16 GB or a GPU) with a
   chime and glow the instant you press, and spoken replies (Piper, English for now), all local.
 - **Ask about the screen**: Meta+Shift+A, select a region, ask; the local vision model answers (every pack
@@ -182,9 +143,32 @@ How Genesis got here, in the order it happened. The decision log has the detail 
   PDFs and code ("what did I write about the trip?"). A local SQLite index, refreshed every 20 minutes.
   Search is by words and by meaning: the pack's small embedding model finds the note about Lisbon
   when you ask about the trip.
-- **Signed model packs**: pack definitions are OCI artifacts on GHCR, signed with the Genesis key and
-  verified by the same containers policy as the OS; every model download is checked against the sha256
-  in the signed definition. Built-in definitions remain the offline fallback.
+- **It says when it does not know**: a search of your own files that finds nothing is answered with that,
+  not with something the model remembers.
+- **Terminal**: `ask list the ten biggest files here` prints the command, says what it would touch
+  (reads only, changes files here, changes the system), and runs it when you confirm. In bash, type a
+  sentence and press `Ctrl+G` to replace it with the command.
+- **Browser control**: the agent drives a headless Chromium with a throw-away profile (open, read,
+  click, type, screenshot). Page content is treated as untrusted and taints the session.
+- **Tools as MCP servers**: the maker's abilities extend with any program speaking the Model Context
+  Protocol; each server's tools carry a declared permission tier and go through the same cards. The
+  shipped `system` server makes the maker a careful administrator: status, network and wifi diagnosis,
+  updates, apps from Flathub, printer setup, power profile, Bluetooth, audio, day and night. Settings > Tools lists them; add yours in `~/.config/genesis/mcp.json`.
+- **Ollama-compatible door** on `127.0.0.1:11434` (`genesis-ollama`): apps and editors that speak Ollama's
+  API use the pack's models with no setup; `/v1/*` passes straight to the router.
+- **The assistant follows the plug.** Pull the cable out of a laptop and the big models are put away;
+  every request goes to the small always-loaded one, and the assistant gets shorter rather than quiet.
+  Plug back in and they are allowed to load again. Nobody else can do this, because nobody else has both
+  the model and the machine: a cloud assistant does not know you unplugged, and a local one on another
+  distro has no say in what loads. A desktop is left alone; `genesis-power off` keeps the coder on battery.
+- **When something crashes or a service fails, your own computer looks at why.** A program stopping unexpectedly offers a
+  notification; pressing it hands the crash — the program, the signal, the stack — to the model already
+  running on this machine, which reads the journal around it and says in plain words what went wrong and
+  whether it matters. A crash dump carries the arguments a program was given and the paths it had open,
+  which is exactly why this one does not leave: no account, no upload, no service. The same offer comes
+  when a service fails — a backup that did not run, a mount that did not come up — which is ten times more
+  common than a crash and just as opaque: "Failed with result 'exit-code'" becomes "your backup disk was
+  not plugged in". The units systemd makes for a session or a launched program are not offered.
 - **Babel, the IDE**: Code-OSS (VSCodium, MIT) branded as Babel, every language VS Code speaks, Python,
   TypeScript, Rust, Go and C/C++ understood out of the box (servers in the image, extensions pinned by
   checksum), with the
@@ -192,6 +176,13 @@ How Genesis got here, in the order it happened. The decision log has the detail 
   next to the code, "change this file", "ask about the selection", and the Genesis Dark theme.
   Inline suggestions while you type, in every language, from the small local model (fill-in-the-middle
   through the router), with a status-bar switch.
+
+| ![Chat](docs/screens/latest/06-genesis.png) | ![The maker, done](docs/screens/more/02-screen-region-asked.png) |
+|---|---|
+| Chat with Genesis, kept on this machine and searchable | The maker, done: a checklist app with its tests passing, in the sandbox, no network used |
+
+### Your phone
+
 - **Phone app** (Android): the Genesis companion shows your jobs, raises permission cards as
   notifications you answer from the shade, starts a make from the phone, lists what was made and
   fetches one screenshot on demand, over your own network with a pinned
@@ -203,8 +194,56 @@ How Genesis got here, in the order it happened. The decision log has the detail 
   transcribed and answered the same way. The phone also gets commands: day / night, lock, apply the
   staged update; the palette shows the phone's notifications and can reply to those that allow it.
   Same network only, no relay, no cloud.
-- **Languages**: the palette, the maker and the wizard follow the system language; English, German and
-  Slovenian today, and a language is one dictionary in the page.
+
+### Safe to leave running
+
+- **Permission broker** (`genesis-permd`): every tool call classified into tiers (read, write in
+  project, write elsewhere, system, secrets, never) and answered per session mode
+  (assist / auto-edit / autonomous). Hash-chained audit log. D-Bus `org.genesis.Permission1`.
+- **Undo** (`genesis-txd`): snapshots (btrfs or file pre-images) before risky changes;
+  `genesis-txd undo`.
+- **Yours to see and delete**: Settings lists every place Genesis keeps something, with its size and a
+  delete button; voice audio is never kept.
+- **One computer, several people.** Each account has its own assistant, on its own local port, and that
+  port answers only the account it belongs to — the kernel says who opened each connection. A second
+  person logged in on the same machine used to find the assistant already taken, and could read the first
+  person's conversations.
+- **Signed model packs**: pack definitions are OCI artifacts on GHCR, signed with the Genesis key and
+  verified by the same containers policy as the OS; every model download is checked against the sha256
+  in the signed definition. Built-in definitions remain the offline fallback.
+- **Updates that say what is in them.** An update that says "44.20260922.1" says nothing. When one is
+  staged, Genesis reads the two images on the disk — the one running and the one waiting — and says what
+  is different: kernel, graphics, desktop, audio, what was added, which parts of Genesis changed and the
+  commit lines they came with. Nothing fetched, nothing guessed: the staged image's package database is a
+  file on this disk. One notification per update, and "What is in it" hands the notes to the assistant
+  for a plain-words answer. `genesis-upgrade-notes` prints them.
+
+### Tested the way a person would use it
+
+- **Bootable image and installer ISO**, built and boot-tested in CI on every push; releases carry a
+  qcow2 disk and the ISO ([Releases](https://github.com/matijagorsek/genesis/releases)). A nightly canary boots a release from a week
+  back and updates it to today's `testing` image, runs first run and asks the assistant a question; only a green canary moves `stable`, the channel installed
+  machines follow, so no push reaches a user's machine unseen. `bootc switch …:testing` follows every build.
+  An evaluation runs ten small makes on the tiny pack (the 2B model, CPU only) in fresh VMs and scores
+  them, so a change to the prompts or tools shows as a number ([eval.yml](.github/workflows/eval.yml)).
+  A fixed seed, and two things scored apart: whether a make **finished**, and whether what it made is
+  what was **asked for**. Best so far: **8 finished, 7 correct**. The ten makes are split over five
+  machines and the maker under test is built and dropped into the last release's VM, so an answer takes
+  about twenty minutes instead of two and a half hours; the weekly run boots the shipped image with the
+  shipped binary, because that is the only run that tests what a person would install. Every make also
+  records what was holding memory when it ended — that is how the embedding model was caught sitting in
+  RAM for the life of a session on the machines least able to spare it.
+- **Every ISO is installed before it ships.** After each release a machine installs the ISO onto a blank
+  disk with nobody at the keyboard, boots what was installed with no way out to the internet, and asks it a
+  question. The first release to pass installed in 15 minutes and answered 20 seconds after its first boot.
+- **A manual for the first hour.** [Your first hour](https://matijagorsek.github.io/genesis/manual.html):
+  what happens, in the order it happens, with the moments that look wrong but aren't — the installer's
+  silence, the first run, the key, when it asks, when something breaks, what leaves the machine. It is
+  also on the machine, under Help, with no network needed.
+
+| ![The installer](docs/screens/installer/anaconda-wearing-genesis.png) | ![App menu](docs/screens/latest/05-app-menu.png) |
+|---|---|
+| The installer in Genesis colours, photographed by CI on every release | The application menu, from the same release |
 
 ## A real run
 
@@ -257,7 +296,9 @@ prototype/serial-cmd.py iso/output/dev/serial.sock 'cmd'   # run commands over t
 just firstrun          # the wizard, natively on this Mac, opens in the browser
 just workspace         # the maker, natively, opens in the browser (needs `just up`)
 just vm-bridge         # dev only: the VM uses the Mac's Metal model service for the maker and `ask`
-cd src && cargo test   # Rust workspace: permd, probe, firstrun, agentd, txd, krunner, ask
+cd src && cargo test   # Rust workspace: permd, probe, firstrun, agentd, txd, krunner, ask, companiond
+python3 -m pytest tests/python   # the Python tools: crash, power, theme, apps, backup, rescue, upgrade notes
+npm --prefix site run dev   # the site and the manual, live
 ```
 
 Full image, locally (emulated on Apple Silicon, slow) or in CI (every push to `main`):
@@ -268,8 +309,12 @@ just iso               # installer ISO via bootc-image-builder
 ```
 
 CI (`.github/workflows/build-image.yml`): Rust tests, policy diff and a RustSec audit → x86_64 image
-(strict `bootc container lint`, ~75 self-checks) → push to GHCR, signed keyless and with the release key →
-qcow2 → KVM boot test and screenshots → release; then the ISO, the arm64 and the NVIDIA flavours.
+(strict `bootc container lint`, 118 self-checks) → push to GHCR, signed keyless and with the release key →
+qcow2 → KVM boot test and screenshots → release; then the ISO (its kickstart validated, the smallest model
+pack added, the installer booted and photographed), the arm64 and the NVIDIA flavours. After every release
+`install-test.yml` installs the ISO onto a blank disk unattended, boots it offline and asks it a question;
+the nightly `canary.yml` updates an older release to today's image, runs first run and asks it a question
+before `stable` moves.
 Base images are pinned by digest and moved forward weekly (`bump-base.yml`); pack definitions and the
 tiny/cpu model files are published as signed artifacts (`publish-packs.yml`, `publish-models.yml`).
 
@@ -286,7 +331,11 @@ packs/               model packs per hardware tier (JSON, schema.json)
 templates/           maker templates (genesis.json: dev/run commands)
 iso/                 bootc-image-builder config and distro definition
 prototype/           macOS dev scripts, router config, VM boot/screenshot/dev-loop scripts
-docs/                brief, decisions, status board, previews, screenshots
+docs/                brief, decisions (and the index by theme), release notes, screenshots
+site/                the site and the manual (Astro); the manual is copied into the image for Help
+tests/python/        tests for the Python and shell tools
+tools/               the decision-log index and other repository helpers
+android/             the companion app
 examples/            recorded real runs (the first tasks, a gated install, the checklist app made in the VM)
 ```
 
@@ -313,6 +362,9 @@ own maker, palette and `ask` stay local.
 - **A closed front door.** The local daemons answer only their own pages and local helpers: same-origin
   checks plus a per-boot token, so a web page open in the browser cannot drive the maker; request
   bodies are capped and file opening is limited to what Genesis made. Reviewed adversarially (decision 70).
+  The model service behind it requires a key that every local program can read and no web page can
+  (decision 214). On a computer with several accounts, each person's assistant answers only that person:
+  the kernel says who opened each connection (decision 216).
 - **Pinned and checked.** Base images by digest on our own mirror (moved forward weekly, as a commit), upstream binaries by
   checksum, dependencies by lockfile with a RustSec audit in CI, the audit log chained with a key.
 - **Reviewed rules.** The permission policy is exercised by an adversarial test battery (keys read through a
