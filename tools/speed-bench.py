@@ -3,6 +3,7 @@
 
   speed-bench.py --server /path/llama-server --models DIR --out results.json            the CPU pack
   speed-bench.py --set gpu27 --server ... --models DIR --out results.json              the 27B coder on a GPU
+  MTP_SIZE=9B speed-bench.py --set cpu-mtp ...                                          a converted MTP head on a CPU
 
 Each setup starts llama-server the way the router starts it on a machine with no GPU (-ngl 0 -dev none,
 the pack's own sampling), asks it the same three kinds of thing, and reads the server's own timings:
@@ -84,7 +85,7 @@ def main():
     ap.add_argument("--server", required=True)
     ap.add_argument("--models", required=True)
     ap.add_argument("--out", required=True)
-    ap.add_argument("--set", default="cpu", choices=["cpu", "gpu27"])
+    ap.add_argument("--set", default="cpu", choices=["cpu", "gpu27", "cpu-mtp"])
     a = ap.parse_args()
     m = pathlib.Path(a.models)
     code, fast = m / "Qwen3.5-9B-Q4_K_M.gguf", m / "Qwen3.5-4B-Q4_K_M.gguf"
@@ -101,6 +102,21 @@ def main():
         ("4B + n-gram", "fast", fast, "--spec-type ngram-mod", ["answer", "edit"]),
         ("4B + 0.8B draft, 8", "fast", fast, f"-md {d08} --spec-draft-n-max 8 --spec-draft-n-min 2", ["answer", "edit"]),
     ]
+    if a.set == "cpu-mtp":
+        # an MTP head converted from the official weights (mtp-heads.yml), beside the model file the pack
+        # ships, against what the router runs today (n-gram)
+        size = os.environ.get("MTP_SIZE", "9B")
+        role = "code" if size == "9B" else "fast"
+        tgt = m / f"Qwen3.5-{size}-Q4_K_M.gguf"
+        q4, q8 = m / f"mtp-{size}-Q4_K_M.gguf", m / f"mtp-{size}-Q8_0.gguf"
+        tasks = ["write", "edit"] if role == "code" else ["answer", "edit"]
+        setups = [
+            (f"{size}, as shipped", role, tgt, "--spec-type ngram-mod", tasks),
+            (f"{size}, no speculation", role, tgt, "", tasks),
+            (f"{size} + MTP Q4", role, tgt, f"--spec-type draft-mtp -md {q4}", tasks),
+            (f"{size} + MTP Q4 + n-gram", role, tgt, f"--spec-type ngram-mod,draft-mtp -md {q4}", tasks),
+            (f"{size} + MTP Q8 + n-gram", role, tgt, f"--spec-type ngram-mod,draft-mtp -md {q8}", tasks),
+        ]
     only = os.environ.get("SPEED_ONLY")
     if a.set == "gpu27":
         # the 27B coder of the big packs, and the multi-token-prediction head its publisher ships beside it
@@ -134,7 +150,7 @@ def main():
                     print(f"  {task:6} {r['gen_tps']:6.2f} tok/s  ({r['gen_tokens']} tokens, drafted {r['drafted']}, accepted {r['accepted']}, {r['wall_s']} s)", flush=True)
                     results.append(r)
                 # speculation must not change the answer: the edit, greedy, once per setup of the coder
-                if role.startswith("code") and ("n-gram" in name or "MTP" in name or "shipped" in name or name.endswith("draft, 8") and "0.8B" in name):
+                if ("n-gram" in name or "MTP" in name or "shipped" in name or name.endswith("draft, 8") and "0.8B" in name):
                     g = ask(port, TASKS["edit"][0], 300, temperature=0)
                     results.append({"setup": name, "role": role, "task": "edit-greedy", "text": g["text"], "gen_tps": g["gen_tps"]})
             finally:
@@ -157,19 +173,19 @@ def main():
         lines.append(f"| {r['setup']} | {r['task']} | {r['gen_tps']:.2f} | {r['gen_tps'] / b:.2f}x | {r['drafted'] or ''} | {rate} |" if b else
                      f"| {r['setup']} | {r['task']} | {r['gen_tps']:.2f} | | | |")
     greedy = {r["setup"]: r["text"] for r in results if r.get("task") == "edit-greedy"}
-    shipped = "27B, as shipped" if a.set == "gpu27" else "9B, as shipped"
+    shipped = next((r["setup"] for r in results if r.get("setup", "").endswith("as shipped")), "")
     ref = greedy.get(shipped)
     if ref is not None:
         lines.append("")
         for s, t in greedy.items():
-            if s != shipped:
+            if s != shipped and s != shipped.replace("as shipped", "no speculation"):
                 same = t == ref
                 lines.append(f"- greedy edit, {s}: {'the same answer as without speculation' if same else 'DIFFERENT from the answer without speculation (first difference at character %d)' % next((i for i, (x, y) in enumerate(zip(t, ref)) if x != y), min(len(t), len(ref)))}")
     table = "\n".join(lines)
     print(table)
     if os.environ.get("GITHUB_STEP_SUMMARY"):
         with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
-            f.write((f"### Speed on this runner's CPU ({os.cpu_count()} threads)" if a.set == "cpu" else "### The 27B coder on a GPU") + "\n\n" + table + "\n")
+            f.write((f"### Speed on this runner's CPU ({os.cpu_count()} threads)" if a.set != "gpu27" else "### The 27B coder on a GPU") + "\n\n" + table + "\n")
     return 0
 
 

@@ -1,0 +1,74 @@
+name: mtp-heads
+
+# Our own multi-token-prediction heads for the models the CPU packs run. The official Qwen3.5 weights
+# carry a one-layer MTP head; the quantized files the packs download leave it out. This converts the head
+# from the official weights with the converter of the llama.cpp build the image ships, quantizes it, and
+# measures it on a four-core runner against what the router runs today, before anything is published.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  head:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        size: [9B, 4B]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Room
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost || true
+          df -h / | tail -1
+      - name: llama.cpp, the build the image ships, and its converter
+        run: |
+          set -euo pipefail
+          b=$(grep -m1 '^ARG LLAMA_CPP_BUILD=' Containerfile | cut -d= -f2)
+          sum=$(grep -m1 '^ARG LLAMA_CPP_SHA256=' Containerfile | cut -d= -f2)
+          curl -fsSL --retry 5 -o llama.tgz "https://github.com/ggml-org/llama.cpp/releases/download/$b/llama-$b-bin-ubuntu-vulkan-x64.tar.gz"
+          echo "$sum  llama.tgz" | sha256sum -c -
+          mkdir llama && tar -xzf llama.tgz -C llama --strip-components=1
+          sudo apt-get update -q >/dev/null; sudo apt-get install -y -q libvulkan1 >/dev/null
+          echo "LD_LIBRARY_PATH=$PWD/llama" >> "$GITHUB_ENV"
+          git clone -q --depth 1 --branch "$b" https://github.com/ggml-org/llama.cpp lc
+          python3 -m venv venv && . venv/bin/activate
+          pip install -q -r lc/requirements/requirements-convert_hf_to_gguf.txt "huggingface_hub[cli]"
+      - name: The official weights, and the head out of them
+        run: |
+          set -euo pipefail
+          . venv/bin/activate
+          hf download "Qwen/Qwen3.5-${{ matrix.size }}" --local-dir hfw --exclude "*.md" >/dev/null
+          du -sh hfw
+          mkdir -p models
+          python3 lc/convert_hf_to_gguf.py hfw --mtp --outtype bf16 --outfile models/head-bf16.gguf 2>&1 | tail -5
+          ls -la models
+          src=$(ls models/*.gguf | head -1)
+          rm -rf hfw
+          for q in Q4_K_M Q8_0; do ./llama/llama-quantize "$src" "models/mtp-${{ matrix.size }}-$q.gguf" $q 2>&1 | tail -2; done
+          rm -f "$src"
+          ls -la models
+      - name: The model file the pack ships
+        run: |
+          set -euo pipefail
+          s=${{ matrix.size }}
+          curl -fsSL --retry 5 -o "models/Qwen3.5-$s-Q4_K_M.gguf" "https://huggingface.co/unsloth/Qwen3.5-$s-GGUF/resolve/main/Qwen3.5-$s-Q4_K_M.gguf"
+          ls -la models
+      - name: Measure
+        env:
+          MTP_SIZE: ${{ matrix.size }}
+        run: python3 tools/speed-bench.py --set cpu-mtp --server "$PWD/llama/llama-server" --models "$PWD/models" --out speed.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mtp-${{ matrix.size }}
+          path: |
+            speed.json
+            speed.logs/
+            models/mtp-*.gguf
+          if-no-files-found: ignore
+          retention-days: 7
