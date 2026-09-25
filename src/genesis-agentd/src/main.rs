@@ -876,6 +876,31 @@ mod tests {
     }
 
     #[test]
+    fn a_missing_page_goes_into_the_project_the_job_has() {
+        // the club site again: told the about page is missing, the 2B scaffolded a new project named "about"
+        let proj = tempfile::tempdir().unwrap();
+        let check = |about: bool| serde_json::json!({"role": "assistant", "content": serde_json::json!({"parts": [{"part": "home page", "done": true}, {"part": "about page", "done": about}]}).to_string()});
+        let ep = fake_llm(vec![
+            tool_call("scaffold", serde_json::json!({"template": "web-static", "name": "club"})),
+            tool_call("write_file", serde_json::json!({"path": "club/index.html", "content": "<h1>Club</h1><a href=about.html>About</a>"})),
+            serde_json::json!({"role": "assistant", "content": "made it"}),
+            check(false),
+            tool_call("scaffold", serde_json::json!({"template": "web-static", "name": "about"})),
+            tool_call("write_file", serde_json::json!({"path": "club/about.html", "content": "<h1>About</h1>"})),
+            serde_json::json!({"role": "assistant", "content": "made both pages"}),
+            check(true),
+        ]);
+        let (mut agent, _) = setup(proj.path(), Mode::AutoEdit, ep);
+        agent.run("a website for a club with a home page and an about page").unwrap();
+        let club = proj.path().join("club");
+        assert!(club.join("about.html").exists(), "the page went into the job's project");
+        assert!(!proj.path().join("about").exists() && !club.join("about").exists(), "and no second project was made");
+        let said = agent.messages.iter().filter_map(|m| m.content.clone()).collect::<Vec<_>>().join("\n");
+        assert!(said.contains("not created: this job already has its project at"), "the model was told why");
+        assert!(said.contains("Add them to the project you are working in"));
+    }
+
+    #[test]
     fn the_warm_up_reads_exactly_what_a_job_starts_with() {
         // a warm-up that read anything else would save nothing: the cache holds tokens, not intentions
         for kind in ["make", "chat"] {

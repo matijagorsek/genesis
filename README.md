@@ -166,8 +166,9 @@ How Genesis got here, in the order it happened. The decision log has the detail 
   ([speed.yml](.github/workflows/speed.yml), decision 221).
 - **It finishes what you asked for.** Before a make is called done, Genesis asks the model one short
   question — which parts of the request do the files not do yet? — with the answer held to a schema by the
-  model service. What is missing goes back to the model, and you see it: "Not finished yet: the events
-  page. Carrying on." A club website asked for with three pages used to end, run clean, with one.
+  model service. What is missing goes back to the model — into the project it is building, not a new
+  one beside it — and you see it: "Not finished yet: the events page. Carrying on." A club website asked
+  for with three pages used to end, run clean, with one.
 - **The first word comes sooner.** A job's fixed opening — the instructions and the tools, one to two
   thousand tokens that a laptop takes a minute or two to read — is read ahead: at login for chat, and
   the moment the maker or the palette opens, while you are still typing. The first request then reads

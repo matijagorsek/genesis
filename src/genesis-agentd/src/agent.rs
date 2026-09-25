@@ -462,7 +462,8 @@ impl Agent {
     /// Say what is missing, to the person and to the model, and let the loop go on.
     fn not_finished_yet(&mut self, missing: &[String]) {
         self.shared.push(Event::Assistant { text: format!("Not finished yet: {}. Carrying on.", missing.join("; ")) });
-        self.messages.push(Message::user(format!("Not finished yet. The request also asked for: {}. Make these now, run it once, and then reply with the summary.", missing.join("; "))));
+        let into = self.active_project.as_ref().map(|p| format!(" Add them to the project you are working in, {}, as files there (write_file), linked from what is already there; do not create another project.", p.display())).unwrap_or_default();
+        self.messages.push(Message::user(format!("Not finished yet. The request also asked for: {}.{} Make these now, run it once, and then reply with the summary.", missing.join("; "), into)));
         self.same_file_streak = 0;
     }
 
@@ -912,6 +913,15 @@ impl Agent {
                 Ok(t.iter().map(|t| format!("{}: {} — {}", t.id, t.name, t.description)).collect::<Vec<_>>().join("\n"))
             }
             "scaffold" => {
+                // One job, one project. Told a club site still needed its other two pages, the 2B made each
+                // of them a project of its own -- two more copies of the template in subfolders, and a site
+                // whose pages cannot link to each other. What is part of what was asked goes into the
+                // project this job already has.
+                if self.scaffolded {
+                    if let Some(p) = self.active_project.clone() {
+                        return Err(anyhow!("not created: this job already has its project at {}. A page, a feature or a file that is part of what was asked goes into that project: write_file {}/<name> (and link it from the pages that are there). Another project is not what was asked.", p.display(), p.display()));
+                    }
+                }
                 let dest = self.scaffold_dest(&s("name"));
                 let t = maker::scaffold(&s("template"), &s("name"), &dest)?;
                 maker::record_recipe(&dest, Some(&t.id), &self.last_prompt);
