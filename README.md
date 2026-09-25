@@ -66,6 +66,7 @@ How Genesis got here, in the order it happened. The decision log has the detail 
 | 12. Day to day | 22 Sep | The things a person meets on an ordinary day. The assistant follows the plug; a crash or a failed service explained by the model on the machine; a desktop theme made from a sentence; a catalogue of fifty apps instead of forty thousand; updates that say what is in them; the manual for the first hour; a canary that asks the freshly booted machine a question before `stable` moves. |
 | 13. Out of the box | 23 to 24 Sep | The install medium, looked at. The image 803 MB lighter; the ISO carrying the smallest model pack, so a machine answers before it has a network; the installer in Genesis colours, and photographed by CI — which is how a kickstart line that had killed the installer for eight releases was found and those ISOs pulled. Tests for the rescue and the backup; the site rebuilt; the decision log grouped by theme. |
 | 14. Proven end to end | 24 to 25 Sep | Four reviews at once, then their findings: the model service requires a key every local program can read and no web page can; model pack names can no longer climb out of their folder; the first-run service confined. Every released ISO installed unattended onto a blank disk, booted offline and asked a question. One assistant per account on a shared computer, each answering only its owner. |
+| 15. Faster, and finished | 25 Sep | Measured before shipped, and half of what was planned turned out not to be needed. Answers come faster: guessing ahead from text already in the conversation makes the maker rewrite a file at 63 tokens a second instead of 8 to 14 on the 27B, and the big model's own prediction layers add a quarter on new code; a small draft model and our own prediction heads were measured on a CPU, slowed it down or did nothing, and were left out. Tool calls held to their schema were already true, done by the model service. The wait before the first word is cut: a job's fixed opening is read ahead, so the first request reads 24 tokens instead of 1869. And a make is not finished until the model says which parts of the request are done. Two faults turned up along the way: flags for a draft model that this llama.cpp no longer accepts, and a cache setting that never worked for these models. |
 | Next | | Real hardware, more of it. See [ROADMAP.md](ROADMAP.md). |
 
 ## What works today (0.2)
@@ -242,7 +243,8 @@ How Genesis got here, in the order it happened. The decision log has the detail 
   An evaluation runs ten small makes on the tiny pack (the 2B model, CPU only) in fresh VMs and scores
   them, so a change to the prompts or tools shows as a number ([eval.yml](.github/workflows/eval.yml)).
   A fixed seed, and two things scored apart: whether a make **finished**, and whether what it made is
-  what was **asked for**. Best so far: **8 finished, 7 correct**. The ten makes are split over five
+  what was **asked for**. Best so far: **10 finished, 9 correct** (20 Sep); since 25 Sep the club
+  website must have all three pages it asks for, not two. The ten makes are split over five
   machines and the maker under test is built and dropped into the last release's VM, so an answer takes
   about twenty minutes instead of two and a half hours; the weekly run boots the shipped image with the
   shipped binary, because that is the only run that tests what a person would install. Every make also
@@ -329,7 +331,9 @@ qcow2 → KVM boot test and screenshots → release; then the ISO (its kickstart
 pack added, the installer booted and photographed), the arm64 and the NVIDIA flavours. After every release
 `install-test.yml` installs the ISO onto a blank disk unattended, boots it offline and asks it a question;
 the nightly `canary.yml` updates an older release to today's image, runs first run and asks it a question
-before `stable` moves.
+before `stable` moves. By hand: `speed.yml` measures how fast the shipped models answer on a CPU with and
+without speculative decoding, and `mtp-heads.yml` converts and measures prediction heads from the official
+weights, so a change to how models run is decided by a number.
 Base images are pinned by digest and moved forward weekly (`bump-base.yml`); pack definitions and the
 tiny/cpu model files are published as signed artifacts (`publish-packs.yml`, `publish-models.yml`).
 
