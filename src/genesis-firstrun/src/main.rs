@@ -249,29 +249,14 @@ fn handle(app: &Arc<App>, mut req: Request) -> Result<bool> {
                             let on_done: Box<dyn FnOnce() -> Result<()> + Send> = Box::new(move || {
                                 render_done()?;
                                 let _ = std::fs::remove_file(&downloading);
-                                // The models are here and the config is written: this machine is set up,
-                                // whether or not anybody reached the last page of the wizard. Waiting for
-                                // that page is why a machine that was finished downloading kept offering
-                                // to set itself up — checked on a fresh VM, where the wizard was still
-                                // running over a working assistant. Marking it here rather than only at
-                                // the next start means the offer stops when it stops being true.
-                                if let Some(d) = done_marker.parent() { let _ = std::fs::create_dir_all(d); }
-                                if !done_marker.exists() {
-                                    let _ = std::fs::write(&done_marker, format!("{}\n", now()));
-                                    tracing::info!(marker = %done_marker.display(), "models and config are in place; first run is complete");
-                                }
                                 // Measure this machine, now that there is something on it to measure with, and
-                                // render once more with the answer. It takes a couple of minutes and nobody
-                                // waits for it: the assistant works from the render above and gets faster when
-                                // the measurement lands. This used to be spawned when the pack was chosen,
-                                // which is before a single model has been downloaded — so it found nothing to
-                                // measure, said so into a log, and no machine was ever measured at all.
-                                // Deciding from device names instead cost the first real laptop 21x its speed.
-                                let render_again = render_done_again.clone();
-                                std::thread::spawn(move || {
-                                    if std::path::Path::new("/var/lib/genesis/device.json").exists() {
-                                        return;  // already measured; genesis-pick-device --json redoes it by hand
-                                    }
+                                // render once more with the answer -- before saying setup is done. It used to
+                                // run in the background after "done", and its render restarts the model
+                                // service: the first question asked as setup finished was cut off mid-answer
+                                // (the evaluation lost four makes a night to it, decision 225). The wizard shows
+                                // "measuring" for the minute or two it takes. Deciding from device names instead
+                                // cost the first real laptop 21x its speed, so the measurement stays.
+                                if !std::path::Path::new("/var/lib/genesis/device.json").exists() {
                                     // exit 3 means it ran and could not measure anything; the file it writes
                                     // then says measured: false, and taking it as an answer would record a
                                     // decision nobody made
@@ -280,13 +265,21 @@ fn handle(app: &Arc<App>, mut req: Request) -> Result<bool> {
                                             let _ = std::fs::create_dir_all("/var/lib/genesis");
                                             if std::fs::write("/var/lib/genesis/device.json", &o.stdout).is_ok() {
                                                 tracing::info!("measured this machine; rendering the router again");
-                                                let _ = render_again();
+                                                let _ = render_done_again();
                                             }
                                         }
                                         Ok(o) => tracing::warn!(status = ?o.status, stderr = %String::from_utf8_lossy(&o.stderr).chars().take(200).collect::<String>(), "could not measure this machine; keeping what the hardware said"),
                                         Err(e) => tracing::warn!(error = %e, "could not run genesis-pick-device"),
                                     }
-                                });
+                                }
+                                // The models are here, the config is written and the service has its final
+                                // settings: this machine is set up, whether or not anybody reaches the last
+                                // page of the wizard (a finished machine kept offering to set itself up).
+                                if let Some(d) = done_marker.parent() { let _ = std::fs::create_dir_all(d); }
+                                if !done_marker.exists() {
+                                    let _ = std::fs::write(&done_marker, format!("{}\n", now()));
+                                    tracing::info!(marker = %done_marker.display(), "models and config are in place; first run is complete");
+                                }
                                 Ok(())
                             });
                             download::start_with(app.progress.clone(), pack.id.clone(), files.clone(), on_file, on_done);
@@ -444,10 +437,11 @@ fn main() -> Result<()> {
         render_router_now(&cli)?;
     }
     if cli.router_out.exists() && cli.models_dir.join("fast").is_dir() && !downloading_marker(&cli).exists() {
+        // measured and rendered first, marked set up after: the same order as the wizard's download
+        measure_and_render(&cli);
         if let Some(d) = cli.done_marker.parent() { std::fs::create_dir_all(d)?; }
         std::fs::write(&cli.done_marker, format!("{}\n", now()))?;
         tracing::info!("this machine has its models and its router config already; marking first run complete rather than offering to do it again");
-        measure_and_render(&cli);
         return Ok(());
     }
     let server = Server::http(&cli.listen).map_err(|e| anyhow::anyhow!("listen {}: {}", cli.listen, e))?;

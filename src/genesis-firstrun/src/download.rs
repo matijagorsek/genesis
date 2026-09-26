@@ -107,6 +107,9 @@ pub fn start_with(shared: Shared, pack_id: String, files: Vec<PlannedFile>, on_f
             p.files_done = files.len();
             p.current = None;
         }
+        // what comes after the files (the config, measuring the machine, the model service's restart) is
+        // part of setting up: "done" means a question asked now is answered, not interrupted
+        shared.lock().unwrap().state = "measuring".into();
         match on_done() {
             Ok(()) => shared.lock().unwrap().state = "done".into(),
             Err(e) => {

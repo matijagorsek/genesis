@@ -92,6 +92,88 @@ MAKES = [
 ]
 
 
+# The harder set (--set hard): what people bring once the first thing is made. Each may start from files
+# already in the project, may go on in the same conversation, and where it can, its check RUNS what was
+# made rather than reading it. Ten small single-file makes stopped telling anything apart once they
+# passed ten times out of ten.
+QUOTES_PAGE = """<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Quotes</title>
+<style>body{font-family:sans-serif;margin:3em;background:#fff;color:#222}button{padding:.6em 1.2em}</style></head>
+<body><h1>Quotes</h1><p id="q">Press the button.</p><button id="next">Another one</button>
+<script>
+const quotes=["Simplicity is prerequisite for reliability.","Make it work, make it right, make it fast.","Premature optimization is the root of all evil."];
+document.getElementById('next').addEventListener('click',()=>{document.getElementById('q').textContent=quotes[Math.floor(Math.random()*quotes.length)]});
+</script></body></html>
+"""
+BUGGY_WC = """import sys
+
+def count(path):
+    text = open(path).read()
+    return len(text)   # the number of words
+
+if __name__ == "__main__":
+    print(count(sys.argv[1]))
+"""
+TODO_CLI = """import json, os, sys
+
+FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "todo.json")
+
+def load():
+    return json.load(open(FILE)) if os.path.exists(FILE) else []
+
+def save(items):
+    json.dump(items, open(FILE, "w"))
+
+def main(argv):
+    if not argv or argv[0] == "list":
+        for i, t in enumerate(load(), 1):
+            print(f"{i}. {t}")
+    elif argv[0] == "add":
+        items = load(); items.append(" ".join(argv[1:])); save(items)
+    else:
+        print("usage: todo.py add TEXT | list"); return 2
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
+"""
+
+def ran(project, *cmd):
+    try:
+        r = subprocess.run(list(cmd), cwd=project, capture_output=True, text=True, timeout=30)
+        return r.returncode, r.stdout + r.stderr
+    except Exception as e:
+        return -1, str(e)
+
+def wc_fixed(project):
+    open(os.path.join(project, "sample.txt"), "w").write("one two three four\nfive six\n")
+    py = next((f for f in ("wc.py",) + tuple(sorted(os.listdir(project))) if f.endswith(".py") and os.path.exists(os.path.join(project, f))), None)
+    if not py:
+        return False
+    code, out = ran(project, "python3", py, "sample.txt")
+    return code == 0 and "6" in out.split() and "26" not in out
+
+def todo_clear(project):
+    ran(project, "python3", "todo.py", "add", "milk"); ran(project, "python3", "todo.py", "add", "bread")
+    code, _ = ran(project, "python3", "todo.py", "clear")
+    _, listed = ran(project, "python3", "todo.py", "list")
+    return code == 0 and "milk" not in listed and "bread" not in listed
+
+HARD = [
+    # (name, prompts in one conversation, files there before it starts, check(files, project))
+    ("fix-bug", ["The word count this prints is wrong: it counts characters, not words. Fix it."],
+     {"wc.py": BUGGY_WC}, lambda d, p: wc_fixed(p)),
+    ("add-command", ["Add a clear command to this todo tool that removes every item."],
+     {"todo.py": TODO_CLI}, lambda d, p: todo_clear(p)),
+    ("dark-mode", ["Add a button to this page that switches between a light and a dark look."],
+     {"index.html": QUOTES_PAGE}, lambda d, p: "dark" in text_of(p) and any(k in text_of(p) for k in ("classlist", "toggle", "style.background", "data-theme")) and "quotes" in text_of(p)),
+    ("follow-up", ["a todo list web page where you can add items", "Now also let me mark an item as done by clicking it."],
+     {}, lambda d, p: any(k in text_of(p) for k in ("line-through", "done", "completed")) and "click" in text_of(p)),
+    ("notes-app", ["a small notes web app: a Python backend that keeps notes in a JSON file, and a page to add a note and see them all"],
+     {}, lambda d, p: any(f.endswith(".py") for _r, _d, fs in os.walk(p) for f in fs) and "fetch(" in text_of(p) and "json" in text_of(p, (".py",))),
+]
+
+
 def api(path, body=None):
     data = json.dumps(body).encode() if body is not None else None
     # the port file is read on every call: the daemon under test writes it when it starts, which can be
@@ -103,28 +185,36 @@ def api(path, body=None):
         return json.load(r)
 
 
-def one(name, prompt, timeout):
+def one(name, prompt, timeout, setup=None, check=None):
     project = os.path.expanduser(f"~/Projects/eval/{name}")
     os.makedirs(project, exist_ok=True)
+    for f, body in (setup or {}).items():
+        open(os.path.join(project, f), "w").write(body)
+    prompts = prompt if isinstance(prompt, list) else [prompt]
     t0 = time.time()
     s = api("/api/sessions", {"mode": "auto_edit", "project": project})
     sid = s["id"]
-    api(f"/api/sessions/{sid}/prompt", {"text": prompt})
-    row = {"name": name, "prompt": prompt, "state": "running", "turns": 0, "tool_calls": 0, "writes": 0, "tool_errors": 0, "preview": False, "seconds": 0, "summary": ""}
-    while time.time() - t0 < timeout:
-        time.sleep(5)
-        st = api(f"/api/sessions/{sid}")
-        for p in st.get("pending", []):
-            try:
-                api(f"/api/prompts/{p['request_id']}", {"allow": True})
-            except Exception:
-                pass  # already answered (a prompt that timed out between two polls is a 404, not a crash)
-        if st["state"] in ("done", "error"):
-            row["state"] = st["state"]
+    row = {"name": name, "prompt": " / ".join(prompts), "state": "running", "turns": 0, "tool_calls": 0, "writes": 0, "tool_errors": 0, "preview": False, "seconds": 0, "summary": ""}
+    st = {}
+    for text in prompts:  # a follow-up goes into the same conversation once the one before has finished
+        api(f"/api/sessions/{sid}/prompt", {"text": text})
+        time.sleep(3)
+        while time.time() - t0 < timeout:
+            time.sleep(5)
+            st = api(f"/api/sessions/{sid}")
+            for p in st.get("pending", []):
+                try:
+                    api(f"/api/prompts/{p['request_id']}", {"allow": True})
+                except Exception:
+                    pass  # already answered (a prompt that timed out between two polls is a 404, not a crash)
+            if st["state"] in ("done", "error"):
+                row["state"] = st["state"]
+                break
+        else:
+            row["state"] = "timeout"
+            st = api(f"/api/sessions/{sid}")
+        if row["state"] != "done":
             break
-    else:
-        row["state"] = "timeout"
-        st = api(f"/api/sessions/{sid}")
     ev = st.get("events", [])
     row["tool_calls"] = sum(1 for e in ev if e["kind"] == "tool_call")
     row["writes"] = sum(1 for e in ev if e["kind"] == "tool_call" and e["name"] in ("write_file", "edit_file"))
@@ -188,7 +278,7 @@ def one(name, prompt, timeout):
     except OSError:
         made = []
     row["files"] = made
-    row["looks_right"] = bool(CHECKS.get(name, lambda d, p: True)(made, project))
+    row["looks_right"] = bool((check or CHECKS.get(name, lambda d, p: True))(made, project))
     row["finished"] = row["state"] == "done" and row["writes"] > 0
     row["passed"] = row["finished"] and row["looks_right"]
     return row
@@ -201,6 +291,7 @@ def main(argv):
     if "--timeout" in argv: timeout = int(argv[argv.index("--timeout") + 1])
     if "--shard" in argv: shard = int(argv[argv.index("--shard") + 1])
     if "--of" in argv: of = int(argv[argv.index("--of") + 1])
+    which = argv[argv.index("--set") + 1] if "--set" in argv else "basic"
     # the daemon was started a moment ago: a shard asked before it was listening and lost both its makes
     for _ in range(60):
         try:
@@ -211,8 +302,9 @@ def main(argv):
     else:
         health = api("/api/health")
     rows = []
-    mine = MAKES[:only][shard::of]
-    if of > 1: print(f"shard {shard} of {of}: {', '.join(n for n, _ in mine)}", file=sys.stderr, flush=True)
+    plan = [(n, pr, None, None) for n, pr in MAKES] if which == "basic" else list(HARD)
+    mine = plan[:only][shard::of]
+    if of > 1: print(f"shard {shard} of {of}: {', '.join(m[0] for m in mine)}", file=sys.stderr, flush=True)
 
     def save():
         """Write what is known so far. A run of ten makes on a slow machine takes hours, and until now it
@@ -224,10 +316,10 @@ def main(argv):
                   open(out, "w"), indent=1)
 
     save()
-    for name, prompt in mine:
+    for name, prompt, setup, check in mine:
         print(f"== {name}: {prompt}", file=sys.stderr, flush=True)
         try:
-            rows.append(one(name, prompt, timeout))
+            rows.append(one(name, prompt, timeout, setup, check))
         except Exception as e:
             rows.append({"name": name, "prompt": prompt, "state": "crash", "error": str(e), "passed": False, "writes": 0, "turns": 0, "seconds": 0, "tool_calls": 0, "tool_errors": 0, "preview": False, "summary": ""})
         print(f"   {rows[-1]['state']} writes={rows[-1]['writes']} turns={rows[-1]['turns']} {rows[-1]['seconds']}s", file=sys.stderr, flush=True)
@@ -235,7 +327,7 @@ def main(argv):
     passed = sum(1 for r in rows if r.get("passed"))
     save()
     finished = sum(1 for r in rows if r.get("finished"))
-    print(f"## Ten makes on `{health.get('model')}`: **{passed}/{len(rows)} passed** ({finished} finished, {passed} of those look right)\n")
+    print(f"## {'Ten makes' if which == 'basic' else 'The harder makes'} on `{health.get('model')}`: **{passed}/{len(rows)} passed** ({finished} finished, {passed} of those look right)\n")
     print("| make | result | files written | turns | tool errors | preview | time | memory left |")
     print("|---|---|---|---|---|---|---|---|")
     for r in rows:

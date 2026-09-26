@@ -209,7 +209,7 @@ section{display:none}section.active{display:block}
     if(!chosen){chosen=state.settings.pack||(state.profile&&state.profile.recommended_pack)||null}
     renderPacks(state); const p=state.packs.find(x=>x.id===chosen); if(p)renderModels(p);
     const sg=state.signed||{};const ns=Object.keys(sg).length;$('#signedInfo').textContent=ns?`Signed pack list from GHCR, verified with the Genesis key (${Object.values(sg)[0].slice(0,10)}). Every download is checked against it.`:'Built-in pack list; the signed list from GHCR is fetched after the first connection.';
-    if(state.progress.state==='downloading'||state.progress.state==='planning'){step(1);startPoll()}
+    if(state.progress.state==='downloading'||state.progress.state==='planning'||state.progress.state==='measuring'){step(1);startPoll()}
     else if(state.progress.state==='done'){step(1);showProgress(state.progress);$('#btnNextPrivacy').disabled=false}
   }
   $('#btnPlan').addEventListener('click',async()=>{$('#btnPlan').disabled=true;$('#planInfo').textContent='Checking sizes…';const r=await api('/api/plan',{pack:chosen});$('#btnPlan').disabled=false;if(r.error){$('#planInfo').textContent='Could not reach the model registry: '+r.error;return}plan=r;const mins=Math.max(1,Math.round(r.bytes_total/(25e6)/60));$('#planInfo').textContent=`${r.files.length} files, ${gb(r.bytes_total)} · about ${mins} min at 25 MB/s`;$('#btnDownload').disabled=false});
@@ -218,6 +218,7 @@ section{display:none}section.active{display:block}
     const pct=p.bytes_total?Math.min(100,100*p.bytes_done/p.bytes_total):0;$('#bar').style.width=pct.toFixed(1)+'%';$('#progWrap').setAttribute('aria-valuenow',Math.round(pct));
     if(p.state==='planning'){$('#dlText').textContent='Checking the model registry…';}
     else if(p.state==='downloading'){$('#dlText').textContent=`${gb(p.bytes_done)} of ${gb(p.bytes_total)} · file ${Math.min(p.files_done+1,p.files_total)} of ${p.files_total}`;$('#dlDetail').textContent=p.current||'';}
+    else if(p.state==='measuring'){$('#dlText').textContent='Downloaded. Now measuring how this computer runs the models fastest — a minute or two.';$('#dlDetail').textContent='';$('#bar').style.width='100%';}
     else if(p.state==='done'){$('#dlText').textContent=`Done: ${gb(p.bytes_total)} in ${p.files_total} files. The local AI service is configured.`;$('#dlDetail').textContent='';$('#bar').style.width='100%';$('#btnNextPrivacy').disabled=false;}
     else if(p.state==='error'){$('#dlText').textContent='The download stopped.';$('#dlErr').innerHTML=`<div class="note err">${p.error||'unknown error'}</div>`;$('#btnRetry').style.display='';}
   }
@@ -249,7 +250,7 @@ section{display:none}section.active{display:block}
   $('#btnFinish').addEventListener('click',async()=>{$('#btnFinish').disabled=true;const r=await api('/api/finish',{starter});$('#finishInfo').textContent=r.done?'Setup complete. You can close this window.':(r.error||'');});
   load().then(()=>{if(location.hash==='#phone'){step(3);phoneStart()}});
   // a download started elsewhere (Settings, a second window) moves this page along too
-  setInterval(async()=>{if(!document.querySelector('#s0').classList.contains('active'))return;try{const st=await api('/api/state');if(st.progress.state==='downloading'||st.progress.state==='planning'){step(1);startPoll()}}catch(e){}},3000);
+  setInterval(async()=>{if(!document.querySelector('#s0').classList.contains('active'))return;try{const st=await api('/api/state');if(st.progress.state==='downloading'||st.progress.state==='planning'||st.progress.state==='measuring'){step(1);startPoll()}}catch(e){}},3000);
 })();
   // Skip: Genesis works as a normal desktop without models; the wizard can be reopened from the Genesis menu entry.
   async function skipSetup(ask){if(ask&&!confirm('Skip model setup for now? Genesis works as a normal desktop; you can come back any time with "Set up models" in the app menu.'))return;await fetch('/api/finish',{method:'POST',headers:{'content-type':'application/json'},body:'{}'});document.body.innerHTML='<div style="display:grid;place-items:center;height:100vh;font-size:20px">Done. Genesis is ready to use.</div>'}
