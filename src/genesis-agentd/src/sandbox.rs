@@ -75,15 +75,43 @@ pub fn bwrap_args(project: &Path, allow_network: bool) -> Vec<String> {
     a
 }
 
+/// A program the model made or runs, started in a scope of its own with a ceiling on its memory. Without
+/// one it ran inside the maker's own service, and when a made program ate the machine's memory the kernel
+/// killed processes in that service: the maker went down with it, and the next job found nothing there
+/// (decision 230). A quarter of the machine, between 512 MB and 4 GB; GENESIS_RUN_MEMORY_MAX overrides.
+/// Where there is no user systemd (a container, a test) the program starts as it always did.
+pub fn memory_capped(program: &str) -> Command {
+    match (run_memory_max(), user_systemd()) {
+        (Some(max), true) => {
+            let mut c = Command::new("systemd-run");
+            c.args(["--user", "--scope", "--quiet", "--collect", "-p", &format!("MemoryMax={}", max), "-p", "MemorySwapMax=0", "--", program]);
+            c
+        }
+        _ => Command::new(program),
+    }
+}
+
+fn run_memory_max() -> Option<u64> {
+    if let Some(v) = std::env::var("GENESIS_RUN_MEMORY_MAX").ok().and_then(|v| v.parse::<u64>().ok()) { return Some(v); }
+    let kb: u64 = std::fs::read_to_string("/proc/meminfo").ok()?
+        .lines().find(|l| l.starts_with("MemTotal"))?.split_whitespace().nth(1)?.parse().ok()?;
+    Some((kb * 1024 / 4).clamp(512 << 20, 4 << 30))
+}
+
+fn user_systemd() -> bool {
+    cfg!(target_os = "linux") && which("systemd-run")
+        && std::env::var("XDG_RUNTIME_DIR").map(|d| std::path::Path::new(&d).join("systemd/private").exists()).unwrap_or(false)
+}
+
 pub fn run_shell(project: &Path, command: &str, allow_network: bool, timeout: Duration, stop: Option<&std::sync::atomic::AtomicBool>) -> Result<ShellResult> {
     let sandboxed = bwrap_available();
     let mut cmd = if sandboxed {
-        let mut c = Command::new("bwrap");
+        let mut c = memory_capped("bwrap");
         c.args(bwrap_args(project, allow_network));
         c.args(["/bin/sh", "-lc", command]);
         c
     } else {
-        let mut c = Command::new("/bin/sh");
+        let mut c = memory_capped("/bin/sh");
         c.args(["-lc", command]);
         c.current_dir(project);
         c.env("GENESIS_SANDBOX", "0");

@@ -172,7 +172,7 @@ impl Previews {
         let port = if t.dev.port > 0 { free_port(t.dev.port) } else { 0 };
         let cmd = t.dev.cmd.replace("{port}", &port.to_string()).replace("{name}", &name);
         let log = std::fs::File::create(project.join(".genesis-preview.log"))?;
-        let mut command = Command::new("/bin/sh");
+        let mut command = crate::sandbox::memory_capped("/bin/sh");
         #[cfg(unix)]
         { use std::os::unix::process::CommandExt; command.process_group(0); }  // so the whole server, children included, can be stopped
         let child = command.args(["-lc", &cmd]).current_dir(project).stdin(Stdio::null()).stdout(Stdio::from(log.try_clone()?)).stderr(Stdio::from(log)).spawn().with_context(|| format!("starting {}", cmd))?;

@@ -257,8 +257,15 @@ def api(path, body=None):
     base = os.environ.get("GENESIS_AGENTD") or "http://127.0.0.1:%d" % _agentd_port()
     token = TOKEN or _token()
     req = urllib.request.Request(base + path, data=data, headers={"Content-Type": "application/json", "X-Genesis-Token": token})
-    with urllib.request.urlopen(req, timeout=60) as r:
-        return json.load(r)
+    # the maker restarting between two makes is recorded in its journal, not taken as the next make's failure
+    for attempt in range(20):
+        try:
+            with urllib.request.urlopen(req, timeout=60) as r:
+                return json.load(r)
+        except urllib.error.URLError as e:
+            if "refused" not in str(e) or attempt == 19:
+                raise
+            time.sleep(3)
 
 
 def one(name, prompt, timeout, setup=None, check=None):
