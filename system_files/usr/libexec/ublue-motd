@@ -1,6 +1,6 @@
 #!/usr/bin/bash
-# The welcome a terminal opens with. The base image's said "Welcome to Aurora", with its own links, on a
-# Genesis machine; the login shell runs whatever is here (/etc/profile.d/user-motd.sh), so Genesis puts
+# The welcome a terminal opens with. The base image's greeted a Genesis machine by the base's own name,
+# with its own links; the login shell runs whatever is here (/etc/profile.d/user-motd.sh), so Genesis puts
 # its own here. Hidden for good with `ujust toggle-user-motd`, which the shell also honours. Nothing here
 # touches the network: it has to be instant, every time a terminal opens.
 
