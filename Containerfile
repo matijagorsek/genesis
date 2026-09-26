@@ -75,7 +75,6 @@ FROM ${BASE}
 # FLAVOUR=fedora: plain Fedora bootc (multi-arch, used for arm64); we install the Plasma desktop ourselves.
 ARG FLAVOUR=aurora
 ARG TARGETARCH
-ARG GENESIS_VERSION=0.1
 ARG LLAMA_SWAP_VERSION=255
 ARG PIPER_VERSION=2023.11.14-2
 # BOOTC_LINT=strict (CI, native amd64) | skip (local emulated builds: lint needs syscalls QEMU lacks)
@@ -85,7 +84,7 @@ ARG BOOTC_LINT=strict
 RUN set -eux; \
     sed -i \
       -e 's/^NAME=.*/NAME="Genesis"/' \
-      -e "s/^PRETTY_NAME=.*/PRETTY_NAME=\"Genesis ${GENESIS_VERSION} (Fedora bootc 44)\"/" \
+      -e 's/^PRETTY_NAME=.*/PRETTY_NAME="Genesis (Fedora bootc 44)"/' \
       -e 's/^ID=.*/ID=genesis/' \
       -e 's/^ID_LIKE=.*/ID_LIKE="fedora"/' \
       -e 's/^VARIANT=.*/VARIANT="Genesis Desktop"/' \
@@ -95,11 +94,10 @@ RUN set -eux; \
       -e 's|^BUG_REPORT_URL=.*|BUG_REPORT_URL="https://github.com/matijagorsek/genesis/issues"|' \
       -e 's/^IMAGE_ID=.*/IMAGE_ID=genesis/' \
       -e 's/^DEFAULT_HOSTNAME=.*/DEFAULT_HOSTNAME=genesis/' \
-      -e "s/^IMAGE_VERSION=.*/IMAGE_VERSION=${GENESIS_VERSION}/" \
       /usr/lib/os-release; \
     grep -q '^ID_LIKE=' /usr/lib/os-release || echo 'ID_LIKE="fedora"' >> /usr/lib/os-release; \
     grep -q '^DEFAULT_HOSTNAME=' /usr/lib/os-release || echo 'DEFAULT_HOSTNAME=genesis' >> /usr/lib/os-release; \
-    grep -q '^IMAGE_ID=' /usr/lib/os-release || printf 'IMAGE_ID=genesis\nIMAGE_VERSION=%s\n' "${GENESIS_VERSION}" >> /usr/lib/os-release
+    grep -q '^IMAGE_ID=' /usr/lib/os-release || echo 'IMAGE_ID=genesis' >> /usr/lib/os-release
 
 # ---- desktop for the plain Fedora bootc flavour (Aurora already has it) -----------------------
 RUN set -eux; if [ "$FLAVOUR" = fedora ]; then \
@@ -120,25 +118,12 @@ RUN set -eux; if [ "$FLAVOUR" = fedora ]; then \
       firewall-offline-cmd --zone=public --add-port=11530/tcp >/dev/null 2>&1 || true; \
     fi
 
-# ---- Genesis files: units, sysusers, tmpfiles, policy, /etc/genesis defaults ---------------
-COPY system_files/ /
-# The manual, on the machine: Help > Genesis manual opens it with no network. The six screenshots it
-# shows come with it (2 MB); the site serves the same file from docs/.
-COPY docs/manual.html /usr/share/doc/genesis/manual.html
-COPY docs/screens/latest/02-login.png docs/screens/latest/03-first-run.png /usr/share/doc/genesis/screens/latest/
-COPY docs/screens/fresh-run/03-pomodoro-made-by-the-2B-model.png /usr/share/doc/genesis/screens/fresh-run/
-COPY docs/screens/more/02-screen-region-asked.png docs/screens/more/03-settings.png /usr/share/doc/genesis/screens/more/
-COPY docs/screens/phone/05-phone-replies.png /usr/share/doc/genesis/screens/phone/
-COPY docs/screens/installer/anaconda-wearing-genesis.png /usr/share/doc/genesis/screens/installer/
-# the release notes people read in Settings > Updates come from the repository's own notes
-COPY docs/releases/0.2.md /usr/share/genesis/release-notes.md
-COPY packs/ /usr/share/genesis/packs/
-COPY templates/ /usr/share/genesis/templates/
-COPY --from=daemons /out/ /
-COPY --from=qtbuild /out/ /
-COPY --from=whisperbuild /out/ /
-# /etc/hostname ships from system_files/etc/hostname: during a container build /etc/hostname is a runtime
-# bind mount, so a RUN that writes it never reaches the layer; COPY does.
+# ---- the order of what follows is the size of every update -----------------------------------------
+# Each step's layer is downloaded again whenever it, or anything before it, changes. Measured on 26 Sep:
+# 0.2.284 to 0.2.289 was 1.2 GB, because the version was known to every step from the top (a build
+# argument in scope is part of each step's cache key) and every Genesis file was copied before the heavy
+# steps. Now the heavy, rarely changing steps come first, Genesis's own files after them, and the version
+# is stamped by the last step of all (decision 235).
 
 # ---- inference stack -------------------------------------------------------------------------
 # llama.cpp: upstream Vulkan build (CPU + Vulkan backends, runs on NVIDIA/AMD/Intel via Mesa or vendor ICDs).
@@ -215,7 +200,7 @@ RUN set -eux; \
     find /usr/share/wallpapers -mindepth 1 -maxdepth 1 ! -name Genesis ! -name Next -exec rm -rf {} +; \
     rm -rf /usr/share/icons/oxygen; \
     dnf5 clean all; \
-    [ -d /usr/share/wallpapers/Genesis ] && [ -d /usr/share/wallpapers/Next ] && [ -s /usr/share/doc/genesis/manual.html ]; \
+    [ -d /usr/share/wallpapers/Next ]; \
     after=$(du -sm /usr | cut -f1); echo "genesis: /usr was ${before} MB, is ${after} MB: $((before - after)) MB less"
 
 # Piper: local text-to-speech (static upstream build with its espeak-ng data and onnxruntime)
@@ -227,18 +212,6 @@ RUN set -eux; \
     echo "$SUM  /tmp/piper.tgz" | sha256sum -c -; tar -xzf /tmp/piper.tgz -C /usr/lib/genesis; rm -f /tmp/piper.tgz; \
     test -x /usr/lib/genesis/piper/piper
 
-# Babel: the Genesis IDE. Code-OSS through VSCodium (MIT, no telemetry), every language VS Code speaks,
-# with the Genesis extension built in: the maker in the sidebar, permission cards, ask about the selection.
-ARG VSCODIUM_VERSION=1.135.06055
-RUN set -eux; \
-    case "${TARGETARCH:-amd64}" in arm64) VA=arm64; SUM=9765cea4f707ff7dc83a40be408a7318a59abb6996b359631639d9aab2f48a90;; *) VA=x64; SUM=c09d8ac8dd7f52b09ee159ee24b440541dfd8f937a0f6f88cc428c78e48ee1f2;; esac; \
-    curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 -o /tmp/babel.tgz "https://github.com/VSCodium/vscodium/releases/download/${VSCODIUM_VERSION}/VSCodium-linux-${VA}-${VSCODIUM_VERSION}.tar.gz"; \
-    echo "$SUM  /tmp/babel.tgz" | sha256sum -c -; \
-    mkdir -p /usr/lib/babel; tar -xzf /tmp/babel.tgz -C /usr/lib/babel; rm -f /tmp/babel.tgz; \
-    /usr/bin/genesis-babel-brand; \
-    /usr/bin/genesis-babel-extensions; \
-    test -x /usr/bin/babel && test -x /usr/lib/babel/bin/codium
-COPY --from=goplsbuild /out/gopls /usr/bin/gopls
 
 # llama-swap: model router (Go, static upstream binary)
 RUN set -eux; \
@@ -250,9 +223,52 @@ RUN set -eux; \
 
 # (genesis-image-check ships from system_files/usr/bin; podman/buildah has no COPY heredoc)
 
+# Babel: the Genesis IDE. Code-OSS through VSCodium (MIT, no telemetry), every language VS Code speaks,
+# with the Genesis extension built in: the maker in the sidebar, permission cards, ask about the selection.
+COPY system_files/usr/bin/genesis-babel-brand system_files/usr/bin/genesis-babel-extensions /usr/bin/
+COPY system_files/usr/share/genesis/babel/ /usr/share/genesis/babel/
+ARG VSCODIUM_VERSION=1.135.06055
+RUN set -eux; \
+    case "${TARGETARCH:-amd64}" in arm64) VA=arm64; SUM=9765cea4f707ff7dc83a40be408a7318a59abb6996b359631639d9aab2f48a90;; *) VA=x64; SUM=c09d8ac8dd7f52b09ee159ee24b440541dfd8f937a0f6f88cc428c78e48ee1f2;; esac; \
+    curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 -o /tmp/babel.tgz "https://github.com/VSCodium/vscodium/releases/download/${VSCODIUM_VERSION}/VSCodium-linux-${VA}-${VSCODIUM_VERSION}.tar.gz"; \
+    echo "$SUM  /tmp/babel.tgz" | sha256sum -c -; \
+    mkdir -p /usr/lib/babel; tar -xzf /tmp/babel.tgz -C /usr/lib/babel; rm -f /tmp/babel.tgz; \
+    /usr/bin/genesis-babel-brand; \
+    /usr/bin/genesis-babel-extensions; \
+    test -x /usr/bin/babel && test -x /usr/lib/babel/bin/codium
+COPY --from=goplsbuild /out/gopls /usr/bin/gopls
+
+# ---- Genesis files: units, sysusers, tmpfiles, policy, /etc/genesis defaults ---------------
+COPY system_files/ /
+# The manual, on the machine: Help > Genesis manual opens it with no network. The six screenshots it
+# shows come with it (2 MB); the site serves the same file from docs/.
+COPY docs/manual.html /usr/share/doc/genesis/manual.html
+COPY docs/screens/latest/02-login.png docs/screens/latest/03-first-run.png /usr/share/doc/genesis/screens/latest/
+COPY docs/screens/fresh-run/03-pomodoro-made-by-the-2B-model.png /usr/share/doc/genesis/screens/fresh-run/
+COPY docs/screens/more/02-screen-region-asked.png docs/screens/more/03-settings.png /usr/share/doc/genesis/screens/more/
+COPY docs/screens/phone/05-phone-replies.png /usr/share/doc/genesis/screens/phone/
+COPY docs/screens/installer/anaconda-wearing-genesis.png /usr/share/doc/genesis/screens/installer/
+# the release notes people read in Settings > Updates come from the repository's own notes
+COPY docs/releases/0.2.md /usr/share/genesis/release-notes.md
+COPY packs/ /usr/share/genesis/packs/
+COPY templates/ /usr/share/genesis/templates/
+COPY --from=daemons /out/ /
+COPY --from=qtbuild /out/ /
+COPY --from=whisperbuild /out/ /
+# /etc/hostname ships from system_files/etc/hostname: during a container build /etc/hostname is a runtime
+# bind mount, so a RUN that writes it never reaches the layer; COPY does.
+
 # ---- enable services -------------------------------------------------------------------------
 RUN systemctl enable genesis-router.service genesis-ollama.service genesis-growpart.service genesis-probe.service genesis-firstrun.service genesis-router-refresh.service genesis-packs-refresh.service genesis-devssh.service genesis-bootc-status.service bootc-fetch-apply-updates.timer && systemctl --global enable genesis-crash.service genesis-power.service genesis-upgrade-notes.path genesis-phone.service genesis-companiond.service genesis-packs.timer genesis-index.timer genesis-permd.service genesis-agentd.service \
  && (systemctl mask plasma-setup.service || true)
+
+# ---- the version, last of all: known to no step before this one, so a new version rebuilds only this ----
+ARG GENESIS_VERSION=0.1
+RUN sed -i \
+      -e "s/^PRETTY_NAME=.*/PRETTY_NAME=\"Genesis ${GENESIS_VERSION} (Fedora bootc 44)\"/" \
+      -e "/^IMAGE_VERSION=/d" \
+      /usr/lib/os-release \
+ && echo "IMAGE_VERSION=${GENESIS_VERSION}" >> /usr/lib/os-release
 
 # ---- bootc validation ------------------------------------------------------------------------
 RUN if [ "$BOOTC_LINT" = strict ]; then bootc container lint; else echo "bootc lint skipped (BOOTC_LINT=$BOOTC_LINT)"; fi
