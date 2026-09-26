@@ -376,6 +376,8 @@ pub struct Agent {
     pub identical_writes: usize,
     /// answers cut off at the length limit in this run
     pub length_cutoffs: u8,
+    /// tool calls the server could not read, answered by telling the model
+    pub unreadable_calls: u8,
     /// Project directory the maker tools currently target (set by scaffold).
     pub active_project: Option<PathBuf>,
     /// "make" (the maker, default) or "chat" (the assistant: chat prompt, read-only tools, the user's MCP tools).
@@ -404,7 +406,7 @@ fn resolve_path(project: &Path, p: &str) -> PathBuf {
 
 impl Agent {
     pub fn new(client: Client, broker: Arc<Mutex<Broker>>, session_id: String, project: PathBuf, shared: Arc<Shared>) -> Self {
-        Agent { client, broker, session_id, project, shared, max_turns: 40, prompt_timeout: Duration::from_secs(600), messages: vec![Message::system(SYSTEM_PROMPT)], tx_store: None, tx: None, previews: maker::Previews::default(), active_project: None, browser: None, last_prompt: String::new(), scaffolded: false, edited_after_scaffold: false, nudged: false, writes_since_run: 0, nudged_writes: false, last_write: String::new(), last_run: String::new(), same_run_streak: 0, last_failure: String::new(), failure_streak: 0, ran_clean: false, same_file_streak: 0, runs_since_write: 0, total_writes: 0, noop_writes: 0, completion_checks: 0, last_run_failure: String::new(), identical_writes: 0, length_cutoffs: 0, kind: "make".into() }
+        Agent { client, broker, session_id, project, shared, max_turns: 40, prompt_timeout: Duration::from_secs(600), messages: vec![Message::system(SYSTEM_PROMPT)], tx_store: None, tx: None, previews: maker::Previews::default(), active_project: None, browser: None, last_prompt: String::new(), scaffolded: false, edited_after_scaffold: false, nudged: false, writes_since_run: 0, nudged_writes: false, last_write: String::new(), last_run: String::new(), same_run_streak: 0, last_failure: String::new(), failure_streak: 0, ran_clean: false, same_file_streak: 0, runs_since_write: 0, total_writes: 0, noop_writes: 0, completion_checks: 0, last_run_failure: String::new(), identical_writes: 0, length_cutoffs: 0, unreadable_calls: 0, kind: "make".into() }
     }
 
     /// The plan card: what the job will touch and the steps, before anything runs. One short model call
@@ -510,7 +512,7 @@ impl Agent {
         self.shared.push(Event::UserPrompt { text: text.into() });
         self.shared.set_state("running");
         self.last_prompt = text.to_string();
-        self.scaffolded = false; self.edited_after_scaffold = false; self.nudged = false; self.writes_since_run = 0; self.nudged_writes = false; self.last_write.clear(); self.same_file_streak = 0; self.last_run.clear(); self.same_run_streak = 0; self.last_failure.clear(); self.failure_streak = 0; self.ran_clean = false; self.runs_since_write = 0; self.total_writes = 0; self.noop_writes = 0; self.completion_checks = 0; self.identical_writes = 0; self.length_cutoffs = 0;
+        self.scaffolded = false; self.edited_after_scaffold = false; self.nudged = false; self.writes_since_run = 0; self.nudged_writes = false; self.last_write.clear(); self.same_file_streak = 0; self.last_run.clear(); self.same_run_streak = 0; self.last_failure.clear(); self.failure_streak = 0; self.ran_clean = false; self.runs_since_write = 0; self.total_writes = 0; self.noop_writes = 0; self.completion_checks = 0; self.identical_writes = 0; self.length_cutoffs = 0; self.unreadable_calls = 0;
         self.last_run_failure = std::env::var("GENESIS_TEST_LAST_RUN_FAILURE").ok().filter(|_| cfg!(test)).unwrap_or_default();
         let compact = compact_model(&self.client.model);
         let chat = self.kind == "chat";
@@ -545,6 +547,14 @@ impl Agent {
                     r
                 }
                 Err(_) if self.shared.stopped() => return self.finish_stopped(), // Stop during the model wait is not a problem
+                // Three draws in a row the server could not read as a tool call (the retries are in llm.rs):
+                // the converter's page, three times over. Say so to the model, which can write it
+                // differently, instead of ending the job -- twice.
+                Err(e) if e.to_string().contains("Failed to parse tool call") && self.unreadable_calls < 2 => {
+                    self.unreadable_calls += 1;
+                    self.messages.push(Message::user("Your last tool call could not be read: its arguments were not valid. Call the tool again, with every argument it needs (write_file takes a path and the file's content as plain text), one file at a time.".to_string()));
+                    continue;
+                }
                 Err(e) => {
                     self.shared.push(Event::Error { text: e.to_string() });
                     self.shared.set_state("error");
@@ -1022,7 +1032,11 @@ impl Agent {
                 // tool call (forty to ninety seconds on a small machine) for something already on disk
                 let entry_path = dest.join(&entry);
                 let body = std::fs::read_to_string(&entry_path).unwrap_or_default();
-                let shown = if body.len() > 4_000 { format!("{}\n… [the rest is in the file]", cut_at_char(&body, 4_000)) } else { body };
+                // A web page's placeholder is not shown: a heading and a script tag is nothing to build on, and
+                // shown whole, the 2B wrote it back unchanged -- the club site, three times over. Said, not shown.
+                let shown = if entry.ends_with(".html") {
+                    "(a placeholder page: the name as a heading, a status line, and a script tag that loads app.js, with the styles in style.css)".to_string()
+                } else if body.len() > 4_000 { format!("{}\n… [the rest is in the file]", cut_at_char(&body, 4_000)) } else { body };
                 Ok(format!("created {} from template {} with files: {}. {} Edit the files by their full path; do not edit genesis.json. Preview: call preview_start (dev command: {}).\n\nThe entry file is {} and it holds only a placeholder, not the program:\n{}\n\nReplace that placeholder: write the entry file again, whole, with the program that was asked for ({}). Do not write the placeholder back.", dest.display(), t.id, files.join(", "), t.hints, t.dev.cmd, entry_path.display(), shown, self.last_prompt.chars().take(160).collect::<String>()))
             }
             "preview_start" => {
