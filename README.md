@@ -67,6 +67,7 @@ How Genesis got here, in the order it happened. The decision log has the detail 
 | 13. Out of the box | 23 to 24 Sep | The install medium, looked at. The image 803 MB lighter; the ISO carrying the smallest model pack, so a machine answers before it has a network; the installer in Genesis colours, and photographed by CI — which is how a kickstart line that had killed the installer for eight releases was found and those ISOs pulled. Tests for the rescue and the backup; the site rebuilt; the decision log grouped by theme. |
 | 14. Proven end to end | 24 to 25 Sep | Four reviews at once, then their findings: the model service requires a key every local program can read and no web page can; model pack names can no longer climb out of their folder; the first-run service confined. Every released ISO installed unattended onto a blank disk, booted offline and asked a question. One assistant per account on a shared computer, each answering only its owner. |
 | 15. Faster, and finished | 25 Sep | Measured before shipped, and half of what was planned turned out not to be needed. Answers come faster: guessing ahead from text already in the conversation makes the maker rewrite a file at 63 tokens a second instead of 8 to 14 on the 27B, and the big model's own prediction layers add a quarter on new code — with a GPU; on a CPU whole makes got slower, and it is off there; a small draft model and our own prediction heads were measured on a CPU, slowed it down or did nothing, and were left out. Tool calls held to their schema were already true, done by the model service. The wait before the first word is cut: a job's fixed opening is read ahead, so the first request reads 28 tokens instead of 924. And a make is not finished until the model says which parts of the request are done. Two faults turned up along the way: flags for a draft model that this llama.cpp no longer accepts, and a cache setting that never worked for these models. |
+| 16. Read the timelines | 26 Sep, overnight | The evaluation made to show each make's whole story — every call beside what came back, what the model servers printed, the maker's journal — and a night of fixing what it showed: the "crashes" were first run restarting the model service, a looping answer filled the shared memory, the small model wrote its code back unchanged or the template back verbatim, a run failed only for want of an input file, and the evaluation had been passing the untouched template. Three runs of the same tree then scored 10, 10 and 9 of 10 on checks that no longer can be passed by doing nothing. |
 | Next | | Real hardware, more of it. See [ROADMAP.md](ROADMAP.md). |
 
 ## What works today (0.2)
@@ -247,8 +248,9 @@ How Genesis got here, in the order it happened. The decision log has the detail 
   them, so a change to the prompts or tools shows as a number ([eval.yml](.github/workflows/eval.yml)).
   A fixed seed, and two things scored apart: whether a make **finished**, and whether what it made is
   what was **asked for**. Best so far: **10 finished, 9 correct** (20 Sep); since 25 Sep the club
-  website must have all three pages it asks for, not two, and the first run under that rule scored
-  **9 finished, 8 correct**. Between runs of the same tree the score moves between 6 and 9. The ten makes are split over five
+  website must have all three pages it asks for, and since 26 Sep a web make must hold what its request
+  names — earlier checks passed the untouched template. Under those checks the same tree scored
+  **10, 10 and 9 of 10** in three runs (26 Sep), where it had ranged from 6 to 9 on easier checks. The ten makes are split over five
   machines and the maker under test is built and dropped into the last release's VM, so an answer takes
   about twenty minutes instead of two and a half hours; the weekly run boots the shipped image with the
   shipped binary, because that is the only run that tests what a person would install. Every make also
