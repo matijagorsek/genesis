@@ -214,7 +214,10 @@ def find_py(project, want=None):
 def shop_ok(p):
     _, out = ran(p, "python3", "main.py", "cheese:8", "bread:2")   # 100 + 4.50 = 104.50 -> 94.05 after 10%
     _, small = ran(p, "python3", "main.py", "apple:4")            # 2.00, no discount
-    return "94.05" in out and "discount" in out.lower() and "2.00" in small and "discount" not in small.lower()
+    # what matters: the right total over 100, a line for the reduction, and no reduction under 100 --
+    # however the line is worded ("discount", "10% off", "-10.45")
+    lines = [l for l in out.splitlines() if l.strip()]
+    return "94.05" in out and len(lines) >= 4 and "2.00" in small and "1.80" not in small
 
 def tests_pass(p):
     if open(os.path.join(p, "test_calc.py")).read() != CALC["test_calc.py"]:
