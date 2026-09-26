@@ -52,13 +52,17 @@ def text_of(project, exts=(".html", ".js")):
     return "\n".join(out).lower()
 
 def html_pages(project):
+    # anywhere in the project: the club site that made pages/home.html, pages/about.html and
+    # pages/contact.html beside its index is a three-page site
     pages = []
-    for f in os.listdir(project):
-        if f.endswith(".html"):
-            try:
-                pages.append(open(os.path.join(project, f), errors="replace").read())
-            except OSError:
-                pass
+    for root, dirs, files in os.walk(project):
+        dirs[:] = [d for d in dirs if d not in ("node_modules", ".git")]
+        for f in files:
+            if f.endswith(".html"):
+                try:
+                    pages.append(open(os.path.join(root, f), errors="replace").read())
+                except OSError:
+                    pass
     return pages
 
 CHECKS = {
