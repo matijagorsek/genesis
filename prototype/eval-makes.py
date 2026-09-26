@@ -51,6 +51,10 @@ def text_of(project, exts=(".html", ".js")):
                     pass
     return "\n".join(out).lower()
 
+def has_html(project):
+    """an .html anywhere in the project: a page made in a subfolder is still a page"""
+    return any(f.endswith(".html") for _r, _d, fs in os.walk(project) for f in fs)
+
 def html_pages(project):
     # anywhere in the project: the club site that made pages/home.html, pages/about.html and
     # pages/contact.html beside its index is a three-page site
@@ -67,15 +71,15 @@ def html_pages(project):
 
 CHECKS = {
     "checklist": lambda d, p: any(f.endswith((".py", ".html", ".js")) for f in d),
-    "pomodoro": lambda d, p: any("html" in f for f in d) and "25" in text_of(p) and any(k in text_of(p) for k in ("setinterval", "settimeout", "countdown", "timer")),
+    "pomodoro": lambda d, p: has_html(p) and "25" in text_of(p) and any(k in text_of(p) for k in ("setinterval", "settimeout", "countdown", "timer")),
     "wordcount": lambda d, p: True,
     "rename": lambda d, p: True,
     # three pages that are not three copies of one page
     "club": lambda d, p: len(html_pages(p)) >= 3 and len(set(html_pages(p))) >= 3,
     "json-flag": lambda d, p: True,
-    "temperature": lambda d, p: any("html" in f for f in d) and ("celsius" in text_of(p) or "fahrenheit" in text_of(p)),
+    "temperature": lambda d, p: has_html(p) and ("celsius" in text_of(p) or "fahrenheit" in text_of(p)),
     "todo-cli": lambda d, p: True,
-    "quotes": lambda d, p: any("html" in f for f in d) and "quote" in text_of(p) and any(k in text_of(p) for k in ("button", "onclick", "addeventlistener")),
+    "quotes": lambda d, p: has_html(p) and "quote" in text_of(p) and any(k in text_of(p) for k in ("button", "onclick", "addeventlistener")),
     "dice": lambda d, p: True,
 }
 MAKES = [

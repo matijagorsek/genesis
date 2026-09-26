@@ -57,6 +57,12 @@ impl Drop for KeepAwake {
 /// file, run it, say what it is — is worth more than another paragraph of rules. It sits in the cached
 /// part of the conversation, so it is paid for once per session, not per turn.
 /// Does a run's output look like it worked? The same keywords everywhere, so "clean" means one thing.
+/// "index.html", "app.js", "genesis.json": a name, not a thing the person asked for.
+fn is_file_name(p: &str) -> bool {
+    let t = p.trim().trim_matches(|c| c == '`' || c == '"' || c == '\'');
+    !t.contains(' ') && t.rsplit_once('.').map(|(a, e)| !a.is_empty() && matches!(e, "html" | "css" | "js" | "py" | "json" | "md" | "txt" | "rs" | "toml")).unwrap_or(false)
+}
+
 /// A run that failed only for want of input: argv read past its end, or argparse's usage error.
 pub fn needs_input(text: &str) -> bool {
     let t = text.to_lowercase();
@@ -528,7 +534,11 @@ impl Agent {
             Ok(v) => v.get("parts").and_then(|p| p.as_array()).map(|a| a.iter()
                 .filter(|x| x.get("done").and_then(|d| d.as_bool()) == Some(false))
                 .filter_map(|x| x.get("part").and_then(|p| p.as_str()).map(|p| p.trim().chars().take(120).collect::<String>()))
-                .filter(|p| !p.is_empty()).take(6).collect()).unwrap_or_default(),
+                .filter(|p| !p.is_empty())
+                // a file name is not a part of a request: the 2B listed "index.html; style.css; app.js" as
+                // missing from a site that had them, and the model rewrote files that were fine
+                .filter(|p| !is_file_name(p))
+                .take(6).collect()).unwrap_or_default(),
             Err(e) => { tracing::warn!(%e, "completion check failed; finishing as the model said"); Vec::new() }
         }
     }
@@ -1039,9 +1049,12 @@ impl Agent {
     /// that project (an empty folder already named like it). A fresh, empty ~/Projects must not become
     /// the first project.
     fn scaffold_dest(&self, name: &str) -> PathBuf {
+        // An empty folder given to a job is that job's project, whatever the model calls it: the converter
+        // asked for in .../temperature was made in .../temperature/temp, a folder inside an empty folder.
+        // ~/Projects, the default, is not empty, and a new project goes in beside the others as before.
         let empty = std::fs::read_dir(&self.project).map(|mut d| d.next().is_none()).unwrap_or(true);
-        let same_name = self.project.file_name().map(|f| f.to_string_lossy() == name).unwrap_or(false);
-        if empty && same_name { self.project.clone() } else { self.project.join(name) }
+        let _ = name;
+        if empty { self.project.clone() } else { self.project.join(name) }
     }
 
     fn target_project(&self, args: &Value) -> PathBuf {
@@ -1374,5 +1387,14 @@ mod edit_tests {
         let home = std::env::var("HOME").unwrap_or_default();
         assert_eq!(super::resolve_path(std::path::Path::new("/p"), "~/Documents/n.txt"), std::path::PathBuf::from(format!("{}/Documents/n.txt", home)));
         assert_eq!(super::resolve_path(std::path::Path::new("/p"), "a.txt"), std::path::PathBuf::from("/p/a.txt"));
+    }
+}
+
+#[cfg(test)]
+mod file_name_tests {
+    #[test]
+    fn a_file_name_is_not_a_missing_part() {
+        for f in ["index.html", "`style.css`", "app.js", "genesis.json"] { assert!(super::is_file_name(f), "{}", f); }
+        for p in ["the about page", "a dark mode button", "three pages", "Celsius field"] { assert!(!super::is_file_name(p), "{}", p); }
     }
 }
