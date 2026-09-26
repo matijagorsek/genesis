@@ -400,8 +400,50 @@ pub(crate) fn cut_at_char(s: &str, max: usize) -> &str {
 }
 
 fn resolve_path(project: &Path, p: &str) -> PathBuf {
-    let path = Path::new(p);
+    // "~/Documents/notes.txt" is how people and models write a path; taken literally it was a folder named
+    // "~" inside the project, and the chat said the file did not exist
+    let home = std::env::var("HOME").unwrap_or_default();
+    let expanded = if p == "~" { home.clone() } else if let Some(rest) = p.strip_prefix("~/") { format!("{}/{}", home, rest) } else if let Some(rest) = p.strip_prefix("$HOME/") { format!("{}/{}", home, rest) } else { p.to_string() };
+    let path = Path::new(&expanded);
     if path.is_absolute() { path.to_path_buf() } else { project.join(path) }
+}
+
+/// The files a folder already holds at its top level, when it is a project rather than a folder of
+/// projects: regular, not hidden, a dozen at most. ~/Projects holds folders; an existing project holds files.
+fn existing_files(dir: &Path) -> Vec<String> {
+    let mut f: Vec<String> = std::fs::read_dir(dir).map(|rd| rd.flatten()
+        .filter(|e| e.file_type().map(|t| t.is_file()).unwrap_or(false))
+        .map(|e| e.file_name().to_string_lossy().to_string())
+        .filter(|n| !n.starts_with('.') && n != "genesis.json").collect()).unwrap_or_default();
+    f.sort();
+    f.truncate(12);
+    f
+}
+
+/// An edit whose old text is right but for its whitespace: a small model copies indentation and trailing
+/// spaces badly, and "old_text found 0 times" three times over ended the to-do tool's new command. The
+/// lines are compared with their leading and trailing whitespace set aside; exactly one place must match,
+/// and the new text is indented as the old text actually was.
+fn edit_ignoring_whitespace(text: &str, old: &str, new: &str) -> Option<String> {
+    let lines: Vec<&str> = text.split('\n').collect();
+    let want: Vec<&str> = old.trim_matches('\n').split('\n').map(|l| l.trim()).collect();
+    if want.is_empty() || want.iter().all(|l| l.is_empty()) { return None; }
+    let hits: Vec<usize> = (0..lines.len().saturating_sub(want.len() - 1))
+        .filter(|&i| want.iter().enumerate().all(|(k, w)| lines[i + k].trim() == *w)).collect();
+    if hits.len() != 1 { return None; }
+    let at = hits[0];
+    let indent = |l: &str| l.len() - l.trim_start().len();
+    let first_old = old.trim_matches('\n').split('\n').next().unwrap_or("");
+    let (have, gave) = (indent(lines[at]), indent(first_old));
+    let new_lines: Vec<String> = new.trim_matches('\n').split('\n').map(|l| {
+        if l.trim().is_empty() { String::new() }
+        else if have >= gave { format!("{}{}", " ".repeat(have - gave), l) }
+        else { l.chars().skip(gave - have.min(indent(l))).collect::<String>() }
+    }).collect();
+    let mut out: Vec<String> = lines[..at].iter().map(|s| s.to_string()).collect();
+    out.extend(new_lines);
+    out.extend(lines[at + want.len()..].iter().map(|s| s.to_string()));
+    Some(out.join("\n"))
 }
 
 impl Agent {
@@ -530,7 +572,13 @@ impl Agent {
             }
         }
         if chat { self.messages.push(Message::user(text.to_string())); }
-        else { self.messages.push(Message::user(format!("Project directory: {}\n\nTask: {}", self.project.display(), text))); }
+        else {
+            // A folder that already holds a program is a change to that program: the word counter's bug fix
+            // was answered with a brand-new web app beside the file it was about
+            let there = if self.active_project.is_none() { existing_files(&self.project) } else { Vec::new() };
+            let note = if there.is_empty() { String::new() } else { format!("\n\nThis project already has files: {}. The task is about them: read them, change them (edit_file or write_file), and run the program. Do not create a new project.", there.join(", ")) };
+            self.messages.push(Message::user(format!("Project directory: {}\n\nTask: {}{}", self.project.display(), text, note)));
+        }
         // the user's MCP tools join every tool set: they are few, plainly described, and the way a small
         // model answers "is an update waiting?" or "install VLC" on a CPU-only machine
         let tools = tools_for(chat, compact);
@@ -1010,6 +1058,12 @@ impl Agent {
                 Ok(t.iter().map(|t| format!("{}: {} — {}", t.id, t.name, t.description)).collect::<Vec<_>>().join("\n"))
             }
             "scaffold" => {
+                if !self.scaffolded && self.active_project.is_none() {
+                    let there = existing_files(&self.project);
+                    if !there.is_empty() {
+                        return Err(anyhow!("not created: {} already holds a program ({}). Change those files -- read_file, then edit_file or write_file -- instead of creating a new project.", self.project.display(), there.join(", ")));
+                    }
+                }
                 // One job, one project. Told a club site still needed its other two pages, the 2B made each
                 // of them a project of its own -- two more copies of the template in subfolders, and a site
                 // whose pages cannot link to each other. What is part of what was asked goes into the
@@ -1205,6 +1259,12 @@ impl Agent {
                     return Ok("not written: old_text and new_text are the same, so this edit changes nothing; make the actual change, or run the program if it is already right".into());
                 }
                 let n = text.matches(&old).count();
+                if n == 0 {
+                    if let Some(changed) = edit_ignoring_whitespace(&text, &old, &s("new_text")) {
+                        std::fs::write(&p, changed)?;
+                        return Ok(format!("edited {} (matched with its indentation as it is in the file)", p.display()));
+                    }
+                }
                 if n != 1 {
                     return Err(anyhow!("old_text found {} times in {}; it must match exactly once", n, p.display()));
                 }
@@ -1290,5 +1350,27 @@ mod needs_input_tests {
         assert!(!super::needs_input("Traceback (most recent call last):\n  File \"x.py\", line 2\nNameError: name 'foo' is not defined"));
         assert_eq!(super::missing_input_file("Traceback (most recent call last):\n  File \"wordcount.py\", line 4\nFileNotFoundError: [Errno 2] No such file or directory: '/var/home/genesis/Projects/eval/wordcount/input.txt'").as_deref(), Some("input.txt"));
         assert_eq!(super::missing_input_file("FileNotFoundError: [Errno 2] No such file or directory: '/usr/share/dict/words'"), None);
+    }
+}
+
+#[cfg(test)]
+mod edit_tests {
+    #[test]
+    fn an_edit_right_but_for_its_indentation_is_made() {
+        let text = "def main(argv):\n    if argv[0] == \"add\":\n        add()\n    else:\n        usage()\n";
+        // the model's copy lost the indentation
+        let old = "else:\n    usage()";
+        let new = "elif argv[0] == \"clear\":\n    clear()\nelse:\n    usage()";
+        let out = super::edit_ignoring_whitespace(text, old, new).expect("one place matches");
+        assert!(out.contains("    elif argv[0] == \"clear\":\n        clear()\n    else:\n        usage()"), "{}", out);
+        // two places that match are not guessed between
+        assert!(super::edit_ignoring_whitespace("a\nb\na\nb\n", "a\nb", "c").is_none());
+    }
+
+    #[test]
+    fn a_path_from_home_is_the_home_folder() {
+        let home = std::env::var("HOME").unwrap_or_default();
+        assert_eq!(super::resolve_path(std::path::Path::new("/p"), "~/Documents/n.txt"), std::path::PathBuf::from(format!("{}/Documents/n.txt", home)));
+        assert_eq!(super::resolve_path(std::path::Path::new("/p"), "a.txt"), std::path::PathBuf::from("/p/a.txt"));
     }
 }

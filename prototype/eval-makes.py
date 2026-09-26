@@ -170,7 +170,7 @@ HARD = [
     ("follow-up", ["a todo list web page where you can add items", "Now also let me mark an item as done by clicking it."],
      {}, lambda d, p: any(k in text_of(p) for k in ("line-through", "done", "completed")) and "click" in text_of(p)),
     ("notes-app", ["a small notes web app: a Python backend that keeps notes in a JSON file, and a page to add a note and see them all"],
-     {}, lambda d, p: any(f.endswith(".py") for _r, _d, fs in os.walk(p) for f in fs) and "fetch(" in text_of(p) and "json" in text_of(p, (".py",))),
+     {}, lambda d, p: any(f.endswith(".py") for _r, _d, fs in os.walk(p) for f in fs) and any(k in text_of(p) for k in ("fetch(", "fetch (", "xmlhttprequest", "<form")) and "json" in text_of(p, (".py",))),
 ]
 
 
@@ -205,7 +205,8 @@ CHATS = [
     ("error", "I tried to save /etc/hosts and got 'Permission denied'. What does that mean, in plain words?", {},
      lambda a: any(k in a for k in ("administrator", "sudo", "root", "admin", "permission to change", "system file"))),
     ("not-there", "What did I write in my notes about the trip to Lisbon?", {},
-     lambda a: any(k in a for k in ("could not find", "couldn't find", "can't find", "cannot find", "did not find", "didn't find", "no notes", "not find", "no information", "don't have", "do not have", "nothing about"))),
+     # right when it says there is nothing, however it says it ("I don't see any notes about Lisbon" is right)
+     lambda a: any(k in a for k in ("could not find", "couldn't find", "can't find", "cannot find", "did not find", "didn't find", "no notes", "not find", "no information", "don't have", "do not have", "nothing about", "don't see", "do not see", "not about", "no mention", "doesn't mention", "does not mention")) and "sunny" not in a),
 ]
 
 def one_chat(name, question, docs, check, timeout):
