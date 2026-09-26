@@ -28,13 +28,31 @@ def read(path, n=4000):
 
 # ---- the tools -------------------------------------------------------------------------------
 
+def memory_line():
+    """Memory in gigabytes, from /proc/meminfo: how much there is, and how much is free to use now."""
+    kb = {}
+    for l in read("/proc/meminfo", 2000).splitlines():
+        k, _, v = l.partition(":")
+        if v.strip().endswith("kB"):
+            try:
+                kb[k] = int(v.split()[0])
+            except ValueError:
+                pass
+    gb = lambda k: kb.get(k, 0) / 1024 / 1024
+    if not kb:
+        return ""
+    return f"memory (RAM): {gb('MemTotal'):.1f} GB in all, {gb('MemAvailable'):.1f} GB available now"
+
+
 def system_status(_):
     lines = []
     for l in read("/etc/os-release").splitlines():
         if l.startswith(("PRETTY_NAME=", "IMAGE_VERSION=")): lines.append(l.split("=", 1)[1].strip('"'))
     _, up = run(["uptime", "-p"]); lines.append(up)
     _, df = run(["df", "-h", "/var", "/var/home"]); lines.append(df)
-    mem = read("/proc/meminfo", 400).splitlines()[:3]; lines.extend(mem)
+    # in gigabytes, said plainly: given "MemTotal: 6047176 kB" the small model called it 59.6 GB. A model
+    # should not be doing the unit arithmetic that decides whether its answer is true.
+    lines.append(memory_line())
     bat = "/sys/class/power_supply"
     for b in sorted(os.listdir(bat)) if os.path.isdir(bat) else []:
         cap = read(f"{bat}/{b}/capacity"); st = read(f"{bat}/{b}/status")

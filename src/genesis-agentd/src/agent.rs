@@ -90,14 +90,16 @@ pub fn worked_example() -> Vec<Message> {
             function: crate::llm::FunctionCall { name: name.into(), arguments: args.to_string() } }]),
     };
     vec![
-        Message::user("a page that shows a random quote when you press a button"),
-        call("scaffold", json!({"name": "quotes", "template": "web-static"})),
-        Message::tool("ex-scaffold", "scaffold", "created /home/you/Projects/quotes from template web-static with files: index.html, style.css. The entry file is /home/you/Projects/quotes/index.html and it now contains:\n<!doctype html><html><body><h1>Hello</h1></body></html>\n\nWrite it again, whole, with the program that was asked for."),
-        call("write_file", json!({"path": "/home/you/Projects/quotes/index.html", "content": "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\"><title>Quotes</title>\n<style>body{font:18px system-ui;display:grid;place-items:center;height:100vh;margin:0}blockquote{max-width:30rem;text-align:center}</style>\n</head><body>\n<blockquote id=\"q\">Press the button.</blockquote>\n<button id=\"b\">Another quote</button>\n<script>\nconst QUOTES=[\"The obstacle is the way.\",\"Well begun is half done.\",\"Make it work, then make it right.\"];\ndocument.getElementById(\"b\").addEventListener(\"click\",()=>{\n  const q=QUOTES[Math.floor(Math.random()*QUOTES.length)];\n  document.getElementById(\"q\").textContent=q;\n});\n</script>\n</body></html>\n"})),
-        Message::tool("ex-write_file", "write_file", "wrote /home/you/Projects/quotes/index.html (612 bytes)"),
+        // not one of the evaluation's makes: the example was the quotes page, which is also a make the
+        // evaluation scores, and its button turned up in the notes app too (decision 229)
+        Message::user("a page that works out the tip on a bill"),
+        call("scaffold", json!({"name": "tip", "template": "web-static"})),
+        Message::tool("ex-scaffold", "scaffold", "created /home/you/Projects/tip from template web-static with files: index.html, style.css. The entry file is /home/you/Projects/tip/index.html and it holds only a placeholder, not the program.\n\nReplace that placeholder: write the entry file again, whole, with the program that was asked for (a page that works out the tip on a bill)."),
+        call("write_file", json!({"path": "/home/you/Projects/tip/index.html", "content": "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\"><title>Tip</title>\n<style>body{font:18px system-ui;display:grid;place-items:center;height:100vh;margin:0}label{display:block;margin:.4rem 0}</style>\n</head><body><main>\n<label>Bill <input id=\"bill\" type=\"number\" value=\"40\"></label>\n<label>Tip % <input id=\"pct\" type=\"number\" value=\"15\"></label>\n<p id=\"out\"></p>\n</main>\n<script>\nconst $=id=>document.getElementById(id);\nfunction show(){const b=+$('bill').value||0,t=b*(+$('pct').value||0)/100;$('out').textContent=`Tip ${t.toFixed(2)}, total ${(b+t).toFixed(2)}`}\n$('bill').addEventListener('input',show);$('pct').addEventListener('input',show);show();\n</script></body></html>\n"})),
+        Message::tool("ex-write_file", "write_file", "wrote /home/you/Projects/tip/index.html (687 bytes)"),
         call("preview_start", json!({})),
         Message::tool("ex-preview_start", "preview_start", "serving http://127.0.0.1:5300/"),
-        Message::assistant("A page with a quote and a button; press it for another one. It is running at http://127.0.0.1:5300/ and Install puts it in your app menu."),
+        Message::assistant("A page that works out the tip: type the bill and the percentage, and it shows the tip and the total. It is running at http://127.0.0.1:5300/ and Install puts it in your app menu."),
     ]
 }
 

@@ -1251,7 +1251,7 @@ mod tests {
         let _ = agent.run("a timer");
         let roles: Vec<&str> = agent.messages.iter().map(|m| m.role.as_str()).collect();
         assert_eq!(roles[0], "system");
-        assert!(agent.messages.iter().any(|m| m.content.as_deref().map(|c| c.contains("random quote")).unwrap_or(false)), "the example is in front of it");
+        assert!(agent.messages.iter().any(|m| m.content.as_deref().map(|c| c.contains("tip on a bill")).unwrap_or(false)), "the example is in front of it");
         assert!(agent.messages.iter().any(|m| m.tool_calls.as_ref().map(|c| c[0].function.name == "write_file").unwrap_or(false)), "and it shows a whole file being written");
     }
 
