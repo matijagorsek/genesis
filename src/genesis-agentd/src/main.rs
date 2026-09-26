@@ -1414,6 +1414,13 @@ pub(crate) fn served_model_for(endpoint: &str, wanted: &str, kind: &str) -> Stri
     // a crash, a failed service, an update, a question -- it sent every machine to the coder: on a CPU-only
     // laptop that is a five-minute cold load of a 9B model to answer in plain words, and the first real
     // crash handed to the assistant timed out on exactly that. A chat takes the chat model, or the small one.
+    // a model named for making on purpose (GENESIS_MAKE_MODEL) wins over every rule here, when it is served:
+    // how the evaluation measures the 9B on a machine that would otherwise make with the 4B
+    if kind == "make" {
+        if let Ok(m) = std::env::var("GENESIS_MAKE_MODEL") {
+            if list.as_ref().map(|ids| ids.iter().any(|i| *i == m)).unwrap_or(false) { return m; }
+        }
+    }
     match list {
         Some(ids) if !ids.is_empty() => pick_model_on(&ids, wanted, kind, battery, agent::models_on_cpu()),
         _ => wanted.to_string(),

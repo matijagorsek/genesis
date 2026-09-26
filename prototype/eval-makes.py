@@ -178,6 +178,79 @@ HARD = [
 ]
 
 
+# The second harder set (--set hard2): once the CPU pack's 4B made all five of the first, the set could no
+# longer tell a better maker from a worse one. These need several files at once, a failing test suite, an
+# error message to work from, a rename that must not miss a use, and a follow-up that changes what the
+# first request made. Every check runs the program; none reads the model's summary.
+SHOP = {
+    "prices.py": "PRICES = {'apple': 0.5, 'bread': 2.25, 'coffee': 7.0, 'cheese': 12.5}\n\ndef price(item):\n    return PRICES[item]\n",
+    "cart.py": "from prices import price\n\ndef subtotal(items):\n    return sum(price(i) * n for i, n in items)\n",
+    "main.py": "import sys\nfrom cart import subtotal\n\ndef receipt(items):\n    total = subtotal(items)\n    lines = [f'{n} x {i}' for i, n in items]\n    lines.append(f'TOTAL {total:.2f}')\n    return '\\n'.join(lines)\n\nif __name__ == '__main__':\n    items = [(a.split(':')[0], int(a.split(':')[1])) for a in sys.argv[1:]]\n    print(receipt(items))\n",
+}
+CALC = {
+    "calc.py": "def add(a, b):\n    return a + b\n\ndef mean(xs):\n    return sum(xs) / len(xs) + 1\n\ndef clamp(x, lo, hi):\n    return max(lo, min(x, lo))\n",
+    "test_calc.py": "import unittest\nfrom calc import add, mean, clamp\n\nclass T(unittest.TestCase):\n    def test_add(self): self.assertEqual(add(2, 3), 5)\n    def test_mean(self): self.assertEqual(mean([1, 2, 3, 4]), 2.5)\n    def test_clamp(self):\n        self.assertEqual(clamp(5, 0, 10), 5)\n        self.assertEqual(clamp(-1, 0, 10), 0)\n        self.assertEqual(clamp(11, 0, 10), 10)\n\nif __name__ == '__main__':\n    unittest.main()\n",
+}
+REPORT = {
+    "report.py": "import csv, sys\n\ndef totals(path):\n    out = {}\n    for row in csv.DictReader(open(path)):\n        out[row['category']] += float(row['amount'])\n    return out\n\nif __name__ == '__main__':\n    for k, v in sorted(totals(sys.argv[1]).items()):\n        print(f'{k}: {v:.2f}')\n",
+    "spending.csv": "category,amount\nfood,12.50\nrent,800\nfood,7.25\ntravel,40\n",
+}
+REPORT_ERROR = ("Running `python3 report.py spending.csv` fails with this:\n\nTraceback (most recent call last):\n  File \"report.py\", line 11, in <module>\n"
+                "    for k, v in sorted(totals(sys.argv[1]).items()):\n  File \"report.py\", line 6, in totals\n    out[row['category']] += float(row['amount'])\n"
+                "KeyError: 'food'\n\nFix it.")
+RENAME = {
+    "util.py": "def calc_total(xs):\n    return round(sum(xs), 2)\n",
+    "stats.py": "from util import calc_total\n\ndef average(xs):\n    return calc_total(xs) / len(xs)\n",
+    "main.py": "from util import calc_total\nfrom stats import average\n\nif __name__ == '__main__':\n    xs = [1.5, 2.5, 4.0]\n    print('total', calc_total(xs))\n    print('average', average(xs))\n",
+}
+
+def find_py(project, want=None):
+    for root, _d, fs in os.walk(project):
+        for f in sorted(fs):
+            if f.endswith(".py") and not f.startswith("test") and (want is None or want in open(os.path.join(root, f), errors="replace").read().lower()):
+                return root, f
+    return None, None
+
+def shop_ok(p):
+    _, out = ran(p, "python3", "main.py", "cheese:8", "bread:2")   # 100 + 4.50 = 104.50 -> 94.05 after 10%
+    _, small = ran(p, "python3", "main.py", "apple:4")            # 2.00, no discount
+    return "94.05" in out and "discount" in out.lower() and "2.00" in small and "discount" not in small.lower()
+
+def tests_pass(p):
+    if open(os.path.join(p, "test_calc.py")).read() != CALC["test_calc.py"]:
+        return False  # the tests were changed, not the code
+    code, out = ran(p, "python3", "-m", "unittest", "-q", "test_calc")
+    return code == 0
+
+def report_ok(p):
+    code, out = ran(p, "python3", "report.py", "spending.csv")
+    return code == 0 and "food: 19.75" in out and "rent: 800.00" in out and "travel: 40.00" in out
+
+def renamed(p):
+    text = text_of(p, (".py",))
+    code, out = ran(p, "python3", "main.py")
+    return "calc_total" not in text and "order_total" in text and code == 0 and "total 8.0" in out
+
+def temps_ok(p):
+    root, f = find_py(p)
+    if not f:
+        return False
+    tries = [[f, "100"], [f, "--celsius", "100"], [f, "-c", "100"]]
+    c = any("212" in ran(root, "python3", *t)[1] for t in tries)
+    k = any(("273.15" in ran(root, "python3", *t)[1] or "32" in ran(root, "python3", *t)[1]) and ran(root, "python3", *t)[0] == 0
+            for t in ([f, "--kelvin", "273.15"], [f, "--kelvin", "0"]))
+    return c and k
+
+HARD2 = [
+    ("discount", ["Orders over 100 should get 10% off, and the receipt should show the discount on its own line."], SHOP, lambda d, p: shop_ok(p)),
+    ("make-tests-pass", ["Make the tests pass. Do not change the tests."], CALC, lambda d, p: tests_pass(p)),
+    ("from-traceback", [REPORT_ERROR], REPORT, lambda d, p: report_ok(p)),
+    ("rename", ["Rename calc_total to order_total everywhere it is used."], RENAME, lambda d, p: renamed(p)),
+    ("change-it-again", ["a command-line tool that converts a temperature in Celsius to Fahrenheit",
+                         "Change it so it can also take a temperature in Kelvin, with a --kelvin option."], {}, lambda d, p: temps_ok(p)),
+]
+
+
 # The chat set (--set chat): questions, not makes -- chat, documents and the machine go through their own
 # path in the agent, and nothing checked it. Every answer here can be checked by a program.
 NOTES = "Team notes\n\nThe planning meeting is on Thursday at 14:00 in room B12. Bring the budget figures.\n"
@@ -385,7 +458,7 @@ def main(argv):
     else:
         health = api("/api/health")
     rows = []
-    plan = [(n, pr, None, None) for n, pr in MAKES] if which == "basic" else list(CHATS) if which == "chat" else list(HARD)
+    plan = [(n, pr, None, None) for n, pr in MAKES] if which == "basic" else list(CHATS) if which == "chat" else list(HARD2) if which == "hard2" else list(HARD)
     mine = plan[:only][shard::of]
     if of > 1: print(f"shard {shard} of {of}: {', '.join(m[0] for m in mine)}", file=sys.stderr, flush=True)
 
@@ -410,7 +483,7 @@ def main(argv):
     passed = sum(1 for r in rows if r.get("passed"))
     save()
     finished = sum(1 for r in rows if r.get("finished"))
-    print(f"## {'Ten makes' if which == 'basic' else 'Seven questions' if which == 'chat' else 'The harder makes'} on `{health.get('model')}`: **{passed}/{len(rows)} passed** ({finished} finished, {passed} of those look right)\n")
+    print(f"## {'Ten makes' if which == 'basic' else 'Seven questions' if which == 'chat' else 'The second harder set' if which == 'hard2' else 'The harder makes'} on `{health.get('model')}`: **{passed}/{len(rows)} passed** ({finished} finished, {passed} of those look right)\n")
     print("| make | result | files written | turns | tool errors | preview | time | memory left |")
     print("|---|---|---|---|---|---|---|---|")
     for r in rows:
