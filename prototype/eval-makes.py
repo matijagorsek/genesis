@@ -23,6 +23,12 @@ def _agentd_port():
         return 11520
 
 AGENTD = os.environ.get("GENESIS_AGENTD") or "http://127.0.0.1:%d" % _agentd_port()
+def _token():
+    try:
+        return open(os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/run/user/%d" % os.getuid()), "genesis", "agentd.token")).read().strip()
+    except OSError:
+        return ""
+
 TOKEN = ""
 try:
     TOKEN = open(os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/run/user/%d" % os.getuid()), "genesis", "agentd.token")).read().strip()
@@ -84,7 +90,11 @@ MAKES = [
 
 def api(path, body=None):
     data = json.dumps(body).encode() if body is not None else None
-    req = urllib.request.Request(AGENTD + path, data=data, headers={"Content-Type": "application/json", "X-Genesis-Token": TOKEN})
+    # the port file is read on every call: the daemon under test writes it when it starts, which can be
+    # after this script did (a shard went to the fallback port and never found the maker)
+    base = os.environ.get("GENESIS_AGENTD") or "http://127.0.0.1:%d" % _agentd_port()
+    token = TOKEN or _token()
+    req = urllib.request.Request(base + path, data=data, headers={"Content-Type": "application/json", "X-Genesis-Token": token})
     with urllib.request.urlopen(req, timeout=60) as r:
         return json.load(r)
 
@@ -188,7 +198,7 @@ def main(argv):
     if "--shard" in argv: shard = int(argv[argv.index("--shard") + 1])
     if "--of" in argv: of = int(argv[argv.index("--of") + 1])
     # the daemon was started a moment ago: a shard asked before it was listening and lost both its makes
-    for _ in range(30):
+    for _ in range(60):
         try:
             health = api("/api/health")
             break

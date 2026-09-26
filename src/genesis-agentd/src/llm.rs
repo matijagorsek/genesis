@@ -292,7 +292,8 @@ impl Streamed {
 
     fn reply(self) -> Result<Reply> {
         if !self.any && self.finish_reason.is_empty() {
-            return Err(anyhow!("no choices in response"));
+            // the stream closed before a single piece of an answer: the model service went away mid-call
+            return Err(anyhow!("the model's answer ended before it began (Unexpected EOF)"));
         }
         let calls: Vec<ToolCall> = self.calls.into_iter().filter(|c| !c.function.name.is_empty()).enumerate()
             .map(|(i, mut c)| { if c.id.is_empty() { c.id = format!("call_{}", i); } c }).collect();

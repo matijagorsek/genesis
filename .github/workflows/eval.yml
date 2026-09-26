@@ -171,6 +171,8 @@ jobs:
           vm 'echo genesis | sudo -S journalctl -u genesis-router --no-pager -o cat 2>/dev/null | tail -3000' > router.log || true
           # and what the model servers themselves printed, which llama-swap keeps (a crash, a parse failure)
           vm 'curl -s -m 8 -H "Authorization: Bearer $(cat /etc/genesis/router.key 2>/dev/null)" 127.0.0.1:8080/logs/stream/upstream' > upstream.log || true
+          # the maker under test itself: a daemon that never answered (a shard lost both makes to it)
+          vm 'journalctl --user -u genesis-agentd --no-pager -o short-monotonic 2>/dev/null | tail -300; echo; ls -la $XDG_RUNTIME_DIR/genesis/ 2>&1; cat $XDG_RUNTIME_DIR/genesis/agentd.port 2>&1; id' > agentd.log 2>/dev/null || true
           # a model server that died: its signal and stack, if it left a core
           vm 'echo genesis | sudo -S sh -c "coredumpctl list --no-pager 2>&1 | tail -8; coredumpctl info --no-pager llama-server 2>&1 | head -80"' > coredumps.log 2>/dev/null || true
           vm 'echo genesis | sudo -S systemctl poweroff' >/dev/null 2>&1 || true
@@ -187,6 +189,7 @@ jobs:
             router.log
             upstream.log
             coredumps.log
+            agentd.log
 
   report:
     needs: makes
