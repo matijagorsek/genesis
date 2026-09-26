@@ -625,7 +625,7 @@ impl Agent {
                 // The same goes for a file written back exactly as it is, the second time, when nothing has run
                 // since the last real change: the to-do list alternated todo.py and todo.json, each unchanged,
                 // and never once ran either -- every streak above resets on a different path.
-                let unchanged_again = call.function.name == "write_file" && self.identical_writes >= 1 && self.runs_since_write == 0 && self.edited_after_scaffold
+                let unchanged_again = call.function.name == "write_file" && self.identical_writes >= 1 && self.runs_since_write == 0 && (self.edited_after_scaffold || !self.scaffolded)
                     && std::fs::read_to_string(resolve_path(&self.project, args.get("path").and_then(|p| p.as_str()).unwrap_or(""))).map(|o| Some(o.as_str()) == args.get("content").and_then(|c| c.as_str())).unwrap_or(false);
                 let result = if !chat && is_write && (self.same_file_streak >= 3 || unchanged_again) {
                     let wrote = self.execute(&call.id, &call.function.name, &args);
@@ -1023,7 +1023,7 @@ impl Agent {
                 let entry_path = dest.join(&entry);
                 let body = std::fs::read_to_string(&entry_path).unwrap_or_default();
                 let shown = if body.len() > 4_000 { format!("{}\n… [the rest is in the file]", cut_at_char(&body, 4_000)) } else { body };
-                Ok(format!("created {} from template {} with files: {}. {} Edit the files by their full path; do not edit genesis.json. Preview: call preview_start (dev command: {}).\n\nThe entry file is {} and it now contains:\n{}\n\nWrite it again, whole, with the program that was asked for.", dest.display(), t.id, files.join(", "), t.hints, t.dev.cmd, entry_path.display(), shown))
+                Ok(format!("created {} from template {} with files: {}. {} Edit the files by their full path; do not edit genesis.json. Preview: call preview_start (dev command: {}).\n\nThe entry file is {} and it holds only a placeholder, not the program:\n{}\n\nReplace that placeholder: write the entry file again, whole, with the program that was asked for ({}). Do not write the placeholder back.", dest.display(), t.id, files.join(", "), t.hints, t.dev.cmd, entry_path.display(), shown, self.last_prompt.chars().take(160).collect::<String>()))
             }
             "preview_start" => {
                 let p = self.target_project(args);
@@ -1167,8 +1167,8 @@ impl Agent {
                     }
                     // before anything was written, the "same file" is the template: running it proves nothing
                     // (the club site finished as the bare template this way)
-                    if !self.edited_after_scaffold {
-                        return Ok(format!("{} still holds the template exactly as it was created, so nothing has been made yet. Write the program that was asked for into it -- the whole file, with what the user asked for.", p.display()));
+                    if self.scaffolded && !self.edited_after_scaffold {
+                        return Ok(format!("not written: that is the placeholder the template came with, unchanged, so nothing has been made yet. Write {} again with the program itself -- for \"{}\": the page's fields, buttons and text, and the script that makes them work.", p.display(), self.last_prompt.chars().take(160).collect::<String>()));
                     }
                     return Ok(format!("{} already holds exactly this, so it is written ({} bytes). Do not write it again: run the program now (preview_start), and reply with the summary if the run is clean.", p.display(), content.len()));
                 }

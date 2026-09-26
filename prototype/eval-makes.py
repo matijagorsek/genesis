@@ -31,19 +31,43 @@ except OSError:
 
 # What each make must actually DO. Until now a make "passed" when the session ended and a file was
 # written, which says nothing about whether the thing works: two runs of the same tree scored 9 and 5.
-CHECKS = {
-    "checklist": lambda d: any(f.endswith((".py", ".html", ".js")) for f in d),
-    "pomodoro": lambda d: any("html" in f for f in d),
-    "wordcount": lambda d: True,
-    "rename": lambda d: True,
-    "club": lambda d: sum(1 for f in d if f.endswith(".html")) >= 3,  # three pages were asked for
-    "json-flag": lambda d: True,
-    "temperature": lambda d: any("html" in f for f in d),
-    "todo-cli": lambda d: True,
-    "quotes": lambda d: any("html" in f for f in d),
-    "dice": lambda d: True,
-}
+# And a web make passed when any .html was there -- which the template always is: the converter and the
+# club site "passed" as the untouched template, run clean (decision 227). A web make now has to hold what
+# its request names, in its own pages and scripts.
+def text_of(project, exts=(".html", ".js")):
+    out = []
+    for root, _dirs, files in os.walk(project):
+        for f in files:
+            if f.endswith(exts):
+                try:
+                    out.append(open(os.path.join(root, f), errors="replace").read())
+                except OSError:
+                    pass
+    return "\n".join(out).lower()
 
+def html_pages(project):
+    pages = []
+    for f in os.listdir(project):
+        if f.endswith(".html"):
+            try:
+                pages.append(open(os.path.join(project, f), errors="replace").read())
+            except OSError:
+                pass
+    return pages
+
+CHECKS = {
+    "checklist": lambda d, p: any(f.endswith((".py", ".html", ".js")) for f in d),
+    "pomodoro": lambda d, p: any("html" in f for f in d) and "25" in text_of(p) and any(k in text_of(p) for k in ("setinterval", "settimeout", "countdown", "timer")),
+    "wordcount": lambda d, p: True,
+    "rename": lambda d, p: True,
+    # three pages that are not three copies of one page
+    "club": lambda d, p: len(html_pages(p)) >= 3 and len(set(html_pages(p))) >= 3,
+    "json-flag": lambda d, p: True,
+    "temperature": lambda d, p: any("html" in f for f in d) and ("celsius" in text_of(p) or "fahrenheit" in text_of(p)),
+    "todo-cli": lambda d, p: True,
+    "quotes": lambda d, p: any("html" in f for f in d) and "quote" in text_of(p) and any(k in text_of(p) for k in ("button", "onclick", "addeventlistener")),
+    "dice": lambda d, p: True,
+}
 MAKES = [
     ("checklist", "a checklist app that saves to a file"),
     ("pomodoro", "a pomodoro timer web app with a big countdown and a bell"),
@@ -150,7 +174,7 @@ def one(name, prompt, timeout):
     except OSError:
         made = []
     row["files"] = made
-    row["looks_right"] = bool(CHECKS.get(name, lambda d: True)(made))
+    row["looks_right"] = bool(CHECKS.get(name, lambda d, p: True)(made, project))
     row["finished"] = row["state"] == "done" and row["writes"] > 0
     row["passed"] = row["finished"] and row["looks_right"]
     return row
