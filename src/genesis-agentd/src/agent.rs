@@ -386,6 +386,8 @@ pub struct Agent {
     pub length_cutoffs: u8,
     /// tool calls the server could not read, answered by telling the model
     pub unreadable_calls: u8,
+    /// the opening was put in the model's memory for this session (warm, at its first job)
+    pub warmed: bool,
     /// Project directory the maker tools currently target (set by scaffold).
     pub active_project: Option<PathBuf>,
     /// "make" (the maker, default) or "chat" (the assistant: chat prompt, read-only tools, the user's MCP tools).
@@ -456,7 +458,7 @@ fn edit_ignoring_whitespace(text: &str, old: &str, new: &str) -> Option<String> 
 
 impl Agent {
     pub fn new(client: Client, broker: Arc<Mutex<Broker>>, session_id: String, project: PathBuf, shared: Arc<Shared>) -> Self {
-        Agent { client, broker, session_id, project, shared, max_turns: 40, prompt_timeout: Duration::from_secs(600), messages: vec![Message::system(SYSTEM_PROMPT)], tx_store: None, tx: None, previews: maker::Previews::default(), active_project: None, browser: None, last_prompt: String::new(), scaffolded: false, edited_after_scaffold: false, nudged: false, writes_since_run: 0, nudged_writes: false, last_write: String::new(), last_run: String::new(), same_run_streak: 0, last_failure: String::new(), failure_streak: 0, ran_clean: false, same_file_streak: 0, runs_since_write: 0, total_writes: 0, noop_writes: 0, completion_checks: 0, last_run_failure: String::new(), identical_writes: 0, length_cutoffs: 0, unreadable_calls: 0, kind: "make".into() }
+        Agent { client, broker, session_id, project, shared, max_turns: 40, prompt_timeout: Duration::from_secs(600), messages: vec![Message::system(SYSTEM_PROMPT)], tx_store: None, tx: None, previews: maker::Previews::default(), active_project: None, browser: None, last_prompt: String::new(), scaffolded: false, edited_after_scaffold: false, nudged: false, writes_since_run: 0, nudged_writes: false, last_write: String::new(), last_run: String::new(), same_run_streak: 0, last_failure: String::new(), failure_streak: 0, ran_clean: false, same_file_streak: 0, runs_since_write: 0, total_writes: 0, noop_writes: 0, completion_checks: 0, last_run_failure: String::new(), identical_writes: 0, length_cutoffs: 0, unreadable_calls: 0, warmed: false, kind: "make".into() }
     }
 
     /// The plan card: what the job will touch and the steps, before anything runs. One short model call
@@ -594,6 +596,13 @@ impl Agent {
         // the user's MCP tools join every tool set: they are few, plainly described, and the way a small
         // model answers "is an update waiting?" or "install VLC" on a CPU-only machine
         let tools = tools_for(chat, compact);
+        // The opening, into the model's memory before the first request: restored from disk in hundredths of
+        // a second when the model server saved it before, which also covers a model unloaded while idle
+        // since the page last warmed it. Once a session; a failure costs nothing -- the request reads it.
+        if !self.warmed && !cfg!(test) {
+            self.warmed = true;
+            if let Err(e) = warm(&self.client, &self.kind) { tracing::info!(error = %e, "no warm opening; the first request reads it"); }
+        }
         let mut final_text = String::new();
         for turn in 0..self.max_turns {
             if self.shared.stopped() { return self.finish_stopped(); }

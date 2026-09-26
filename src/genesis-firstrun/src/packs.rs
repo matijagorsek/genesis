@@ -260,6 +260,17 @@ fn speculation(model: &Path, draft: Option<&str>, gpu: bool) -> String {
     }
 }
 
+/// Where the model servers save a job's opening, read once, for every later boot and reload to restore in
+/// a few hundredths of a second (decision 233; created by tmpfiles, owned by the model service).
+const SLOTS: &str = "/var/lib/genesis/slots/";
+
+/// The flag only where the folder is there: llama-server refuses to start at all when --slot-save-path
+/// names a folder that does not exist, and a config rendered for a machine without it would have left the
+/// machine with no assistant. The image creates it at boot (tmpfiles), before this renders.
+fn slots_flag() -> String {
+    if Path::new(SLOTS).is_dir() { format!(" --slot-save-path {}", SLOTS) } else { String::new() }
+}
+
 pub fn render_router(models_dir: &Path, port_base: u16) -> Result<String> {
     render_router_tuned(models_dir, port_base, Tuning { threads: 4, ngl: 99, budget_mb: 0, device: None })
 }
@@ -309,18 +320,18 @@ pub fn render_router_tuned(models_dir: &Path, port_base: u16, t: Tuning) -> Resu
     if let Some(f) = find("fast", false) {
         let mm = find("fast", true).map(|m| format!(" --mmproj {}", m)).unwrap_or_default();
         let spec = speculation(Path::new(&f), None, ngl > 0);
-        y.push_str(&format!("  fast:\n    cmd: |\n      ${{server}} -m {}{}{}\n      -c 16384 --cache-reuse 256 --temp 0.7 --top-p 0.8 --top-k 20 --reasoning off\n    aliases: [ \"auto\", \"genesis-fast\" ]\n    ttl: 0\n\n", f, mm, spec));
+        y.push_str(&format!("  fast:\n    cmd: |\n      ${{server}} -m {}{}{}\n      -c 16384 --cache-reuse 256 --temp 0.7 --top-p 0.8 --top-k 20 --reasoning off{}\n    aliases: [ \"auto\", \"genesis-fast\" ]\n    ttl: 0\n\n", f, mm, spec, slots_flag()));
         hot.push("fast");
     }
     if let Some(f) = find("code", false) {
         let mm = find("code", true).map(|m| format!(" --mmproj {}", m)).unwrap_or_default();
         // a draft model only with a GPU, until one is measured to help on a CPU
         let draft = speculation(Path::new(&f), find("draft", false).as_deref(), ngl > 0);
-        y.push_str(&format!("  code:\n    cmd: |\n      ${{big}} -m {}{}{}\n      -c {} --cache-reuse 256 --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0.0 --reasoning auto --reasoning-budget {}\n      --cache-type-k q8_0 --cache-type-v q8_0\n    aliases: [ \"genesis-code\" ]\n    ttl: 600\n\n", f, mm, draft, if t.ngl == 0 { 8192 } else { 32768 }, if t.ngl == 0 { 512 } else { 4096 }));
+        y.push_str(&format!("  code:\n    cmd: |\n      ${{big}} -m {}{}{}\n      -c {} --cache-reuse 256 --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0.0 --reasoning auto --reasoning-budget {}\n      --cache-type-k q8_0 --cache-type-v q8_0{}\n    aliases: [ \"genesis-code\" ]\n    ttl: 600\n\n", f, mm, draft, if t.ngl == 0 { 8192 } else { 32768 }, if t.ngl == 0 { 512 } else { 4096 }, slots_flag()));
         big.push("code");
     }
     if let Some(f) = find("chat", false) {
-        y.push_str(&format!("  chat:\n    cmd: |\n      ${{big}} -m {}\n      -c 32768 --cache-reuse 256 --temp 0.7 --top-p 0.8 --top-k 20\n    aliases: [ \"genesis-chat\" ]\n    ttl: 600\n\n", f));
+        y.push_str(&format!("  chat:\n    cmd: |\n      ${{big}} -m {}\n      -c 32768 --cache-reuse 256 --temp 0.7 --top-p 0.8 --top-k 20{}\n    aliases: [ \"genesis-chat\" ]\n    ttl: 600\n\n", f, slots_flag()));
         big.push("chat");
     }
     if let Some(f) = find("fim", false) {
@@ -401,6 +412,18 @@ mod tests {
         // unified memory has no separate pool to run out of
         let t = tuning_for(8, &["Apple M4 Max GPU (unified memory)".into()], true, 0, true);
         assert_eq!(t.ngl, 99);
+    }
+
+    #[test]
+    fn no_slot_folder_no_slot_flag() {
+        // a model server given a slot path that is not a folder does not start at all
+        if !Path::new(SLOTS).is_dir() {
+            let dir = tempfile::tempdir().unwrap();
+            std::fs::create_dir_all(dir.path().join("fast")).unwrap();
+            std::fs::write(dir.path().join("fast/a.gguf"), b"x").unwrap();
+            let y = render_router_tuned(dir.path(), 5800, Tuning { threads: 4, ngl: 0, budget_mb: 0, device: Some("none".into()) }).unwrap();
+            assert!(!y.contains("--slot-save-path"), "{}", y);
+        }
     }
 
     #[test]

@@ -50,6 +50,11 @@ impl Message {
     }
 }
 
+/// A stable name for the same bytes, run after run (std's hasher promises no such thing across releases).
+fn fnv1a(b: &[u8]) -> u64 {
+    b.iter().fold(0xcbf29ce484222325u64, |h, &c| (h ^ c as u64).wrapping_mul(0x100000001b3))
+}
+
 /// The model service is going away or coming back: nothing about the request itself.
 fn restarting(e: &str) -> bool {
     ["Connection Failed", "Unexpected EOF", "connection refused", "Connection refused", "exited prematurely", "returned 502", "returned 503", "proxy error"]
@@ -141,24 +146,72 @@ impl Client {
         r
     }
 
-    /// Have the model read these messages and tools and say one token: what it read stays in its cache.
-    /// Patient, because this is the call that loads a model that was not loaded.
+    /// Have the model hold these messages and tools in its memory before a job needs them.
     ///
-    /// It ends with a user message of its own because of where the model server keeps its place. On the
-    /// hybrid Qwen3.5 layers it can only resume from a checkpoint, and it makes one where the last user
-    /// message starts and a few tokens before the end. With the opening alone, the real request parts
-    /// from it before the last of those, and 537 of 924 tokens were read again; with a user message the
-    /// checkpoint is exactly where the real one begins, and 28 were (tools/prefill-bench.py, decision
-    /// 221). tool_choice "none": one token of a tool call cannot be parsed, and the 2B answered it with 500.
+    /// From disk when it can: the opening is rendered with the model's own template and cut exactly where
+    /// the person's words will begin, read once, and saved by the model server (--slot-save-path); after
+    /// that, every boot, every model reload and every new job restores it in a few hundredths of a second
+    /// instead of reading it again. Measured on the first laptop with the 4B: 124 s to read a 3099-token
+    /// opening, 0.05 s to restore it, and the question after a restart read 23 tokens (decision 233). Cut
+    /// anywhere else it is useless on the hybrid Qwen3.5 layers: they cannot be wound back, and checkpoints
+    /// are not saved with the file. Where the model server cannot save (no slot path, an older build), the
+    /// opening is read into its memory as before.
     pub fn warm(&self, messages: &[Message], tools: &Value) -> Result<()> {
-        let mut messages = messages.to_vec();
-        messages.push(Message::user("(getting ready)".to_string()));
-        let body = serde_json::json!({"model": self.model, "messages": messages, "tools": tools, "tool_choice": "none", "max_tokens": 1, "temperature": 0.0, "stream": false});
-        ureq::post(&format!("{}/chat/completions", self.endpoint.trim_end_matches('/')))
-            .set("Authorization", &format!("Bearer {}", self.api_key))
-            .timeout(std::time::Duration::from_secs(900))
-            .send_json(body).map_err(|e| anyhow!("warm-up: {}", e))?;
-        Ok(())
+        match self.warm_from_disk(messages, tools) {
+            Ok(how) => { tracing::info!(model = %self.model, how, "the opening is in the model's memory"); Ok(()) }
+            Err(e) => {
+                tracing::info!(error = %e, "no saved opening; reading it into memory");
+                // a user message of its own, so the server keeps a checkpoint where the real one begins;
+                // tool_choice "none": one token of a tool call cannot be parsed
+                let mut messages = messages.to_vec();
+                messages.push(Message::user("(getting ready)".to_string()));
+                let body = serde_json::json!({"model": self.model, "messages": messages, "tools": tools, "tool_choice": "none", "max_tokens": 1, "temperature": 0.0, "stream": false});
+                ureq::post(&format!("{}/chat/completions", self.endpoint.trim_end_matches('/')))
+                    .set("Authorization", &format!("Bearer {}", self.api_key))
+                    .timeout(std::time::Duration::from_secs(900))
+                    .send_json(body).map_err(|e| anyhow!("warm-up: {}", e))?;
+                Ok(())
+            }
+        }
+    }
+
+    fn upstream(&self, path: &str) -> String {
+        let base = self.endpoint.trim_end_matches('/');
+        let base = base.strip_suffix("/v1").unwrap_or(base);
+        format!("{}/upstream/{}{}", base, self.model, path)
+    }
+
+    fn up_post(&self, path: &str, body: Value, secs: u64) -> Result<Value> {
+        ureq::post(&self.upstream(path)).set("Authorization", &format!("Bearer {}", self.api_key))
+            .timeout(std::time::Duration::from_secs(secs)).send_json(body)
+            .map_err(|e| anyhow!("{}: {}", path, e))?.into_json::<Value>().context("reading the model server's answer")
+    }
+
+    fn warm_from_disk(&self, messages: &[Message], tools: &Value) -> Result<&'static str> {
+        const MARK: &str = "\u{2063}GENESIS-THE-PERSON'S-WORDS\u{2063}";
+        let mut probe = messages.to_vec();
+        probe.push(Message::user(MARK.to_string()));
+        // loads the model if it is not loaded: this is also the wait for that
+        let rendered = self.up_post("/apply-template", serde_json::json!({"messages": probe, "tools": tools}), 900)?;
+        let text = rendered.get("prompt").and_then(|p| p.as_str()).ok_or_else(|| anyhow!("no prompt from apply-template"))?;
+        let prefix = &text[..text.find(MARK).ok_or_else(|| anyhow!("the template dropped the marker"))?];
+        let file = format!("genesis-{:016x}.bin", fnv1a(format!("{}\n{}", self.model, prefix).as_bytes()));
+        // a slot that is idle, the one holding least; and nothing to do if one already holds this opening
+        let slots: Vec<Value> = ureq::get(&self.upstream("/slots")).set("Authorization", &format!("Bearer {}", self.api_key))
+            .timeout(std::time::Duration::from_secs(30)).call().map_err(|e| anyhow!("/slots: {}", e))?
+            .into_json().unwrap_or_default();
+        if slots.iter().any(|s| s.get("prompt").and_then(|p| p.as_str()).map(|p| p.starts_with(prefix) && !prefix.is_empty()).unwrap_or(false)) {
+            return Ok("already there");
+        }
+        let slot = slots.iter().filter(|s| !s.get("is_processing").and_then(|b| b.as_bool()).unwrap_or(false))
+            .min_by_key(|s| s.get("n_prompt_tokens").and_then(|n| n.as_i64()).unwrap_or(0))
+            .and_then(|s| s.get("id").and_then(|i| i.as_i64())).ok_or_else(|| anyhow!("no idle slot"))?;
+        if let Ok(r) = self.up_post(&format!("/slots/{}?action=restore", slot), serde_json::json!({"filename": file}), 120) {
+            if r.get("n_restored").and_then(|n| n.as_i64()).unwrap_or(0) > 0 { return Ok("restored from disk"); }
+        }
+        self.up_post("/completion", serde_json::json!({"prompt": prefix, "n_predict": 0, "cache_prompt": true, "id_slot": slot}), 1800)?;
+        self.up_post(&format!("/slots/{}?action=save", slot), serde_json::json!({"filename": file}), 120)?;
+        Ok("read and saved")
     }
 
     /// A question whose answer must be JSON of this schema (the server holds the reply to it with a

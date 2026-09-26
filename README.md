@@ -173,7 +173,8 @@ How Genesis got here, in the order it happened. The decision log has the detail 
   for with three pages used to end, run clean, with one.
 - **The first word comes sooner.** A job's fixed opening — the instructions and the tools, one to two
   thousand tokens that a laptop takes a minute or two to read — is read ahead: at login for chat, and
-  the moment the maker or the palette opens, while you are still typing. The first request then reads
+  the moment the maker or the palette opens, while you are still typing. Read once, it is kept on disk:
+  after a reboot or a model reload it comes back in a twentieth of a second instead of two minutes. The first request then reads
   only your words: 28 tokens instead of 924 in the measurement. After that, each turn reads only what is
   new; the rest comes from the model's cache. And slow is not taken for stuck: the answer streams, and
   only two minutes of silence counts as a stall, so a small machine writing a long file gets to finish it.
