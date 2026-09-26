@@ -240,11 +240,17 @@ impl Client {
             if started.elapsed() > whole {
                 return Err(anyhow!("the model took more than {} minutes over one answer", whole.as_secs() / 60));
             }
-            match rx.recv_timeout(silence) {
+            // Silence is counted from the first piece of the answer. Before it the model is reading the
+            // prompt, and it reports that only once per batch of up to 2048 tokens: the CPU pack's 9B reads
+            // ten or fifteen tokens a second on four cores, a batch takes longer than two minutes, and eight
+            // of ten makes died on their first request as "silent" (decision 229). Reading gets the wait
+            // that loading gets.
+            let limit = if acc.any { silence } else { first_byte };
+            match rx.recv_timeout(limit) {
                 Ok(Some(data)) if data == "[DONE]" => break,
                 Ok(Some(data)) => acc.add(&data)?,
                 Ok(None) => break,
-                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => return Err(anyhow!("the model went silent for {} seconds: nothing read, nothing written", silence.as_secs())),
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => return Err(anyhow!("the model went silent for {} seconds: {}", limit.as_secs(), if acc.any { "it had started answering and stopped" } else { "it never started answering" })),
                 Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
             }
         }
@@ -312,6 +318,9 @@ pub fn router_key() -> String {
 
 #[cfg(test)]
 mod tests {
+    /// the stream tests set GENESIS_LLM_SILENCE for the process; one at a time
+    static ENV: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     #[test]
     fn a_real_stream_becomes_the_tool_call_it_was() {
         // captured from llama-server b10901: progress notes while it reads, then a write_file call in pieces
@@ -333,6 +342,7 @@ mod tests {
 
     #[test]
     fn silence_is_a_stall_and_slow_is_not() {
+        let _env = ENV.lock().unwrap_or_else(|e| e.into_inner());
         use std::io::{Read, Write};
         // a server that streams a token a second for three seconds, then says nothing more
         let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
@@ -357,6 +367,31 @@ mod tests {
         // three seconds of tokens a second apart are not silence; the stall is caught two seconds after
         let took = t.elapsed().as_secs_f64();
         assert!(took > 4.0 && took < 10.0, "took {}", took);
+    }
+
+    #[test]
+    fn reading_a_long_prompt_slowly_is_not_silence() {
+        let _env = ENV.lock().unwrap_or_else(|e| e.into_inner());
+        use std::io::{Read, Write};
+        // the CPU pack's 9B: one progress note, then four seconds of reading with nothing sent, then the answer
+        let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = l.local_addr().unwrap();
+        std::thread::spawn(move || {
+            let (mut s, _) = l.accept().unwrap();
+            let mut buf = [0u8; 65536]; let _ = s.read(&mut buf);
+            let _ = write!(s, "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n\r\n");
+            let _ = write!(s, "data: {{\"choices\":[{{\"index\":0,\"delta\":{{}}}}],\"prompt_progress\":{{\"total\":3000,\"processed\":0}}}}\n\n");
+            let _ = s.flush();
+            std::thread::sleep(std::time::Duration::from_secs(4));
+            let _ = write!(s, "data: {{\"choices\":[{{\"index\":0,\"delta\":{{\"content\":\"hello\"}},\"finish_reason\":\"stop\"}}]}}\n\ndata: [DONE]\n\n");
+            let _ = s.flush();
+        });
+        let c = super::Client { endpoint: format!("http://{}/v1", addr), model: "m".into(), api_key: "k".into() };
+        // a silence limit of two seconds applies to an answer that has started, not to the reading before it
+        std::env::set_var("GENESIS_LLM_SILENCE", "2");
+        let r = c.chat_once_with(&[super::Message::user("hi")], &serde_json::json!([]), 0.2, "auto");
+        std::env::remove_var("GENESIS_LLM_SILENCE");
+        assert_eq!(r.expect("an answer, not a stall").message.content.as_deref(), Some("hello"));
     }
 
     #[test]
