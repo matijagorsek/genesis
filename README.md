@@ -258,9 +258,11 @@ How Genesis got here, in the order it happened. The decision log has the detail 
   five harder makes in 30% less time — so on the CPU the maker now uses the 4B; a **harder set** — fix a bug in an existing
   file, add a command to an existing tool, a dark mode for an existing page, a follow-up in the same
   conversation, a backend with its page — is where the tiny pack's 2B stands at 2 to 3 of 5, and the CPU
-  pack's 4B and 9B at 5 of 5; and **seven chat
+  pack's 4B and 9B at 5 of 5; a **second harder set** (a change across files, failing tests, a crash from its
+  traceback, a rename, a follow-up that changes the first) has the 4B at 3 to 4 of 5 and the 9B at 3 to 5;
+  and **seven chat
   questions** a program can check (a document, this machine, an error explained, saying so when there is
-  nothing to find) at 5 to 6 of 7. The ten makes are split over five
+  nothing to find) at 5 to 6 of 7 on the tiny pack and 7 of 7 on the CPU pack's 4B. The ten makes are split over five
   machines and the maker under test is built and dropped into the last release's VM, so an answer takes
   about twenty minutes instead of two and a half hours; the weekly run boots the shipped image with the
   shipped binary, because that is the only run that tests what a person would install. Every make also
