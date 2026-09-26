@@ -195,6 +195,10 @@ impl Client {
             // a fixed seed unless the machine asks for otherwise: two runs of the same tree should be
             // comparable, or a change cannot be told apart from the sampler's mood
             "seed": SEED.with(|s| s.get()).or_else(|| std::env::var("GENESIS_SEED").ok().and_then(|v| v.parse::<i64>().ok())).unwrap_or(7),
+            // A 2B fell into a loop writing pomodoro and streamed for twenty-two minutes, until it had
+            // filled the whole shared context and the next make could not start: a steady stream is not
+            // silence, so nothing else caught it. A whole app is 1500 to 2500 tokens; no answer needs more.
+            "max_tokens": std::env::var("GENESIS_MAX_ANSWER_TOKENS").ok().and_then(|v| v.parse::<u32>().ok()).unwrap_or(4096),
             "stream": true,
             "return_progress": true,
             "stream_options": {"include_usage": true},
