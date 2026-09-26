@@ -78,7 +78,8 @@ How Genesis got here, in the order it happened. The decision log has the detail 
   Elisa, KCalc, Discover (Flatpak), Ark, Spectacle, System Monitor as RPMs; LibreOffice, Thunderbird,
   VLC, GIMP, Krita preinstalled as Flatpaks once online. Genesis identity: Genesis Dark colour scheme,
   "First Light" wallpaper, Inter and IBM Plex Mono, Papirus icons, a centered floating dock, splash and
-  boot watermark, login screen.
+  boot watermark, login screen, and a terminal that opens with Genesis's own welcome — the version, the
+  commands worth knowing, and a line when an update is waiting.
 - **A desktop that looks like whatever you say.** `genesis-theme make "foggy morning by the sea"` — or
   asking the assistant for it — and twenty seconds later every application, the panel, the terminal and
   the wallpaper are in a palette made for that, by the model on this machine, with `genesis-theme undo`

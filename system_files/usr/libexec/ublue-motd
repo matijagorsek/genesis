@@ -1,0 +1,30 @@
+#!/usr/bin/bash
+# The welcome a terminal opens with. The base image's said "Welcome to Aurora", with its own links, on a
+# Genesis machine; the login shell runs whatever is here (/etc/profile.d/user-motd.sh), so Genesis puts
+# its own here. Hidden for good with `ujust toggle-user-motd`, which the shell also honours. Nothing here
+# touches the network: it has to be instant, every time a terminal opens.
+
+. /usr/lib/os-release 2>/dev/null
+if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
+  b=$'\e[1m'; d=$'\e[2m'; c=$'\e[38;5;80m'; r=$'\e[0m'
+else
+  b=; d=; c=; r=
+fi
+
+printf '%s%sGenesis%s %s%s%s\n' "$b" "$c" "$r" "$d" "${IMAGE_VERSION:-${VERSION_ID:-}}" "$r"
+printf 'Your assistant runs on this computer. Nothing you ask it leaves the machine.\n\n'
+
+row() { printf '  %s%-26s%s %s\n' "$c" "$1" "$r" "$2"; }
+row 'ask <what you want done>'  'the command for it, run when you say yes'
+row 'a sentence, then Ctrl+G'    'the same, in place on the command line'
+row 'genesis-apps'              'fifty apps worth having, one command each'
+row 'genesis-theme make "..."'  'a desktop look made from a sentence'
+row 'genesis-upgrade-notes'     'what the waiting update changes'
+row 'genesis-power status'      'the battery, and which models are loaded'
+
+# an update that is downloaded and waits for a restart is worth one line
+if [ -r /run/genesis/bootc-status.json ] && grep -q '"staged": *{' /run/genesis/bootc-status.json 2>/dev/null; then
+  printf '\n  %sAn update is ready; it applies at the next restart.%s\n' "$b" "$r"
+fi
+
+printf '\n%sThe manual: Help, or /usr/share/doc/genesis/manual.html  ·  hide this: ujust toggle-user-motd%s\n\n' "$d" "$r"
