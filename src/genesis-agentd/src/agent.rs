@@ -198,6 +198,15 @@ pub(crate) fn on_battery_saving_at(supply: &std::path::Path, conf: &std::path::P
     battery && match mains_online { Some(on) => !on, None => discharging }
 }
 
+/// Does this machine run its models on the CPU? What it measured first (genesis-pick-device: the first
+/// laptop has an Intel GPU and measured the CPU three times faster), then what its hardware says.
+pub fn models_on_cpu() -> bool {
+    std::fs::read_to_string("/var/lib/genesis/device.json").ok()
+        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+        .and_then(|v| v.get("device").and_then(|d| d.as_str()).map(|d| d == "none"))
+        .unwrap_or_else(cpu_only_machine)
+}
+
 fn cpu_only_machine() -> bool {
     let prof: serde_json::Value = std::fs::read_to_string("/etc/genesis/profile.json").ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(serde_json::Value::Null);
     match prof.get("gpus").and_then(|g| g.as_array()) {

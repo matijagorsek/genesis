@@ -796,6 +796,10 @@ mod tests {
         assert_eq!(super::pick_model(&with_chat, "code", "chat", false), "chat");
         assert_eq!(super::pick_model(&ids, "claude-sonnet-5", "make", false), "code", "a name that is not served: the preference order");
         assert_eq!(super::pick_model(&["tiny".to_string()], "code", "chat", false), "code", "nothing preferred is served: the name as given, as before");
+        // a machine that runs its models on the CPU makes things with the small one, unless told otherwise
+        assert_eq!(super::pick_model_on(&ids, "code", "make", false, true), "fast", "on a CPU the 4B makes what the 9B makes, sooner");
+        assert_eq!(super::pick_model_on(&with_chat, "chat", "make", false, true), "chat", "a model named on purpose is kept");
+        assert_eq!(super::pick_model_on(&ids, "code", "make", false, false), "code", "with a GPU, the coder");
     }
 
     #[test]
@@ -1411,7 +1415,7 @@ pub(crate) fn served_model_for(endpoint: &str, wanted: &str, kind: &str) -> Stri
     // laptop that is a five-minute cold load of a 9B model to answer in plain words, and the first real
     // crash handed to the assistant timed out on exactly that. A chat takes the chat model, or the small one.
     match list {
-        Some(ids) if !ids.is_empty() => pick_model(&ids, wanted, kind, battery),
+        Some(ids) if !ids.is_empty() => pick_model_on(&ids, wanted, kind, battery, agent::models_on_cpu()),
         _ => wanted.to_string(),
     }
 }
@@ -1447,6 +1451,17 @@ fn warm_in_background(endpoint: &str, model: &str, kind: &str) -> bool {
 
 /// The choice itself, apart from the network, so it can be pinned.
 pub(crate) fn pick_model(ids: &[String], wanted: &str, kind: &str, battery: bool) -> String {
+    pick_model_on(ids, wanted, kind, battery, false)
+}
+
+/// `cpu`: this machine runs its models on the CPU, by its own measurement. There the maker takes the small
+/// model: on the CPU pack the 4B made what the 9B made -- 9 of 10 basic makes and 5 of 5 harder ones, each
+/// -- in about 30% less time (decision 234). "code" is the service's default, not somebody's choice, so it
+/// gives way; a model named on purpose does not.
+pub(crate) fn pick_model_on(ids: &[String], wanted: &str, kind: &str, battery: bool, cpu: bool) -> String {
+    if cpu && kind == "make" && !battery && (wanted == "code" || wanted == "auto") && ids.iter().any(|i| i == "fast") {
+        return "fast".to_string();
+    }
     let explicit = kind == "make" && !battery && wanted != "auto";
     if explicit && ids.iter().any(|i| i == wanted) { return wanted.to_string(); }
     let prefs: &[&str] = if battery { &["fast", "chat", "code", "auto"] } else { match kind { "chat" => &["chat", "fast", "code", "auto"], "vision" => &["fast", "chat", "code", "auto"], _ => &["code", "fast", "chat", "auto"] } };

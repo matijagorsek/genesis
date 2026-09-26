@@ -253,10 +253,12 @@ How Genesis got here, in the order it happened. The decision log has the detail 
   website must have all three pages it asks for, and since 26 Sep a web make must hold what its request
   names — earlier checks passed the untouched template. Under those checks the same tree scored
   **10, 10 and 9 of 10** in three runs (26 Sep), where it had ranged from 6 to 9 on easier checks.
-  The evaluation also takes a pack and a set: on the **CPU pack** (the 9B coder a laptop with no GPU
-  runs, on a 13 GB machine) the ten makes scored **9 of 10**; a **harder set** — fix a bug in an existing
+  The evaluation also takes a pack and a set: on the **CPU pack** (a laptop with no GPU, on a 13 GB
+  machine) the ten makes scored **9 of 10** with the 9B coder and 9 of 10 with the 4B, which also made all
+  five harder makes in 30% less time — so on the CPU the maker now uses the 4B; a **harder set** — fix a bug in an existing
   file, add a command to an existing tool, a dark mode for an existing page, a follow-up in the same
-  conversation, a backend with its page — is where the small model stands at 2 to 3 of 5; and **seven chat
+  conversation, a backend with its page — is where the tiny pack's 2B stands at 2 to 3 of 5, and the CPU
+  pack's 4B and 9B at 5 of 5; and **seven chat
   questions** a program can check (a document, this machine, an error explained, saying so when there is
   nothing to find) at 5 to 6 of 7. The ten makes are split over five
   machines and the maker under test is built and dropped into the last release's VM, so an answer takes
