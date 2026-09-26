@@ -225,7 +225,7 @@ RUN set -eux; \
 
 # Babel: the Genesis IDE. Code-OSS through VSCodium (MIT, no telemetry), every language VS Code speaks,
 # with the Genesis extension built in: the maker in the sidebar, permission cards, ask about the selection.
-COPY system_files/usr/bin/genesis-babel-brand system_files/usr/bin/genesis-babel-extensions /usr/bin/
+COPY system_files/usr/bin/babel system_files/usr/bin/genesis-babel-brand system_files/usr/bin/genesis-babel-extensions /usr/bin/
 COPY system_files/usr/share/genesis/babel/ /usr/share/genesis/babel/
 ARG VSCODIUM_VERSION=1.135.06055
 RUN set -eux; \
