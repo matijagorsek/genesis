@@ -8,6 +8,13 @@ After=network.target
 ConditionPathExists=/etc/genesis/router.yaml
 
 [Service]
+# No core dumps from the model servers. llama-server (b10901, and master as of 2026-09-26) aborts on every
+# ordinary stop: its signal handler calls exit(), and the destructor of its stream session manager joins a
+# thread from there and terminates. Each idle unload -- every twenty to forty minutes on the first laptop --
+# wrote and processed a core dump for a process that was being stopped anyway (decision 231). A real crash
+# still leaves its stack in this journal and its log to the GPU fallback in genesis-llama-server; nothing
+# here reads a core.
+LimitCORE=0
 User=genesis-ai
 Group=genesis-ai
 SupplementaryGroups=video render
