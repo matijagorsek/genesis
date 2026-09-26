@@ -174,6 +174,77 @@ HARD = [
 ]
 
 
+# The chat set (--set chat): questions, not makes -- chat, documents and the machine go through their own
+# path in the agent, and nothing checked it. Every answer here can be checked by a program.
+NOTES = "Team notes\n\nThe planning meeting is on Thursday at 14:00 in room B12. Bring the budget figures.\n"
+PARAGRAPH = ("The library will close for renovation from the first of March until the end of April. During that time "
+             "books can be returned at the town hall, and the reading room moves to the school on Hill Street.")
+
+def mem_gb():
+    try:
+        kb = int(next(l for l in open("/proc/meminfo") if l.startswith("MemTotal")).split()[1])
+        return kb / 1024 / 1024
+    except Exception:
+        return 0
+
+def says_memory(a):
+    import re
+    g = mem_gb()
+    nums = [float(x) for x in re.findall(r"(\d+(?:\.\d+)?)\s*(?:gb|gib|gigabyte)", a)]
+    return any(abs(n - g) <= 1.5 for n in nums)
+
+CHATS = [
+    # (name, question, files placed in ~/Documents first, check(answer lowercased))
+    ("sum", "What is 17 times 23? Answer with the number.", {}, lambda a: "391" in a),
+    ("weekday", "Which day of the week comes after Tuesday? One word.", {}, lambda a: "wednesday" in a),
+    ("document", "When and where is the planning meeting? It is in ~/Documents/team-notes.txt", {"team-notes.txt": NOTES},
+     lambda a: "thursday" in a and "b12" in a),
+    ("summary", "Say in one sentence what this means for someone who wants to return a book in March: " + PARAGRAPH, {},
+     lambda a: "town hall" in a),
+    ("memory", "How much memory (RAM) does this computer have?", {}, says_memory),
+    ("error", "I tried to save /etc/hosts and got 'Permission denied'. What does that mean, in plain words?", {},
+     lambda a: any(k in a for k in ("administrator", "sudo", "root", "admin", "permission to change", "system file"))),
+    ("not-there", "What did I write in my notes about the trip to Lisbon?", {},
+     lambda a: any(k in a for k in ("could not find", "couldn't find", "can't find", "cannot find", "did not find", "didn't find", "no notes", "not find", "no information", "don't have", "do not have", "nothing about"))),
+]
+
+def one_chat(name, question, docs, check, timeout):
+    home_docs = os.path.expanduser("~/Documents")
+    os.makedirs(home_docs, exist_ok=True)
+    for f, body in docs.items():
+        open(os.path.join(home_docs, f), "w").write(body)
+    t0 = time.time()
+    sid = api("/api/sessions", {"mode": "auto_edit", "project": "", "kind": "chat"})["id"]
+    api(f"/api/sessions/{sid}/prompt", {"text": question})
+    row = {"name": name, "prompt": question, "state": "running", "turns": 0, "tool_calls": 0, "writes": 0, "tool_errors": 0, "preview": False, "seconds": 0, "summary": ""}
+    st = {}
+    time.sleep(3)
+    while time.time() - t0 < timeout:
+        time.sleep(3)
+        st = api(f"/api/sessions/{sid}")
+        for p in st.get("pending", []):
+            try:
+                api(f"/api/prompts/{p['request_id']}", {"allow": True})
+            except Exception:
+                pass
+        if st["state"] in ("done", "error"):
+            row["state"] = st["state"]
+            break
+    else:
+        row["state"] = "timeout"
+    ev = st.get("events", [])
+    answer = next((e["text"] for e in reversed(ev) if e["kind"] == "assistant"), "")
+    row["summary"] = answer[:300].replace("\n", " ")
+    row["tool_calls"] = sum(1 for e in ev if e["kind"] == "tool_call")
+    row["calls"] = [e.get("name", "") for e in ev if e["kind"] == "tool_call"][:20]
+    row["errors"] = ["session: " + e.get("text", "")[:300] for e in ev if e["kind"] == "error"][:3]
+    row["seconds"] = int(time.time() - t0)
+    row["finished"] = row["state"] == "done" and bool(answer.strip())
+    row["looks_right"] = bool(check(answer.lower()))
+    row["passed"] = row["finished"] and row["looks_right"]
+    return row
+
+
 def api(path, body=None):
     data = json.dumps(body).encode() if body is not None else None
     # the port file is read on every call: the daemon under test writes it when it starts, which can be
@@ -302,7 +373,7 @@ def main(argv):
     else:
         health = api("/api/health")
     rows = []
-    plan = [(n, pr, None, None) for n, pr in MAKES] if which == "basic" else list(HARD)
+    plan = [(n, pr, None, None) for n, pr in MAKES] if which == "basic" else list(CHATS) if which == "chat" else list(HARD)
     mine = plan[:only][shard::of]
     if of > 1: print(f"shard {shard} of {of}: {', '.join(m[0] for m in mine)}", file=sys.stderr, flush=True)
 
@@ -319,7 +390,7 @@ def main(argv):
     for name, prompt, setup, check in mine:
         print(f"== {name}: {prompt}", file=sys.stderr, flush=True)
         try:
-            rows.append(one(name, prompt, timeout, setup, check))
+            rows.append(one_chat(name, prompt, setup or {}, check, min(timeout, 900)) if which == "chat" else one(name, prompt, timeout, setup, check))
         except Exception as e:
             rows.append({"name": name, "prompt": prompt, "state": "crash", "error": str(e), "passed": False, "writes": 0, "turns": 0, "seconds": 0, "tool_calls": 0, "tool_errors": 0, "preview": False, "summary": ""})
         print(f"   {rows[-1]['state']} writes={rows[-1]['writes']} turns={rows[-1]['turns']} {rows[-1]['seconds']}s", file=sys.stderr, flush=True)
@@ -327,7 +398,7 @@ def main(argv):
     passed = sum(1 for r in rows if r.get("passed"))
     save()
     finished = sum(1 for r in rows if r.get("finished"))
-    print(f"## {'Ten makes' if which == 'basic' else 'The harder makes'} on `{health.get('model')}`: **{passed}/{len(rows)} passed** ({finished} finished, {passed} of those look right)\n")
+    print(f"## {'Ten makes' if which == 'basic' else 'Seven questions' if which == 'chat' else 'The harder makes'} on `{health.get('model')}`: **{passed}/{len(rows)} passed** ({finished} finished, {passed} of those look right)\n")
     print("| make | result | files written | turns | tool errors | preview | time | memory left |")
     print("|---|---|---|---|---|---|---|---|")
     for r in rows:

@@ -29,7 +29,7 @@ on:
         description: 'on = the router as rendered; off = its --spec-type flags removed, to measure what speculation does to the makes'
         default: 'on'
       set:
-        description: 'basic = the ten small makes; hard = changing an existing project, fixing a bug, a follow-up, a backend with its page'
+        description: 'basic = the ten small makes; hard = changing an existing project, fixing a bug, a follow-up, a backend with its page; chat = seven questions with checkable answers'
         default: 'basic'
       pack:
         description: 'tiny = the 2B on 6 GB (the smallest machines); cpu = the 4B and 9B coder on 13 GB, what a laptop with no GPU runs'
