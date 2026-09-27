@@ -1,0 +1,10 @@
+[Unit]
+Description=Genesis Ollama-compatible API, started on the first connection (127.0.0.1:11434)
+
+[Socket]
+ListenStream=127.0.0.1:11434
+IPAddressAllow=localhost
+IPAddressDeny=any
+
+[Install]
+WantedBy=sockets.target

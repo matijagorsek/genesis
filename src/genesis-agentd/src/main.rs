@@ -462,7 +462,16 @@ fn handle(d: &Arc<Daemon>, mut req: Request) -> Result<()> {
                 Err(e) => json_response(&serde_json::json!({"error": e.to_string()}), 500),
             }
         }
-        (Method::Get, ["api", "companion"]) => json_response(&companion_pairing(), 200),
+        (Method::Get, ["api", "companion"]) => {
+            // Settings is showing the pairing code: the phone service is wanted now, paired or not
+            if let Ok(rt) = std::env::var("XDG_RUNTIME_DIR") {
+                let dir = std::path::Path::new(&rt).join("genesis");
+                let _ = std::fs::create_dir_all(&dir);
+                let _ = std::fs::write(dir.join("companion-wanted"), b"settings\n");
+                let _ = std::process::Command::new("systemctl").args(["--user", "start", "genesis-companiond.service"]).status();
+            }
+            json_response(&companion_pairing(), 200)
+        }
         (Method::Post, ["api", "companion", "reset"]) => {
             let _ = std::process::Command::new("/usr/bin/genesis-companiond").arg("--reset").output();
             let _ = std::process::Command::new("systemctl").args(["--user", "restart", "genesis-companiond.service"]).status();

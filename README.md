@@ -399,6 +399,10 @@ own maker, palette and `ask` stay local.
   default password ship in the ISO; the prebuilt **qcow2 test disks** are a different thing and do carry
   `genesis / genesis` with SSH on, which is why they are for trying Genesis in a VM and not for a machine
   on a network you do not control.
+- **What the model writes runs in the sandbox.** Its shell commands and the programs it makes run in
+  bubblewrap: the project is writable, nothing else of your home folder is visible, none of your session's
+  environment goes in; without bubblewrap they do not run at all. The phone service listens only once a
+  phone has paired, and the Ollama-compatible door starts on its first connection.
 - **A closed front door.** The local daemons answer only their own pages and local helpers: same-origin
   checks plus a per-boot token, so a web page open in the browser cannot drive the maker; request
   bodies are capped and file opening is limited to what Genesis made. Reviewed adversarially (decision 70).

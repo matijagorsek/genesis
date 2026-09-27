@@ -1,4 +1,9 @@
 [Unit]
+# Only once a phone has paired, or when Settings asks for it to pair one: until then nothing of Genesis
+# listens on the network. It used to start at every login and listen on every interface whether or not
+# anybody had a phone (decision 237). A condition with | is any-of.
+ConditionPathExists=|%h/.config/genesis/companion-paired
+ConditionPathExists=|%t/genesis/companion-wanted
 Description=Genesis on your phone (TLS API on the local network for the companion app)
 Documentation=https://github.com/matijagorsek/genesis
 After=graphical-session.target genesis-agentd.service

@@ -149,6 +149,9 @@ fn handle(req: &mut Request, pairing: &Pairing, agentd: &str) -> Response<std::i
     if auth.strip_prefix("Bearer ").map(|t| t.trim()) != Some(pairing.token.as_str()) {
         return json(&serde_json::json!({"error": "not paired: scan the code in Genesis Settings"}), 401);
     }
+    // a phone has paired: from the next login this service starts on its own (its unit waits for this)
+    let paired = config_path().with_file_name("companion-paired");
+    if !paired.exists() { let _ = std::fs::write(&paired, b"a phone paired\n"); }
     let mut body = String::new();
     if req.body_length().unwrap_or(0) > (1 << 20) { return json(&serde_json::json!({"error": "request body too large"}), 413); }
     let _ = req.as_reader().take((1 << 20) + 1).read_to_string(&mut body);

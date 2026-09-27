@@ -225,7 +225,16 @@ def _args(a):
 
 
 if __name__ == "__main__":
-    srv = ThreadingHTTPServer(("127.0.0.1", PORT), H)
+    # Started by systemd on the first connection to 127.0.0.1:11434 (genesis-ollama.socket), with the
+    # listening socket handed over as fd 3: nothing runs until an app actually speaks Ollama's API
+    # (decision 237). Started by hand, it listens itself as before.
+    if os.environ.get("LISTEN_FDS") == "1" and os.environ.get("LISTEN_PID") == str(os.getpid()):
+        import socket
+        srv = ThreadingHTTPServer(("127.0.0.1", PORT), H, bind_and_activate=False)
+        srv.socket.close()
+        srv.socket = socket.socket(fileno=3)
+    else:
+        srv = ThreadingHTTPServer(("127.0.0.1", PORT), H)
     srv.daemon_threads = True
     try:
         srv.serve_forever()
