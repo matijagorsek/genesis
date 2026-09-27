@@ -937,6 +937,21 @@ mod tests {
     }
 
     #[test]
+    fn looking_at_files_after_a_crash_does_not_make_it_made() {
+        // the report still crashed; `cat -A spending.csv` exited 0, and the job ended "it runs without errors"
+        let proj = tempfile::tempdir().unwrap();
+        let mut script = vec![
+            tool_call("write_file", serde_json::json!({"path": "report.py", "content": "raise KeyError('food')\n"})),
+            tool_call("shell", serde_json::json!({"command": "python3 report.py"})),
+        ];
+        for f in ["cat -A report.py", "cat -n report.py", "ls -la"] { script.push(tool_call("shell", serde_json::json!({"command": f}))); }
+        let (mut agent, _) = setup(proj.path(), Mode::AutoEdit, fake_llm(script));
+        let e = agent.run("Running python3 report.py fails with KeyError: 'food'. Fix it.").expect_err("it never ran clean");
+        assert!(e.to_string().contains("still does not work"), "{}", e);
+        assert!(!agent.ran_clean);
+    }
+
+    #[test]
     fn a_change_never_run_with_its_option_is_not_finished() {
         // told once and still not run with it: finished as the model says, and left for the bigger model
         let proj = tempfile::tempdir().unwrap();

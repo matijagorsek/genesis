@@ -117,6 +117,17 @@ pub fn ran_without(asked: &[String], runs: &[String]) -> bool {
     })
 }
 
+/// A shell command that only looks at files -- `cat -A spending.csv`, `ls`, `grep` -- and does not run the
+/// program. Its clean exit said "it runs without errors" about a report that still crashed, and ended the job
+/// as made. What counts is the last command of a chain, every part of its pipe.
+pub fn only_looks(cmd: &str) -> bool {
+    let last = cmd.rsplit(|c| c == ';' || c == '&').map(str::trim).find(|p| !p.is_empty()).unwrap_or("");
+    last.split('|').all(|part| {
+        let first = part.split_whitespace().next().unwrap_or("");
+        matches!(first.rsplit('/').next().unwrap_or(""), "cat" | "ls" | "grep" | "head" | "tail" | "wc" | "echo" | "file" | "find" | "less" | "more" | "sed" | "stat" | "diff" | "tree" | "pwd" | "od" | "hexdump" | "xxd" | "nl")
+    })
+}
+
 fn run_was_clean(text: &str) -> bool {
     !["Traceback", "Error", "error:", "FAILED", "exit=1", "exit=2"].iter().any(|k| text.contains(k))
 }
@@ -786,6 +797,8 @@ impl Agent {
                 self.shared.push(Event::ToolCall { id: call.id.clone(), name: call.function.name.clone(), args: args.clone() });
                 let is_write = matches!(call.function.name.as_str(), "write_file" | "edit_file");
                 let is_run = matches!(call.function.name.as_str(), "preview_start" | "shell");
+                // a run of the program, not a look at a file: only this says anything about whether it works
+                let runs_program = is_run && !(call.function.name == "shell" && only_looks(args.get("command").and_then(|c| c.as_str()).unwrap_or("")));
                 if is_write {
                     self.writes_since_run += 1;
                     let path = args.get("path").and_then(|p| p.as_str()).unwrap_or("").to_string();
@@ -885,7 +898,7 @@ impl Agent {
                 if !chat && is_run && self.runs_since_write >= 4 {
                     self.shared.push(Event::ToolResult { id: call.id.clone(), ok, summary: text.chars().take(200).collect() });
                     // this run counts too: ran_clean is only set further down, after the guards
-                    if self.ran_clean || (ok && run_was_clean(&text)) {
+                    if self.ran_clean || (ok && runs_program && run_was_clean(&text)) {
                         let url = self.shared.info.lock().unwrap().preview_url.clone();
                         let done = format!("It is made and it runs without errors{}. Tell me what to change, or press Install to put it in your app menu.", url.map(|u| format!(" (preview: {})", u)).unwrap_or_default());
                         self.shared.push(Event::Assistant { text: done.clone() });
@@ -970,7 +983,7 @@ impl Agent {
                     return Err(anyhow!(msg));
                 }
                 // the same run a third time in a row, clean, after changes: the thing is made; Genesis ends the job
-                if !chat && is_run && ok && self.same_run_streak >= 3 && self.edited_after_scaffold && !["Traceback", "Error", "error:", "ERROR", "FAILED", "exit=1", "exit=2", "SyntaxError"].iter().any(|k| text.contains(k)) {
+                if !chat && runs_program && ok && self.same_run_streak >= 3 && self.edited_after_scaffold && !["Traceback", "Error", "error:", "ERROR", "FAILED", "exit=1", "exit=2", "SyntaxError"].iter().any(|k| text.contains(k)) {
                     self.shared.push(Event::ToolResult { id: call.id.clone(), ok, summary: text.chars().take(200).collect() });
                     let url = self.shared.info.lock().unwrap().preview_url.clone();
                     let done = format!("It is made and it runs without errors{}. Tell me what to change, or press Install to put it in your app menu.", url.map(|u| format!(" (preview: {})", u)).unwrap_or_default());
@@ -1002,7 +1015,7 @@ impl Agent {
                         self.last_run_failure = tail[tail.len().saturating_sub(3)..].join("\n").chars().take(400).collect();
                     }
                 }
-                if !chat && is_run && ok && self.edited_after_scaffold && run_was_clean(&text) {
+                if !chat && runs_program && ok && self.edited_after_scaffold && run_was_clean(&text) {
                     self.ran_clean = true;
                     text.push_str("\n[It ran without an error. If it does what the user asked, stop changing files and reply with the summary now.]");
                 }
@@ -1513,6 +1526,12 @@ mod file_name_tests {
 #[cfg(test)]
 mod asked_option_tests {
     use super::{asked_options, ran_without, untried_options};
+
+    #[test]
+    fn looking_at_a_file_is_not_running_the_program() {
+        for c in ["cat -A /p/spending.csv", "cd /p && cat -n report.py", "ls -la", "grep -n food report.py | head", "/usr/bin/head x.csv"] { assert!(super::only_looks(c), "{}", c); }
+        for c in ["python3 report.py spending.csv", "cd /p && python3 report.py x.csv", "cat x.csv | python3 report.py", "./run.sh", "cargo run"] { assert!(!super::only_looks(c), "{}", c); }
+    }
 
     #[test]
     fn the_old_way_is_a_run_of_the_program_without_the_new_option() {
