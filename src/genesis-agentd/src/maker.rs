@@ -172,7 +172,21 @@ impl Previews {
         let port = if t.dev.port > 0 { free_port(t.dev.port) } else { 0 };
         let cmd = t.dev.cmd.replace("{port}", &port.to_string()).replace("{name}", &name);
         let log = std::fs::File::create(project.join(".genesis-preview.log"))?;
-        let mut command = crate::sandbox::memory_capped("/bin/sh");
+        // The program the model wrote runs in the same sandbox as its shell commands: it may write its own
+        // project and nothing else, sees none of the home folder, and carries none of the session's
+        // environment. It used to run with none of that -- the shell was sandboxed and the thing it built
+        // was not (decision 237). The network is shared, because a preview serves the page on localhost.
+        // Not yet for a toolbox command (Node, Rust: containers of their own) or a desktop window (it
+        // needs the display the sandbox hides).
+        let sandboxed = crate::sandbox::bwrap_available() && !cmd.starts_with("genesis-toolbox") && !t.id.contains("gtk");
+        let mut command = if sandboxed {
+            let mut c = crate::sandbox::memory_capped("bwrap");
+            c.args(crate::sandbox::bwrap_args(project, true));
+            c.arg("/bin/sh");
+            c
+        } else {
+            crate::sandbox::memory_capped("/bin/sh")
+        };
         #[cfg(unix)]
         { use std::os::unix::process::CommandExt; command.process_group(0); }  // so the whole server, children included, can be stopped
         let child = command.args(["-lc", &cmd]).current_dir(project).stdin(Stdio::null()).stdout(Stdio::from(log.try_clone()?)).stderr(Stdio::from(log)).spawn().with_context(|| format!("starting {}", cmd))?;

@@ -105,6 +105,13 @@ fn user_systemd() -> bool {
 
 pub fn run_shell(project: &Path, command: &str, allow_network: bool, timeout: Duration, stop: Option<&std::sync::atomic::AtomicBool>) -> Result<ShellResult> {
     let sandboxed = bwrap_available();
+    // On Linux the sandbox is required: without bubblewrap a command the model wrote ran with the person's
+    // whole account, and the deny list in front of it is advice to a language model, not a wall. A
+    // developer's Mac has no bubblewrap and keeps running unsandboxed; GENESIS_ALLOW_UNSANDBOXED=1 says so
+    // on purpose anywhere else.
+    if !sandboxed && cfg!(target_os = "linux") && !cfg!(test) && std::env::var("GENESIS_ALLOW_UNSANDBOXED").map(|v| v != "1").unwrap_or(true) {
+        anyhow::bail!("not run: the sandbox (bubblewrap) is not on this machine, and Genesis does not run a command the model wrote without it. Reinstalling the image restores it.");
+    }
     let mut cmd = if sandboxed {
         let mut c = memory_capped("bwrap");
         c.args(bwrap_args(project, allow_network));
