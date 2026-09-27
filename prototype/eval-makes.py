@@ -142,12 +142,28 @@ if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))
 """
 
+# what the checks ran, for a make that missed: a miss the program itself looked right on cannot be
+# understood from a pass/fail (the Kelvin follow-up ran correctly for the model and failed the check)
+CHECK_RUNS = []
+
 def ran(project, *cmd):
     try:
         r = subprocess.run(list(cmd), cwd=project, capture_output=True, text=True, timeout=30)
-        return r.returncode, r.stdout + r.stderr
+        out = (r.returncode, r.stdout + r.stderr)
     except Exception as e:
-        return -1, str(e)
+        out = (-1, str(e))
+    CHECK_RUNS.append(f"$ {' '.join(cmd[1:] if cmd[0] == 'python3' else cmd)} -> {out[0]}: {out[1][-300:]}")
+    return out
+
+def sources(project, limit=4):
+    kept = {}
+    for root, dirs, fs in os.walk(project):
+        dirs[:] = [d for d in dirs if not d.startswith((".", "__")) and d != "node_modules"]
+        for f in sorted(fs):
+            if f.endswith((".py", ".js", ".html", ".rs", ".sh")) and len(kept) < limit:
+                path = os.path.join(root, f)
+                kept[os.path.relpath(path, project)] = open(path, errors="replace").read()[:3000]
+    return kept
 
 def wc_fixed(project):
     open(os.path.join(project, "sample.txt"), "w").write("one two three four\nfive six\n")
@@ -437,9 +453,16 @@ def one(name, prompt, timeout, setup=None, check=None):
     except OSError:
         made = []
     row["files"] = made
+    CHECK_RUNS.clear()
     row["looks_right"] = bool((check or CHECKS.get(name, lambda d, p: True))(made, project))
     row["finished"] = row["state"] == "done" and row["writes"] > 0
     row["passed"] = row["finished"] and row["looks_right"]
+    if not row["passed"]:
+        row["check_runs"] = CHECK_RUNS[:12]
+        try:
+            row["sources"] = sources(project)
+        except OSError:
+            pass
     return row
 
 
