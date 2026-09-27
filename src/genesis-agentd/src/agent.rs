@@ -85,6 +85,27 @@ pub fn missing_input_file(text: &str) -> Option<String> {
     Some(name)
 }
 
+/// The options a request names, `--kelvin` in "with a --kelvin option": what the program has to be run
+/// with before a change to it is finished. Only the long form; "-c" is too easily a dash in a sentence.
+pub fn asked_options(text: &str) -> Vec<String> {
+    let mut found: Vec<String> = Vec::new();
+    for w in text.split(|c: char| c.is_whitespace() || matches!(c, '`' | '"' | '\'' | '(' | ')' | ',' | ';' | ':')) {
+        let w = w.trim_end_matches(|c: char| matches!(c, '.' | '!' | '?'));
+        let name = match w.strip_prefix("--") { Some(n) => n, None => continue };
+        let name = name.split('=').next().unwrap_or("");
+        if name.len() >= 2 && name.chars().next().map(|c| c.is_ascii_alphabetic()).unwrap_or(false) && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
+            let o = format!("--{}", name.to_ascii_lowercase());
+            if !found.contains(&o) { found.push(o); }
+        }
+    }
+    found
+}
+
+/// The asked-for options no command since the last change has used.
+pub fn untried_options(asked: &[String], runs: &[String]) -> Vec<String> {
+    asked.iter().filter(|o| !runs.iter().any(|r| r.to_ascii_lowercase().split_whitespace().any(|w| w.trim_matches(|c: char| c == '"' || c == '\'') == o.as_str() || w.starts_with(&format!("{}=", o))))).cloned().collect()
+}
+
 fn run_was_clean(text: &str) -> bool {
     !["Traceback", "Error", "error:", "FAILED", "exit=1", "exit=2"].iter().any(|k| text.contains(k))
 }
@@ -399,6 +420,10 @@ pub struct Agent {
     pub warmed: bool,
     /// what the last completion check said was still missing
     pub still_missing: Vec<String>,
+    /// the shell commands run since the last change on disk
+    pub runs_since_change: Vec<String>,
+    /// told once to run the program with the options the request names
+    pub nudged_options: bool,
     /// Project directory the maker tools currently target (set by scaffold).
     pub active_project: Option<PathBuf>,
     /// "make" (the maker, default) or "chat" (the assistant: chat prompt, read-only tools, the user's MCP tools).
@@ -469,7 +494,7 @@ fn edit_ignoring_whitespace(text: &str, old: &str, new: &str) -> Option<String> 
 
 impl Agent {
     pub fn new(client: Client, broker: Arc<Mutex<Broker>>, session_id: String, project: PathBuf, shared: Arc<Shared>) -> Self {
-        Agent { client, broker, session_id, project, shared, max_turns: 40, prompt_timeout: Duration::from_secs(600), messages: vec![Message::system(SYSTEM_PROMPT)], tx_store: None, tx: None, previews: maker::Previews::default(), active_project: None, browser: None, last_prompt: String::new(), scaffolded: false, edited_after_scaffold: false, nudged: false, writes_since_run: 0, nudged_writes: false, last_write: String::new(), last_run: String::new(), same_run_streak: 0, last_failure: String::new(), failure_streak: 0, ran_clean: false, same_file_streak: 0, runs_since_write: 0, total_writes: 0, noop_writes: 0, completion_checks: 0, last_run_failure: String::new(), identical_writes: 0, length_cutoffs: 0, unreadable_calls: 0, warmed: false, still_missing: Vec::new(), kind: "make".into() }
+        Agent { client, broker, session_id, project, shared, max_turns: 40, prompt_timeout: Duration::from_secs(600), messages: vec![Message::system(SYSTEM_PROMPT)], tx_store: None, tx: None, previews: maker::Previews::default(), active_project: None, browser: None, last_prompt: String::new(), scaffolded: false, edited_after_scaffold: false, nudged: false, writes_since_run: 0, nudged_writes: false, last_write: String::new(), last_run: String::new(), same_run_streak: 0, last_failure: String::new(), failure_streak: 0, ran_clean: false, same_file_streak: 0, runs_since_write: 0, total_writes: 0, noop_writes: 0, completion_checks: 0, last_run_failure: String::new(), identical_writes: 0, length_cutoffs: 0, unreadable_calls: 0, warmed: false, still_missing: Vec::new(), runs_since_change: Vec::new(), nudged_options: false, kind: "make".into() }
     }
 
     /// The plan card: what the job will touch and the steps, before anything runs. One short model call
@@ -606,7 +631,7 @@ impl Agent {
         self.shared.push(Event::UserPrompt { text: text.into() });
         self.shared.set_state("running");
         self.last_prompt = text.to_string();
-        self.scaffolded = false; self.edited_after_scaffold = false; self.nudged = false; self.writes_since_run = 0; self.nudged_writes = false; self.last_write.clear(); self.same_file_streak = 0; self.last_run.clear(); self.same_run_streak = 0; self.last_failure.clear(); self.failure_streak = 0; self.ran_clean = false; self.runs_since_write = 0; self.total_writes = 0; self.noop_writes = 0; self.completion_checks = 0; self.identical_writes = 0; self.length_cutoffs = 0; self.unreadable_calls = 0; self.still_missing.clear();
+        self.scaffolded = false; self.edited_after_scaffold = false; self.nudged = false; self.writes_since_run = 0; self.nudged_writes = false; self.last_write.clear(); self.same_file_streak = 0; self.last_run.clear(); self.same_run_streak = 0; self.last_failure.clear(); self.failure_streak = 0; self.ran_clean = false; self.runs_since_write = 0; self.total_writes = 0; self.noop_writes = 0; self.completion_checks = 0; self.identical_writes = 0; self.length_cutoffs = 0; self.unreadable_calls = 0; self.still_missing.clear(); self.runs_since_change.clear(); self.nudged_options = false;
         self.last_run_failure = std::env::var("GENESIS_TEST_LAST_RUN_FAILURE").ok().filter(|_| cfg!(test)).unwrap_or_default();
         let compact = compact_model(&self.client.model);
         let chat = self.kind == "chat";
@@ -696,12 +721,25 @@ impl Agent {
                 self.messages.push(Message::user("You scaffolded the template but did not change any file. The template is only a starting point: now implement what was asked (edit the generated files so the program actually does it), run it once to check, and only then finish.".to_string()));
                 continue;
             }
+            // A change asked for an option, and the program was never run with it: the Kelvin follow-up was
+            // tested with the template's own test, which passed, and called done -- the program was wrong,
+            // and nothing that ends a job could see it (decision 239). Run what was asked, once.
+            let untried = if calls.is_empty() && !chat && self.total_writes > 0 { untried_options(&asked_options(&self.last_prompt), &self.runs_since_change) } else { Vec::new() };
+            if !untried.is_empty() && !self.nudged_options {
+                self.nudged_options = true;
+                let opts = untried.join(", ");
+                self.shared.push(Event::Assistant { text: format!("The request asks for {}, and the program has not been run with it since the last change. Trying it before calling this finished.", opts) });
+                self.messages.push(Message::user(format!("Before this is finished: the request asks for {opts}, and the program has not been run with {opts} since your last change -- the tests that were already there do not try it. Run the program through shell with {opts} and an example value, check that the output is right, fix the code if it is not, and then reply with the summary.")));
+                continue;
+            }
             if calls.is_empty() && !chat {
                 let missing = self.missing_parts(&tools);
                 if !missing.is_empty() {
                     self.not_finished_yet(&missing);
                     continue;
                 }
+                // still never run the way it was asked: not finished, for the bigger model to take on
+                if !untried.is_empty() { self.still_missing.push(format!("never run with {}", untried.join(", "))); }
             }
             if calls.is_empty() {
                 let _ = self.commit();
@@ -795,6 +833,10 @@ impl Agent {
                 } else if is_write {
                     self.runs_since_write = 0;  // something changed, so running again can say something new
                     self.total_writes += 1;
+                    self.runs_since_change.clear();
+                }
+                if call.function.name == "shell" && ok {
+                    self.runs_since_change.push(args.get("command").and_then(|c| c.as_str()).unwrap_or("").to_string());
                 }
                 // …but a call that keeps failing the same way is its own kind of stuck
                 let failure = if ok && !text.starts_with("not written") { String::new() } else { format!("{} {}", call.function.name, text.chars().take(80).collect::<String>()) };
@@ -1443,5 +1485,27 @@ mod file_name_tests {
     fn a_file_name_is_not_a_missing_part() {
         for f in ["index.html", "`style.css`", "app.js", "genesis.json"] { assert!(super::is_file_name(f), "{}", f); }
         for p in ["the about page", "a dark mode button", "three pages", "Celsius field"] { assert!(!super::is_file_name(p), "{}", p); }
+    }
+}
+
+#[cfg(test)]
+mod asked_option_tests {
+    use super::{asked_options, untried_options};
+
+    #[test]
+    fn the_options_a_request_names_are_found() {
+        assert_eq!(asked_options("Change it so it can also take a temperature in Kelvin, with a --kelvin option."), vec!["--kelvin"]);
+        assert_eq!(asked_options("add `--verbose` and --out=FILE, like --Verbose"), vec!["--verbose", "--out"]);
+        assert!(asked_options("a to-do list -- simple, with a dark mode").is_empty(), "a dash in a sentence is not an option");
+        assert!(asked_options("a word counter").is_empty());
+    }
+
+    #[test]
+    fn an_option_counts_as_tried_only_when_a_command_used_it() {
+        let asked = vec!["--kelvin".to_string()];
+        assert_eq!(untried_options(&asked, &["python3 -m pytest -q".into()]), asked, "the tests that were there do not try it");
+        assert!(untried_options(&asked, &["python3 change.py --kelvin 273.15".into()]).is_empty());
+        assert!(untried_options(&asked, &["python3 change.py --kelvin=0".into()]).is_empty());
+        assert_eq!(untried_options(&asked, &["python3 change.py --kelvins 3".into()]), asked);
     }
 }

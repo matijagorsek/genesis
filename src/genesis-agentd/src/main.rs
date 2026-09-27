@@ -889,6 +889,47 @@ mod tests {
     }
 
     #[test]
+    fn a_change_that_asks_for_an_option_is_run_with_it_before_it_is_done() {
+        // the Kelvin follow-up: edited, the template's test passed, "done" -- and the program was wrong
+        let proj = tempfile::tempdir().unwrap();
+        let all_done = serde_json::json!({"role": "assistant", "content": serde_json::json!({"parts": [{"part": "--kelvin option", "done": true}]}).to_string()});
+        let prog = "import sys\nprint('32.00' if '--kelvin' in sys.argv else '212.00')\n";
+        let ep = fake_llm(vec![
+            tool_call("write_file", serde_json::json!({"path": "temp.py", "content": prog})),
+            tool_call("shell", serde_json::json!({"command": "python3 temp.py 100"})),
+            serde_json::json!({"role": "assistant", "content": "added --kelvin"}),
+            tool_call("shell", serde_json::json!({"command": "python3 temp.py --kelvin 273.15"})),
+            serde_json::json!({"role": "assistant", "content": "added --kelvin, and 273.15 K is 32 F"}),
+            all_done,
+        ]);
+        let (mut agent, shared) = setup(proj.path(), Mode::AutoEdit, ep);
+        let out = agent.run("Change it so it can also take a temperature in Kelvin, with a --kelvin option.").unwrap();
+        assert_eq!(out, "added --kelvin, and 273.15 K is 32 F", "the first \"done\" was not the end");
+        let said = agent.messages.iter().filter_map(|m| m.content.clone()).collect::<Vec<_>>().join("\n");
+        assert!(said.contains("has not been run with --kelvin since your last change"), "{}", said);
+        let ev = shared.info.lock().unwrap().events.clone();
+        assert!(ev.iter().any(|e| matches!(e, Event::Assistant { text } if text.contains("Trying it before calling this finished"))), "the person sees why it went on");
+        assert!(agent.still_missing.is_empty());
+    }
+
+    #[test]
+    fn a_change_never_run_with_its_option_is_not_finished() {
+        // told once and still not run with it: finished as the model says, and left for the bigger model
+        let proj = tempfile::tempdir().unwrap();
+        let all_done = serde_json::json!({"role": "assistant", "content": serde_json::json!({"parts": [{"part": "--kelvin option", "done": true}]}).to_string()});
+        let ep = fake_llm(vec![
+            tool_call("write_file", serde_json::json!({"path": "temp.py", "content": "print('212.00')\n"})),
+            tool_call("shell", serde_json::json!({"command": "python3 temp.py 100"})),
+            serde_json::json!({"role": "assistant", "content": "done"}),
+            serde_json::json!({"role": "assistant", "content": "it is done"}),
+            all_done,
+        ]);
+        let (mut agent, _) = setup(proj.path(), Mode::AutoEdit, ep);
+        agent.run("add a --kelvin option").unwrap();
+        assert_eq!(agent.still_missing, vec!["never run with --kelvin".to_string()]);
+    }
+
+    #[test]
     fn a_missing_page_goes_into_the_project_the_job_has() {
         // the club site again: told the about page is missing, the 2B scaffolded a new project named "about"
         let proj = tempfile::tempdir().unwrap();
