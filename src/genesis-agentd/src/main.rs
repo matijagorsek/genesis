@@ -1427,7 +1427,7 @@ pub(crate) fn served_model_for(endpoint: &str, wanted: &str, kind: &str) -> Stri
     }
 }
 
-fn served_models(endpoint: &str) -> Option<Vec<String>> {
+pub(crate) fn served_models(endpoint: &str) -> Option<Vec<String>> {
     ureq::get(&format!("{}/models", endpoint.trim_end_matches('/'))).set("Authorization", &format!("Bearer {}", llm::router_key())).timeout(std::time::Duration::from_secs(8)).call().ok()
         .and_then(|r| r.into_json::<serde_json::Value>().ok())
         .and_then(|v| v.get("data").and_then(|d| d.as_array()).map(|a| a.iter().filter_map(|m| m.get("id").and_then(|i| i.as_str()).map(|s| s.to_string())).collect::<Vec<_>>()))

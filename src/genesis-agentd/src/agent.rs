@@ -397,6 +397,8 @@ pub struct Agent {
     pub unreadable_calls: u8,
     /// the opening was put in the model's memory for this session (warm, at its first job)
     pub warmed: bool,
+    /// what the last completion check said was still missing
+    pub still_missing: Vec<String>,
     /// Project directory the maker tools currently target (set by scaffold).
     pub active_project: Option<PathBuf>,
     /// "make" (the maker, default) or "chat" (the assistant: chat prompt, read-only tools, the user's MCP tools).
@@ -467,7 +469,7 @@ fn edit_ignoring_whitespace(text: &str, old: &str, new: &str) -> Option<String> 
 
 impl Agent {
     pub fn new(client: Client, broker: Arc<Mutex<Broker>>, session_id: String, project: PathBuf, shared: Arc<Shared>) -> Self {
-        Agent { client, broker, session_id, project, shared, max_turns: 40, prompt_timeout: Duration::from_secs(600), messages: vec![Message::system(SYSTEM_PROMPT)], tx_store: None, tx: None, previews: maker::Previews::default(), active_project: None, browser: None, last_prompt: String::new(), scaffolded: false, edited_after_scaffold: false, nudged: false, writes_since_run: 0, nudged_writes: false, last_write: String::new(), last_run: String::new(), same_run_streak: 0, last_failure: String::new(), failure_streak: 0, ran_clean: false, same_file_streak: 0, runs_since_write: 0, total_writes: 0, noop_writes: 0, completion_checks: 0, last_run_failure: String::new(), identical_writes: 0, length_cutoffs: 0, unreadable_calls: 0, warmed: false, kind: "make".into() }
+        Agent { client, broker, session_id, project, shared, max_turns: 40, prompt_timeout: Duration::from_secs(600), messages: vec![Message::system(SYSTEM_PROMPT)], tx_store: None, tx: None, previews: maker::Previews::default(), active_project: None, browser: None, last_prompt: String::new(), scaffolded: false, edited_after_scaffold: false, nudged: false, writes_since_run: 0, nudged_writes: false, last_write: String::new(), last_run: String::new(), same_run_streak: 0, last_failure: String::new(), failure_streak: 0, ran_clean: false, same_file_streak: 0, runs_since_write: 0, total_writes: 0, noop_writes: 0, completion_checks: 0, last_run_failure: String::new(), identical_writes: 0, length_cutoffs: 0, unreadable_calls: 0, warmed: false, still_missing: Vec::new(), kind: "make".into() }
     }
 
     /// The plan card: what the job will touch and the steps, before anything runs. One short model call
@@ -535,7 +537,14 @@ impl Agent {
     /// grammar; the conversation is in the model's cache, so it costs the question and the answer. At
     /// most twice a run, and a check that fails or cannot be read never holds a job back.
     fn missing_parts(&mut self, tools: &Value) -> Vec<String> {
+        // checks used up: silent, so the job can end; what the last one found stays for run() to act on
         if self.kind == "chat" || self.completion_checks >= 2 || std::env::var("GENESIS_NO_COMPLETION_CHECK").is_ok() { return Vec::new(); }
+        let found = self.missing_parts_asked(tools);
+        self.still_missing = found.clone();
+        found
+    }
+
+    fn missing_parts_asked(&mut self, tools: &Value) -> Vec<String> {
         self.completion_checks += 1;
         let schema = json!({"type": "object", "properties": {"parts": {"type": "array", "maxItems": 12, "items": {"type": "object",
             "properties": {"part": {"type": "string", "maxLength": 120}, "done": {"type": "boolean"}}, "required": ["part", "done"]}}}, "required": ["parts"]});
@@ -568,8 +577,28 @@ impl Agent {
         Ok("stopped".into())
     }
 
-    /// Run one user prompt to completion (or until a tool call is denied and the model gives up).
+    /// Run one user prompt to completion; on a machine that makes with the small model, hand what it could
+    /// not finish to the bigger one. The CPU pack's 4B makes what the 9B makes in 30-40% less time, and falls
+    /// behind only on the hardest (decision 236), so the 9B is kept for exactly that: when the 4B's make ends
+    /// in an error, or its program never once ran clean, or the completion check still names missing parts,
+    /// the same request goes to the 9B in the same conversation, with everything made so far kept. Once.
     pub fn run(&mut self, text: &str) -> Result<String> {
+        let first = self.run_once(text);
+        let fell_short = first.is_err() || !self.ran_clean || !self.still_missing.is_empty();
+        if self.kind != "make" || self.client.model != "fast" || !fell_short || !models_on_cpu() || self.shared.stopped() {
+            return first;
+        }
+        if !crate::served_models(&self.client.endpoint).map(|ids| ids.iter().any(|i| i == "code")).unwrap_or(false) {
+            return first;
+        }
+        let why = match &first { Err(e) => format!("it stopped: {}", e.to_string().chars().take(120).collect::<String>()), Ok(_) if !self.still_missing.is_empty() => format!("it still lacks {}", self.still_missing.join("; ")), Ok(_) => "its program never ran without an error".to_string() };
+        self.shared.push(Event::Assistant { text: format!("The small model could not finish this ({}). The bigger model is taking over, from what is already made.", why) });
+        self.client.model = "code".to_string();
+        self.shared.info.lock().unwrap().model = "code".to_string();
+        self.run_once(&format!("The first attempt at this did not finish it ({}). Carry on from what is already in the project and finish it: {}", why, text))
+    }
+
+    fn run_once(&mut self, text: &str) -> Result<String> {
         // Keep the machine awake while a job runs, and let go of that the moment the job ends, however it
         // ends: an inhibitor that leaks keeps a laptop awake in a bag. The cap is the job's own timeout.
         let _awake = KeepAwake::start(self.kind == "make");
@@ -577,7 +606,7 @@ impl Agent {
         self.shared.push(Event::UserPrompt { text: text.into() });
         self.shared.set_state("running");
         self.last_prompt = text.to_string();
-        self.scaffolded = false; self.edited_after_scaffold = false; self.nudged = false; self.writes_since_run = 0; self.nudged_writes = false; self.last_write.clear(); self.same_file_streak = 0; self.last_run.clear(); self.same_run_streak = 0; self.last_failure.clear(); self.failure_streak = 0; self.ran_clean = false; self.runs_since_write = 0; self.total_writes = 0; self.noop_writes = 0; self.completion_checks = 0; self.identical_writes = 0; self.length_cutoffs = 0; self.unreadable_calls = 0;
+        self.scaffolded = false; self.edited_after_scaffold = false; self.nudged = false; self.writes_since_run = 0; self.nudged_writes = false; self.last_write.clear(); self.same_file_streak = 0; self.last_run.clear(); self.same_run_streak = 0; self.last_failure.clear(); self.failure_streak = 0; self.ran_clean = false; self.runs_since_write = 0; self.total_writes = 0; self.noop_writes = 0; self.completion_checks = 0; self.identical_writes = 0; self.length_cutoffs = 0; self.unreadable_calls = 0; self.still_missing.clear();
         self.last_run_failure = std::env::var("GENESIS_TEST_LAST_RUN_FAILURE").ok().filter(|_| cfg!(test)).unwrap_or_default();
         let compact = compact_model(&self.client.model);
         let chat = self.kind == "chat";
