@@ -906,9 +906,33 @@ mod tests {
         let out = agent.run("Change it so it can also take a temperature in Kelvin, with a --kelvin option.").unwrap();
         assert_eq!(out, "added --kelvin, and 273.15 K is 32 F", "the first \"done\" was not the end");
         let said = agent.messages.iter().filter_map(|m| m.content.clone()).collect::<Vec<_>>().join("\n");
-        assert!(said.contains("has not been run with --kelvin since your last change"), "{}", said);
+        assert!(said.contains("has not been run with --kelvin and an example value"), "{}", said);
         let ev = shared.info.lock().unwrap().events.clone();
         assert!(ev.iter().any(|e| matches!(e, Event::Assistant { text } if text.contains("Trying it before calling this finished"))), "the person sees why it went on");
+        assert!(agent.still_missing.is_empty());
+        assert!(!said.contains("the way it worked before"), "a new program has no old way");
+    }
+
+    #[test]
+    fn a_change_to_a_program_is_also_run_the_way_it_ran_before() {
+        // adding --kelvin broke the plain Celsius run, and only --kelvin was tried
+        let proj = tempfile::tempdir().unwrap();
+        std::fs::write(proj.path().join("temp.py"), "import sys\nprint('212.00')\n").unwrap();
+        let all_done = serde_json::json!({"role": "assistant", "content": serde_json::json!({"parts": [{"part": "--kelvin option", "done": true}]}).to_string()});
+        let ep = fake_llm(vec![
+            tool_call("write_file", serde_json::json!({"path": "temp.py", "content": "import sys\nprint('32.00' if '--kelvin' in sys.argv else '212.00')\n"})),
+            tool_call("shell", serde_json::json!({"command": "python3 temp.py --kelvin 273.15"})),
+            serde_json::json!({"role": "assistant", "content": "added --kelvin"}),
+            tool_call("shell", serde_json::json!({"command": "python3 temp.py 100"})),
+            serde_json::json!({"role": "assistant", "content": "both work"}),
+            all_done,
+        ]);
+        let (mut agent, _) = setup(proj.path(), Mode::AutoEdit, ep);
+        let out = agent.run("add a --kelvin option").unwrap();
+        assert_eq!(out, "both work");
+        let said = agent.messages.iter().filter_map(|m| m.content.clone()).collect::<Vec<_>>().join("\n");
+        assert!(said.contains("once the way it worked before this change, without --kelvin"), "{}", said);
+        assert!(!said.contains("with --kelvin and an example value"), "--kelvin was already tried");
         assert!(agent.still_missing.is_empty());
     }
 
