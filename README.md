@@ -233,6 +233,9 @@ How Genesis got here, in the order it happened. The decision log has the detail 
 - **Signed model packs**: pack definitions are OCI artifacts on GHCR, signed with the Genesis key and
   verified by the same containers policy as the OS; every model download is checked against the sha256
   in the signed definition. Built-in definitions remain the offline fallback.
+- **Small updates.** The image is built in the order of what changes — the heavy parts that rarely do first,
+  Genesis's own files after them, the version last — so an everyday update downloads what changed: 14 MB
+  measured between two releases, where the same kind of update had been 1.2 GB.
 - **Updates that say what is in them.** An update that says "44.20260922.1" says nothing. When one is
   staged, Genesis reads the two images on the disk — the one running and the one waiting — and says what
   is different: kernel, graphics, desktop, audio, what was added, which parts of Genesis changed and the
