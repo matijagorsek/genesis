@@ -85,6 +85,49 @@ pub fn missing_input_file(text: &str) -> Option<String> {
     Some(name)
 }
 
+/// The options a request names, `--kelvin` in "with a --kelvin option": what the program has to be run
+/// with before a change to it is finished. Only the long form; "-c" is too easily a dash in a sentence.
+pub fn asked_options(text: &str) -> Vec<String> {
+    let mut found: Vec<String> = Vec::new();
+    for w in text.split(|c: char| c.is_whitespace() || matches!(c, '`' | '"' | '\'' | '(' | ')' | ',' | ';' | ':')) {
+        let w = w.trim_end_matches(|c: char| matches!(c, '.' | '!' | '?'));
+        let name = match w.strip_prefix("--") { Some(n) => n, None => continue };
+        let name = name.split('=').next().unwrap_or("");
+        if name.len() >= 2 && name.chars().next().map(|c| c.is_ascii_alphabetic()).unwrap_or(false) && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
+            let o = format!("--{}", name.to_ascii_lowercase());
+            if !found.contains(&o) { found.push(o); }
+        }
+    }
+    found
+}
+
+/// The asked-for options no command since the last change has used.
+pub fn untried_options(asked: &[String], runs: &[String]) -> Vec<String> {
+    asked.iter().filter(|o| !runs.iter().any(|r| r.to_ascii_lowercase().split_whitespace().any(|w| w.trim_matches(|c: char| c == '"' || c == '\'') == o.as_str() || w.starts_with(&format!("{}=", o))))).cloned().collect()
+}
+
+/// Whether a command since the change ran the program the way it ran before it: with none of the new
+/// options, and not a test runner. The Kelvin follow-up was run with --kelvin, correctly, and the plain
+/// Celsius run it had before the change now crashed -- nobody had run it that way again.
+pub fn ran_without(asked: &[String], runs: &[String]) -> bool {
+    runs.iter().map(|r| r.to_ascii_lowercase()).any(|r| {
+        let runs_program = [".py", ".js", "python", "node ", "cargo run", "./"].iter().any(|k| r.contains(k));
+        let tests = ["pytest", "unittest", "test_", "cargo test", "npm test", "--help"].iter().any(|k| r.contains(k));
+        runs_program && !tests && untried_options(asked, &[r.clone()]).len() == asked.len()
+    })
+}
+
+/// A shell command that only looks at files -- `cat -A spending.csv`, `ls`, `grep` -- and does not run the
+/// program. Its clean exit said "it runs without errors" about a report that still crashed, and ended the job
+/// as made. What counts is the last command of a chain, every part of its pipe.
+pub fn only_looks(cmd: &str) -> bool {
+    let last = cmd.rsplit(|c| c == ';' || c == '&').map(str::trim).find(|p| !p.is_empty()).unwrap_or("");
+    last.split('|').all(|part| {
+        let first = part.split_whitespace().next().unwrap_or("");
+        matches!(first.rsplit('/').next().unwrap_or(""), "cat" | "ls" | "grep" | "head" | "tail" | "wc" | "echo" | "file" | "find" | "less" | "more" | "sed" | "stat" | "diff" | "tree" | "pwd" | "od" | "hexdump" | "xxd" | "nl")
+    })
+}
+
 fn run_was_clean(text: &str) -> bool {
     !["Traceback", "Error", "error:", "FAILED", "exit=1", "exit=2"].iter().any(|k| text.contains(k))
 }
@@ -399,6 +442,12 @@ pub struct Agent {
     pub warmed: bool,
     /// what the last completion check said was still missing
     pub still_missing: Vec<String>,
+    /// the shell commands run since the last change on disk
+    pub runs_since_change: Vec<String>,
+    /// told once to run the program with the options the request names
+    pub nudged_options: bool,
+    /// this job changes a program that was there before it (a follow-up, or a folder that held one)
+    pub changing: bool,
     /// Project directory the maker tools currently target (set by scaffold).
     pub active_project: Option<PathBuf>,
     /// "make" (the maker, default) or "chat" (the assistant: chat prompt, read-only tools, the user's MCP tools).
@@ -469,7 +518,7 @@ fn edit_ignoring_whitespace(text: &str, old: &str, new: &str) -> Option<String> 
 
 impl Agent {
     pub fn new(client: Client, broker: Arc<Mutex<Broker>>, session_id: String, project: PathBuf, shared: Arc<Shared>) -> Self {
-        Agent { client, broker, session_id, project, shared, max_turns: 40, prompt_timeout: Duration::from_secs(600), messages: vec![Message::system(SYSTEM_PROMPT)], tx_store: None, tx: None, previews: maker::Previews::default(), active_project: None, browser: None, last_prompt: String::new(), scaffolded: false, edited_after_scaffold: false, nudged: false, writes_since_run: 0, nudged_writes: false, last_write: String::new(), last_run: String::new(), same_run_streak: 0, last_failure: String::new(), failure_streak: 0, ran_clean: false, same_file_streak: 0, runs_since_write: 0, total_writes: 0, noop_writes: 0, completion_checks: 0, last_run_failure: String::new(), identical_writes: 0, length_cutoffs: 0, unreadable_calls: 0, warmed: false, still_missing: Vec::new(), kind: "make".into() }
+        Agent { client, broker, session_id, project, shared, max_turns: 40, prompt_timeout: Duration::from_secs(600), messages: vec![Message::system(SYSTEM_PROMPT)], tx_store: None, tx: None, previews: maker::Previews::default(), active_project: None, browser: None, last_prompt: String::new(), scaffolded: false, edited_after_scaffold: false, nudged: false, writes_since_run: 0, nudged_writes: false, last_write: String::new(), last_run: String::new(), same_run_streak: 0, last_failure: String::new(), failure_streak: 0, ran_clean: false, same_file_streak: 0, runs_since_write: 0, total_writes: 0, noop_writes: 0, completion_checks: 0, last_run_failure: String::new(), identical_writes: 0, length_cutoffs: 0, unreadable_calls: 0, warmed: false, still_missing: Vec::new(), runs_since_change: Vec::new(), nudged_options: false, changing: false, kind: "make".into() }
     }
 
     /// The plan card: what the job will touch and the steps, before anything runs. One short model call
@@ -606,7 +655,8 @@ impl Agent {
         self.shared.push(Event::UserPrompt { text: text.into() });
         self.shared.set_state("running");
         self.last_prompt = text.to_string();
-        self.scaffolded = false; self.edited_after_scaffold = false; self.nudged = false; self.writes_since_run = 0; self.nudged_writes = false; self.last_write.clear(); self.same_file_streak = 0; self.last_run.clear(); self.same_run_streak = 0; self.last_failure.clear(); self.failure_streak = 0; self.ran_clean = false; self.runs_since_write = 0; self.total_writes = 0; self.noop_writes = 0; self.completion_checks = 0; self.identical_writes = 0; self.length_cutoffs = 0; self.unreadable_calls = 0; self.still_missing.clear();
+        self.scaffolded = false; self.edited_after_scaffold = false; self.nudged = false; self.writes_since_run = 0; self.nudged_writes = false; self.last_write.clear(); self.same_file_streak = 0; self.last_run.clear(); self.same_run_streak = 0; self.last_failure.clear(); self.failure_streak = 0; self.ran_clean = false; self.runs_since_write = 0; self.total_writes = 0; self.noop_writes = 0; self.completion_checks = 0; self.identical_writes = 0; self.length_cutoffs = 0; self.unreadable_calls = 0; self.still_missing.clear(); self.runs_since_change.clear(); self.nudged_options = false;
+        self.changing = self.active_project.is_some() || !existing_files(&self.project).is_empty();
         self.last_run_failure = std::env::var("GENESIS_TEST_LAST_RUN_FAILURE").ok().filter(|_| cfg!(test)).unwrap_or_default();
         let compact = compact_model(&self.client.model);
         let chat = self.kind == "chat";
@@ -696,12 +746,33 @@ impl Agent {
                 self.messages.push(Message::user("You scaffolded the template but did not change any file. The template is only a starting point: now implement what was asked (edit the generated files so the program actually does it), run it once to check, and only then finish.".to_string()));
                 continue;
             }
+            // A change asked for an option, and the program was never run with it: the Kelvin follow-up was
+            // tested with the template's own test, which passed, and called done -- the program was wrong,
+            // and nothing that ends a job could see it (decision 239). Run what was asked, once.
+            let asked = if calls.is_empty() && !chat && self.total_writes > 0 { asked_options(&self.last_prompt) } else { Vec::new() };
+            let untried = untried_options(&asked, &self.runs_since_change);
+            // ...and a change to a program that ran before is also run the way it ran before: adding
+            // --kelvin broke the plain Celsius run, and only --kelvin was tried (decision 239)
+            let old_way = !asked.is_empty() && self.changing && !ran_without(&asked, &self.runs_since_change);
+            if (!untried.is_empty() || old_way) && !self.nudged_options {
+                self.nudged_options = true;
+                let opts = asked.join(", ");
+                let mut ways = Vec::new();
+                if !untried.is_empty() { ways.push(format!("with {} and an example value", untried.join(", "))); }
+                if old_way { ways.push(format!("once the way it worked before this change, without {}", opts)); }
+                self.shared.push(Event::Assistant { text: format!("The program has not been run {} since the last change. Trying it before calling this finished.", ways.join(", and ")) });
+                self.messages.push(Message::user(format!("Before this is finished: since your last change the program has not been run {} -- the tests that were already there do not try it. Run it through shell that way, check that each output is right, fix the code if it is not, and then reply with the summary.", ways.join(", and "))));
+                continue;
+            }
             if calls.is_empty() && !chat {
                 let missing = self.missing_parts(&tools);
                 if !missing.is_empty() {
                     self.not_finished_yet(&missing);
                     continue;
                 }
+                // still never run the way it was asked: not finished, for the bigger model to take on
+                if !untried.is_empty() { self.still_missing.push(format!("never run with {}", untried.join(", "))); }
+                if old_way { self.still_missing.push("never run the way it worked before the change".to_string()); }
             }
             if calls.is_empty() {
                 let _ = self.commit();
@@ -726,6 +797,8 @@ impl Agent {
                 self.shared.push(Event::ToolCall { id: call.id.clone(), name: call.function.name.clone(), args: args.clone() });
                 let is_write = matches!(call.function.name.as_str(), "write_file" | "edit_file");
                 let is_run = matches!(call.function.name.as_str(), "preview_start" | "shell");
+                // a run of the program, not a look at a file: only this says anything about whether it works
+                let runs_program = is_run && !(call.function.name == "shell" && only_looks(args.get("command").and_then(|c| c.as_str()).unwrap_or("")));
                 if is_write {
                     self.writes_since_run += 1;
                     let path = args.get("path").and_then(|p| p.as_str()).unwrap_or("").to_string();
@@ -795,6 +868,10 @@ impl Agent {
                 } else if is_write {
                     self.runs_since_write = 0;  // something changed, so running again can say something new
                     self.total_writes += 1;
+                    self.runs_since_change.clear();
+                }
+                if call.function.name == "shell" && ok {
+                    self.runs_since_change.push(args.get("command").and_then(|c| c.as_str()).unwrap_or("").to_string());
                 }
                 // …but a call that keeps failing the same way is its own kind of stuck
                 let failure = if ok && !text.starts_with("not written") { String::new() } else { format!("{} {}", call.function.name, text.chars().take(80).collect::<String>()) };
@@ -821,7 +898,7 @@ impl Agent {
                 if !chat && is_run && self.runs_since_write >= 4 {
                     self.shared.push(Event::ToolResult { id: call.id.clone(), ok, summary: text.chars().take(200).collect() });
                     // this run counts too: ran_clean is only set further down, after the guards
-                    if self.ran_clean || (ok && run_was_clean(&text)) {
+                    if self.ran_clean || (ok && runs_program && run_was_clean(&text)) {
                         let url = self.shared.info.lock().unwrap().preview_url.clone();
                         let done = format!("It is made and it runs without errors{}. Tell me what to change, or press Install to put it in your app menu.", url.map(|u| format!(" (preview: {})", u)).unwrap_or_default());
                         self.shared.push(Event::Assistant { text: done.clone() });
@@ -906,7 +983,7 @@ impl Agent {
                     return Err(anyhow!(msg));
                 }
                 // the same run a third time in a row, clean, after changes: the thing is made; Genesis ends the job
-                if !chat && is_run && ok && self.same_run_streak >= 3 && self.edited_after_scaffold && !["Traceback", "Error", "error:", "ERROR", "FAILED", "exit=1", "exit=2", "SyntaxError"].iter().any(|k| text.contains(k)) {
+                if !chat && runs_program && ok && self.same_run_streak >= 3 && self.edited_after_scaffold && !["Traceback", "Error", "error:", "ERROR", "FAILED", "exit=1", "exit=2", "SyntaxError"].iter().any(|k| text.contains(k)) {
                     self.shared.push(Event::ToolResult { id: call.id.clone(), ok, summary: text.chars().take(200).collect() });
                     let url = self.shared.info.lock().unwrap().preview_url.clone();
                     let done = format!("It is made and it runs without errors{}. Tell me what to change, or press Install to put it in your app menu.", url.map(|u| format!(" (preview: {})", u)).unwrap_or_default());
@@ -938,7 +1015,7 @@ impl Agent {
                         self.last_run_failure = tail[tail.len().saturating_sub(3)..].join("\n").chars().take(400).collect();
                     }
                 }
-                if !chat && is_run && ok && self.edited_after_scaffold && run_was_clean(&text) {
+                if !chat && runs_program && ok && self.edited_after_scaffold && run_was_clean(&text) {
                     self.ran_clean = true;
                     text.push_str("\n[It ran without an error. If it does what the user asked, stop changing files and reply with the summary now.]");
                 }
@@ -1443,5 +1520,41 @@ mod file_name_tests {
     fn a_file_name_is_not_a_missing_part() {
         for f in ["index.html", "`style.css`", "app.js", "genesis.json"] { assert!(super::is_file_name(f), "{}", f); }
         for p in ["the about page", "a dark mode button", "three pages", "Celsius field"] { assert!(!super::is_file_name(p), "{}", p); }
+    }
+}
+
+#[cfg(test)]
+mod asked_option_tests {
+    use super::{asked_options, ran_without, untried_options};
+
+    #[test]
+    fn looking_at_a_file_is_not_running_the_program() {
+        for c in ["cat -A /p/spending.csv", "cd /p && cat -n report.py", "ls -la", "grep -n food report.py | head", "/usr/bin/head x.csv"] { assert!(super::only_looks(c), "{}", c); }
+        for c in ["python3 report.py spending.csv", "cd /p && python3 report.py x.csv", "cat x.csv | python3 report.py", "./run.sh", "cargo run"] { assert!(!super::only_looks(c), "{}", c); }
+    }
+
+    #[test]
+    fn the_old_way_is_a_run_of_the_program_without_the_new_option() {
+        let asked = vec!["--kelvin".to_string()];
+        assert!(!ran_without(&asked, &["python3 t.py --kelvin 273.15".into(), "python3 -m pytest -q".into(), "ls".into()]));
+        assert!(!ran_without(&asked, &["python3 t.py --help".into()]));
+        assert!(ran_without(&asked, &["cd /p && python3 t.py 100".into()]));
+    }
+
+    #[test]
+    fn the_options_a_request_names_are_found() {
+        assert_eq!(asked_options("Change it so it can also take a temperature in Kelvin, with a --kelvin option."), vec!["--kelvin"]);
+        assert_eq!(asked_options("add `--verbose` and --out=FILE, like --Verbose"), vec!["--verbose", "--out"]);
+        assert!(asked_options("a to-do list -- simple, with a dark mode").is_empty(), "a dash in a sentence is not an option");
+        assert!(asked_options("a word counter").is_empty());
+    }
+
+    #[test]
+    fn an_option_counts_as_tried_only_when_a_command_used_it() {
+        let asked = vec!["--kelvin".to_string()];
+        assert_eq!(untried_options(&asked, &["python3 -m pytest -q".into()]), asked, "the tests that were there do not try it");
+        assert!(untried_options(&asked, &["python3 change.py --kelvin 273.15".into()]).is_empty());
+        assert!(untried_options(&asked, &["python3 change.py --kelvin=0".into()]).is_empty());
+        assert_eq!(untried_options(&asked, &["python3 change.py --kelvins 3".into()]), asked);
     }
 }
