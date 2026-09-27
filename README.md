@@ -262,7 +262,9 @@ How Genesis got here, in the order it happened. The decision log has the detail 
   file, add a command to an existing tool, a dark mode for an existing page, a follow-up in the same
   conversation, a backend with its page — is where the tiny pack's 2B stands at 2 to 3 of 5, and the CPU
   pack's 4B and 9B at 5 of 5; a **second harder set** (a change across files, failing tests, a crash from its
-  traceback, a rename, a follow-up that changes the first) has the 4B at 3 to 4 of 5 and the 9B at 3 to 5;
+  traceback, a rename, a follow-up that changes the first) has the 4B at 3 to 4 of 5 and the 9B at 3 to 5, and
+  4 of 5 twice with the 9B standing by to finish what the 4B could not (it was never needed: the one miss
+  was a make the 4B believed was finished);
   and **seven chat
   questions** a program can check (a document, this machine, an error explained, saying so when there is
   nothing to find) at 5 to 6 of 7 on the tiny pack and 7 of 7 on the CPU pack's 4B. The ten makes are split over five
