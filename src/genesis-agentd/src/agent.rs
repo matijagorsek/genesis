@@ -123,14 +123,27 @@ pub fn ran_without(asked: &[String], runs: &[String]) -> bool {
 /// (`python3 -c "import csv; ..."`) is a look too: the 4B tried the CSV that way between runs of the
 /// crashing report, each exited cleanly, and each one counted as the program working.
 pub fn only_looks(cmd: &str) -> bool {
-    let last = cmd.rsplit(|c| c == ';' || c == '&').map(str::trim).find(|p| !p.is_empty()).unwrap_or("");
-    // before the split below: a snippet's own `;` is not the end of a command
+    // a snippet's own `;` is not the end of a command, nor is find's `-exec ... \;`: the chain is split
+    // on && only, and a command is judged by the word it starts with
     let squeezed = cmd.split_whitespace().collect::<Vec<_>>().join(" ");
-    if ["python3 -c ", "python -c ", "node -e "].iter().any(|k| squeezed.starts_with(k) || squeezed.contains(&format!("&& {}", k)) || squeezed.contains(&format!("; {}", k))) { return true; }
+    if ["python3 -c ", "python -c ", "node -e ", "python3 - <<", "python3 -<<"].iter().any(|k| squeezed.starts_with(k) || squeezed.contains(&format!("&& {}", k)) || squeezed.contains(&format!("; {}", k))) { return true; }
+    let segs: Vec<&str> = squeezed.split("&&").map(str::trim).filter(|p| !p.is_empty() && *p != "cd" && !p.starts_with("cd ")).collect();
+    let last = segs.last().copied().unwrap_or("");
     last.split('|').all(|part| {
         let first = part.split_whitespace().next().unwrap_or("");
-        matches!(first.rsplit('/').next().unwrap_or(""), "cat" | "ls" | "grep" | "head" | "tail" | "wc" | "echo" | "file" | "find" | "less" | "more" | "sed" | "stat" | "diff" | "tree" | "pwd" | "od" | "hexdump" | "xxd" | "nl")
+        matches!(first.rsplit('/').next().unwrap_or(""), "cat" | "ls" | "grep" | "head" | "tail" | "wc" | "echo" | "file" | "find" | "less" | "more" | "sed" | "awk" | "sort" | "stat" | "diff" | "tree" | "pwd" | "od" | "hexdump" | "xxd" | "nl" | "printf" | "which" | "type" | "env" | "du" | "realpath" | "readlink" | "true" | "")
     })
+}
+
+/// A shell command that runs the program the model is making: it names a script or a binary of the
+/// project, or a runner -- and it is not a look. Named, not guessed: what is not on the list of looks
+/// was taken for the program, and a `find -exec` that exited cleanly ended a crashing make as made.
+pub fn runs_the_program(cmd: &str) -> bool {
+    if only_looks(cmd) { return false; }
+    let l = cmd.to_ascii_lowercase();
+    l.split_whitespace().map(|w| w.trim_matches(|c: char| c == '"' || c == '\'' || c == '(' || c == ')'))
+        .any(|w| [".py", ".js", ".mjs", ".cjs", ".ts", ".sh", ".rb", ".pl"].iter().any(|e| w.ends_with(e)) || w.starts_with("./"))
+        || ["cargo run", "cargo test", "npm ", "npx ", "pytest", "unittest", "go run", "go test", "make ", "flask run", "uvicorn", "genesis-toolbox"].iter().any(|k| l.contains(k))
 }
 
 /// The line a failed run's error is in, `KeyError: 'food'`: what stays the same while a model edits
@@ -813,7 +826,7 @@ impl Agent {
                 let is_write = matches!(call.function.name.as_str(), "write_file" | "edit_file");
                 let is_run = matches!(call.function.name.as_str(), "preview_start" | "shell");
                 // a run of the program, not a look at a file: only this says anything about whether it works
-                let runs_program = is_run && !(call.function.name == "shell" && only_looks(args.get("command").and_then(|c| c.as_str()).unwrap_or("")));
+                let runs_program = call.function.name == "preview_start" || (call.function.name == "shell" && runs_the_program(args.get("command").and_then(|c| c.as_str()).unwrap_or("")));
                 if is_write {
                     self.writes_since_run += 1;
                     let path = args.get("path").and_then(|p| p.as_str()).unwrap_or("").to_string();
@@ -1577,7 +1590,13 @@ mod asked_option_tests {
     #[test]
     fn looking_at_a_file_is_not_running_the_program() {
         for c in ["cat -A /p/spending.csv", "cd /p && cat -n report.py", "ls -la", "grep -n food report.py | head", "/usr/bin/head x.csv", "python3 -c \"import csv; print(list(csv.reader(open('x.csv'))))\"", "cd /p && node -e 'console.log(1)'"] { assert!(super::only_looks(c), "{}", c); }
-        for c in ["python3 report.py spending.csv", "cd /p && python3 report.py x.csv", "cat x.csv | python3 report.py", "./run.sh", "cargo run"] { assert!(!super::only_looks(c), "{}", c); }
+        for c in ["python3 report.py spending.csv", "cd /p && python3 report.py x.csv", "cat x.csv | python3 report.py", "./run.sh", "cargo run"] { assert!(!super::only_looks(c), "{}", c); assert!(super::runs_the_program(c), "{}", c); }
+        // the 9B's look that ended a crashing make as made
+        let find = "find /p -name '*.csv' -exec sh -c 'echo === {} ===; cat {}' \\;";
+        assert!(super::only_looks(find) && !super::runs_the_program(find));
+        for c in ["python3 - <<'EOF'\nimport csv\nEOF", "awk -F, '{print $1}' x.csv", "env", "cd /p && python3 -m pytest -q"] {
+            assert_eq!(super::runs_the_program(c), c.contains("pytest"), "{}", c);
+        }
     }
 
     #[test]
