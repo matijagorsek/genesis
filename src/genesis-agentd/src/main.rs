@@ -952,6 +952,25 @@ mod tests {
     }
 
     #[test]
+    fn a_clean_run_long_ago_does_not_make_a_crashing_program_made() {
+        // the traceback fix: a debug version ran clean, later edits brought the crash back, and twelve edits
+        // in the job ended "it runs without errors" on the strength of that old run
+        let proj = tempfile::tempdir().unwrap();
+        let mut script = vec![
+            tool_call("write_file", serde_json::json!({"path": "report.py", "content": "print('debug')\n"})),
+            tool_call("shell", serde_json::json!({"command": "python3 report.py"})),
+        ];
+        for i in 0..20 {
+            script.push(tool_call("write_file", serde_json::json!({"path": "report.py", "content": format!("# try {}\nraise KeyError('food')\n", i)})));
+            script.push(tool_call("shell", serde_json::json!({"command": "python3 report.py"})));
+        }
+        let (mut agent, _) = setup(proj.path(), Mode::AutoEdit, fake_llm(script));
+        let e = agent.run("Running python3 report.py fails with KeyError: 'food'. Fix it.").expect_err("its last run crashed");
+        assert!(e.to_string().contains("five changes in a row") && e.to_string().contains("KeyError: 'food'"), "{}", e);
+        assert!(!agent.ran_clean);
+    }
+
+    #[test]
     fn a_change_never_run_with_its_option_is_not_finished() {
         // told once and still not run with it: finished as the model says, and left for the bigger model
         let proj = tempfile::tempdir().unwrap();

@@ -128,6 +128,12 @@ pub fn only_looks(cmd: &str) -> bool {
     })
 }
 
+/// The line a failed run's error is in, `KeyError: 'food'`: what stays the same while a model edits
+/// around a bug it has misread, however much debug output changes above it.
+pub fn error_line(text: &str) -> Option<String> {
+    text.lines().map(str::trim).filter(|l| !l.starts_with('[') && (l.contains("Error") || l.contains("Exception") || l.starts_with("error"))).last().map(|l| l.chars().take(160).collect())
+}
+
 fn run_was_clean(text: &str) -> bool {
     !["Traceback", "Error", "error:", "FAILED", "exit=1", "exit=2"].iter().any(|k| text.contains(k))
 }
@@ -448,6 +454,10 @@ pub struct Agent {
     pub nudged_options: bool,
     /// this job changes a program that was there before it (a follow-up, or a folder that held one)
     pub changing: bool,
+    /// the error the program's last failing run ended with, and how many runs in a row, each after a
+    /// change, ended with that same one
+    pub last_error: String,
+    pub same_error_runs: usize,
     /// Project directory the maker tools currently target (set by scaffold).
     pub active_project: Option<PathBuf>,
     /// "make" (the maker, default) or "chat" (the assistant: chat prompt, read-only tools, the user's MCP tools).
@@ -518,7 +528,7 @@ fn edit_ignoring_whitespace(text: &str, old: &str, new: &str) -> Option<String> 
 
 impl Agent {
     pub fn new(client: Client, broker: Arc<Mutex<Broker>>, session_id: String, project: PathBuf, shared: Arc<Shared>) -> Self {
-        Agent { client, broker, session_id, project, shared, max_turns: 40, prompt_timeout: Duration::from_secs(600), messages: vec![Message::system(SYSTEM_PROMPT)], tx_store: None, tx: None, previews: maker::Previews::default(), active_project: None, browser: None, last_prompt: String::new(), scaffolded: false, edited_after_scaffold: false, nudged: false, writes_since_run: 0, nudged_writes: false, last_write: String::new(), last_run: String::new(), same_run_streak: 0, last_failure: String::new(), failure_streak: 0, ran_clean: false, same_file_streak: 0, runs_since_write: 0, total_writes: 0, noop_writes: 0, completion_checks: 0, last_run_failure: String::new(), identical_writes: 0, length_cutoffs: 0, unreadable_calls: 0, warmed: false, still_missing: Vec::new(), runs_since_change: Vec::new(), nudged_options: false, changing: false, kind: "make".into() }
+        Agent { client, broker, session_id, project, shared, max_turns: 40, prompt_timeout: Duration::from_secs(600), messages: vec![Message::system(SYSTEM_PROMPT)], tx_store: None, tx: None, previews: maker::Previews::default(), active_project: None, browser: None, last_prompt: String::new(), scaffolded: false, edited_after_scaffold: false, nudged: false, writes_since_run: 0, nudged_writes: false, last_write: String::new(), last_run: String::new(), same_run_streak: 0, last_failure: String::new(), failure_streak: 0, ran_clean: false, same_file_streak: 0, runs_since_write: 0, total_writes: 0, noop_writes: 0, completion_checks: 0, last_run_failure: String::new(), identical_writes: 0, length_cutoffs: 0, unreadable_calls: 0, warmed: false, still_missing: Vec::new(), runs_since_change: Vec::new(), nudged_options: false, changing: false, last_error: String::new(), same_error_runs: 0, kind: "make".into() }
     }
 
     /// The plan card: what the job will touch and the steps, before anything runs. One short model call
@@ -655,7 +665,7 @@ impl Agent {
         self.shared.push(Event::UserPrompt { text: text.into() });
         self.shared.set_state("running");
         self.last_prompt = text.to_string();
-        self.scaffolded = false; self.edited_after_scaffold = false; self.nudged = false; self.writes_since_run = 0; self.nudged_writes = false; self.last_write.clear(); self.same_file_streak = 0; self.last_run.clear(); self.same_run_streak = 0; self.last_failure.clear(); self.failure_streak = 0; self.ran_clean = false; self.runs_since_write = 0; self.total_writes = 0; self.noop_writes = 0; self.completion_checks = 0; self.identical_writes = 0; self.length_cutoffs = 0; self.unreadable_calls = 0; self.still_missing.clear(); self.runs_since_change.clear(); self.nudged_options = false;
+        self.scaffolded = false; self.edited_after_scaffold = false; self.nudged = false; self.writes_since_run = 0; self.nudged_writes = false; self.last_write.clear(); self.same_file_streak = 0; self.last_run.clear(); self.same_run_streak = 0; self.last_failure.clear(); self.failure_streak = 0; self.ran_clean = false; self.runs_since_write = 0; self.total_writes = 0; self.noop_writes = 0; self.completion_checks = 0; self.identical_writes = 0; self.length_cutoffs = 0; self.unreadable_calls = 0; self.still_missing.clear(); self.runs_since_change.clear(); self.nudged_options = false; self.last_error.clear(); self.same_error_runs = 0;
         self.changing = self.active_project.is_some() || !existing_files(&self.project).is_empty();
         self.last_run_failure = std::env::var("GENESIS_TEST_LAST_RUN_FAILURE").ok().filter(|_| cfg!(test)).unwrap_or_default();
         let compact = compact_model(&self.client.model);
@@ -824,6 +834,7 @@ impl Agent {
                     self.runs_since_write += 1;
                     let out = match ran { Ok(t) => t, Err(e) => format!("ERROR: {}", e) };
                     if run_was_clean(&out) { self.last_run_failure.clear(); } else {
+                        if missing_input_file(&out).is_none() && !needs_input(&out) { self.ran_clean = false; }
                         let tail: Vec<&str> = out.lines().map(|l| l.trim_end()).filter(|l| !l.trim().is_empty()).collect();
                         self.last_run_failure = tail[tail.len().saturating_sub(3)..].join("\n").chars().take(400).collect();
                     }
@@ -1015,6 +1026,28 @@ impl Agent {
                         self.last_run_failure = tail[tail.len().saturating_sub(3)..].join("\n").chars().take(400).collect();
                     }
                 }
+                // A clean run is about the program as it was then. The traceback fix ran clean once (a debug
+                // version), was then edited back into the crash, and ended "made" twelve edits later on the
+                // strength of that old run, twice. A run of the program that fails now takes it back -- not one
+                // that only lacked its input, which says nothing about the code.
+                if !chat && runs_program && !(ok && run_was_clean(&text)) && missing_input_file(&text).is_none() && !needs_input(&text) {
+                    self.ran_clean = false;
+                    // The same error after change upon change: the 4B read the traceback fix's KeyError as a
+                    // problem with the CSV file and added debug prints for forty minutes, twice. Five changes
+                    // that all end in the same error is a misreading, not progress -- stop and say so, which on
+                    // a machine without a graphics chip hands it to the bigger model with time left to fix it.
+                    if let Some(err) = error_line(&text) {
+                        if err == self.last_error { if self.runs_since_write == 1 { self.same_error_runs += 1; } }
+                        else { self.last_error = err; self.same_error_runs = 1; }
+                    }
+                    if self.same_error_runs >= 5 {
+                        self.shared.push(Event::ToolResult { id: call.id.clone(), ok, summary: text.chars().take(200).collect() });
+                        let msg = format!("Genesis stopped this job: five changes in a row and the program still ends with the same error, {}. What was made is kept, and Undo takes it back.", self.last_error);
+                        self.shared.push(Event::Error { text: msg.clone() });
+                        self.shared.set_state("error");
+                        return Err(anyhow!(msg));
+                    }
+                } else if runs_program && ok && run_was_clean(&text) { self.last_error.clear(); self.same_error_runs = 0; }
                 if !chat && runs_program && ok && self.edited_after_scaffold && run_was_clean(&text) {
                     self.ran_clean = true;
                     text.push_str("\n[It ran without an error. If it does what the user asked, stop changing files and reply with the summary now.]");
@@ -1526,6 +1559,15 @@ mod file_name_tests {
 #[cfg(test)]
 mod asked_option_tests {
     use super::{asked_options, ran_without, untried_options};
+
+    #[test]
+    fn the_error_line_is_the_same_whatever_is_printed_above_it() {
+        let a = "exit=1 stdout: DEBUG: row 0\nstderr: Traceback (most recent call last):\n  File \"report.py\", line 7\nKeyError: 'food'\n[It failed]";
+        let b = "exit=1 stderr: Traceback (most recent call last):\n  File \"report.py\", line 16\nKeyError: 'food'";
+        assert_eq!(super::error_line(a), Some("KeyError: 'food'".to_string()));
+        assert_eq!(super::error_line(a), super::error_line(b));
+        assert_eq!(super::error_line("exit=0 stdout: food: 19.75"), None);
+    }
 
     #[test]
     fn looking_at_a_file_is_not_running_the_program() {
