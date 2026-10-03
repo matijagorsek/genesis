@@ -1120,9 +1120,8 @@ impl Agent {
                     Some((cmd, trusted)) if !trusted => { i.command = Some(cmd); i.writes = vec![project.display().to_string()]; }
                     Some((cmd, _)) => {
                         i.command = Some(format!("preview_start {}", project.display()));
-                        // a toolbox that does not exist yet is created from a container image: that is network use
-                        let home = std::env::var("HOME").unwrap_or_default();
-                        if cmd.starts_with("genesis-toolbox") && !std::path::Path::new(&format!("{}/.local/share/containers/storage/overlay-containers", home)).exists() {
+                        // a toolbox whose image is not built yet downloads it: that is network use
+                        if cmd.starts_with("genesis-toolbox") && !crate::sandbox::toolbox_image_ready(&cmd) {
                             i.network.domains = vec!["quay.io".into()];
                         }
                     }

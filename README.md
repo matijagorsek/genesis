@@ -404,7 +404,9 @@ own maker, palette and `ask` stay local.
   on a network you do not control.
 - **What the model writes runs in the sandbox.** Its shell commands and the programs it makes run in
   bubblewrap: the project is writable, nothing else of your home folder is visible, none of your session's
-  environment goes in; without bubblewrap they do not run at all. The phone service listens only once a
+  environment goes in; without bubblewrap they do not run at all. A Node or Rust project runs in its
+  toolbox's own container, which sees the project and nothing else, and a desktop window gets the display
+  and its own data folder, not your account. The phone service listens only once a
   phone has paired, and the Ollama-compatible door starts on its first connection.
 - **A closed front door.** The local daemons answer only their own pages and local helpers: same-origin
   checks plus a per-boot token, so a web page open in the browser cannot drive the maker; request

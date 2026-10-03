@@ -1,16 +1,53 @@
 #!/usr/bin/env bash
-# Toolchains without touching the OS: a distrobox per language, created on first use.
+# Toolchains without touching the OS: a container image per language, built on first use.
 #   genesis-toolbox node -- node server.js      genesis-toolbox rust -- cargo run
-# Boxes: node (nodejs, npm), rust (cargo, rustc, gcc). Your home is shared with the box, so projects
-# just work; nothing is installed into the Genesis image itself.
+#   genesis-toolbox stop DIR                    (stop what was started for the project in DIR)
+# Boxes: node (nodejs, npm), rust (cargo, rustc, gcc). Nothing is installed into the Genesis image itself.
+#
+# Two ways in. For a person at a terminal it is a distrobox: the home folder is shared, so their projects
+# just work. For what the maker runs -- a command or a preview the model wrote -- Genesis sets
+# GENESIS_TOOLBOX_PROJECT, and the command runs in a plain container that sees that project and nothing
+# else: no home folder, none of the session's environment, no capabilities, a read-only system, a ceiling on
+# memory. The distrobox shared the whole home with a program a model wrote (decision 242).
 set -euo pipefail
+
+box_name() { echo "genesis-run-$(printf %s "$1" | sha256sum | cut -c1-12)"; }
+
+if [ "${1:-}" = stop ]; then
+  [ -n "${2:-}" ] && podman rm -f -t 0 "$(box_name "$2")" >/dev/null 2>&1 || true
+  exit 0
+fi
+
 kind="${1:-}"; shift || true
 [ "${1:-}" = "--" ] && shift
 case "$kind" in
   node) name=genesis-node; pkgs="nodejs npm" ;;
   rust) name=genesis-rust; pkgs="cargo rust gcc" ;;
-  *) echo "usage: genesis-toolbox node|rust -- command…"; exit 2 ;;
+  *) echo "usage: genesis-toolbox node|rust -- command…  |  genesis-toolbox stop DIR"; exit 2 ;;
 esac
+
+project="${GENESIS_TOOLBOX_PROJECT:-}"
+if [ -n "$project" ]; then
+  image="localhost/$name:44"
+  if ! podman image exists "$image"; then
+    echo "[genesis] first use: building the $kind toolbox (downloads Fedora + $pkgs, a few minutes)…" >&2
+    printf 'FROM quay.io/fedora/fedora:44\nRUN dnf -y install --setopt=install_weak_deps=False %s && dnf clean all\n' "$pkgs" \
+      | podman build -q -t "$image" -f - >&2
+  fi
+  workdir="$project"
+  case "$PWD/" in "$project"/*) workdir="$PWD" ;; esac
+  net=host
+  [ "${GENESIS_TOOLBOX_NETWORK:-1}" = 0 ] && net=none
+  # host networking: a preview serves its page on localhost, where the person's browser can reach it
+  exec podman run --rm -i --init --replace --name "$(box_name "$project")" \
+    --network "$net" --userns keep-id --security-opt label=disable \
+    --cap-drop ALL --security-opt no-new-privileges --read-only --tmpfs /tmp:exec \
+    --memory "${GENESIS_TOOLBOX_MEMORY:-2g}" --pids-limit 512 \
+    -v "$project:$project" -w "$workdir" \
+    -e HOME=/tmp -e CARGO_HOME=/tmp/.cargo -e npm_config_cache=/tmp/.npm -e GENESIS_SANDBOX=1 \
+    "$image" "$@"
+fi
+
 if ! distrobox list 2>/dev/null | grep -q " $name "; then
   echo "[genesis] first use: creating the $kind toolbox (downloads Fedora + $pkgs, a few minutes)…" >&2
   distrobox create --yes --name "$name" --image quay.io/fedora/fedora:44 --additional-packages "$pkgs" >&2

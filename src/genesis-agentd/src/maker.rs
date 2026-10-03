@@ -148,6 +148,8 @@ pub struct Preview {
     pub child: Child,
     pub url: Option<String>,
     pub cmd: String,
+    /// the project it runs for: a toolbox preview's container is named after it
+    pub project: Option<PathBuf>,
 }
 
 /// Running previews, keyed by project path.
@@ -172,16 +174,20 @@ impl Previews {
         let port = if t.dev.port > 0 { free_port(t.dev.port) } else { 0 };
         let cmd = t.dev.cmd.replace("{port}", &port.to_string()).replace("{name}", &name);
         let log = std::fs::File::create(project.join(".genesis-preview.log"))?;
-        // The program the model wrote runs in the same sandbox as its shell commands: it may write its own
-        // project and nothing else, sees none of the home folder, and carries none of the session's
-        // environment. It used to run with none of that -- the shell was sandboxed and the thing it built
-        // was not (decision 237). The network is shared, because a preview serves the page on localhost.
-        // Not yet for a toolbox command (Node, Rust: containers of their own) or a desktop window (it
-        // needs the display the sandbox hides).
-        let sandboxed = crate::sandbox::bwrap_available() && !cmd.starts_with("genesis-toolbox") && !t.id.contains("gtk");
-        let mut command = if sandboxed {
+        // The program the model wrote runs sandboxed, like its shell commands: it may write its own project
+        // and nothing else, sees none of the home folder, and carries none of the session's environment
+        // (decisions 237, 242). The network is shared, because a preview serves the page on localhost. A
+        // toolbox command (Node, Rust) runs in the toolbox's container, which sees the project and nothing
+        // else; a program with no port -- a desktop window -- is given the display and its own data folder.
+        let toolbox = cmd.starts_with("genesis-toolbox");
+        let mut command = if toolbox {
+            let mut c = crate::sandbox::memory_capped("/bin/sh");
+            crate::sandbox::toolbox_sandboxed(&mut c, project, true);
+            c
+        } else if crate::sandbox::bwrap_available() {
             let mut c = crate::sandbox::memory_capped("bwrap");
             c.args(crate::sandbox::bwrap_args(project, true));
+            if port == 0 { c.args(crate::sandbox::bwrap_display_args(project)); }
             c.arg("/bin/sh");
             c
         } else {
@@ -193,7 +199,7 @@ impl Previews {
         let url = if port > 0 { Some(format!("http://127.0.0.1:{}/", port)) } else { None };
         // give servers a moment; if the process already died, report the log
         std::thread::sleep(std::time::Duration::from_millis(900));
-        let mut p = Preview { child, url: url.clone(), cmd: cmd.clone() };
+        let mut p = Preview { child, url: url.clone(), cmd: cmd.clone(), project: Some(project.to_path_buf()) };
         if let Some(status) = p.child.try_wait()? {
             let out = std::fs::read_to_string(project.join(".genesis-preview.log")).unwrap_or_default();
             if port > 0 {
@@ -210,8 +216,7 @@ impl Previews {
         let key = project.display().to_string();
         match self.running.remove(&key) {
             Some(mut p) => {
-                let _ = p.child.kill();
-                let _ = p.child.wait();
+                kill_preview(&mut p);
                 Ok("preview stopped".into())
             }
             None => Ok("no preview was running".into()),
@@ -243,6 +248,10 @@ fn kill_preview(p: &mut Preview) {
     }
     let _ = p.child.kill();
     let _ = p.child.wait();
+    // a toolbox preview is a container: killing the client that started it does not stop it
+    if p.cmd.starts_with("genesis-toolbox") {
+        if let Some(dir) = &p.project { let _ = std::process::Command::new("genesis-toolbox").args(["stop", &dir.display().to_string()]).status(); }
+    }
 }
 
 fn free_port(preferred: u16) -> u16 {
@@ -698,4 +707,58 @@ pub fn set_shortcut(project: &Path, key: &str) -> Result<String> {
     let _ = std::process::Command::new("kquitapp6").arg("kglobalacceld").status();
     let _ = std::process::Command::new("systemctl").args(["--user", "restart", "plasma-kglobalacceld.service"]).status();
     Ok(format!("{} opens it now", combo))
+}
+
+/// What the sandbox does to a real window and a real toolbox preview, on a Linux machine that has them.
+/// Run by hand (or in CI's Fedora container) with GENESIS_TEST_DISPLAY=1 / GENESIS_TEST_TOOLBOX=1:
+/// they need a Wayland compositor, bubblewrap and podman, which a unit test cannot assume.
+#[cfg(all(test, target_os = "linux"))]
+mod sandboxed_preview_tests {
+    use super::*;
+
+    #[test]
+    #[ignore]
+    fn a_window_opens_in_the_sandbox_and_keeps_its_data() {
+        if std::env::var("GENESIS_TEST_DISPLAY").is_err() { return; }
+        let root = tempfile::tempdir().unwrap();
+        let dest = root.path().join("sandbox-demo");
+        scaffold("gtk-app", "sandbox-demo", &dest).unwrap();
+        // the window adds one item on start and writes it, then stays open
+        let app = std::fs::read_to_string(dest.join("app.py")).unwrap();
+        std::fs::write(dest.join("app.py"), app.replace("def load():", "def load():\n    try:\n        open(os.path.expanduser('~/escaped.txt'), 'w').write('x')\n    except OSError:\n        pass\n    save(['from the sandbox'])\n    return ['from the sandbox']\n\ndef _unused():")).unwrap();
+        let mut previews = Previews::default();
+        let out = previews.start(&dest).unwrap();
+        std::thread::sleep(std::time::Duration::from_secs(4));
+        let log = std::fs::read_to_string(dest.join(".genesis-preview.log")).unwrap_or_default();
+        let running = previews.running.get_mut(&dest.display().to_string()).map(|p| p.child.try_wait().unwrap().is_none()).unwrap_or(false);
+        assert!(running, "the window is still open: {} / {}", out, log);
+        let home = std::env::var("HOME").unwrap();
+        assert!(std::path::Path::new(&format!("{}/.local/share/sandbox-demo/items.json", home)).exists(), "its data is kept where the installed app finds it");
+        assert!(!std::path::Path::new(&format!("{}/escaped.txt", home)).exists(), "and nothing else of the home folder is writable");
+        previews.stop(&dest).unwrap();
+    }
+
+    #[test]
+    #[ignore]
+    fn a_toolbox_preview_sees_its_project_and_nothing_else() {
+        if std::env::var("GENESIS_TEST_TOOLBOX").is_err() { return; }
+        let root = tempfile::tempdir().unwrap();
+        let dest = root.path().join("toolbox-demo");
+        scaffold("node-web", "toolbox-demo", &dest).unwrap();
+        let home = std::env::var("HOME").unwrap();
+        std::fs::write(format!("{}/secret.txt", home), "do not read").unwrap();
+        std::fs::write(dest.join("peek.js"), format!("const fs=require('fs');let h='hidden';try{{fs.readFileSync('{}/secret.txt');h='READ'}}catch(e){{}}console.log('home:'+h+' env:'+(process.env.SECRET_TOKEN||'none'))\n", home)).unwrap();
+        std::env::set_var("SECRET_TOKEN", "abc");
+        let r = crate::sandbox::run_shell(&dest, "genesis-toolbox node -- node peek.js", false, std::time::Duration::from_secs(900), None).unwrap();
+        assert!(r.stdout.contains("home:hidden env:none"), "{} {}", r.stdout, r.stderr);
+        let mut previews = Previews::default();
+        let out = previews.start(&dest).unwrap();
+        std::thread::sleep(std::time::Duration::from_secs(5));
+        let url = previews.url(&dest).expect(&out);
+        let page = std::process::Command::new("curl").args(["-fsS", &url]).output().unwrap();
+        assert!(page.status.success(), "the page is served from the container: {}", String::from_utf8_lossy(&page.stderr));
+        previews.stop(&dest).unwrap();
+        let left = std::process::Command::new("podman").args(["ps", "-q", "--filter", "name=genesis-run-"]).output().unwrap();
+        assert!(String::from_utf8_lossy(&left.stdout).trim().is_empty(), "stopping the preview stops its container");
+    }
 }

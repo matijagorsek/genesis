@@ -75,6 +75,68 @@ pub fn bwrap_args(project: &Path, allow_network: bool) -> Vec<String> {
     a
 }
 
+/// What a window needs on top of the sandbox: the display, and nothing else of the session. The Wayland
+/// socket (and an X display where there is no Wayland), the GPU for drawing, the GTK settings so it follows
+/// the day/night look, and the one folder of the person's data it keeps its own things in,
+/// `~/.local/share/<project name>`, at its real path so the installed app finds the same. No session bus:
+/// GLib then runs the app as a plain non-unique one. A window ran with the whole account (decision 242).
+pub fn bwrap_display_args(project: &Path) -> Vec<String> {
+    let mut a: Vec<String> = Vec::new();
+    let home = std::env::var("HOME").unwrap_or_default();
+    let runtime = std::env::var("XDG_RUNTIME_DIR").unwrap_or_default();
+    let mut add = |xs: &[&str]| a.extend(xs.iter().map(|x| x.to_string()));
+    if !runtime.is_empty() {
+        let wayland = std::env::var("WAYLAND_DISPLAY").ok().filter(|w| !w.is_empty()).unwrap_or_else(|| "wayland-0".into());
+        let sock = if wayland.starts_with('/') { wayland.clone() } else { format!("{}/{}", runtime, wayland) };
+        if Path::new(&sock).exists() {
+            add(&["--ro-bind", &sock, &sock, "--setenv", "XDG_RUNTIME_DIR", &runtime, "--setenv", "WAYLAND_DISPLAY", &sock, "--setenv", "GDK_BACKEND", "wayland"]);
+        }
+    }
+    if let Ok(d) = std::env::var("DISPLAY") {
+        if !d.is_empty() && Path::new("/tmp/.X11-unix").exists() {
+            add(&["--ro-bind", "/tmp/.X11-unix", "/tmp/.X11-unix", "--setenv", "DISPLAY", &d]);
+            if let Ok(x) = std::env::var("XAUTHORITY") { if Path::new(&x).exists() { add(&["--ro-bind", &x, &x, "--setenv", "XAUTHORITY", &x]); } }
+        }
+    }
+    add(&["--dev-bind-try", "/dev/dri", "/dev/dri"]);
+    if !home.is_empty() {
+        for d in [".config/gtk-4.0", ".config/gtk-3.0", ".config/kdeglobals", ".local/share/fonts", ".fonts", ".icons"] {
+            let p = format!("{}/{}", home, d);
+            add(&["--ro-bind-try", &p, &p]);
+        }
+        let name = project.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+        if !name.is_empty() {
+            let data = format!("{}/.local/share/{}", home, name);
+            let _ = std::fs::create_dir_all(&data);
+            add(&["--bind", &data, &data]);
+        }
+        add(&["--setenv", "HOME", &home]);
+    }
+    a
+}
+
+/// A command that is just a toolbox call, `genesis-toolbox node -- npm test`: no chaining, no
+/// substitution, no redirection. Such a command runs in the toolbox's own container, which sees the
+/// project and nothing else; anything more than that goes into bubblewrap, where the toolbox cannot run.
+pub fn plain_toolbox_call(command: &str) -> bool {
+    let c = command.trim();
+    c.starts_with("genesis-toolbox ") && !c.chars().any(|ch| matches!(ch, ';' | '&' | '|' | '`' | '$' | '<' | '>' | '\n' | '(' | ')'))
+}
+
+/// The environment that makes genesis-toolbox run its command sandboxed: the project it may see, whether
+/// it may reach the network, and its ceiling on memory.
+pub fn toolbox_sandboxed(c: &mut Command, project: &Path, allow_network: bool) {
+    c.env("GENESIS_TOOLBOX_PROJECT", project);
+    c.env("GENESIS_TOOLBOX_NETWORK", if allow_network { "1" } else { "0" });
+    if let Some(max) = run_memory_max() { c.env("GENESIS_TOOLBOX_MEMORY", max.to_string()); }
+}
+
+/// Whether the toolbox's container image is already built: the first use downloads it.
+pub fn toolbox_image_ready(cmd: &str) -> bool {
+    let kind = cmd.split_whitespace().nth(1).unwrap_or("");
+    Command::new("podman").args(["image", "exists", &format!("localhost/genesis-{}:44", kind)]).status().map(|s| s.success()).unwrap_or(false)
+}
+
 /// A program the model made or runs, started in a scope of its own with a ceiling on its memory. Without
 /// one it ran inside the maker's own service, and when a made program ate the machine's memory the kernel
 /// killed processes in that service: the maker went down with it, and the next job found nothing there
@@ -104,7 +166,7 @@ fn user_systemd() -> bool {
 }
 
 pub fn run_shell(project: &Path, command: &str, allow_network: bool, timeout: Duration, stop: Option<&std::sync::atomic::AtomicBool>) -> Result<ShellResult> {
-    let sandboxed = bwrap_available();
+    let sandboxed = bwrap_available() || plain_toolbox_call(command);
     // On Linux the sandbox is required: without bubblewrap a command the model wrote ran with the person's
     // whole account, and the deny list in front of it is advice to a language model, not a wall. A
     // developer's Mac has no bubblewrap and keeps running unsandboxed; GENESIS_ALLOW_UNSANDBOXED=1 says so
@@ -112,7 +174,13 @@ pub fn run_shell(project: &Path, command: &str, allow_network: bool, timeout: Du
     if !sandboxed && cfg!(target_os = "linux") && !cfg!(test) && std::env::var("GENESIS_ALLOW_UNSANDBOXED").map(|v| v != "1").unwrap_or(true) {
         anyhow::bail!("not run: the sandbox (bubblewrap) is not on this machine, and Genesis does not run a command the model wrote without it. Reinstalling the image restores it.");
     }
-    let mut cmd = if sandboxed {
+    let mut cmd = if plain_toolbox_call(command) && cfg!(target_os = "linux") {
+        // a toolbox command runs in the toolbox's own sandbox: a container with the project and nothing else
+        let mut c = Command::new("/bin/sh");
+        c.args(["-lc", command]).current_dir(project);
+        toolbox_sandboxed(&mut c, project, allow_network);
+        c
+    } else if sandboxed {
         let mut c = memory_capped("bwrap");
         c.args(bwrap_args(project, allow_network));
         c.args(["/bin/sh", "-lc", command]);
