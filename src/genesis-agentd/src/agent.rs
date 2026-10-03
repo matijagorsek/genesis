@@ -119,9 +119,14 @@ pub fn ran_without(asked: &[String], runs: &[String]) -> bool {
 
 /// A shell command that only looks at files -- `cat -A spending.csv`, `ls`, `grep` -- and does not run the
 /// program. Its clean exit said "it runs without errors" about a report that still crashed, and ended the job
-/// as made. What counts is the last command of a chain, every part of its pipe.
+/// as made. What counts is the last command of a chain, every part of its pipe. A snippet run inline
+/// (`python3 -c "import csv; ..."`) is a look too: the 4B tried the CSV that way between runs of the
+/// crashing report, each exited cleanly, and each one counted as the program working.
 pub fn only_looks(cmd: &str) -> bool {
     let last = cmd.rsplit(|c| c == ';' || c == '&').map(str::trim).find(|p| !p.is_empty()).unwrap_or("");
+    // before the split below: a snippet's own `;` is not the end of a command
+    let squeezed = cmd.split_whitespace().collect::<Vec<_>>().join(" ");
+    if ["python3 -c ", "python -c ", "node -e "].iter().any(|k| squeezed.starts_with(k) || squeezed.contains(&format!("&& {}", k)) || squeezed.contains(&format!("; {}", k))) { return true; }
     last.split('|').all(|part| {
         let first = part.split_whitespace().next().unwrap_or("");
         matches!(first.rsplit('/').next().unwrap_or(""), "cat" | "ls" | "grep" | "head" | "tail" | "wc" | "echo" | "file" | "find" | "less" | "more" | "sed" | "stat" | "diff" | "tree" | "pwd" | "od" | "hexdump" | "xxd" | "nl")
@@ -1571,7 +1576,7 @@ mod asked_option_tests {
 
     #[test]
     fn looking_at_a_file_is_not_running_the_program() {
-        for c in ["cat -A /p/spending.csv", "cd /p && cat -n report.py", "ls -la", "grep -n food report.py | head", "/usr/bin/head x.csv"] { assert!(super::only_looks(c), "{}", c); }
+        for c in ["cat -A /p/spending.csv", "cd /p && cat -n report.py", "ls -la", "grep -n food report.py | head", "/usr/bin/head x.csv", "python3 -c \"import csv; print(list(csv.reader(open('x.csv'))))\"", "cd /p && node -e 'console.log(1)'"] { assert!(super::only_looks(c), "{}", c); }
         for c in ["python3 report.py spending.csv", "cd /p && python3 report.py x.csv", "cat x.csv | python3 report.py", "./run.sh", "cargo run"] { assert!(!super::only_looks(c), "{}", c); }
     }
 

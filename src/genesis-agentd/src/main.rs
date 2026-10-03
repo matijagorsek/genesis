@@ -963,6 +963,8 @@ mod tests {
         for i in 0..20 {
             script.push(tool_call("write_file", serde_json::json!({"path": "report.py", "content": format!("# try {}\nraise KeyError('food')\n", i)})));
             script.push(tool_call("shell", serde_json::json!({"command": "python3 report.py"})));
+            // and a snippet between runs, which exits cleanly and is not the program
+            script.push(tool_call("shell", serde_json::json!({"command": "python3 -c \"print('food')\""})));
         }
         let (mut agent, _) = setup(proj.path(), Mode::AutoEdit, fake_llm(script));
         let e = agent.run("Running python3 report.py fails with KeyError: 'food'. Fix it.").expect_err("its last run crashed");
