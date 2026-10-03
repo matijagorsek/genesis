@@ -13,7 +13,7 @@ A make counts as passed when the session ends in "done", at least one file was w
 and no tool call ended in an error the model did not recover from. Permission prompts are answered
 "allow" (this is a throw-away VM). Output: JSON with one row per make, and a Markdown table on stdout.
 """
-import json, os, subprocess, sys, time, urllib.request
+import json, os, re, subprocess, sys, time, urllib.request
 
 def _agentd_port():
     """This user's maker daemon (each account has its own port, written to the runtime directory)."""
@@ -360,6 +360,149 @@ def api(path, body=None):
             time.sleep(3)
 
 
+
+# The third harder set (--set hard3): the second went to 5 of 5 on the CPU pack, so it stopped telling a
+# better maker from a worse one. Ten makes from what goes wrong in real use: a bug whose cause is in another
+# file than its symptom, text with accents and punctuation, an off-by-one given as an example, a feature
+# with its test, a missing file, a page that forgets on reload, duplicated code to pull together, bad rows
+# in data, three follow-ups in a row, and records with a field missing. Each starts from files and every
+# check runs what was made.
+WEIGHTS = {
+    "weights.py": "def total_weight(rows):\n    \"\"\"total weight in kilograms\"\"\"\n    return sum(r['grams'] for r in rows)\n",
+    "load.py": "import csv\n\ndef load(path):\n    return [{'item': r['item'], 'grams': int(r['grams'])} for r in csv.DictReader(open(path))]\n",
+    "report.py": "import sys\nfrom load import load\nfrom weights import total_weight\n\nif __name__ == '__main__':\n    rows = load(sys.argv[1])\n    print(f'{len(rows)} items')\n    print(f'total: {total_weight(rows):.2f} kg')\n",
+    "parcel.csv": "item,grams\nbook,1200\nmug,350\nlamp,1200\n",
+}
+WORDFREQ = {
+    "wordfreq.py": "import sys\nfrom collections import Counter\n\ndef freq(text):\n    return Counter(text.split())\n\nif __name__ == '__main__':\n    for w, n in freq(open(sys.argv[1], encoding='utf-8').read()).most_common():\n        print(f'{w}: {n}')\n",
+    "menu.txt": "Café, café! CAFÉ. Tea; tea and a crème brûlée.\n",
+}
+PAGES = {
+    "pages.py": "import sys\n\nITEMS = [f'item {i}' for i in range(1, 46)]\n\ndef page(items, number, size=10):\n    start = number * size - size + 1\n    return items[start:start + size]\n\nif __name__ == '__main__':\n    for line in page(ITEMS, int(sys.argv[1])):\n        print(line)\n",
+}
+SORTER = {
+    "sorter.py": "import sys\n\ndef sort_lines(lines):\n    return sorted(l for l in lines if l.strip())\n\nif __name__ == '__main__':\n    for line in sort_lines(open(sys.argv[1]).read().splitlines()):\n        print(line)\n",
+    "test_sorter.py": "import unittest\nfrom sorter import sort_lines\n\nclass T(unittest.TestCase):\n    def test_sorts(self):\n        self.assertEqual(sort_lines(['b', 'a', '', 'c']), ['a', 'b', 'c'])\n\nif __name__ == '__main__':\n    unittest.main()\n",
+    "names.txt": "Mira\nAnton\nZoe\nBo\n",
+}
+CONFIGURED = {
+    "server.py": "import json\n\ndef settings():\n    return json.load(open('config.json'))\n\nif __name__ == '__main__':\n    s = settings()\n    print(f\"port {s['port']}\")\n    print(f\"debug {'on' if s['debug'] else 'off'}\")\n",
+}
+TODO_PAGE = """<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Todo</title></head>
+<body><h1>Todo</h1>
+<form id="f"><input id="t" placeholder="Something to do"><button>Add</button></form>
+<ul id="list"></ul>
+<script>
+const list = document.getElementById('list');
+function add(text) { const li = document.createElement('li'); li.textContent = text; list.appendChild(li); }
+document.getElementById('f').addEventListener('submit', e => {
+  e.preventDefault(); const t = document.getElementById('t'); if (t.value.trim()) add(t.value.trim()); t.value = '';
+});
+</script></body></html>
+"""
+DUPLICATED = {
+    "orders.py": "import sys\n\ndef parse(line):\n    name, qty, price = [p.strip() for p in line.split(';')]\n    return name, int(qty), float(price)\n\nif __name__ == '__main__':\n    rows = [parse(l) for l in open(sys.argv[1]) if l.strip()]\n    print(f'orders total {sum(q * p for _, q, p in rows):.2f}')\n",
+    "stock.py": "import sys\n\ndef parse(line):\n    name, qty, price = [p.strip() for p in line.split(';')]\n    return name, int(qty), float(price)\n\nif __name__ == '__main__':\n    rows = [parse(l) for l in open(sys.argv[1]) if l.strip()]\n    print(f'items in stock {sum(q for _, q, _ in rows)}')\n",
+    "data.txt": "pen; 3; 1.50\nbook; 2; 12.00\ncup; 4; 3.25\n",
+}
+AMOUNTS = {
+    "total.py": "import csv, sys\n\nif __name__ == '__main__':\n    total = 0.0\n    for row in csv.DictReader(open(sys.argv[1])):\n        total += float(row['amount'])\n    print(f'total: {total:.2f}')\n",
+    "amounts.csv": "who,amount\nana,10\nben,n/a\ncai,12.5\ndee,\neve,7.5\n",
+}
+CONTACTS = {
+    "to_csv.py": "import csv, json, sys\n\nFIELDS = ['name', 'email', 'city']\n\nif __name__ == '__main__':\n    records = json.load(open(sys.argv[1]))\n    w = csv.writer(sys.stdout)\n    w.writerow(FIELDS)\n    for r in records:\n        w.writerow([r[f] for f in FIELDS])\n",
+    "contacts.json": '[{"name": "Ana", "email": "ana@example.org", "city": "Split"}, {"name": "Ben", "city": "Graz"}, {"name": "Cai", "email": "cai@example.org", "city": "Lyon"}]\n',
+}
+
+def weights_ok(p):
+    code, out = ran(p, "python3", "report.py", "parcel.csv")
+    return code == 0 and "total: 2.75 kg" in out and "3 items" in out
+
+def wordfreq_ok(p):
+    code, out = ran(p, "python3", "wordfreq.py", "menu.txt")
+    low = out.lower()
+    return code == 0 and re.search(r"caf[eé]\W*3\b", low) is not None and re.search(r"\btea\W*2\b", low) is not None and "café," not in low
+
+def pages_ok(p):
+    _, two = ran(p, "python3", "pages.py", "2")
+    _, one_ = ran(p, "python3", "pages.py", "1")
+    _, last = ran(p, "python3", "pages.py", "5")
+    two_l = [l.strip() for l in two.splitlines() if l.strip()]
+    return two_l[:1] == ["item 11"] and two_l[-1:] == ["item 20"] and len(two_l) == 10 and "item 1\n" in one_ + "\n" and "item 45" in last
+
+def sorter_ok(p):
+    code, out = ran(p, "python3", "sorter.py", "--reverse", "names.txt")
+    if code != 0:
+        code, out = ran(p, "python3", "sorter.py", "names.txt", "--reverse")
+    lines = [l.strip() for l in out.splitlines() if l.strip()]
+    tcode, _ = ran(p, "python3", "-m", "unittest", "-q")
+    tests = text_of(p, (".py",))
+    return code == 0 and lines == ["Zoe", "Mira", "Bo", "Anton"] and tcode == 0 and "reverse" in open(os.path.join(p, "test_sorter.py")).read().lower() and "sort_lines(['b', 'a', '', 'c'])" in tests
+
+def config_ok(p):
+    cfg = os.path.join(p, "config.json")
+    if os.path.exists(cfg): os.remove(cfg)
+    code, out = ran(p, "python3", "server.py")
+    open(cfg, "w").write('{"port": 9000, "debug": true}')
+    code2, out2 = ran(p, "python3", "server.py")
+    return code == 0 and "port 8080" in out and "debug off" in out and code2 == 0 and "port 9000" in out2 and "debug on" in out2
+
+def todo_kept(p):
+    t = text_of(p)
+    return "localstorage" in t and "setitem" in t and "getitem" in t and "addeventlistener" in t and "json" in t
+
+def dedup_ok(p):
+    common = os.path.join(p, "common.py")
+    if not os.path.exists(common) or "def " not in open(common).read():
+        return False
+    o, s_ = open(os.path.join(p, "orders.py")).read(), open(os.path.join(p, "stock.py")).read()
+    if "split(';')" in o or "split(';')" in s_ or "common" not in o or "common" not in s_:
+        return False
+    c1, out1 = ran(p, "python3", "orders.py", "data.txt")
+    c2, out2 = ran(p, "python3", "stock.py", "data.txt")
+    return c1 == 0 and "orders total 41.50" in out1 and c2 == 0 and "items in stock 9" in out2
+
+def amounts_ok(p):
+    code, out = ran(p, "python3", "total.py", "amounts.csv")
+    low = out.lower()
+    return code == 0 and "total: 30.00" in low and re.search(r"skipp\w*\D{0,20}2\b|2\b\D{0,20}skipp", low) is not None
+
+def shopping_ok(p):
+    root, f = find_py(p)
+    if not f:
+        return False
+    # start from an empty list, whatever the model called its file: its own trying-out left items in it
+    for fn in os.listdir(root):
+        if fn.endswith((".json", ".txt", ".csv")) and fn not in ("genesis.json", ".genesis-recipe.json", "requirements.txt"):
+            os.remove(os.path.join(root, fn))
+    ran(root, "python3", f, "add", "milk"); ran(root, "python3", f, "add", "eggs"); ran(root, "python3", f, "add", "rice")
+    _, listed = ran(root, "python3", f, "list")
+    numbered = re.search(r"1\W+milk", listed.lower()) and re.search(r"2\W+eggs", listed.lower())
+    code, _ = ran(root, "python3", f, "remove", "2")
+    _, after = ran(root, "python3", f, "list")
+    return bool(numbered) and code == 0 and "eggs" not in after and "milk" in after and "rice" in after
+
+def contacts_ok(p):
+    code, out = ran(p, "python3", "to_csv.py", "contacts.json")
+    lines = [l.strip() for l in out.splitlines() if l.strip()]
+    return code == 0 and len(lines) == 4 and lines[2] in ("Ben,,Graz", '"Ben","","Graz"') and "ana@example.org" in out
+
+HARD3 = [
+    ("two-file-bug", ["`python3 report.py parcel.csv` says the parcel weighs 2750.00 kg. It is 2.75 kg. Fix it."], WEIGHTS, lambda d, p: weights_ok(p)),
+    ("accents", ["Count words regardless of case and punctuation: 'Café, café! CAFÉ.' is café three times."], WORDFREQ, lambda d, p: wordfreq_ok(p)),
+    ("off-by-one", ["`python3 pages.py 2` should show item 11 to item 20, but it shows item 12 to item 21. Fix it."], PAGES, lambda d, p: pages_ok(p)),
+    ("option-and-test", ["Add a --reverse option that sorts in reverse order, and add a test for it to test_sorter.py."], SORTER, lambda d, p: sorter_ok(p)),
+    ("missing-config", ["When config.json is missing this crashes. It should use defaults instead (port 8080, debug off), and still read config.json when it is there."], CONFIGURED, lambda d, p: config_ok(p)),
+    ("keep-on-reload", ["The items disappear when I reload the page. Keep them."], {"index.html": TODO_PAGE}, lambda d, p: todo_kept(p)),
+    ("pull-together", ["orders.py and stock.py both have the same parse function. Move it into a new common.py and use it from both."], DUPLICATED, lambda d, p: dedup_ok(p)),
+    ("bad-rows", ["Some amounts are not numbers and this crashes. Skip those rows, and print how many were skipped."], AMOUNTS, lambda d, p: amounts_ok(p)),
+    ("three-steps", ["a command-line shopping list that keeps its items in a file, with add and list commands",
+                     "Add a remove command.",
+                     "Make list show the items numbered, and make remove take that number."], {}, lambda d, p: shopping_ok(p)),
+    ("missing-field", ["Some contacts have no email and this fails. Write an empty cell for a missing field instead."], CONTACTS, lambda d, p: contacts_ok(p)),
+]
+
 def one(name, prompt, timeout, setup=None, check=None):
     project = os.path.expanduser(f"~/Projects/eval/{name}")
     os.makedirs(project, exist_ok=True)
@@ -484,7 +627,7 @@ def main(argv):
     else:
         health = api("/api/health")
     rows = []
-    plan = [(n, pr, None, None) for n, pr in MAKES] if which == "basic" else list(CHATS) if which == "chat" else list(HARD2) if which == "hard2" else list(HARD)
+    plan = [(n, pr, None, None) for n, pr in MAKES] if which == "basic" else list(CHATS) if which == "chat" else list(HARD2) if which == "hard2" else list(HARD3) if which == "hard3" else list(HARD)
     mine = plan[:only][shard::of]
     if of > 1: print(f"shard {shard} of {of}: {', '.join(m[0] for m in mine)}", file=sys.stderr, flush=True)
 
@@ -509,7 +652,7 @@ def main(argv):
     passed = sum(1 for r in rows if r.get("passed"))
     save()
     finished = sum(1 for r in rows if r.get("finished"))
-    print(f"## {'Ten makes' if which == 'basic' else 'Seven questions' if which == 'chat' else 'The second harder set' if which == 'hard2' else 'The harder makes'} on `{health.get('model')}`: **{passed}/{len(rows)} passed** ({finished} finished, {passed} of those look right)\n")
+    print(f"## {'Ten makes' if which == 'basic' else 'Seven questions' if which == 'chat' else 'The second harder set' if which == 'hard2' else 'The third harder set' if which == 'hard3' else 'The harder makes'} on `{health.get('model')}`: **{passed}/{len(rows)} passed** ({finished} finished, {passed} of those look right)\n")
     print("| make | result | files written | turns | tool errors | preview | time | memory left |")
     print("|---|---|---|---|---|---|---|---|")
     for r in rows:

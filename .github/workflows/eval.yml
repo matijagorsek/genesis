@@ -29,7 +29,7 @@ on:
         description: 'on = the router as rendered; off = its --spec-type flags removed, to measure what speculation does to the makes'
         default: 'on'
       set:
-        description: 'basic = the ten small makes; hard = changing an existing project, fixing a bug, a follow-up, a backend with its page; hard2 = several files at once, failing tests, an error message, a rename, a follow-up that changes the first; chat = seven questions with checkable answers'
+        description: 'basic = the ten small makes; hard = changing an existing project, fixing a bug, a follow-up, a backend with its page; hard2 = several files at once, failing tests, an error message, a rename, a follow-up that changes the first; hard3 = ten: a bug in another file than its symptom, accents, an off-by-one, an option with its test, a missing config, a page that forgets on reload, duplicated code, bad rows, three follow-ups, a missing field; chat = seven questions with checkable answers'
         default: 'basic'
       pack:
         description: 'tiny = the 2B on 6 GB (the smallest machines); cpu = the 4B and 9B coder on 13 GB, what a laptop with no GPU runs'
