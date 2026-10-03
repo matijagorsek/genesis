@@ -265,7 +265,9 @@ How Genesis got here, in the order it happened. The decision log has the detail 
   traceback, a rename, a follow-up that changes the first) has the 4B at 3 to 4 of 5 and the 9B at 3 to 5 on their own, and **5 of 5 in
   three of the last four runs** with the 4B making and the 9B taking over what it gets stuck on (a change that names an
   option is run with it, and the way it ran before, before it is done; a job is only called made when the program itself ran
-  clean, not a look at a file; and the same error five changes running hands the job to the 9B);
+  clean, not a look at a file; and the same error five changes running hands the job to the 9B); a **third
+  harder set** of ten (a bug in another file than its symptom, accents, an off-by-one, an option with its test, a missing
+  config, a page that forgets on reload, duplicated code, bad rows, three follow-ups, a missing field) at 9 of 10 and 8 of 9;
   and **seven chat
   questions** a program can check (a document, this machine, an error explained, saying so when there is
   nothing to find) at 5 to 6 of 7 on the tiny pack and 7 of 7 on the CPU pack's 4B. The ten makes are split over five
